@@ -93,6 +93,9 @@ spec:
             - -postgres-password
             - {{ .Values.postgres.password | quote }}
             - -seed-project={{ .Values.install.seedProject }}
+            {{- if .Values.install.preserveNamespaceCleanup }}
+            - -preserve-namespace-cleanup
+            {{- end }}
             {{- if .Values.install.runnerId }}
             - -runner-id
             - {{ .Values.install.runnerId | quote }}

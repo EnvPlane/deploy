@@ -7,7 +7,7 @@ image:
   pullSecrets: []
 
 installer:
-  namespace: envpilot-installer
+  namespace: envpilot
   createNamespace: true
 
 install:
@@ -26,6 +26,7 @@ install:
   chartsDir: /opt/envpilot/helm
   timeoutSeconds: 240
   seedProject: true
+  preserveNamespaceCleanup: true
 
 project:
   productId: default

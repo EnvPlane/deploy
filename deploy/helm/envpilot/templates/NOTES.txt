@@ -1,4 +1,4 @@
-EnvPilot init job has been created.
+EnvPilot install job has been created.
 
 Track installation:
   kubectl logs -n {{ .Values.installer.namespace }} job/{{ include "envpilot.fullname" . }} -f
@@ -7,5 +7,5 @@ Target namespace:
   {{ .Values.install.namespace }}
 
 Important:
-  Installer namespace: {{ .Values.installer.namespace }}
+  Install job namespace: {{ .Values.installer.namespace }}
   Target namespace: {{ .Values.install.namespace }}

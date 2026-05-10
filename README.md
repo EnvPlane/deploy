@@ -57,10 +57,10 @@ oci://ghcr.io/envpilot/envpilot:0.1.0
 
 ## Enterprise one-chart install
 
-The `envpilot` chart creates its installer namespace and starts a Kubernetes Job
-with the `ghcr.io/envpilot/install` image. The Job runs `envpilot-install` inside
-the cluster and installs the control-plane, seeds the first project, creates
-bootstrap secrets, and installs the agent and runner.
+The `envpilot` chart creates the `envpilot` namespace and starts a Kubernetes Job
+there with the `ghcr.io/envpilot/install` image. The Job runs `envpilot-install`
+inside the cluster and installs the control-plane, seeds the first project,
+creates bootstrap secrets, and installs the agent and runner.
 
 ```sh
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
@@ -77,14 +77,18 @@ helm install envpilot oci://ghcr.io/envpilot/envpilot \
 Follow progress:
 
 ```sh
-kubectl logs -n envpilot-installer job/envpilot -f
+kubectl logs -n envpilot job/envpilot -f
 ```
 
 By default:
 
 - Helm release namespace: `default`
-- installer namespace: `envpilot-installer`
+- installer job namespace: `envpilot`
 - application namespace: `envpilot`
+
+Because the install Job runs in the target namespace, `clean-install` preserves
+the namespace and cleans EnvPilot Helm releases, PVCs, and bootstrap secrets
+instead of deleting the namespace.
 
 The installer Job requires cluster-admin-equivalent permissions because it creates and
 deletes namespaces, installs Helm releases, creates cluster roles, and seeds the

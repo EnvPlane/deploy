@@ -38,9 +38,9 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 	rendered := string(output)
 	for _, expected := range []string{
 		"kind: Namespace",
-		`name: "envpilot-installer"`,
+		`name: "envpilot"`,
 		"kind: Job",
-		`namespace: "envpilot-installer"`,
+		`namespace: "envpilot"`,
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
@@ -53,6 +53,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		`- "/opt/envpilot/helm"`,
 		"- -storage-class",
 		`- "gp2"`,
+		"- -preserve-namespace-cleanup",
 		"kubernetes.io/arch: \"arm64\"",
 		"key: \"pool\"",
 		"ENVPILOT_GHCR_TOKEN",

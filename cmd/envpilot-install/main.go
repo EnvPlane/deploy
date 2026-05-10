@@ -56,6 +56,7 @@ type config struct {
 	Timeout            time.Duration
 	SkipRegistrySecret bool
 	SeedProject        bool
+	PreserveNamespace  bool
 }
 
 func main() {
@@ -107,6 +108,7 @@ func parseFlags() config {
 	flag.DurationVar(&cfg.Timeout, "timeout", time.Duration(getenvInt("ENVPILOT_INSTALL_TIMEOUT_SECONDS", 240))*time.Second, "rollout/API timeout")
 	flag.BoolVar(&cfg.SkipRegistrySecret, "skip-registry-secret", getenvBool("ENVPILOT_SKIP_REGISTRY_SECRET", false), "do not create registry pull secret")
 	flag.BoolVar(&cfg.SeedProject, "seed-project", getenvBool("ENVPILOT_SEED_PROJECT", true), "seed minimal project/config before bootstrap")
+	flag.BoolVar(&cfg.PreserveNamespace, "preserve-namespace-cleanup", getenvBool("ENVPILOT_PRESERVE_NAMESPACE_CLEANUP", false), "clean releases and PVCs without deleting namespace")
 	flag.Parse()
 	if cfg.RunnerID == "" {
 		cfg.RunnerID = cfg.ProjectID + "-runner"
@@ -171,7 +173,21 @@ func clean(ctx context.Context, cfg config) error {
 	_ = runCmd(ctx, "helm", "uninstall", cfg.RunnerRel, "-n", cfg.Namespace, "--ignore-not-found")
 	_ = runCmd(ctx, "helm", "uninstall", cfg.AgentRel, "-n", cfg.Namespace, "--ignore-not-found")
 	_ = runCmd(ctx, "helm", "uninstall", cfg.ControlPlaneRel, "-n", cfg.Namespace, "--ignore-not-found")
-	_ = runCmd(ctx, "kubectl", "delete", "namespace", cfg.Namespace, "--ignore-not-found", "--wait=true")
+	if cfg.PreserveNamespace {
+		_ = runCmd(ctx, "kubectl", "delete", "pvc", "-n", cfg.Namespace, "--ignore-not-found",
+			"data-"+cfg.ControlPlaneRel+"-control-plane-postgres-0",
+			"data-"+cfg.ControlPlaneRel+"-control-plane-redis-0",
+			cfg.AgentRel+"-envpilot-agent-chart-auth",
+			cfg.RunnerRel+"-envpilot-runner-chart-auth",
+		)
+		_ = runCmd(ctx, "kubectl", "delete", "secret", "-n", cfg.Namespace, "--ignore-not-found",
+			cfg.GHCRSecret,
+			"envpilot-agent-bootstrap",
+			"envpilot-runner-bootstrap",
+		)
+	} else {
+		_ = runCmd(ctx, "kubectl", "delete", "namespace", cfg.Namespace, "--ignore-not-found", "--wait=true")
+	}
 	_ = runCmd(ctx, "kubectl", "delete", "clusterrole", cfg.AgentRel+"-envpilot-agent-chart", cfg.RunnerRel+"-envpilot-runner-chart-discovery-reader", "--ignore-not-found")
 	_ = runCmd(ctx, "kubectl", "delete", "clusterrolebinding", cfg.AgentRel+"-envpilot-agent-chart", cfg.RunnerRel+"-envpilot-runner-chart-discovery-reader", "--ignore-not-found")
 	return nil

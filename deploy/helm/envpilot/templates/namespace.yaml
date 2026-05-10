@@ -1,4 +1,4 @@
-{{- if .Values.installer.createNamespace -}}
+{{- if and .Values.installer.createNamespace (not (lookup "v1" "Namespace" "" .Values.installer.namespace)) -}}
 apiVersion: v1
 kind: Namespace
 metadata:
