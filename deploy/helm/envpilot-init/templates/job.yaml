@@ -1,0 +1,158 @@
+{{- $tokenSecret := default (printf "%s-registry-token" (include "envpilot-init.fullname" .)) .Values.registry.existingTokenSecret -}}
+{{- if and (not .Values.registry.skipSecret) (not .Values.registry.token) (not .Values.registry.existingTokenSecret) -}}
+{{- fail "registry.token or registry.existingTokenSecret is required unless registry.skipSecret=true" -}}
+{{- end -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "envpilot-init.fullname" . }}
+  labels:
+    {{- include "envpilot-init.labels" . | nindent 4 }}
+  {{- with .Values.job.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  backoffLimit: {{ .Values.job.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.job.ttlSecondsAfterFinished }}
+  activeDeadlineSeconds: {{ .Values.job.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "envpilot-init.labels" . | nindent 8 }}
+      {{- with .Values.job.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "envpilot-init.serviceAccountName" . }}
+      {{- if or .Values.image.pullSecrets (and .Values.image.createPullSecret .Values.registry.token) }}
+      imagePullSecrets:
+        {{- if and .Values.image.createPullSecret .Values.registry.token }}
+        - name: {{ .Values.image.pullSecretName | quote }}
+        {{- end }}
+        {{- with .Values.image.pullSecrets }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.job.podSecurityContext | nindent 8 }}
+      containers:
+        - name: envpilot-install
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - -mode
+            - {{ .Values.install.mode | quote }}
+            - -namespace
+            - {{ .Values.install.namespace | quote }}
+            - -project-id
+            - {{ .Values.install.projectId | quote }}
+            - -cluster-id
+            - {{ required "install.clusterId is required" .Values.install.clusterId | quote }}
+            - -agent-id
+            - {{ .Values.install.agentId | quote }}
+            - -runner-deployment-mode
+            - {{ .Values.install.runnerDeploymentMode | quote }}
+            - -control-plane-release
+            - {{ .Values.install.controlPlaneRelease | quote }}
+            - -agent-release
+            - {{ .Values.install.agentRelease | quote }}
+            - -runner-release
+            - {{ .Values.install.runnerRelease | quote }}
+            - -ghcr-secret
+            - {{ .Values.registry.secretName | quote }}
+            - -ghcr-server
+            - {{ .Values.registry.server | quote }}
+            - -ghcr-username
+            - {{ .Values.registry.username | quote }}
+            - -api-image
+            - {{ .Values.images.api | quote }}
+            - -frontend-image
+            - {{ .Values.images.frontend | quote }}
+            - -agent-image
+            - {{ .Values.images.agent | quote }}
+            - -runner-image
+            - {{ .Values.images.runner | quote }}
+            - -image-tag
+            - {{ .Values.images.tag | quote }}
+            - -image-pull-policy
+            - {{ .Values.images.pullPolicy | quote }}
+            - -charts-dir
+            - {{ .Values.install.chartsDir | quote }}
+            - -timeout
+            - {{ printf "%ds" (int .Values.install.timeoutSeconds) | quote }}
+            - -product-id
+            - {{ .Values.project.productId | quote }}
+            - -app-repository-id
+            - {{ .Values.project.appRepositoryId | quote }}
+            - -gitops-repository-id
+            - {{ .Values.project.gitopsRepositoryId | quote }}
+            - -postgres-password
+            - {{ .Values.postgres.password | quote }}
+            - -seed-project={{ .Values.install.seedProject }}
+            {{- if .Values.install.runnerId }}
+            - -runner-id
+            - {{ .Values.install.runnerId | quote }}
+            {{- end }}
+            {{- if .Values.install.runnerNamespace }}
+            - -runner-namespace
+            - {{ .Values.install.runnerNamespace | quote }}
+            {{- end }}
+            {{- if .Values.install.runnerReleaseName }}
+            - -runner-release-name
+            - {{ .Values.install.runnerReleaseName | quote }}
+            {{- end }}
+            {{- if .Values.storage.className }}
+            - -storage-class
+            - {{ .Values.storage.className | quote }}
+            {{- end }}
+            {{- if .Values.scheduling.nodeArch }}
+            - -node-arch
+            - {{ .Values.scheduling.nodeArch | quote }}
+            {{- end }}
+            {{- if .Values.scheduling.toleration.key }}
+            - -toleration-key
+            - {{ .Values.scheduling.toleration.key | quote }}
+            - -toleration-value
+            - {{ .Values.scheduling.toleration.value | quote }}
+            - -toleration-effect
+            - {{ .Values.scheduling.toleration.effect | quote }}
+            {{- end }}
+            {{- if .Values.registry.skipSecret }}
+            - -skip-registry-secret
+            {{- end }}
+          {{- if not .Values.registry.skipSecret }}
+          env:
+            - name: ENVPILOT_GHCR_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $tokenSecret | quote }}
+                  key: {{ .Values.registry.existingTokenSecretKey | quote }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.job.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.job.resources | nindent 12 }}
+          volumeMounts:
+            - name: workdir
+              mountPath: /var/lib/envpilot
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: workdir
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      {{- if .Values.scheduling.nodeArch }}
+      nodeSelector:
+        kubernetes.io/arch: {{ .Values.scheduling.nodeArch | quote }}
+      {{- end }}
+      {{- if .Values.scheduling.toleration.key }}
+      tolerations:
+        - key: {{ .Values.scheduling.toleration.key | quote }}
+          operator: Equal
+          value: {{ .Values.scheduling.toleration.value | quote }}
+          effect: {{ .Values.scheduling.toleration.effect | quote }}
+      {{- end }}

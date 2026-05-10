@@ -52,8 +52,42 @@ The installer uses `gh auth token` for GHCR unless `-ghcr-token` or
 Charts are published as OCI artifacts in the `envpilot` GitHub account:
 
 ```text
+oci://ghcr.io/envpilot/envpilot-init:0.1.0
 oci://ghcr.io/envpilot/envpilot:0.1.0
 oci://ghcr.io/envpilot/envpilot-control-plane:0.1.0
 oci://ghcr.io/envpilot/envpilot-agent-chart:0.1.0
 oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.0
 ```
+
+## Enterprise one-chart install
+
+The recommended install path is the `envpilot-init` chart. It starts a Kubernetes
+Job with the `ghcr.io/envpilot/install` image. The Job runs `envpilot-install`
+inside the cluster and installs the control-plane, seeds the first project,
+creates bootstrap secrets, and installs the agent and runner.
+
+Install the init chart into a bootstrap namespace, not the target EnvPilot
+namespace. This avoids deleting the installer Job during `clean-install`.
+
+```sh
+helm install envpilot-init oci://ghcr.io/envpilot/envpilot-init \
+  --version 0.1.0 \
+  --namespace envpilot-installer \
+  --create-namespace \
+  --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
+  --set storage.className=gp2 \
+  --set scheduling.nodeArch=arm64 \
+  --set scheduling.toleration.key=pool \
+  --set scheduling.toleration.value=apps \
+  --set registry.token="$GHCR_TOKEN"
+```
+
+Follow progress:
+
+```sh
+kubectl logs -n envpilot-installer job/envpilot-init -f
+```
+
+The init Job requires cluster-admin-equivalent permissions because it creates and
+deletes namespaces, installs Helm releases, creates cluster roles, and seeds the
+fresh control-plane database.

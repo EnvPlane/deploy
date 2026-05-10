@@ -1,0 +1,11 @@
+EnvPilot init job has been created.
+
+Track installation:
+  kubectl logs -n {{ .Release.Namespace }} job/{{ include "envpilot-init.fullname" . }} -f
+
+Target namespace:
+  {{ .Values.install.namespace }}
+
+Important:
+  Keep this chart in a bootstrap namespace, for example envpilot-installer.
+  Do not install the init chart into the same namespace as install.namespace when install.mode=clean-install.
