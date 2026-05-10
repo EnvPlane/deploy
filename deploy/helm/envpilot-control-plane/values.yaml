@@ -1,0 +1,203 @@
+replicaCount: 1
+
+image:
+  repository: envpilot/envpilot-api
+  pullPolicy: IfNotPresent
+  tag: "0.1.0"
+
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: envpilot/envpilot-frontend
+    pullPolicy: IfNotPresent
+    tag: "0.1.0"
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    NEXT_PUBLIC_ENVPILOT_API_BASE_URL: ""
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  livenessProbe:
+    enabled: true
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 20
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    path: /
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+command: []
+args: []
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  domain: envpilot.local
+  className: ""
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  certManager:
+    enabled: false
+    clusterIssuer: selfsigned-cluster-issuer
+  apiPaths:
+    - path: /api
+      pathType: Prefix
+    - path: /auth
+      pathType: Prefix
+    - path: /webhook
+      pathType: Prefix
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    enabled: true
+    secretName: envpilot-tls
+    hosts: []
+
+env:
+  ENVPILOT_ADDR: ":8080"
+  ENVPILOT_DATA_DIR: "/var/lib/envpilot/data"
+  ENVPILOT_GITOPS_DIR: "/var/lib/envpilot/data/gitops"
+  ENVPILOT_POSTGRES_MIGRATIONS_DIR: "/var/lib/envpilot/migrations/postgres"
+  ENVPILOT_GITHUB_WEBHOOK_DEBUG_PAYLOAD_LOG: "false"
+
+secretEnv: {}
+
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    database: envpilot
+    username: envpilot
+    password: envpilot
+    existingSecret: ""
+    passwordKey: password
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  service:
+    port: 6379
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+persistence:
+  enabled: false
+  size: 1Gi
+  storageClassName: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+livenessProbe:
+  enabled: true
+  path: /api/v1/health
+  initialDelaySeconds: 10
+  periodSeconds: 20
+  timeoutSeconds: 2
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  path: /api/v1/health
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

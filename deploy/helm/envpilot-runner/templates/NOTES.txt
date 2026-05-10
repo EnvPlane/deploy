@@ -1,0 +1,20 @@
+EnvPilot runner has been installed.
+
+Release:
+  Name: {{ .Release.Name }}
+  Namespace: {{ .Release.Namespace }}
+
+Control plane:
+  URL: {{ default "not configured" .Values.controlPlane.url }}
+  Project: {{ default "not configured" .Values.project.id }}
+
+Auth persistence:
+  Bootstrap tokens are one-time credentials. Persist the runnerAuthToken returned
+  by registration in a Kubernetes Secret and configure:
+
+    controlPlane.authPersistence.existingSecret
+    controlPlane.authPersistence.runnerAuthTokenKey
+
+  On restart the runner should load ENVPILOT_RUNNER_AUTH_TOKEN from that Secret
+  and skip bootstrap registration. Rotate by creating a new deployment
+  instruction/token set and updating the persisted Secret.

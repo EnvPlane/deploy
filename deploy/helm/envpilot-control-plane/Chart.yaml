@@ -1,0 +1,6 @@
+apiVersion: v2
+name: envpilot-control-plane
+description: EnvPilot control-plane API and UI
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

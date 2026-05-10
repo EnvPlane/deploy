@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: envpilot
+      POSTGRES_USER: envpilot
+      POSTGRES_PASSWORD: envpilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U envpilot -d envpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: golang:1.25-alpine
+    working_dir: /workspace
+    command: ["go", "run", "./apps/api"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVPILOT_ADDR: ":8080"
+      ENVPILOT_DATA_DIR: /workspace/.envpilot/dev
+      ENVPILOT_GITOPS_DIR: /workspace/.envpilot/dev/gitops
+      ENVPILOT_DATABASE_URL: postgres://envpilot:envpilot@postgres:5432/envpilot?sslmode=disable
+      ENVPILOT_POSTGRES_MIGRATIONS_DIR: /workspace/migrations/postgres
+      ENVPILOT_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/workspace
+      - go-build-cache:/root/.cache/go-build
+      - go-mod-cache:/go/pkg/mod
+
+volumes:
+  postgres-data:
+  redis-data:
+  go-build-cache:
+  go-mod-cache:

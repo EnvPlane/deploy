@@ -1,0 +1,16 @@
+apiVersion: v2
+name: envpilot-agent-chart
+description: EnvPilot Kubernetes cluster agent for FluxCD and namespace status collection.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - envpilot
+  - fluxcd
+  - kubernetes
+  - feature-environments
+home: https://envpilot.local
+sources:
+  - https://envpilot.local
+maintainers:
+  - name: EnvPilot Platform Team

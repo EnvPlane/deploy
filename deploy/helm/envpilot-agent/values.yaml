@@ -1,0 +1,121 @@
+replicaCount: 1
+
+image:
+  repository: envpilot/envpilot-agent
+  pullPolicy: IfNotPresent
+  tag: "0.1.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+command: []
+args:
+  - agent
+
+controlPlane:
+  url: ""
+  # GitOps-safe bootstrap:
+  # create the Secret out-of-band with the control plane generated kubectl command,
+  # then set existingSecret. Do not commit live bootstrap tokens in values files.
+  token: ""
+  existingSecret: ""
+  # Unsafe local-only escape hatch for rendering token into a Secret.
+  allowUnsafePlaintextTokens: false
+  tokenKey: token
+  registrationTokenKey: registration-token
+  reportTimeoutSeconds: 10
+
+cluster:
+  id: ""
+
+bootstrap:
+  projectId: ""
+
+agent:
+  id: ""
+  heartbeatSeconds: 30
+  authPersistence:
+    enabled: true
+    # Writable path used by ENVPILOT_AGENT_AUTH_TOKEN_FILE. The agent writes the
+    # issued agentAuthToken here after the one-time registration exchange and
+    # reads it on restart instead of reusing the consumed bootstrap token.
+    mountPath: /var/lib/envpilot-agent/auth
+    fileName: agent-auth-token
+    volumeName: agent-auth-token
+    # Set existingClaim for persistence across pod reschedules. The default
+    # emptyDir persists across container restarts in the same pod.
+    existingClaim: ""
+    emptyDir: {}
+    # Optional externally managed Secret with an already issued agentAuthToken.
+    # Use this when moving the agent between namespaces without reusing the
+    # one-time bootstrap token.
+    existingSecret: ""
+    agentAuthTokenKey: agent-auth-token
+
+installValidation:
+  enabled: true
+  backoffLimit: 0
+  timeoutSeconds: 30
+  podAnnotations: {}
+  podLabels: {}
+  resources: {}
+
+ttlCleanup:
+  enabled: true
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+  timeoutSeconds: 30
+  podAnnotations: {}
+  podLabels: {}
+  resources: {}
+
+watch:
+  namespaces: []
+  namespaceLabelSelector: app.kubernetes.io/managed-by=envpilot
+  resyncSeconds: 30
+
+flux:
+  namespace: flux-system
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+rbac:
+  create: true
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

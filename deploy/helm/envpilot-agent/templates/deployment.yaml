@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "envpilot-agent.fullname" . }}
+  labels:
+    {{- include "envpilot-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "envpilot-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "envpilot-agent.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "envpilot-agent.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: agent
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: ENVPILOT_CONTROL_PLANE_URL
+              value: {{ .Values.controlPlane.url | quote }}
+            - name: ENVPILOT_CLUSTER_ID
+              value: {{ default .Release.Name .Values.cluster.id | quote }}
+            - name: ENVPILOT_BOOTSTRAP_PROJECT_ID
+              value: {{ .Values.bootstrap.projectId | quote }}
+            - name: ENVPILOT_AGENT_ID
+              value: {{ default (include "envpilot-agent.fullname" .) .Values.agent.id | quote }}
+            - name: ENVPILOT_AGENT_VERSION
+              value: {{ default .Chart.AppVersion .Values.image.tag | quote }}
+            - name: ENVPILOT_AGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENVPILOT_WATCH_NAMESPACE_SELECTOR
+              value: {{ .Values.watch.namespaceLabelSelector | quote }}
+            - name: ENVPILOT_AGENT_RESYNC_SECONDS
+              value: {{ .Values.watch.resyncSeconds | quote }}
+            - name: ENVPILOT_AGENT_REPORT_TIMEOUT_SECONDS
+              value: {{ .Values.controlPlane.reportTimeoutSeconds | quote }}
+            - name: ENVPILOT_AGENT_HEARTBEAT_SECONDS
+              value: {{ .Values.agent.heartbeatSeconds | quote }}
+            - name: ENVPILOT_FLUX_NAMESPACE
+              value: {{ .Values.flux.namespace | quote }}
+            {{- if .Values.agent.authPersistence.enabled }}
+            - name: ENVPILOT_AGENT_AUTH_TOKEN_FILE
+              value: {{ printf "%s/%s" (.Values.agent.authPersistence.mountPath | trimSuffix "/") .Values.agent.authPersistence.fileName | quote }}
+            {{- end }}
+            {{- if .Values.agent.authPersistence.existingSecret }}
+            - name: ENVPILOT_AGENT_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.agent.authPersistence.existingSecret | quote }}
+                  key: {{ .Values.agent.authPersistence.agentAuthTokenKey | quote }}
+            {{- end }}
+            {{- with .Values.watch.namespaces }}
+            - name: ENVPILOT_WATCH_NAMESPACES
+              value: {{ join "," . | quote }}
+            {{- end }}
+            {{- if .Values.controlPlane.existingSecret }}
+            - name: ENVPILOT_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envpilot-agent.tokenSecretName" . }}
+                  key: {{ .Values.controlPlane.registrationTokenKey }}
+            {{- else if and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens }}
+            - name: ENVPILOT_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envpilot-agent.tokenSecretName" . }}
+                  key: {{ .Values.controlPlane.registrationTokenKey }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.agent.authPersistence.enabled }}
+          volumeMounts:
+            - name: {{ .Values.agent.authPersistence.volumeName | quote }}
+              mountPath: {{ .Values.agent.authPersistence.mountPath | quote }}
+          {{- end }}
+      {{- if .Values.agent.authPersistence.enabled }}
+      volumes:
+        - name: {{ .Values.agent.authPersistence.volumeName | quote }}
+          {{- if .Values.agent.authPersistence.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.agent.authPersistence.existingClaim | quote }}
+          {{- else }}
+          emptyDir:
+            {{- toYaml .Values.agent.authPersistence.emptyDir | nindent 12 }}
+          {{- end }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

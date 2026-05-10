@@ -1,0 +1,81 @@
+{{- if .Values.ttlCleanup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "envpilot-agent.fullname" . }}-ttl-cleanup
+  labels:
+    helm.sh/chart: {{ include "envpilot-agent.chart" . }}
+    app.kubernetes.io/name: {{ include "envpilot-agent.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/component: ttl-cleanup
+    app.kubernetes.io/part-of: envpilot
+spec:
+  schedule: {{ .Values.ttlCleanup.schedule | quote }}
+  concurrencyPolicy: {{ .Values.ttlCleanup.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.ttlCleanup.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.ttlCleanup.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.ttlCleanup.backoffLimit }}
+      {{- with .Values.ttlCleanup.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ . }}
+      {{- end }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ include "envpilot-agent.name" . }}
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/component: ttl-cleanup
+            {{- with .Values.ttlCleanup.podLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.ttlCleanup.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          serviceAccountName: {{ include "envpilot-agent.serviceAccountName" . }}
+          restartPolicy: OnFailure
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: ttl-cleanup
+              image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args:
+                - ttl-cleanup
+              env:
+                - name: ENVPILOT_CONTROL_PLANE_URL
+                  value: {{ .Values.controlPlane.url | quote }}
+                - name: ENVPILOT_TTL_CLEANUP_TIMEOUT_SECONDS
+                  value: {{ .Values.ttlCleanup.timeoutSeconds | quote }}
+                {{- if or .Values.controlPlane.existingSecret (and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens) }}
+                - name: ENVPILOT_AGENT_REGISTRATION_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "envpilot-agent.tokenSecretName" . }}
+                      key: {{ .Values.controlPlane.registrationTokenKey }}
+                {{- end }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              resources:
+                {{- toYaml (default .Values.resources .Values.ttlCleanup.resources) | nindent 16 }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

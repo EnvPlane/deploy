@@ -1,0 +1,82 @@
+{{- if .Values.installValidation.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "envpilot-agent.fullname" . }}-install-check
+  labels:
+    {{- include "envpilot-agent.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  {{- if gt (int .Values.installValidation.timeoutSeconds) 0 }}
+  activeDeadlineSeconds: {{ .Values.installValidation.timeoutSeconds }}
+  {{- end }}
+  backoffLimit: {{ .Values.installValidation.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "envpilot-agent.selectorLabels" . | nindent 8 }}
+        {{- with .Values.installValidation.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.installValidation.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "envpilot-agent.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: install-check
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - agent-install-check
+          env:
+            - name: ENVPILOT_CONTROL_PLANE_URL
+              value: {{ .Values.controlPlane.url | quote }}
+            - name: ENVPILOT_CLUSTER_ID
+              value: {{ default .Release.Name .Values.cluster.id | quote }}
+            - name: ENVPILOT_BOOTSTRAP_PROJECT_ID
+              value: {{ .Values.bootstrap.projectId | quote }}
+            - name: ENVPILOT_AGENT_ID
+              value: {{ printf "%s-install-check" (default (include "envpilot-agent.fullname" .) .Values.agent.id) | quote }}
+            - name: ENVPILOT_AGENT_VERSION
+              value: {{ default .Chart.AppVersion .Values.image.tag | quote }}
+            - name: ENVPILOT_AGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENVPILOT_WATCH_NAMESPACE_SELECTOR
+              value: {{ .Values.watch.namespaceLabelSelector | quote }}
+            - name: ENVPILOT_AGENT_REPORT_TIMEOUT_SECONDS
+              value: {{ .Values.controlPlane.reportTimeoutSeconds | quote }}
+            - name: ENVPILOT_AGENT_HEARTBEAT_SECONDS
+              value: {{ .Values.agent.heartbeatSeconds | quote }}
+            - name: ENVPILOT_FLUX_NAMESPACE
+              value: {{ .Values.flux.namespace | quote }}
+            {{- if .Values.controlPlane.existingSecret }}
+            - name: ENVPILOT_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envpilot-agent.tokenSecretName" . }}
+                  key: {{ .Values.controlPlane.registrationTokenKey }}
+            {{- else if and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens }}
+            - name: ENVPILOT_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envpilot-agent.tokenSecretName" . }}
+                  key: {{ .Values.controlPlane.registrationTokenKey }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.installValidation.resources | nindent 12 }}
+{{- end }}
