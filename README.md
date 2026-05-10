@@ -46,3 +46,14 @@ bin/envpilot-install \
 
 The installer uses `gh auth token` for GHCR unless `-ghcr-token` or
 `ENVPILOT_GHCR_TOKEN` is set.
+
+## Published Helm charts
+
+Charts are published as OCI artifacts in the `envpilot` GitHub account:
+
+```text
+oci://ghcr.io/envpilot/envpilot:0.1.0
+oci://ghcr.io/envpilot/envpilot-control-plane:0.1.0
+oci://ghcr.io/envpilot/envpilot-agent-chart:0.1.0
+oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.0
+```
