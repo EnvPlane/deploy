@@ -12,6 +12,14 @@ metadata:
   {{- with .Values.job.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  {{- else }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
   {{- end }}
 spec:
   backoffLimit: {{ .Values.job.backoffLimit }}
@@ -56,6 +64,8 @@ spec:
             - {{ .Values.install.agentId | quote }}
             - -runner-deployment-mode
             - {{ .Values.install.runnerDeploymentMode | quote }}
+            - -deployment-backend
+            - {{ .Values.deployment.backend | quote }}
             - -control-plane-release
             - {{ .Values.install.controlPlaneRelease | quote }}
             - -agent-release

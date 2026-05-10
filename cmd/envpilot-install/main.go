@@ -29,6 +29,7 @@ type config struct {
 	RunnerNamespace    string
 	RunnerReleaseName  string
 	DeploymentMode     string
+	DeploymentBackend  string
 	ControlPlaneRel    string
 	AgentRel           string
 	RunnerRel          string
@@ -81,6 +82,7 @@ func parseFlags() config {
 	flag.StringVar(&cfg.RunnerNamespace, "runner-namespace", getenv("ENVPILOT_RUNNER_NAMESPACE", ""), "runner namespace")
 	flag.StringVar(&cfg.RunnerReleaseName, "runner-release-name", getenv("ENVPILOT_RUNNER_RELEASE_NAME", ""), "unique runner bootstrap release name")
 	flag.StringVar(&cfg.DeploymentMode, "runner-deployment-mode", getenv("ENVPILOT_RUNNER_DEPLOYMENT_MODE", "helm"), "runner deployment mode")
+	flag.StringVar(&cfg.DeploymentBackend, "deployment-backend", getenv("ENVPILOT_DEPLOYMENT_BACKEND", "helm_direct"), "deployment backend: helm_direct, helm, fluxcd, argocd")
 	flag.StringVar(&cfg.ControlPlaneRel, "control-plane-release", getenv("ENVPILOT_CONTROL_PLANE_RELEASE", "envpilot"), "control-plane Helm release")
 	flag.StringVar(&cfg.AgentRel, "agent-release", getenv("ENVPILOT_AGENT_RELEASE", "envpilot-agent"), "agent Helm release")
 	flag.StringVar(&cfg.RunnerRel, "runner-release", getenv("ENVPILOT_RUNNER_RELEASE", "envpilot-runner"), "runner Helm release")
@@ -113,6 +115,7 @@ func parseFlags() config {
 	if cfg.RunnerID == "" {
 		cfg.RunnerID = cfg.ProjectID + "-runner"
 	}
+	cfg.DeploymentBackend = normalizeDeploymentBackend(cfg.DeploymentBackend)
 	if cfg.RunnerNamespace == "" {
 		cfg.RunnerNamespace = cfg.Namespace
 	}
@@ -133,6 +136,9 @@ func run(ctx context.Context, cfg config) error {
 		if _, err := exec.LookPath(name); err != nil {
 			return fmt.Errorf("missing required command %s: %w", name, err)
 		}
+	}
+	if err := validateDeploymentBackend(cfg.DeploymentBackend); err != nil {
+		return err
 	}
 	if cfg.Mode == "clean-install" {
 		if err := clean(ctx, cfg); err != nil {
@@ -246,8 +252,8 @@ func seedProject(ctx context.Context, cfg config) error {
 		"gitops_repo":           repositoryRef(cfg.GitOpsRepositoryID),
 		"default_branch":        "main",
 		"preview_url_template":  "https://{{ .EnvID }}.example.local",
-		"base_env_config":       map[string]any{"namespace": "shared", "deploymentBackend": "helm_direct"},
-		"deploymentBackend":     "helm_direct",
+		"base_env_config":       map[string]any{"namespace": "shared", "deploymentBackend": cfg.DeploymentBackend},
+		"deploymentBackend":     cfg.DeploymentBackend,
 		"environment_namespace": cfg.Namespace,
 	})
 	if err != nil {
@@ -256,7 +262,7 @@ func seedProject(ctx context.Context, cfg config) error {
 	configPayload, err := json.Marshal(map[string]any{
 		"projectId": cfg.ProjectID,
 		"deployment": map[string]any{
-			"backend": "helm_direct",
+			"backend": cfg.DeploymentBackend,
 			"helmDirect": map[string]any{
 				"namespaceMode":      "per_environment",
 				"namespacePattern":   "envpilot-{{ .EnvironmentID }}",
@@ -278,7 +284,7 @@ func seedProject(ctx context.Context, cfg config) error {
 	sessionPayload, err := json.Marshal(map[string]any{
 		"runnerNamespace":      cfg.RunnerNamespace,
 		"runnerDeploymentMode": cfg.DeploymentMode,
-		"deployment":           map[string]any{"backend": "helm_direct"},
+		"deployment":           map[string]any{"backend": cfg.DeploymentBackend},
 	})
 	if err != nil {
 		return err
@@ -514,6 +520,30 @@ func serviceURL(cfg config) string {
 }
 
 func timeoutArg(cfg config) string { return fmt.Sprintf("%ds", int(cfg.Timeout.Seconds())) }
+
+func normalizeDeploymentBackend(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "helm", "helm-direct", "helm_direct":
+		return "helm_direct"
+	case "flux", "fluxcd":
+		return "fluxcd"
+	case "argo", "argocd", "argo_cd":
+		return "argocd"
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+}
+
+func validateDeploymentBackend(value string) error {
+	switch value {
+	case "helm_direct", "fluxcd":
+		return nil
+	case "argocd":
+		return errors.New("deployment backend argocd is accepted in configuration but not implemented yet")
+	default:
+		return fmt.Errorf("unsupported deployment backend %q; supported: helm_direct, fluxcd; planned: argocd", value)
+	}
+}
 
 func repositoryRef(id string) map[string]string {
 	return map[string]string{

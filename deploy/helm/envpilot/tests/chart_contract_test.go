@@ -41,6 +41,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		`name: "envpilot"`,
 		"kind: Job",
 		`namespace: "envpilot"`,
+		`"helm.sh/hook": post-install,post-upgrade`,
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
@@ -49,6 +50,8 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		`- "clean-install"`,
 		"- -cluster-id",
 		`- "test-cluster"`,
+		"- -deployment-backend",
+		`- "helm_direct"`,
 		"- -charts-dir",
 		`- "/opt/envpilot/helm"`,
 		"- -storage-class",
@@ -57,6 +60,29 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kubernetes.io/arch: \"arm64\"",
 		"key: \"pool\"",
 		"ENVPILOT_GHCR_TOKEN",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
+func TestInitChartSupportsDeploymentBackendSelection(t *testing.T) {
+	cmd := exec.Command(
+		"helm", "template", "envpilot", "..",
+		"--set", "install.clusterId=test-cluster",
+		"--set", "registry.token=ghp_test",
+		"--set", "deployment.backend=fluxcd",
+	)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, string(output))
+	}
+	rendered := string(output)
+	for _, expected := range []string{
+		"- -deployment-backend",
+		`- "fluxcd"`,
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)

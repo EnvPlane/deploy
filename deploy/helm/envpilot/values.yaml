@@ -28,6 +28,10 @@ install:
   seedProject: true
   preserveNamespaceCleanup: true
 
+deployment:
+  # Supported: helm_direct, fluxcd. Planned/not implemented: argocd.
+  backend: helm_direct
+
 project:
   productId: default
   appRepositoryId: envpilot/app

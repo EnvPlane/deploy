@@ -71,6 +71,7 @@ helm install envpilot oci://ghcr.io/envpilot/envpilot \
   --set scheduling.nodeArch=arm64 \
   --set scheduling.toleration.key=pool \
   --set scheduling.toleration.value=apps \
+  --set deployment.backend=helm_direct \
   --set registry.token="$GHCR_TOKEN"
 ```
 
