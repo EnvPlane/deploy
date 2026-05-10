@@ -52,6 +52,7 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 		"ENVPILOT_DATA_DIR",
 		"ENVPILOT_GITOPS_DIR",
 		"ENVPILOT_POSTGRES_MIGRATIONS_DIR",
+		"ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS",
 		`ENVPILOT_GITHUB_WEBHOOK_DEBUG_PAYLOAD_LOG: "false"`,
 		"domain: envpilot.local",
 		"certManager:",
@@ -108,6 +109,8 @@ func TestControlPlaneChartWiresPostgresRedisAndMigrations(t *testing.T) {
 		"image: \"redis:7-alpine\"",
 		"name: ENVPILOT_DATABASE_URL",
 		"name: ENVPILOT_REDIS_URL",
+		"name: wait-postgres",
+		"name: wait-redis",
 		`value: "redis://envpilot-control-plane-redis:6379/0"`,
 		`value: "/var/lib/envpilot/migrations/postgres"`,
 		"--appendonly",
@@ -126,8 +129,8 @@ func TestControlPlaneChartUsesPersistentImages(t *testing.T) {
 	}
 	valuesText := string(values)
 	for _, expected := range []string{
-		"repository: envpilot/envpilot-api",
-		"repository: envpilot/envpilot-frontend",
+		"repository: ghcr.io/envpilot/api",
+		"repository: ghcr.io/envpilot/frontend",
 		`tag: "0.1.0"`,
 	} {
 		if !strings.Contains(valuesText, expected) {

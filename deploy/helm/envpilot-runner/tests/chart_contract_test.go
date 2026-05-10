@@ -12,6 +12,7 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 		"../Chart.yaml",
 		"../values.yaml",
 		"../templates/deployment.yaml",
+		"../templates/auth-pvc.yaml",
 		"../templates/serviceaccount.yaml",
 		"../templates/rbac.yaml",
 		"../templates/secret.yaml",
@@ -36,6 +37,7 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 		"ENVPILOT_RUNNER_REGISTRATION_TOKEN",
 		"ENVPILOT_RUNNER_AUTH_TOKEN",
 		"ENVPILOT_RUNNER_AUTH_TOKEN_FILE",
+		"name: wait-control-plane",
 		"/health",
 	} {
 		if !strings.Contains(deploymentText, expected) {
@@ -80,7 +82,7 @@ func TestRunnerChartUsesPersistentImage(t *testing.T) {
 	}
 	valuesText := string(values)
 	for _, expected := range []string{
-		"repository: envpilot/envpilot-runner",
+		"repository: ghcr.io/envpilot/runner",
 		`tag: "0.1.0"`,
 	} {
 		if !strings.Contains(valuesText, expected) {
@@ -105,6 +107,8 @@ func TestRunnerChartDocumentsAuthPersistenceSecret(t *testing.T) {
 		"runnerAuthTokenKey:",
 		"runnerAuthToken",
 		"one-time bootstrap token",
+		"createClaim:",
+		"claimName:",
 	} {
 		if !strings.Contains(valuesText, expected) {
 			t.Fatalf("values.yaml does not document auth persistence field %q", expected)
@@ -126,6 +130,12 @@ func TestRunnerChartDocumentsAuthPersistenceSecret(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "ENVPILOT_RUNNER_AUTH_TOKEN_FILE") {
 		t.Fatalf("rendered chart missing persisted runner auth token file:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "kind: PersistentVolumeClaim") {
+		t.Fatalf("rendered chart missing default auth persistence PVC:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "claimName: \"envpilot-runner-chart-auth\"") {
+		t.Fatalf("rendered chart missing auth PVC claim reference:\n%s", rendered)
 	}
 }
 

@@ -28,6 +28,26 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.dependencyWait.enabled }}
+      initContainers:
+        - name: wait-control-plane
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - sh
+            - -ec
+            - |
+              until wget -q -O- {{ trimSuffix "/" .Values.controlPlane.url }}{{ default "/api/v1/health" .Values.dependencyWait.healthPath }} >/dev/null; do
+                echo "waiting for control-plane"
+                sleep 2
+              done
+      {{- end }}
       containers:
         - name: runner
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
@@ -113,6 +133,9 @@ spec:
           {{- if .Values.controlPlane.authPersistence.existingClaim }}
           persistentVolumeClaim:
             claimName: {{ .Values.controlPlane.authPersistence.existingClaim | quote }}
+          {{- else if .Values.controlPlane.authPersistence.createClaim }}
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-auth" (include "envpilot-runner.fullname" .)) .Values.controlPlane.authPersistence.claimName | quote }}
           {{- else }}
           emptyDir: {}
           {{- end }}

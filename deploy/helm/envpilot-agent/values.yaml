@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: envpilot/envpilot-agent
+  repository: ghcr.io/envpilot/agent
   pullPolicy: IfNotPresent
   tag: "0.1.0"
 
@@ -26,6 +26,10 @@ controlPlane:
   registrationTokenKey: registration-token
   reportTimeoutSeconds: 10
 
+dependencyWait:
+  enabled: true
+  healthPath: /api/v1/health
+
 cluster:
   id: ""
 
@@ -43,8 +47,15 @@ agent:
     mountPath: /var/lib/envpilot-agent/auth
     fileName: agent-auth-token
     volumeName: agent-auth-token
-    # Set existingClaim for persistence across pod reschedules. The default
-    # emptyDir persists across container restarts in the same pod.
+    # Create a small PVC by default so rollout-created pods do not reuse the
+    # consumed one-time bootstrap token. Set createClaim=false to use emptyDir.
+    createClaim: true
+    claimName: ""
+    storageClassName: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 1Mi
+    # Set existingClaim to use an externally managed PVC.
     existingClaim: ""
     emptyDir: {}
     # Optional externally managed Secret with an already issued agentAuthToken.

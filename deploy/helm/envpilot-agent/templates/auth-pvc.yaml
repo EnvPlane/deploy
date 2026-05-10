@@ -1,0 +1,17 @@
+{{- if and .Values.agent.authPersistence.enabled .Values.agent.authPersistence.createClaim (not .Values.agent.authPersistence.existingClaim) -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ default (printf "%s-auth" (include "envpilot-agent.fullname" .)) .Values.agent.authPersistence.claimName }}
+  labels:
+    {{- include "envpilot-agent.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.agent.authPersistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.agent.authPersistence.size | quote }}
+  {{- if .Values.agent.authPersistence.storageClassName }}
+  storageClassName: {{ .Values.agent.authPersistence.storageClassName | quote }}
+  {{- end }}
+{{- end }}

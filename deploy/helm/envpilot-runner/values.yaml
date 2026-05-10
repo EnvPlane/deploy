@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: envpilot/envpilot-runner
+  repository: ghcr.io/envpilot/runner
   pullPolicy: IfNotPresent
   tag: "0.1.0"
 
@@ -29,16 +29,28 @@ controlPlane:
   heartbeatIntervalSeconds: 30
   authPersistence:
     # Persist the post-registration runnerAuthToken on a writable volume so
-    # normal container restarts do not reuse the one-time bootstrap token.
+    # normal container/pod restarts do not reuse the one-time bootstrap token.
     enabled: true
     mountPath: /var/lib/envpilot-runner/auth
     fileName: runner-auth-token
     volumeName: runner-auth
+    # Create a small PVC by default. This keeps the runtime auth token across
+    # rollout-created pod replacements. Set createClaim=false to use emptyDir.
+    createClaim: true
+    claimName: ""
+    storageClassName: ""
+    accessModes:
+      - ReadWriteOnce
+    size: 1Mi
     existingClaim: ""
     # Optional post-registration credential Secret for externally managed
     # persistence. If set, the runner reads runnerAuthToken from this Secret.
     existingSecret: ""
     runnerAuthTokenKey: runner-auth-token
+
+dependencyWait:
+  enabled: true
+  healthPath: /api/v1/health
 
 project:
   id: ""

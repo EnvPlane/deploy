@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: envpilot/envpilot-api
+  repository: ghcr.io/envpilot/api
   pullPolicy: IfNotPresent
   tag: "0.1.0"
 
@@ -9,7 +9,7 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: envpilot/envpilot-frontend
+    repository: ghcr.io/envpilot/frontend
     pullPolicy: IfNotPresent
     tag: "0.1.0"
   service:
@@ -97,6 +97,11 @@ env:
   ENVPILOT_GITOPS_DIR: "/var/lib/envpilot/data/gitops"
   ENVPILOT_POSTGRES_MIGRATIONS_DIR: "/var/lib/envpilot/migrations/postgres"
   ENVPILOT_GITHUB_WEBHOOK_DEBUG_PAYLOAD_LOG: "false"
+  ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS: "120"
+  ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS: "2"
+
+dependencyWait:
+  enabled: true
 
 secretEnv: {}
 

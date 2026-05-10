@@ -28,6 +28,57 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.dependencyWait.enabled }}
+      initContainers:
+        {{- if .Values.postgres.enabled }}
+        - name: wait-postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - sh
+            - -ec
+            - |
+              until pg_isready -h {{ include "envpilot-control-plane.postgresName" . }} -p {{ .Values.postgres.service.port }} -U {{ .Values.postgres.auth.username | quote }} -d {{ .Values.postgres.auth.database | quote }}; do
+                echo "waiting for postgres"
+                sleep 2
+              done
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "envpilot-control-plane.postgresName" .) .Values.postgres.auth.existingSecret }}
+                  key: {{ .Values.postgres.auth.passwordKey | quote }}
+        {{- end }}
+        {{- if .Values.redis.enabled }}
+        - name: wait-redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - sh
+            - -ec
+            - |
+              until redis-cli -h {{ include "envpilot-control-plane.redisName" . }} -p {{ .Values.redis.service.port }} ping | grep -q PONG; do
+                echo "waiting for redis"
+                sleep 2
+              done
+        {{- end }}
+      {{- end }}
       containers:
         - name: api
           image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"

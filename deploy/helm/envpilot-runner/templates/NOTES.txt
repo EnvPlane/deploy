@@ -9,8 +9,11 @@ Control plane:
   Project: {{ default "not configured" .Values.project.id }}
 
 Auth persistence:
-  Bootstrap tokens are one-time credentials. Persist the runnerAuthToken returned
-  by registration in a Kubernetes Secret and configure:
+  Bootstrap tokens are one-time credentials. The chart persists the runnerAuthToken
+  returned by registration on a PVC by default so rollout-created pods do not
+  reuse bootstrap tokens.
+
+  To use an externally managed Secret instead, configure:
 
     controlPlane.authPersistence.existingSecret
     controlPlane.authPersistence.runnerAuthTokenKey

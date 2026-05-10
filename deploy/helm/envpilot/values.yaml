@@ -1,0 +1,81 @@
+registry:
+  createPullSecret: false
+  pullSecretName: ghcr-envpilot
+  server: ghcr.io
+  username: ""
+  password: ""
+  email: ""
+
+bootstrap:
+  agent:
+    createSecret: false
+    secretName: envpilot-agent-bootstrap
+    registrationToken: ""
+  runner:
+    createSecret: false
+    secretName: envpilot-runner-bootstrap
+    registrationToken: ""
+    projectConfigToken: ""
+
+controlPlane:
+  enabled: true
+  image:
+    repository: ghcr.io/envpilot/api
+    tag: "0.1.0"
+  frontend:
+    image:
+      repository: ghcr.io/envpilot/frontend
+      tag: "0.1.0"
+  imagePullSecrets:
+    - name: ghcr-envpilot
+  postgres:
+    persistence:
+      storageClassName: ""
+  redis:
+    persistence:
+      storageClassName: ""
+
+agent:
+  enabled: true
+  image:
+    repository: ghcr.io/envpilot/agent
+    tag: "0.1.0"
+  imagePullSecrets:
+    - name: ghcr-envpilot
+  controlPlane:
+    url: http://envpilot-control-plane.envpilot.svc.cluster.local:8080
+    existingSecret: envpilot-agent-bootstrap
+  bootstrap:
+    projectId: default
+  cluster:
+    id: ""
+  agent:
+    id: envpilot-agent
+    authPersistence:
+      createClaim: true
+      storageClassName: ""
+  installValidation:
+    enabled: false
+  ttlCleanup:
+    enabled: false
+
+runner:
+  enabled: true
+  image:
+    repository: ghcr.io/envpilot/runner
+    tag: "0.1.0"
+  imagePullSecrets:
+    - name: ghcr-envpilot
+  controlPlane:
+    url: http://envpilot-control-plane.envpilot.svc.cluster.local:8080
+    existingSecret: envpilot-runner-bootstrap
+    authPersistence:
+      createClaim: true
+      storageClassName: ""
+  project:
+    id: default
+    configUrl: http://envpilot-control-plane.envpilot.svc.cluster.local:8080/api/v1/projects/default/runner-config
+    namespace: envpilot
+    clusterId: ""
+    deploymentMode: helm
+    runnerId: default-runner

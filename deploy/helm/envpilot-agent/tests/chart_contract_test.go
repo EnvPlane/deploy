@@ -12,6 +12,7 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		"../Chart.yaml",
 		"../values.yaml",
 		"../templates/deployment.yaml",
+		"../templates/auth-pvc.yaml",
 		"../templates/install-validation-job.yaml",
 		"../templates/serviceaccount.yaml",
 		"../templates/rbac.yaml",
@@ -67,6 +68,7 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		"volumeMounts:",
 		"volumes:",
 		"authPersistence",
+		"name: wait-control-plane",
 	} {
 		if !strings.Contains(deploymentText, expected) {
 			t.Fatalf("deployment template does not contain %q", expected)
@@ -120,7 +122,7 @@ func TestAgentChartUsesPersistentImage(t *testing.T) {
 	}
 	valuesText := string(values)
 	for _, expected := range []string{
-		"repository: envpilot/envpilot-agent",
+		"repository: ghcr.io/envpilot/agent",
 		`tag: "0.1.0"`,
 	} {
 		if !strings.Contains(valuesText, expected) {
@@ -185,6 +187,32 @@ func TestAgentChartRendersAuthTokenPersistenceEnvAndVolume(t *testing.T) {
 		`name: "envpilot-agent-auth-secret"`,
 		`key: "agent-auth-token"`,
 		"fsGroup: 65532",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
+func TestAgentChartRendersDefaultAuthPersistencePVC(t *testing.T) {
+	commandArgs := []string{
+		"template", "envpilot-agent", "..",
+		"--set", "controlPlane.existingSecret=envpilot-agent-bootstrap",
+		"--set", "bootstrap.projectId=project-1",
+		"--set", "agent.authPersistence.storageClassName=gp2",
+	}
+	cmd := exec.Command("helm", commandArgs...)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, string(output))
+	}
+	rendered := string(output)
+	for _, expected := range []string{
+		"kind: PersistentVolumeClaim",
+		`name: envpilot-agent-chart-auth`,
+		`storageClassName: "gp2"`,
+		`claimName: "envpilot-agent-chart-auth"`,
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
