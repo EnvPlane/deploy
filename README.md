@@ -47,33 +47,25 @@ bin/envpilot-install \
 The installer uses `gh auth token` for GHCR unless `-ghcr-token` or
 `ENVPILOT_GHCR_TOKEN` is set.
 
-## Published Helm charts
+## Published Helm chart
 
-Charts are published as OCI artifacts in the `envpilot` GitHub account:
+EnvPilot is installed through one OCI Helm chart:
 
 ```text
-oci://ghcr.io/envpilot/envpilot-init:0.1.0
 oci://ghcr.io/envpilot/envpilot:0.1.0
-oci://ghcr.io/envpilot/envpilot-control-plane:0.1.0
-oci://ghcr.io/envpilot/envpilot-agent-chart:0.1.0
-oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.0
 ```
 
 ## Enterprise one-chart install
 
-The recommended install path is the `envpilot-init` chart. It starts a Kubernetes
-Job with the `ghcr.io/envpilot/install` image. The Job runs `envpilot-install`
-inside the cluster and installs the control-plane, seeds the first project,
-creates bootstrap secrets, and installs the agent and runner.
-
-Install the init chart into a bootstrap namespace, not the target EnvPilot
-namespace. This avoids deleting the installer Job during `clean-install`.
+The `envpilot` chart creates its installer namespace and starts a Kubernetes Job
+with the `ghcr.io/envpilot/install` image. The Job runs `envpilot-install` inside
+the cluster and installs the control-plane, seeds the first project, creates
+bootstrap secrets, and installs the agent and runner.
 
 ```sh
-helm install envpilot-init oci://ghcr.io/envpilot/envpilot-init \
+helm install envpilot oci://ghcr.io/envpilot/envpilot \
   --version 0.1.0 \
-  --namespace envpilot-installer \
-  --create-namespace \
+  --namespace default \
   --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
   --set storage.className=gp2 \
   --set scheduling.nodeArch=arm64 \
@@ -85,9 +77,15 @@ helm install envpilot-init oci://ghcr.io/envpilot/envpilot-init \
 Follow progress:
 
 ```sh
-kubectl logs -n envpilot-installer job/envpilot-init -f
+kubectl logs -n envpilot-installer job/envpilot -f
 ```
 
-The init Job requires cluster-admin-equivalent permissions because it creates and
+By default:
+
+- Helm release namespace: `default`
+- installer namespace: `envpilot-installer`
+- application namespace: `envpilot`
+
+The installer Job requires cluster-admin-equivalent permissions because it creates and
 deletes namespaces, installs Helm releases, creates cluster roles, and seeds the
 fresh control-plane database.

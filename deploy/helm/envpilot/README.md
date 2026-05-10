@@ -1,29 +1,35 @@
-# EnvPilot umbrella chart
+# EnvPilot chart
 
-This chart installs the EnvPilot control-plane, cluster agent, and runner as one Helm release.
+This is the single public EnvPilot Helm chart. It creates an installer namespace and runs `envpilot-install` as a Kubernetes Job. The Job installs the EnvPilot control-plane, creates bootstrap secrets, seeds the default project/config, and installs the agent and runner.
 
-For a clean install with private GHCR images, provide:
-
-- `registry.createPullSecret=true`
-- `registry.username`
-- `registry.password`
-- `bootstrap.agent.registrationToken`
-- `bootstrap.runner.registrationToken`
-- `bootstrap.runner.projectConfigToken`
-- `agent.cluster.id`
-- `runner.project.clusterId`
-- storage classes for Postgres, Redis, agent auth, and runner auth when the cluster has no default `StorageClass`
-
-Build dependencies before installing from source:
+Install:
 
 ```sh
-helm dependency build deploy/helm/envpilot
+helm install envpilot oci://ghcr.io/envpilot/envpilot \
+  --version 0.1.0 \
+  --namespace default \
+  --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
+  --set storage.className=gp2 \
+  --set scheduling.nodeArch=arm64 \
+  --set scheduling.toleration.key=pool \
+  --set scheduling.toleration.value=apps \
+  --set registry.token="$GHCR_TOKEN"
 ```
 
-Then install:
+Follow progress:
 
 ```sh
-helm install envpilot deploy/helm/envpilot --namespace envpilot --create-namespace -f values.clean.yaml
+kubectl logs -n envpilot-installer job/envpilot -f
 ```
 
-Bootstrap tokens are one-time credentials. Agent and runner auth tokens are persisted on PVCs by default, so subsequent pod replacements do not reuse bootstrap tokens.
+By default the chart creates and uses `installer.namespace=envpilot-installer`.
+The target application namespace is `install.namespace=envpilot`.
+Use an existing Helm release namespace such as `default`; the chart creates its
+own installer namespace separately.
+
+The Job needs cluster-admin-equivalent permissions because it creates/deletes namespaces, installs Helm releases, manages cluster roles, and execs into Postgres to seed the first project.
+
+`registry.token` is used twice:
+
+- As an image pull secret in the bootstrap namespace so Kubernetes can pull `ghcr.io/envpilot/install`.
+- As `ENVPILOT_GHCR_TOKEN` inside the Job so `envpilot-install` can create the target namespace pull secret for EnvPilot application images.

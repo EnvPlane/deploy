@@ -1,81 +1,92 @@
+image:
+  repository: ghcr.io/envpilot/install
+  tag: "0.1.0"
+  pullPolicy: Always
+  createPullSecret: true
+  pullSecretName: envpilot-ghcr
+  pullSecrets: []
+
+installer:
+  namespace: envpilot-installer
+  createNamespace: true
+
+install:
+  mode: clean-install
+  namespace: envpilot
+  projectId: default
+  clusterId: ""
+  agentId: envpilot-agent
+  runnerId: ""
+  runnerNamespace: ""
+  runnerReleaseName: ""
+  runnerDeploymentMode: helm
+  controlPlaneRelease: envpilot
+  agentRelease: envpilot-agent
+  runnerRelease: envpilot-runner
+  chartsDir: /opt/envpilot/helm
+  timeoutSeconds: 240
+  seedProject: true
+
+project:
+  productId: default
+  appRepositoryId: envpilot/app
+  gitopsRepositoryId: envpilot/gitops
+
 registry:
-  createPullSecret: false
-  pullSecretName: ghcr-envpilot
+  secretName: ghcr-envpilot
   server: ghcr.io
-  username: ""
-  password: ""
-  email: ""
+  username: envpilot
+  token: ""
+  existingTokenSecret: ""
+  existingTokenSecretKey: token
+  skipSecret: false
 
-bootstrap:
-  agent:
-    createSecret: false
-    secretName: envpilot-agent-bootstrap
-    registrationToken: ""
-  runner:
-    createSecret: false
-    secretName: envpilot-runner-bootstrap
-    registrationToken: ""
-    projectConfigToken: ""
+images:
+  api: ghcr.io/envpilot/api
+  frontend: ghcr.io/envpilot/frontend
+  agent: ghcr.io/envpilot/agent
+  runner: ghcr.io/envpilot/runner
+  tag: "0.1.0"
+  pullPolicy: Always
 
-controlPlane:
-  enabled: true
-  image:
-    repository: ghcr.io/envpilot/api
-    tag: "0.1.0"
-  frontend:
-    image:
-      repository: ghcr.io/envpilot/frontend
-      tag: "0.1.0"
-  imagePullSecrets:
-    - name: ghcr-envpilot
-  postgres:
-    persistence:
-      storageClassName: ""
-  redis:
-    persistence:
-      storageClassName: ""
+storage:
+  className: ""
 
-agent:
-  enabled: true
-  image:
-    repository: ghcr.io/envpilot/agent
-    tag: "0.1.0"
-  imagePullSecrets:
-    - name: ghcr-envpilot
-  controlPlane:
-    url: http://envpilot-control-plane.envpilot.svc.cluster.local:8080
-    existingSecret: envpilot-agent-bootstrap
-  bootstrap:
-    projectId: default
-  cluster:
-    id: ""
-  agent:
-    id: envpilot-agent
-    authPersistence:
-      createClaim: true
-      storageClassName: ""
-  installValidation:
-    enabled: false
-  ttlCleanup:
-    enabled: false
+scheduling:
+  nodeArch: ""
+  toleration:
+    key: ""
+    value: ""
+    effect: NoSchedule
 
-runner:
-  enabled: true
-  image:
-    repository: ghcr.io/envpilot/runner
-    tag: "0.1.0"
-  imagePullSecrets:
-    - name: ghcr-envpilot
-  controlPlane:
-    url: http://envpilot-control-plane.envpilot.svc.cluster.local:8080
-    existingSecret: envpilot-runner-bootstrap
-    authPersistence:
-      createClaim: true
-      storageClassName: ""
-  project:
-    id: default
-    configUrl: http://envpilot-control-plane.envpilot.svc.cluster.local:8080/api/v1/projects/default/runner-config
-    namespace: envpilot
-    clusterId: ""
-    deploymentMode: helm
-    runnerId: default-runner
+postgres:
+  password: envpilot
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+job:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 1200
+  annotations: {}
+  podAnnotations: {}
+  resources: {}
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    capabilities:
+      drop:
+        - ALL
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault

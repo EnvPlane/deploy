@@ -1,22 +1,6 @@
 apiVersion: v2
 name: envpilot
-description: Umbrella chart for EnvPilot control-plane, agent, and runner.
+description: Single-chart EnvPilot installer that runs envpilot-install as a Kubernetes Job.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
-dependencies:
-  - name: envpilot-control-plane
-    alias: controlPlane
-    version: 0.1.0
-    repository: file://../envpilot-control-plane
-    condition: controlPlane.enabled
-  - name: envpilot-agent-chart
-    alias: agent
-    version: 0.1.0
-    repository: file://../envpilot-agent
-    condition: agent.enabled
-  - name: envpilot-runner-chart
-    alias: runner
-    version: 0.1.0
-    repository: file://../envpilot-runner
-    condition: runner.enabled

@@ -1,13 +1,14 @@
-{{- $tokenSecret := default (printf "%s-registry-token" (include "envpilot-init.fullname" .)) .Values.registry.existingTokenSecret -}}
+{{- $tokenSecret := default (printf "%s-registry-token" (include "envpilot.fullname" .)) .Values.registry.existingTokenSecret -}}
 {{- if and (not .Values.registry.skipSecret) (not .Values.registry.token) (not .Values.registry.existingTokenSecret) -}}
 {{- fail "registry.token or registry.existingTokenSecret is required unless registry.skipSecret=true" -}}
 {{- end -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "envpilot-init.fullname" . }}
+  name: {{ include "envpilot.fullname" . }}
+  namespace: {{ .Values.installer.namespace | quote }}
   labels:
-    {{- include "envpilot-init.labels" . | nindent 4 }}
+    {{- include "envpilot.labels" . | nindent 4 }}
   {{- with .Values.job.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -19,14 +20,14 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "envpilot-init.labels" . | nindent 8 }}
+        {{- include "envpilot.labels" . | nindent 8 }}
       {{- with .Values.job.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
       restartPolicy: Never
-      serviceAccountName: {{ include "envpilot-init.serviceAccountName" . }}
+      serviceAccountName: {{ include "envpilot.serviceAccountName" . }}
       {{- if or .Values.image.pullSecrets (and .Values.image.createPullSecret .Values.registry.token) }}
       imagePullSecrets:
         {{- if and .Values.image.createPullSecret .Values.registry.token }}

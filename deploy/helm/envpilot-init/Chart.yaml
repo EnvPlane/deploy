@@ -1,6 +1,0 @@
-apiVersion: v2
-name: envpilot-init
-description: Bootstrap chart that runs envpilot-install as a Kubernetes Job.
-type: application
-version: 0.1.0
-appVersion: "0.1.0"
