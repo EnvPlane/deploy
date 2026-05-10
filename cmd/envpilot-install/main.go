@@ -47,10 +47,15 @@ type config struct {
 	TolerationKey      string
 	TolerationValue    string
 	TolerationEffect   string
+	ProductID          string
+	AppRepositoryID    string
+	GitOpsRepositoryID string
+	PostgresPassword   string
 	ChartsDir          string
 	LocalPort          int
 	Timeout            time.Duration
 	SkipRegistrySecret bool
+	SeedProject        bool
 }
 
 func main() {
@@ -93,10 +98,15 @@ func parseFlags() config {
 	flag.StringVar(&cfg.TolerationKey, "toleration-key", getenv("ENVPILOT_TOLERATION_KEY", ""), "optional toleration key")
 	flag.StringVar(&cfg.TolerationValue, "toleration-value", getenv("ENVPILOT_TOLERATION_VALUE", ""), "optional toleration value")
 	flag.StringVar(&cfg.TolerationEffect, "toleration-effect", getenv("ENVPILOT_TOLERATION_EFFECT", "NoSchedule"), "optional toleration effect")
+	flag.StringVar(&cfg.ProductID, "product-id", getenv("ENVPILOT_PRODUCT_ID", "default"), "seeded EnvPilot product id")
+	flag.StringVar(&cfg.AppRepositoryID, "app-repository-id", getenv("ENVPILOT_APP_REPOSITORY_ID", "envpilot/app"), "seeded app repository id")
+	flag.StringVar(&cfg.GitOpsRepositoryID, "gitops-repository-id", getenv("ENVPILOT_GITOPS_REPOSITORY_ID", "envpilot/gitops"), "seeded GitOps repository id")
+	flag.StringVar(&cfg.PostgresPassword, "postgres-password", getenv("ENVPILOT_POSTGRES_PASSWORD", "envpilot"), "control-plane Postgres password")
 	flag.StringVar(&cfg.ChartsDir, "charts-dir", getenv("ENVPILOT_CHARTS_DIR", ""), "charts dir; defaults to repo deploy/helm")
 	flag.IntVar(&cfg.LocalPort, "local-port", getenvInt("ENVPILOT_LOCAL_PORT", 18080), "local port-forward port")
 	flag.DurationVar(&cfg.Timeout, "timeout", time.Duration(getenvInt("ENVPILOT_INSTALL_TIMEOUT_SECONDS", 240))*time.Second, "rollout/API timeout")
 	flag.BoolVar(&cfg.SkipRegistrySecret, "skip-registry-secret", getenvBool("ENVPILOT_SKIP_REGISTRY_SECRET", false), "do not create registry pull secret")
+	flag.BoolVar(&cfg.SeedProject, "seed-project", getenvBool("ENVPILOT_SEED_PROJECT", true), "seed minimal project/config before bootstrap")
 	flag.Parse()
 	if cfg.RunnerID == "" {
 		cfg.RunnerID = cfg.ProjectID + "-runner"
@@ -134,6 +144,11 @@ func run(ctx context.Context, cfg config) error {
 	}
 	if err := installControlPlane(ctx, cfg); err != nil {
 		return err
+	}
+	if cfg.SeedProject {
+		if err := seedProject(ctx, cfg); err != nil {
+			return err
+		}
 	}
 	pf, err := startPortForward(ctx, cfg)
 	if err != nil {
@@ -201,6 +216,82 @@ func installControlPlane(ctx context.Context, cfg config) error {
 		return err
 	}
 	return runCmd(ctx, "kubectl", "rollout", "status", "deployment/envpilot-control-plane-frontend", "-n", cfg.Namespace, "--timeout", timeoutArg(cfg))
+}
+
+func seedProject(ctx context.Context, cfg config) error {
+	projectPayload, err := json.Marshal(map[string]any{
+		"id":                    cfg.ProjectID,
+		"name":                  cfg.ProjectID,
+		"product_id":            cfg.ProductID,
+		"app_repository_id":     cfg.AppRepositoryID,
+		"gitops_repository_id":  cfg.GitOpsRepositoryID,
+		"cluster_id":            cfg.ClusterID,
+		"git_repo":              repositoryRef(cfg.AppRepositoryID),
+		"gitops_repo":           repositoryRef(cfg.GitOpsRepositoryID),
+		"default_branch":        "main",
+		"preview_url_template":  "https://{{ .EnvID }}.example.local",
+		"base_env_config":       map[string]any{"namespace": "shared", "deploymentBackend": "helm_direct"},
+		"deploymentBackend":     "helm_direct",
+		"environment_namespace": cfg.Namespace,
+	})
+	if err != nil {
+		return err
+	}
+	configPayload, err := json.Marshal(map[string]any{
+		"projectId": cfg.ProjectID,
+		"deployment": map[string]any{
+			"backend": "helm_direct",
+			"helmDirect": map[string]any{
+				"namespaceMode":      "per_environment",
+				"namespacePattern":   "envpilot-{{ .EnvironmentID }}",
+				"releaseNamePattern": "envpilot-{{ .EnvironmentID }}",
+				"chartPath":          "./deploy/helm/envpilot-runner",
+				"timeout":            "5m",
+				"wait":               true,
+				"createNamespace":    true,
+			},
+		},
+		"cluster": map[string]any{
+			"id":        cfg.ClusterID,
+			"namespace": cfg.Namespace,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	sessionPayload, err := json.Marshal(map[string]any{
+		"runnerNamespace":      cfg.RunnerNamespace,
+		"runnerDeploymentMode": cfg.DeploymentMode,
+		"deployment":           map[string]any{"backend": "helm_direct"},
+	})
+	if err != nil {
+		return err
+	}
+	sql := fmt.Sprintf(`
+INSERT INTO projects (id, payload, product_id, app_repository_id, gitops_repository_id, cluster_id, created_at, updated_at)
+VALUES (%[1]s, %[2]s::jsonb, %[3]s, %[4]s, %[5]s, %[6]s, now(), now())
+ON CONFLICT (id) DO UPDATE SET
+	payload = EXCLUDED.payload,
+	product_id = EXCLUDED.product_id,
+	app_repository_id = EXCLUDED.app_repository_id,
+	gitops_repository_id = EXCLUDED.gitops_repository_id,
+	cluster_id = EXCLUDED.cluster_id,
+	updated_at = now();
+
+DELETE FROM bootstrap_sessions WHERE project_id = %[1]s;
+
+INSERT INTO bootstrap_sessions (id, project_id, current_step, status, created_by, data, created_at, updated_at)
+VALUES (%[7]s, %[1]s, 1, 'compiled', 'envpilot-install', %[8]s::jsonb, now(), now());
+
+INSERT INTO project_config_versions (id, project_id, version, config, created_at, created_by)
+VALUES (%[10]s, %[1]s, 1, %[9]s::jsonb, now(), 'envpilot-install')
+ON CONFLICT (project_id, version) DO UPDATE SET
+	config = EXCLUDED.config,
+	created_at = now(),
+	created_by = EXCLUDED.created_by;
+`, sqlLiteral(cfg.ProjectID), sqlLiteral(string(projectPayload)), sqlLiteral(cfg.ProductID), sqlLiteral(cfg.AppRepositoryID), sqlLiteral(cfg.GitOpsRepositoryID), sqlLiteral(cfg.ClusterID), sqlLiteral(cfg.ProjectID+"-bootstrap"), sqlLiteral(string(sessionPayload)), sqlLiteral(string(configPayload)), sqlLiteral(cfg.ProjectID+"-config-v1"))
+
+	return runCmdInput(ctx, sql, "kubectl", "exec", "-i", "-n", cfg.Namespace, "envpilot-control-plane-postgres-0", "--", "env", "PGPASSWORD="+cfg.PostgresPassword, "psql", "-U", "envpilot", "-d", "envpilot", "-v", "ON_ERROR_STOP=1", "-f", "-")
 }
 
 func createBootstrapSecrets(ctx context.Context, cfg config) error {
@@ -338,6 +429,14 @@ func runCmd(ctx context.Context, name string, args ...string) error {
 	return cmd.Run()
 }
 
+func runCmdInput(ctx context.Context, input string, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdin = strings.NewReader(input)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func commandOutput(ctx context.Context, name string, args ...string) (string, error) {
 	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
 	if err != nil {
@@ -397,13 +496,32 @@ func schedulingSets(prefix string, cfg config) []string {
 func serviceURL(cfg config) string {
 	return fmt.Sprintf("http://envpilot-control-plane.%s.svc.cluster.local:8080", cfg.Namespace)
 }
+
 func timeoutArg(cfg config) string { return fmt.Sprintf("%ds", int(cfg.Timeout.Seconds())) }
+
+func repositoryRef(id string) map[string]string {
+	return map[string]string{
+		"provider":       "github",
+		"url":            "https://github.com/" + strings.TrimPrefix(id, "github.com/"),
+		"default_branch": "main",
+	}
+}
+
+func sqlLiteral(value string) string {
+	tag := "$envpilot$"
+	for strings.Contains(value, tag) {
+		tag = tag[:len(tag)-1] + "x$"
+	}
+	return tag + value + tag
+}
+
 func getenv(key, fallback string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
 	}
 	return fallback
 }
+
 func getenvBool(key string, fallback bool) bool {
 	v := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
 	if v == "" {
@@ -411,6 +529,7 @@ func getenvBool(key string, fallback bool) bool {
 	}
 	return v == "1" || v == "true" || v == "yes"
 }
+
 func getenvInt(key string, fallback int) int {
 	var v int
 	if _, err := fmt.Sscanf(strings.TrimSpace(os.Getenv(key)), "%d", &v); err == nil {
