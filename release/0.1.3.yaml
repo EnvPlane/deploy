@@ -13,4 +13,4 @@ images:
 charts:
   controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.1.2
   agent: oci://ghcr.io/envpilot/envpilot-agent:0.1.1
-  runner: oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.4
+  runner: oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.5
