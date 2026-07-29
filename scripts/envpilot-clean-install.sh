@@ -27,6 +27,8 @@ FRONTEND_IMAGE="${ENVPILOT_FRONTEND_IMAGE:-ghcr.io/envpilot/frontend}"
 AGENT_IMAGE="${ENVPILOT_AGENT_IMAGE:-ghcr.io/envpilot/agent}"
 RUNNER_IMAGE="${ENVPILOT_RUNNER_IMAGE:-ghcr.io/envpilot/runner}"
 IMAGE_TAG="${ENVPILOT_IMAGE_TAG:-0.1.0}"
+AGENT_IMAGE_TAG="${ENVPILOT_AGENT_IMAGE_TAG:-0.1.1}"
+RUNNER_IMAGE_TAG="${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.1}"
 IMAGE_PULL_POLICY="${ENVPILOT_IMAGE_PULL_POLICY:-Always}"
 
 STORAGE_CLASS="${ENVPILOT_STORAGE_CLASS:-}"
@@ -168,7 +170,7 @@ create_bootstrap_secrets() {
 install_agent() {
   helm_set_args=()
   add_set "image.repository" "${AGENT_IMAGE}"
-  add_set "image.tag" "${IMAGE_TAG}"
+  add_set "image.tag" "${AGENT_IMAGE_TAG}"
   add_set "image.pullPolicy" "${IMAGE_PULL_POLICY}"
   add_set "imagePullSecrets[0].name" "${GHCR_SECRET}"
   add_set "controlPlane.url" "http://envpilot-control-plane.${NAMESPACE}.svc.cluster.local:8080"
@@ -196,7 +198,7 @@ install_agent() {
 install_runner() {
   helm_set_args=()
   add_set "image.repository" "${RUNNER_IMAGE}"
-  add_set "image.tag" "${IMAGE_TAG}"
+  add_set "image.tag" "${RUNNER_IMAGE_TAG}"
   add_set "image.pullPolicy" "${IMAGE_PULL_POLICY}"
   add_set "imagePullSecrets[0].name" "${GHCR_SECRET}"
   add_set "controlPlane.url" "http://envpilot-control-plane.${NAMESPACE}.svc.cluster.local:8080"

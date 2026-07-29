@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/envpilot/agent
   pullPolicy: IfNotPresent
-  tag: "0.1.0"
+  tag: "0.1.1"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -73,7 +73,9 @@ installValidation:
   resources: {}
 
 ttlCleanup:
-  enabled: true
+  # TTL cleanup remains a control-plane responsibility; the standalone agent
+  # image deliberately exposes only agent and agent-install-check commands.
+  enabled: false
   schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3

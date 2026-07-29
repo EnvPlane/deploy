@@ -14,6 +14,8 @@ DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_ROOT="${ENVPILOT_WORKSPACE_ROOT:-$(cd "$DEPLOY_ROOT/.." && pwd)}"
 CONTROL_PLANE_DIR="${ENVPILOT_CONTROL_PLANE_DIR:-$WORKSPACE_ROOT/control-plane}"
 FRONTEND_DIR="${ENVPILOT_FRONTEND_DIR:-$WORKSPACE_ROOT/frontend}"
+AGENT_DIR="${ENVPILOT_AGENT_DIR:-$WORKSPACE_ROOT/agent}"
+RUNNER_DIR="${ENVPILOT_RUNNER_DIR:-$WORKSPACE_ROOT/runner}"
 
 PROFILE="${MINIKUBE_PROFILE:-envpilot}"
 NAMESPACE="${ENVPILOT_NAMESPACE:-envpilot}"
@@ -30,6 +32,8 @@ for bin in minikube kubectl helm docker; do
 done
 [[ -f "$CONTROL_PLANE_DIR/Dockerfile" ]] || { echo "ERROR: control-plane repo not found at $CONTROL_PLANE_DIR" >&2; exit 1; }
 [[ -f "$FRONTEND_DIR/Dockerfile" ]]      || { echo "ERROR: frontend repo not found at $FRONTEND_DIR" >&2; exit 1; }
+[[ -f "$AGENT_DIR/Dockerfile" ]]         || { echo "ERROR: agent repo not found at $AGENT_DIR" >&2; exit 1; }
+[[ -f "$RUNNER_DIR/Dockerfile" ]]        || { echo "ERROR: runner repo not found at $RUNNER_DIR" >&2; exit 1; }
 
 # --- cluster ---------------------------------------------------------------
 if minikube -p "$PROFILE" status >/dev/null 2>&1; then
@@ -52,6 +56,12 @@ docker build -t envpilot/api:local "$CONTROL_PLANE_DIR"
 
 log "Building frontend image envpilot/frontend:local from $FRONTEND_DIR"
 docker build -t envpilot/frontend:local "$FRONTEND_DIR"
+
+log "Building agent image envpilot/agent:local from $AGENT_DIR"
+docker build -t envpilot/agent:local "$AGENT_DIR"
+
+log "Building runner image envpilot/runner:local from $RUNNER_DIR"
+docker build -t envpilot/runner:local "$RUNNER_DIR"
 
 # --- deploy ----------------------------------------------------------------
 log "Installing helm release '$RELEASE' into namespace '$NAMESPACE'"
@@ -76,9 +86,10 @@ cat <<EOF
 
 EnvPilot control plane is deployed.
 
-Note: the agent and runner services are not installed here — their repos do not
-yet ship a Dockerfile. For the full stack against a real registry use
-scripts/envpilot-clean-install.sh.
+Local agent and runner images are available as envpilot/agent:local and
+envpilot/runner:local. Install them with their Helm charts only after generating
+per-project bootstrap tokens; scripts/envpilot-clean-install.sh installs the
+full authenticated stack from published GHCR images.
 
 Access option 1 (port-forward, simplest):
   kubectl --context $PROFILE -n $NAMESPACE port-forward svc/envpilot-control-plane 8080:8080
