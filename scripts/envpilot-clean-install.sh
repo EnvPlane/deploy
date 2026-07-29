@@ -153,11 +153,12 @@ create_bootstrap_secrets() {
     -d "{\"deploymentMode\":\"${DEPLOYMENT_MODE}\",\"clusterId\":\"${CLUSTER_ID}\",\"runnerNamespace\":\"${RUNNER_NAMESPACE}\",\"releaseName\":\"${RUNNER_RELEASE_NAME}\"}" | jq -r '.bootstrapSecretCommand')"
   registration_token="$(printf '%s' "${cmd}" | sed -n 's/.*--from-literal=token="\([^"]*\)".*/\1/p')"
   project_config_token="$(printf '%s' "${cmd}" | sed -n 's/.*--from-literal=project-config-token="\([^"]*\)".*/\1/p')"
-  if [[ -z "${registration_token}" || -z "${project_config_token}" || "${registration_token}" == "[masked]" || "${project_config_token}" == "[masked]" ]]; then
-    if kubectl get secret envpilot-runner-bootstrap --namespace "${NAMESPACE}" >/dev/null 2>&1; then
-      echo "runner bootstrap tokens are masked by control-plane; keeping existing envpilot-runner-bootstrap secret"
-      return 0
-    fi
+  if [[ "${registration_token}" == "[masked]" || "${project_config_token}" == "[masked]" ]]; then
+    echo "runner bootstrap credentials are masked by control-plane; refusing to create or update envpilot-runner-bootstrap" >&2
+    echo "rotate the credentials explicitly in the Bootstrap wizard (or POST $(api_url)/api/projects/${PROJECT_ID}/bootstrap-session/runner-deployment-instructions/rotate with the same runner identity and a reason such as wrong_cluster), then rerun this installer" >&2
+    exit 2
+  fi
+  if [[ -z "${registration_token}" || -z "${project_config_token}" ]]; then
     echo "failed to extract runner bootstrap tokens from control-plane response" >&2
     exit 1
   fi
