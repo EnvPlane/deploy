@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Make a local EnvPilot control plane reachable from an agent installed in a
 # different minikube profile. The script also publishes the checked-out agent
-# chart to the local Helm client and transfers the local API/agent image to the
-# target profile.
+# chart to the local Helm client and transfers the local control-plane, Agent,
+# and Runner images to the target profile.
 #
 # Usage:
 #   ./scripts/minikube-agent-access.sh start <target-profile>
@@ -69,10 +69,13 @@ helm package "$CHART_DIR" --destination "$ACCESS_DIR" >/dev/null
 chart_archive="$(find "$ACCESS_DIR" -maxdepth 1 -type f -name 'envpilot-agent-*.tgz' -print -quit)"
 [[ -n "$chart_archive" && -f "$chart_archive" ]] || die "agent chart package was not created"
 
-log "Copying envpilot/api:local to minikube profile '$target_profile'"
-image_archive="$ACCESS_DIR/envpilot-api-local.tar"
-minikube -p "$CONTROL_PROFILE" image save envpilot/api:local "$image_archive"
-minikube -p "$target_profile" image load "$image_archive"
+for image in envpilot/api:local envpilot/agent:local envpilot/runner:local; do
+  image_file="$(printf '%s' "$image" | tr '/:' '__')"
+  image_archive="$ACCESS_DIR/${image_file}.tar"
+  log "Copying $image to minikube profile '$target_profile'"
+  minikube -p "$CONTROL_PROFILE" image save "$image" "$image_archive"
+  minikube -p "$target_profile" image load "$image_archive"
+done
 
 stop_process "$port_forward_pid"
 stop_process "$chart_server_pid"

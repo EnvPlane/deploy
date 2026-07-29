@@ -1,0 +1,6 @@
+apiVersion: v2
+name: envpilot-e2e-workload
+description: Minimal healthy workload used only by the local two-minikube EnvPilot E2E fixture.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

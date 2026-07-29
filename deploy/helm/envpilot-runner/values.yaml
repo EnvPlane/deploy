@@ -93,6 +93,10 @@ rbac:
     readSecrets: false
   featureEnvWriter:
     enabled: true
+    # Helm v3 persists release state in Secrets. Keep this enabled for a
+    # functional Helm Direct runner; permission is limited to each configured
+    # feature-environment namespace, never granted cluster-wide.
+    helmReleaseStorage: true
     # Writer mode makes feature namespace write permissions explicit.
     # releaseNamespace: least-privilege default; writer Role/RoleBinding is
     #   rendered only in the Helm release namespace.

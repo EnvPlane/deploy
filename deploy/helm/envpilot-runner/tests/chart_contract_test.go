@@ -67,6 +67,7 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 		"rbac.featureEnvWriter.generatedNamespaces",
 		"rbac.featureEnvWriter.allowNetworkPolicies",
 		"rbac.featureEnvWriter.allowFluxResources",
+		"rbac.featureEnvWriter.helmReleaseStorage",
 		"rbac.secretManager.enabled",
 	} {
 		if !strings.Contains(rbacText, expected) {
@@ -205,8 +206,8 @@ func TestRunnerChartDefaultRBACIsLeastPrivilege(t *testing.T) {
 	if writerDoc == "" {
 		t.Fatalf("feature-env-writer Role not found")
 	}
-	if docHasAnyResource(writerDoc, "secrets") {
-		t.Fatalf("feature-env-writer must not manage secrets by default:\n%s", writerDoc)
+	if !docHasAnyResource(writerDoc, "secrets") || !docHasAnyVerb(writerDoc, `"create"`, `"delete"`) {
+		t.Fatalf("feature-env-writer must manage namespace-scoped Helm release secrets:\n%s", writerDoc)
 	}
 	if docHasAnyResource(writerDoc, "networkpolicies", "helmreleases", "kustomizations", "gitrepositories") {
 		t.Fatalf("feature-env-writer optional capabilities must be disabled by default:\n%s", writerDoc)

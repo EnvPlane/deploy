@@ -1,0 +1,12 @@
+# This chart intentionally has no application credentials or external service
+# dependencies. The pause image is small and commonly cached by minikube; set
+# image.repository/tag if the target cluster uses a private mirror.
+image:
+  repository: registry.k8s.io/pause
+  tag: "3.10"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  port: 80

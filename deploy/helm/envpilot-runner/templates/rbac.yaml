@@ -25,6 +25,15 @@ rules:
       - limitranges
       - persistentvolumeclaims
     verbs: ["get","list","watch","create","update","patch","delete"]
+  {{- if $root.Values.rbac.featureEnvWriter.helmReleaseStorage }}
+  # Helm v3 stores release state as Secrets in the release namespace. This is
+  # deliberately namespace-scoped: the runner needs these writes to install,
+  # upgrade and remove only the releases it owns there.
+  - apiGroups: [""]
+    resources:
+      - secrets
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  {{- end }}
   - apiGroups: ["apps"]
     resources:
       - deployments

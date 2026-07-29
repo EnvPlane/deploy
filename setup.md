@@ -213,9 +213,10 @@ Then generate the commands in the wizard and run them unchanged, in order:
 2. Run the sensitive bootstrap Secret command once.
 3. Run the Helm command. It repeats the preflight before installing.
 
-The helper transfers `envpilot/api:local` to the target profile, serves the
-packaged `envpilot-agent` chart on `127.0.0.1:18081` for Helm, and keeps the
-API port-forward alive. Stop it only after the agent reports `connected`:
+The helper transfers `envpilot/api:local`, `envpilot/agent:local`, and
+`envpilot/runner:local` to the target profile, serves the packaged
+`envpilot-agent` chart on `127.0.0.1:18081` for Helm, and keeps the API
+port-forward alive. Stop it only after the agent reports `connected`:
 
 ```sh
 ./scripts/minikube-agent-access.sh stop
@@ -249,6 +250,61 @@ Expected secure behavior:
 - Runner config fetch accepts bearer project config token only.
 - Project config token is one-time use.
 - Runner heartbeat uses `runnerAuthToken`, not registration token.
+
+## Local two-minikube successful-environment fixture
+
+Use the fixture below to verify the positive Helm Direct path without weakening
+the server-side deploy-readiness gate. It creates or repairs a disposable
+project, a healthy base namespace, an Agent and a Runner in the target profile.
+It then performs SCM validation, a real resource scan, runner-side chart
+preflight, compile, environment creation, target-cluster Helm verification, and
+cleanup of the environment/release. The project, Agent, Runner and base
+namespace remain so the fixture is fast to rerun.
+
+```sh
+# minikube-up builds envpilot/api:local, envpilot/agent:local and
+# envpilot/runner:local in the envpilot profile.
+./scripts/minikube-up.sh
+minikube start -p bethunder-local
+
+# Export a short-lived GitHub or GitLab token only for this command. The script
+# sends it to validate-scm and does not store it in the project/session.
+export ENVPILOT_E2E_SCM_TOKEN='...'
+./scripts/minikube-environment-e2e.sh
+unset ENVPILOT_E2E_SCM_TOKEN
+```
+
+The default path submits the same public `POST /api/v1/environments` request as
+the UI. To additionally run the real Playwright UI flow, first make the
+frontend reachable to the local browser and set its base URL:
+
+```sh
+ENVPILOT_E2E_SCM_TOKEN='...' \
+ENVPILOT_E2E_USE_UI=true \
+ENVPILOT_E2E_UI_BASE_URL=http://envpilot.local \
+./scripts/minikube-environment-e2e.sh
+```
+
+The default fixture uses GitLab app branch `develop` and GitOps branch `main`.
+Override `ENVPILOT_E2E_APP_REPOSITORY_URL`,
+`ENVPILOT_E2E_GITOPS_REPOSITORY_URL`, their branch variables, and
+`ENVPILOT_E2E_SCM_PROVIDER` for another accessible pair of repositories. The
+target runner resolves the local chart through
+`http://host.minikube.internal:18082`; keep the script running until it
+finishes. No external chart registry is required because the script packages
+the committed `envpilot-e2e-workload` chart and transfers the locally built
+Agent/Runner images into the target profile.
+
+For diagnostics, retain the generated environment with:
+
+```sh
+ENVPILOT_E2E_SCM_TOKEN='...' ./scripts/minikube-environment-e2e.sh --keep-environment
+```
+
+Do not add SCM, runner registration, or project-config tokens to values files,
+shell history, or the fixture project. The script obtains one-time runtime
+credentials from the control-plane API, writes them directly into target-cluster
+Secrets, and only records safe status/fingerprint metadata in EnvPilot.
 
 ## Create demo environment
 
