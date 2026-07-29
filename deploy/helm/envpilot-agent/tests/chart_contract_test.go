@@ -210,9 +210,9 @@ func TestAgentChartRendersDefaultAuthPersistencePVC(t *testing.T) {
 	rendered := string(output)
 	for _, expected := range []string{
 		"kind: PersistentVolumeClaim",
-		`name: envpilot-agent-chart-auth`,
+		`name: envpilot-agent-auth`,
 		`storageClassName: "gp2"`,
-		`claimName: "envpilot-agent-chart-auth"`,
+		`claimName: "envpilot-agent-auth"`,
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)

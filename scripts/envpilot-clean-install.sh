@@ -67,8 +67,8 @@ clean_namespace() {
   helm uninstall "${AGENT_RELEASE}" -n "${NAMESPACE}" --ignore-not-found || true
   helm uninstall "${CONTROL_PLANE_RELEASE}" -n "${NAMESPACE}" --ignore-not-found || true
   kubectl delete namespace "${NAMESPACE}" --ignore-not-found --wait=true
-  kubectl delete clusterrole "${AGENT_RELEASE}-envpilot-agent-chart" "${RUNNER_RELEASE}-envpilot-runner-chart-discovery-reader" --ignore-not-found || true
-  kubectl delete clusterrolebinding "${AGENT_RELEASE}-envpilot-agent-chart" "${RUNNER_RELEASE}-envpilot-runner-chart-discovery-reader" --ignore-not-found || true
+  kubectl delete clusterrole "${AGENT_RELEASE}-envpilot-agent" "${AGENT_RELEASE}-envpilot-agent-chart" "${RUNNER_RELEASE}-envpilot-runner-chart-discovery-reader" --ignore-not-found || true
+  kubectl delete clusterrolebinding "${AGENT_RELEASE}-envpilot-agent" "${AGENT_RELEASE}-envpilot-agent-chart" "${RUNNER_RELEASE}-envpilot-runner-chart-discovery-reader" --ignore-not-found || true
 }
 
 create_namespace_and_pull_secret() {
@@ -190,7 +190,7 @@ install_agent() {
   helm upgrade --install "${AGENT_RELEASE}" "${CHART_DIR}/envpilot-agent" \
     --namespace "${NAMESPACE}" \
     "${helm_set_args[@]}"
-  kubectl rollout status "deployment/envpilot-agent-chart" -n "${NAMESPACE}" --timeout=240s
+  kubectl rollout status "deployment/envpilot-agent" -n "${NAMESPACE}" --timeout=240s
 }
 
 install_runner() {

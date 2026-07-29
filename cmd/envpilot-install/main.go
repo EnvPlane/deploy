@@ -191,6 +191,7 @@ func clean(ctx context.Context, cfg config) error {
 		_ = runCmd(ctx, "kubectl", "delete", "pvc", "-n", cfg.Namespace, "--ignore-not-found",
 			"data-"+cfg.ControlPlaneRel+"-control-plane-postgres-0",
 			"data-"+cfg.ControlPlaneRel+"-control-plane-redis-0",
+			cfg.AgentRel+"-envpilot-agent-auth",
 			cfg.AgentRel+"-envpilot-agent-chart-auth",
 			cfg.RunnerRel+"-envpilot-runner-chart-auth",
 		)
@@ -202,8 +203,8 @@ func clean(ctx context.Context, cfg config) error {
 	} else {
 		_ = runCmd(ctx, "kubectl", "delete", "namespace", cfg.Namespace, "--ignore-not-found", "--wait=true")
 	}
-	_ = runCmd(ctx, "kubectl", "delete", "clusterrole", cfg.AgentRel+"-envpilot-agent-chart", cfg.RunnerRel+"-envpilot-runner-chart-discovery-reader", "--ignore-not-found")
-	_ = runCmd(ctx, "kubectl", "delete", "clusterrolebinding", cfg.AgentRel+"-envpilot-agent-chart", cfg.RunnerRel+"-envpilot-runner-chart-discovery-reader", "--ignore-not-found")
+	_ = runCmd(ctx, "kubectl", "delete", "clusterrole", cfg.AgentRel+"-envpilot-agent", cfg.AgentRel+"-envpilot-agent-chart", cfg.RunnerRel+"-envpilot-runner-chart-discovery-reader", "--ignore-not-found")
+	_ = runCmd(ctx, "kubectl", "delete", "clusterrolebinding", cfg.AgentRel+"-envpilot-agent", cfg.AgentRel+"-envpilot-agent-chart", cfg.RunnerRel+"-envpilot-runner-chart-discovery-reader", "--ignore-not-found")
 	return nil
 }
 
@@ -375,7 +376,7 @@ func installAgent(ctx context.Context, cfg config) error {
 	if err := runCmd(ctx, "helm", args...); err != nil {
 		return err
 	}
-	return runCmd(ctx, "kubectl", "rollout", "status", "deployment/envpilot-agent-chart", "-n", cfg.Namespace, "--timeout", timeoutArg(cfg))
+	return runCmd(ctx, "kubectl", "rollout", "status", "deployment/envpilot-agent", "-n", cfg.Namespace, "--timeout", timeoutArg(cfg))
 }
 
 func installRunner(ctx context.Context, cfg config) error {

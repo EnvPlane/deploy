@@ -191,6 +191,52 @@ Expected secure behavior:
 
 Agent auth token persistence should be enabled for restart-safe deployments.
 
+### Local minikube: install an agent in a second profile
+
+`envpilot.local` is a host-only ingress name. It must not be used as an agent
+control-plane URL from a different minikube profile. The local deployment
+instead publishes a chart archive to the Helm client and exposes the API at
+`host.minikube.internal:18080` for target-cluster pods.
+
+After `scripts/minikube-up.sh` has deployed the control-plane profile, start a
+second profile and prepare the local gateway:
+
+```sh
+minikube start -p envpilot-agent-e2e
+./scripts/minikube-agent-access.sh start envpilot-agent-e2e
+kubectl config use-context envpilot-agent-e2e
+```
+
+Then generate the commands in the wizard and run them unchanged, in order:
+
+1. The connectivity preflight must return successfully from the target cluster.
+2. Run the sensitive bootstrap Secret command once.
+3. Run the Helm command. It repeats the preflight before installing.
+
+The helper transfers `envpilot/api:local` to the target profile, serves the
+packaged `envpilot-agent` chart on `127.0.0.1:18081` for Helm, and keeps the
+API port-forward alive. Stop it only after the agent reports `connected`:
+
+```sh
+./scripts/minikube-agent-access.sh stop
+```
+
+To execute the exact command copied from the wizard as a repeatable smoke test:
+
+```sh
+ENVPILOT_AGENT_HELM_COMMAND='kubectl run ... && helm upgrade ...' \
+  ./scripts/minikube-agent-e2e.sh envpilot-agent-e2e
+```
+
+For non-local installations set these control-plane environment variables to a
+published OCI chart and an address reachable from agent pods:
+
+```text
+ENVPILOT_AGENT_HELM_CHART_REF=oci://ghcr.io/envpilot/envpilot-agent
+ENVPILOT_AGENT_HELM_CHART_VERSION=0.1.0
+ENVPILOT_AGENT_CONTROL_PLANE_URL=https://envpilot.example.com
+```
+
 ## Runner bootstrap
 
 Generate runner deployment instructions for the project.

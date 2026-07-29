@@ -20,6 +20,17 @@ frontend:
 
 imagePullSecrets: []
 
+# The browser reaches the control plane through envpilot.local, but pods in a
+# second minikube profile cannot. scripts/minikube-agent-access.sh exposes the
+# API on this host gateway and serves the packaged local agent chart.
+env:
+  ENVPILOT_AGENT_CONTROL_PLANE_URL: "http://host.minikube.internal:18080"
+  ENVPILOT_AGENT_HELM_CHART_REF: "http://127.0.0.1:18081/envpilot-agent-0.1.0.tgz"
+  ENVPILOT_AGENT_HELM_CHART_VERSION: ""
+  ENVPILOT_AGENT_IMAGE_REPOSITORY: "envpilot/api"
+  ENVPILOT_AGENT_IMAGE_TAG: "local"
+  ENVPILOT_AGENT_IMAGE_PULL_POLICY: "Never"
+
 ingress:
   enabled: true
   domain: envpilot.local

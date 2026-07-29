@@ -56,14 +56,20 @@ docker build -t envpilot/frontend:local "$FRONTEND_DIR"
 # --- deploy ----------------------------------------------------------------
 log "Installing helm release '$RELEASE' into namespace '$NAMESPACE'"
 helm upgrade --install "$RELEASE" "$CHART" \
+	--kube-context "$PROFILE" \
   --namespace "$NAMESPACE" --create-namespace \
   -f "$VALUES" \
   --wait --timeout 10m
 
+# Local images retain the :local tag. Helm does not change the pod template
+# when only the image bytes change, so force the workloads to pick up the
+# newly built images on every local rebuild.
+kubectl --context "$PROFILE" -n "$NAMESPACE" rollout restart deployment/envpilot-control-plane deployment/envpilot-control-plane-frontend
+
 log "Waiting for rollout"
-kubectl -n "$NAMESPACE" rollout status deployment/envpilot-control-plane --timeout=5m
-kubectl -n "$NAMESPACE" rollout status deployment/envpilot-control-plane-frontend --timeout=5m
-kubectl -n "$NAMESPACE" get pods,svc,ingress,pvc
+kubectl --context "$PROFILE" -n "$NAMESPACE" rollout status deployment/envpilot-control-plane --timeout=5m
+kubectl --context "$PROFILE" -n "$NAMESPACE" rollout status deployment/envpilot-control-plane-frontend --timeout=5m
+kubectl --context "$PROFILE" -n "$NAMESPACE" get pods,svc,ingress,pvc
 
 # --- access ----------------------------------------------------------------
 cat <<EOF
@@ -75,7 +81,7 @@ yet ship a Dockerfile. For the full stack against a real registry use
 scripts/envpilot-clean-install.sh.
 
 Access option 1 (port-forward, simplest):
-  kubectl -n $NAMESPACE port-forward svc/envpilot-control-plane 8080:8080
+  kubectl --context $PROFILE -n $NAMESPACE port-forward svc/envpilot-control-plane 8080:8080
   open http://localhost:8080
 
 Access option 2 (ingress):
