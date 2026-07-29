@@ -35,6 +35,12 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		"- namespaces",
 		"- kustomizations",
 		"- helmreleases",
+		"- ingressclasses",
+		"- customresourcedefinitions",
+		"- storageclasses",
+		"- networking.k8s.io",
+		"- apiextensions.k8s.io",
+		"- storage.k8s.io",
 		"- get",
 		"- list",
 		"- watch",
@@ -114,6 +120,26 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 	} {
 		if !strings.Contains(cronJobText, expected) {
 			t.Fatalf("ttl cleanup cronjob template does not contain %q", expected)
+		}
+	}
+}
+
+func TestAgentChartGrantsEveryCapabilityScannerRead(t *testing.T) {
+	rbac, err := os.ReadFile("../templates/rbac.yaml")
+	if err != nil {
+		t.Fatalf("read rbac template: %v", err)
+	}
+	rbacText := string(rbac)
+
+	// Keep this in sync with KubernetesNamespaceSource capability discovery.
+	// These endpoints are cluster-scoped, but the agent only needs read access.
+	for _, rule := range []string{
+		"apiGroups:\n      - networking.k8s.io\n    resources:\n      - ingresses\n      - networkpolicies\n      - ingressclasses\n    verbs:\n      - get\n      - list\n      - watch",
+		"apiGroups:\n      - apiextensions.k8s.io\n    resources:\n      - customresourcedefinitions\n    verbs:\n      - get\n      - list\n      - watch",
+		"apiGroups:\n      - storage.k8s.io\n    resources:\n      - storageclasses\n    verbs:\n      - get\n      - list\n      - watch",
+	} {
+		if !strings.Contains(rbacText, rule) {
+			t.Fatalf("capability scanner RBAC rule is missing or not read-only:\n%s", rule)
 		}
 	}
 }
