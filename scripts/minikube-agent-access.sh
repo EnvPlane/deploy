@@ -66,8 +66,8 @@ rm -f "$ACCESS_DIR/envpilot-agent-"*.tgz
 
 log "Packaging the local agent chart"
 helm package "$CHART_DIR" --destination "$ACCESS_DIR" >/dev/null
-chart_archive="$ACCESS_DIR/envpilot-agent-0.1.0.tgz"
-[[ -f "$chart_archive" ]] || die "expected packaged chart at $chart_archive"
+chart_archive="$(find "$ACCESS_DIR" -maxdepth 1 -type f -name 'envpilot-agent-*.tgz' -print -quit)"
+[[ -n "$chart_archive" && -f "$chart_archive" ]] || die "agent chart package was not created"
 
 log "Copying envpilot/api:local to minikube profile '$target_profile'"
 image_archive="$ACCESS_DIR/envpilot-api-local.tar"
