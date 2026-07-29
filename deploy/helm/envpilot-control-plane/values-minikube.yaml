@@ -1,0 +1,45 @@
+# Overrides for running the EnvPilot control plane in a local minikube cluster.
+# Images are built directly inside the minikube docker daemon, so nothing is
+# pulled from GHCR and no image pull secret is required.
+
+image:
+  repository: envpilot/api
+  tag: local
+  pullPolicy: Never
+
+frontend:
+  enabled: true
+  image:
+    repository: envpilot/frontend
+    tag: local
+    pullPolicy: Never
+  env:
+    # Same-origin: the ingress routes /api, /auth and /webhook to the API service.
+    NEXT_PUBLIC_ENVPILOT_API_BASE_URL: ""
+    ENVPILOT_API_INTERNAL_URL: "http://envpilot-control-plane:8080"
+
+imagePullSecrets: []
+
+ingress:
+  enabled: true
+  domain: envpilot.local
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  tls:
+    enabled: false
+
+dependencyWait:
+  enabled: true
+
+postgres:
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClassName: standard
+
+redis:
+  persistence:
+    enabled: true
+    size: 512Mi
+    storageClassName: standard

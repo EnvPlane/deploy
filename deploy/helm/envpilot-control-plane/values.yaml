@@ -67,10 +67,16 @@ service:
 
 ingress:
   enabled: true
-  domain: envpilot.local
-  className: ""
+  domain: envpilot.bethunder.ca
+  className: alb
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    alb.ingress.kubernetes.io/group.name: "envpilot-control-plane-public"
+    alb.ingress.kubernetes.io/group.order: "10"
+    alb.ingress.kubernetes.io/healthcheck-path: /api/v1/health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    external-dns.alpha.kubernetes.io/hostname: envpilot.bethunder.ca
   certManager:
     enabled: false
     clusterIssuer: selfsigned-cluster-issuer
@@ -87,7 +93,7 @@ ingress:
         - path: /
           pathType: Prefix
   tls:
-    enabled: true
+    enabled: false
     secretName: envpilot-tls
     hosts: []
 
@@ -160,6 +166,9 @@ serviceAccount:
   create: true
   annotations: {}
   name: ""
+
+rbac:
+  create: true
 
 podAnnotations: {}
 podLabels: {}

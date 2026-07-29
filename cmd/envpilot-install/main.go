@@ -49,6 +49,10 @@ type config struct {
 	TolerationValue    string
 	TolerationEffect   string
 	ProductID          string
+	ProductChartPath   string
+	LoadBalancerType   string
+	EndpointDomain     string
+	IngressAnnotations string
 	AppRepositoryID    string
 	GitOpsRepositoryID string
 	PostgresPassword   string
@@ -101,7 +105,11 @@ func parseFlags() config {
 	flag.StringVar(&cfg.TolerationKey, "toleration-key", getenv("ENVPILOT_TOLERATION_KEY", ""), "optional toleration key")
 	flag.StringVar(&cfg.TolerationValue, "toleration-value", getenv("ENVPILOT_TOLERATION_VALUE", ""), "optional toleration value")
 	flag.StringVar(&cfg.TolerationEffect, "toleration-effect", getenv("ENVPILOT_TOLERATION_EFFECT", "NoSchedule"), "optional toleration effect")
-	flag.StringVar(&cfg.ProductID, "product-id", getenv("ENVPILOT_PRODUCT_ID", "default"), "seeded EnvPilot product id")
+	flag.StringVar(&cfg.ProductID, "product-id", getenv("ENVPILOT_PRODUCT_ID", "envpilot-smoke"), "seeded EnvPilot product id")
+	flag.StringVar(&cfg.ProductChartPath, "product-chart-path", getenv("ENVPILOT_PRODUCT_CHART_PATH", "/var/lib/envpilot/charts/envpilot-smoke"), "seeded Helm direct chart path")
+	flag.StringVar(&cfg.LoadBalancerType, "load-balancer-type", getenv("ENVPILOT_LOAD_BALANCER_TYPE", "alb"), "seeded ingress load balancer type / ingress class")
+	flag.StringVar(&cfg.EndpointDomain, "endpoint-domain", getenv("ENVPILOT_ENDPOINT_DOMAIN", "tools.int"), "seeded endpoint DNS root")
+	flag.StringVar(&cfg.IngressAnnotations, "ingress-annotations-json", getenv("ENVPILOT_INGRESS_ANNOTATIONS_JSON", "{}"), "seeded ingress annotations as JSON object")
 	flag.StringVar(&cfg.AppRepositoryID, "app-repository-id", getenv("ENVPILOT_APP_REPOSITORY_ID", "envpilot/app"), "seeded app repository id")
 	flag.StringVar(&cfg.GitOpsRepositoryID, "gitops-repository-id", getenv("ENVPILOT_GITOPS_REPOSITORY_ID", "envpilot/gitops"), "seeded GitOps repository id")
 	flag.StringVar(&cfg.PostgresPassword, "postgres-password", getenv("ENVPILOT_POSTGRES_PASSWORD", "envpilot"), "control-plane Postgres password")
@@ -226,6 +234,16 @@ func installControlPlane(ctx context.Context, cfg config) error {
 	args = appendSets(args, "frontend.image.repository", cfg.FrontendImage, "frontend.image.tag", cfg.ImageTag, "frontend.image.pullPolicy", cfg.ImagePullPolicy)
 	args = appendSets(args, "imagePullSecrets[0].name", cfg.GHCRSecret, "dependencyWait.enabled", "true")
 	args = appendSets(args, "env.ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS", "120", "env.ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS", "2")
+	if domain := strings.Trim(strings.ToLower(strings.TrimSpace(cfg.EndpointDomain)), "."); domain != "" {
+		args = appendSets(args, "ingress.domain", "envpilot."+domain)
+	}
+	if className := strings.TrimSpace(cfg.LoadBalancerType); className != "" {
+		args = appendSets(args, "ingress.className", className)
+	}
+	args = appendSets(args, "ingress.tls.enabled", "false")
+	if strings.TrimSpace(cfg.IngressAnnotations) != "" {
+		args = append(args, "--set-json", "ingress.annotations="+cfg.IngressAnnotations)
+	}
 	if cfg.StorageClass != "" {
 		args = appendSets(args, "postgres.persistence.storageClassName", cfg.StorageClass, "redis.persistence.storageClassName", cfg.StorageClass)
 	}
@@ -241,6 +259,12 @@ func installControlPlane(ctx context.Context, cfg config) error {
 }
 
 func seedProject(ctx context.Context, cfg config) error {
+	ingressAnnotations := map[string]any{}
+	if strings.TrimSpace(cfg.IngressAnnotations) != "" {
+		if err := json.Unmarshal([]byte(cfg.IngressAnnotations), &ingressAnnotations); err != nil {
+			return fmt.Errorf("parse ingress annotations json: %w", err)
+		}
+	}
 	projectPayload, err := json.Marshal(map[string]any{
 		"id":                    cfg.ProjectID,
 		"name":                  cfg.ProjectID,
@@ -267,7 +291,7 @@ func seedProject(ctx context.Context, cfg config) error {
 				"namespaceMode":      "per_environment",
 				"namespacePattern":   "envpilot-{{ .EnvironmentID }}",
 				"releaseNamePattern": "envpilot-{{ .EnvironmentID }}",
-				"chartPath":          "./deploy/helm/envpilot-runner",
+				"chartPath":          cfg.ProductChartPath,
 				"timeout":            "5m",
 				"wait":               true,
 				"createNamespace":    true,
@@ -276,6 +300,11 @@ func seedProject(ctx context.Context, cfg config) error {
 		"cluster": map[string]any{
 			"id":        cfg.ClusterID,
 			"namespace": cfg.Namespace,
+		},
+		"variables": map[string]any{
+			"loadBalancerType":   cfg.LoadBalancerType,
+			"endpointDomain":     cfg.EndpointDomain,
+			"ingressAnnotations": ingressAnnotations,
 		},
 	})
 	if err != nil {

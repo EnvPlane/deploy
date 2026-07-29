@@ -33,7 +33,11 @@ deployment:
   backend: helm_direct
 
 project:
-  productId: default
+  productId: envpilot-smoke
+  productChartPath: /var/lib/envpilot/charts/envpilot-smoke
+  loadBalancerType: alb
+  endpointDomain: tools.int
+  ingressAnnotations: {}
   appRepositoryId: envpilot/app
   gitopsRepositoryId: envpilot/gitops
 

@@ -96,6 +96,14 @@ spec:
             - {{ printf "%ds" (int .Values.install.timeoutSeconds) | quote }}
             - -product-id
             - {{ .Values.project.productId | quote }}
+            - -product-chart-path
+            - {{ .Values.project.productChartPath | quote }}
+            - -load-balancer-type
+            - {{ .Values.project.loadBalancerType | quote }}
+            - -endpoint-domain
+            - {{ .Values.project.endpointDomain | quote }}
+            - -ingress-annotations-json
+            - {{ toJson .Values.project.ingressAnnotations | quote }}
             - -app-repository-id
             - {{ .Values.project.appRepositoryId | quote }}
             - -gitops-repository-id

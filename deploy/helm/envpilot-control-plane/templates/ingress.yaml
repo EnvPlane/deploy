@@ -40,7 +40,8 @@ spec:
                 port:
                   name: http
           {{- end }}
-          {{- range .paths }}
+          {{- $hostPaths := default (list (dict "path" "/" "pathType" "Prefix")) .paths }}
+          {{- range $hostPaths }}
           - path: {{ .path }}
             pathType: {{ .pathType }}
             backend:
