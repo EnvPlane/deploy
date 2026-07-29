@@ -87,7 +87,16 @@ ttlCleanup:
 
 watch:
   namespaces: []
-  namespaceLabelSelector: app.kubernetes.io/managed-by=envpilot
+  # Empty means discover every namespace except excludeNamespaces. Set a
+  # Kubernetes label selector only when discovery must be narrowed explicitly.
+  namespaceLabelSelector: ""
+  excludeNamespaces:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - local-path-storage
+    - ingress-nginx
+    - envpilot-system
   resyncSeconds: 30
 
 flux:

@@ -65,6 +65,8 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		"ENVPILOT_AGENT_AUTH_TOKEN_FILE",
 		"ENVPILOT_AGENT_AUTH_TOKEN",
 		"ENVPILOT_AGENT_REGISTRATION_TOKEN",
+		"ENVPILOT_WATCH_NAMESPACE_SELECTOR",
+		"ENVPILOT_WATCH_EXCLUDED_NAMESPACES",
 		"volumeMounts:",
 		"volumes:",
 		"authPersistence",
@@ -89,6 +91,7 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		"agent-install-check",
 		"ENVPILOT_CLUSTER_ID",
 		"ENVPILOT_CONTROL_PLANE_URL",
+		"ENVPILOT_WATCH_EXCLUDED_NAMESPACES",
 		"activeDeadlineSeconds",
 		"installValidation.timeoutSeconds",
 	} {
@@ -131,6 +134,24 @@ func TestAgentChartUsesPersistentImage(t *testing.T) {
 	}
 	if strings.Contains(valuesText, "ttl"+".sh") {
 		t.Fatalf("values.yaml must not reference temporary image registries")
+	}
+}
+
+func TestAgentChartDefaultsToAllNonProtectedNamespaces(t *testing.T) {
+	values, err := os.ReadFile("../values.yaml")
+	if err != nil {
+		t.Fatalf("read values: %v", err)
+	}
+	valuesText := string(values)
+	for _, expected := range []string{
+		`namespaceLabelSelector: ""`,
+		"excludeNamespaces:",
+		"- kube-system",
+		"- envpilot-system",
+	} {
+		if !strings.Contains(valuesText, expected) {
+			t.Fatalf("values.yaml does not contain %q", expected)
+		}
 	}
 }
 

@@ -56,6 +56,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: ENVPILOT_WATCH_NAMESPACE_SELECTOR
               value: {{ .Values.watch.namespaceLabelSelector | quote }}
+            - name: ENVPILOT_WATCH_EXCLUDED_NAMESPACES
+              value: {{ join "," .Values.watch.excludeNamespaces | quote }}
             - name: ENVPILOT_AGENT_REPORT_TIMEOUT_SECONDS
               value: {{ .Values.controlPlane.reportTimeoutSeconds | quote }}
             - name: ENVPILOT_AGENT_HEARTBEAT_SECONDS
