@@ -139,6 +139,34 @@ func TestRunnerChartDocumentsAuthPersistenceSecret(t *testing.T) {
 	}
 }
 
+func TestRunnerChartMountsPrivateOCIRegistryCredentialsForHelmPreflight(t *testing.T) {
+	values, err := os.ReadFile("../values.yaml")
+	if err != nil {
+		t.Fatalf("read values: %v", err)
+	}
+	for _, expected := range []string{"helmRegistry:", "configKey:", "mountPath:", "only authenticate Kubernetes image pulls"} {
+		if !strings.Contains(string(values), expected) {
+			t.Fatalf("values.yaml must document private Helm registry configuration %q", expected)
+		}
+	}
+	rendered := renderRunnerChart(t,
+		"--set", "helmRegistry.existingSecret=private-oci-auth",
+		"--set", "helmRegistry.configKey=.dockerconfigjson",
+	)
+	for _, expected := range []string{
+		"name: HELM_REGISTRY_CONFIG",
+		"value: \"/var/run/envpilot/helm-registry/config.json\"",
+		"name: helm-registry-config",
+		"secretName: \"private-oci-auth\"",
+		"key: \".dockerconfigjson\"",
+		"path: config.json",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("private OCI registry preflight configuration missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestRunnerChartDefaultRBACIsLeastPrivilege(t *testing.T) {
 	rendered := renderRunnerChart(t)
 	docs := renderedDocs(rendered)

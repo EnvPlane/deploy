@@ -52,6 +52,14 @@ controlPlane:
     existingSecret: ""
     runnerAuthTokenKey: runner-auth-token
 
+# Helm uses its own registry credentials for private OCI charts; imagePullSecrets
+# only authenticate Kubernetes image pulls. Point this at a dockerconfigjson or
+# Helm registry-config Secret already available in the runner namespace.
+helmRegistry:
+  existingSecret: ""
+  configKey: .dockerconfigjson
+  mountPath: /var/run/envpilot/helm-registry
+
 dependencyWait:
   enabled: true
   healthPath: /api/v1/health
