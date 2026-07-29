@@ -91,11 +91,14 @@ watch:
   # Kubernetes label selector only when discovery must be narrowed explicitly.
   namespaceLabelSelector: ""
   excludeNamespaces:
+    - default
     - kube-system
     - kube-public
     - kube-node-lease
     - local-path-storage
     - ingress-nginx
+    - kubernetes-dashboard
+    - envpilot
     - envpilot-system
   resyncSeconds: 30
 

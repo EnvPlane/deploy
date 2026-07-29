@@ -146,7 +146,9 @@ func TestAgentChartDefaultsToAllNonProtectedNamespaces(t *testing.T) {
 	for _, expected := range []string{
 		`namespaceLabelSelector: ""`,
 		"excludeNamespaces:",
+		"- default",
 		"- kube-system",
+		"- kubernetes-dashboard",
 		"- envpilot-system",
 	} {
 		if !strings.Contains(valuesText, expected) {
