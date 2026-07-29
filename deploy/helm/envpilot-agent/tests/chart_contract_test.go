@@ -183,6 +183,37 @@ func TestAgentChartDefaultsToAllNonProtectedNamespaces(t *testing.T) {
 	}
 }
 
+func TestAgentChartUpgradeChangesCapabilityDiscoveryConfiguration(t *testing.T) {
+	render := func(selector string) string {
+		t.Helper()
+		cmd := exec.Command("helm", "template", "envpilot-agent", "..",
+			"--set", "controlPlane.existingSecret=envpilot-agent-bootstrap",
+			"--set", "bootstrap.projectId=project-1",
+			"--set", "watch.namespaceLabelSelector="+selector,
+		)
+		cmd.Dir = "."
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("helm template selector %q failed: %v\n%s", selector, err, output)
+		}
+		return string(output)
+	}
+
+	selectorA := render("team=a")
+	selectorB := render("team=b")
+	if selectorA == selectorB {
+		t.Fatal("selector upgrade must change the rendered pod template and restart the agent")
+	}
+	for _, expected := range []string{`name: ENVPILOT_WATCH_NAMESPACE_SELECTOR`, `value: "team=a"`} {
+		if !strings.Contains(selectorA, expected) {
+			t.Fatalf("selector A render missing %q:\n%s", expected, selectorA)
+		}
+	}
+	if !strings.Contains(selectorB, `value: "team=b"`) {
+		t.Fatalf("selector B render missing updated selector:\n%s", selectorB)
+	}
+}
+
 func TestAgentChartRejectsPlaintextBootstrapTokenWithoutExplicitOverride(t *testing.T) {
 	commandArgs := []string{"template", "envpilot-agent", "..", "--set", "controlPlane.token=raw-agent-token"}
 	cmd := exec.Command("helm", commandArgs...)
