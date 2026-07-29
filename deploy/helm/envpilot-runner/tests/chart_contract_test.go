@@ -134,7 +134,7 @@ func TestRunnerChartDocumentsAuthPersistenceSecret(t *testing.T) {
 	if !strings.Contains(rendered, "kind: PersistentVolumeClaim") {
 		t.Fatalf("rendered chart missing default auth persistence PVC:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "claimName: \"envpilot-runner-chart-auth\"") {
+	if !strings.Contains(rendered, "claimName: \"envpilot-runner-envpilot-runner-chart-auth\"") {
 		t.Fatalf("rendered chart missing auth PVC claim reference:\n%s", rendered)
 	}
 }
@@ -194,10 +194,10 @@ func TestRunnerChartPreconfiguredNamespaceWriterRendersPerNamespace(t *testing.T
 	)
 	docs := renderedDocs(rendered)
 	for _, namespace := range []string{"envpilot-pr-123", "envpilot-pr-124"} {
-		if role := findResourceDoc(docs, "Role", "envpilot-runner-chart-feature-env-writer", namespace); role == "" {
+		if role := findResourceDoc(docs, "Role", "envpilot-runner-envpilot-runner-chart-feature-env-writer", namespace); role == "" {
 			t.Fatalf("feature-env-writer Role not found in namespace %s:\n%s", namespace, rendered)
 		}
-		binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-chart-feature-env-writer", namespace)
+		binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-envpilot-runner-chart-feature-env-writer", namespace)
 		if binding == "" {
 			t.Fatalf("feature-env-writer RoleBinding not found in namespace %s:\n%s", namespace, rendered)
 		}
@@ -205,7 +205,7 @@ func TestRunnerChartPreconfiguredNamespaceWriterRendersPerNamespace(t *testing.T
 			t.Fatalf("feature namespace writer RoleBinding must bind the release service account:\n%s", binding)
 		}
 	}
-	if role := findResourceDoc(docs, "Role", "envpilot-runner-chart-feature-env-writer", "envpilot-system"); role != "" {
+	if role := findResourceDoc(docs, "Role", "envpilot-runner-envpilot-runner-chart-feature-env-writer", "envpilot-system"); role != "" {
 		t.Fatalf("preconfigured namespace mode must not also render release-namespace writer Role:\n%s", role)
 	}
 }
@@ -217,10 +217,10 @@ func TestRunnerChartGeneratedFeatureNamespaceWriterRendersPerNamespace(t *testin
 		"--set", "rbac.featureEnvWriter.generatedNamespaces[0]=envpilot-pr-201",
 	)
 	docs := renderedDocs(rendered)
-	if role := findResourceDoc(docs, "Role", "envpilot-runner-chart-feature-env-writer", "envpilot-pr-201"); role == "" {
+	if role := findResourceDoc(docs, "Role", "envpilot-runner-envpilot-runner-chart-feature-env-writer", "envpilot-pr-201"); role == "" {
 		t.Fatalf("generated feature namespace writer Role not found:\n%s", rendered)
 	}
-	if binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-chart-feature-env-writer", "envpilot-pr-201"); binding == "" {
+	if binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-envpilot-runner-chart-feature-env-writer", "envpilot-pr-201"); binding == "" {
 		t.Fatalf("generated feature namespace writer RoleBinding not found:\n%s", rendered)
 	}
 }
@@ -310,9 +310,76 @@ func TestRunnerChartAllowsPlaintextBootstrapTokensOnlyWithExplicitOverride(t *te
 	}
 }
 
+func TestRunnerChartRendersIndependentResourcesForTwoReleases(t *testing.T) {
+	unsafeBootstrapTokens := []string{
+		"--set", "controlPlane.allowUnsafePlaintextTokens=true",
+		"--set", "controlPlane.token=registration-token",
+		"--set", "controlPlane.configToken=config-token",
+	}
+	releaseA := renderRunnerChartWithRelease(t, "runner-a", unsafeBootstrapTokens...)
+	releaseB := renderRunnerChartWithRelease(t, "runner-b", unsafeBootstrapTokens...)
+	resourcesA := renderedResourceKeys(releaseA)
+	resourcesB := renderedResourceKeys(releaseB)
+	if len(resourcesA) == 0 || len(resourcesB) == 0 {
+		t.Fatalf("expected both releases to render Kubernetes resources")
+	}
+	for resource := range resourcesA {
+		if _, collision := resourcesB[resource]; collision {
+			t.Fatalf("runner releases must not render colliding resources: %s", resource)
+		}
+	}
+	for _, expected := range []string{
+		"runner-a-envpilot-runner-chart",
+		"runner-a-envpilot-runner-chart-auth",
+		"runner-a-envpilot-runner-chart-token",
+		"runner-a-envpilot-runner-chart-discovery-reader",
+		"runner-a-envpilot-runner-chart-feature-env-writer",
+	} {
+		if !strings.Contains(releaseA, expected) {
+			t.Fatalf("runner-a render missing release-aware resource %q:\n%s", expected, releaseA)
+		}
+	}
+	for _, expected := range []string{
+		"runner-b-envpilot-runner-chart",
+		"runner-b-envpilot-runner-chart-auth",
+		"runner-b-envpilot-runner-chart-token",
+		"runner-b-envpilot-runner-chart-discovery-reader",
+		"runner-b-envpilot-runner-chart-feature-env-writer",
+	} {
+		if !strings.Contains(releaseB, expected) {
+			t.Fatalf("runner-b render missing release-aware resource %q:\n%s", expected, releaseB)
+		}
+	}
+}
+
+func TestRunnerChartLegacyFullnameOverridePreservesExistingAuthPVC(t *testing.T) {
+	legacy := renderRunnerChartWithRelease(t, "envpilot-runner", "--set", "fullnameOverride=envpilot-runner-chart")
+	docs := renderedDocs(legacy)
+	for _, kind := range []string{"Deployment", "ServiceAccount"} {
+		if resource := findResourceDoc(docs, kind, "envpilot-runner-chart", ""); resource == "" {
+			t.Fatalf("legacy fullname override must preserve %s name:\n%s", kind, legacy)
+		}
+	}
+	if pvc := findResourceDoc(docs, "PersistentVolumeClaim", "envpilot-runner-chart-auth", ""); pvc == "" {
+		t.Fatalf("legacy fullname override must preserve existing auth PVC:\n%s", legacy)
+	}
+	notes, err := os.ReadFile("../templates/NOTES.txt")
+	if err != nil {
+		t.Fatalf("read chart notes: %v", err)
+	}
+	if !strings.Contains(string(notes), "fullnameOverride=envpilot-runner-chart") {
+		t.Fatalf("chart notes must document the legacy fullname migration")
+	}
+}
+
 func renderRunnerChart(t *testing.T, args ...string) string {
 	t.Helper()
-	commandArgs := append([]string{"template", "envpilot-runner", "..", "--namespace", "envpilot-system"}, args...)
+	return renderRunnerChartWithRelease(t, "envpilot-runner", args...)
+}
+
+func renderRunnerChartWithRelease(t *testing.T, releaseName string, args ...string) string {
+	t.Helper()
+	commandArgs := append([]string{"template", releaseName, "..", "--namespace", "envpilot-system"}, args...)
 	cmd := exec.Command("helm", commandArgs...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
@@ -320,6 +387,39 @@ func renderRunnerChart(t *testing.T, args ...string) string {
 		t.Fatalf("helm template failed: %v\n%s", err, string(output))
 	}
 	return string(output)
+}
+
+func renderedResourceKeys(rendered string) map[string]struct{} {
+	resources := make(map[string]struct{})
+	for _, doc := range renderedDocs(rendered) {
+		kind := ""
+		name := ""
+		lines := strings.Split(doc, "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "kind: ") {
+				kind = strings.TrimSpace(strings.TrimPrefix(line, "kind: "))
+			}
+		}
+		for index, line := range lines {
+			if line != "metadata:" || index+1 >= len(lines) {
+				continue
+			}
+			for _, metadataLine := range lines[index+1:] {
+				if !strings.HasPrefix(metadataLine, "  ") {
+					break
+				}
+				if strings.HasPrefix(metadataLine, "  name: ") {
+					name = strings.Trim(strings.TrimSpace(strings.TrimPrefix(metadataLine, "  name: ")), `"`)
+					break
+				}
+			}
+			break
+		}
+		if kind != "" && name != "" {
+			resources[kind+"/"+name] = struct{}{}
+		}
+	}
+	return resources
 }
 
 func renderedDocs(rendered string) []string {

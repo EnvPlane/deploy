@@ -12,6 +12,10 @@ args:
   - runner
 
 nameOverride: ""
+# New releases use <release>-<chart> resource names. Existing releases from
+# chart <= 0.1.2 used the fixed name envpilot-runner-chart; preserve their
+# Deployment, RBAC and auth PVC on upgrade with:
+#   --set fullnameOverride=envpilot-runner-chart
 fullnameOverride: ""
 
 controlPlane:
