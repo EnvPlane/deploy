@@ -410,7 +410,9 @@ func installAgent(ctx context.Context, cfg config) error {
 }
 
 func installRunner(ctx context.Context, cfg config) error {
-	args := []string{"upgrade", "--install", cfg.RunnerRel, filepath.Join(cfg.ChartsDir, "envpilot-runner"), "--namespace", cfg.Namespace}
+	// The runner chart derives its Deployment name from the Helm release. Let
+	// Helm wait for readiness instead of hard-coding a pre-release-aware name.
+	args := []string{"upgrade", "--install", "--wait", "--timeout", timeoutArg(cfg), cfg.RunnerRel, filepath.Join(cfg.ChartsDir, "envpilot-runner"), "--namespace", cfg.Namespace}
 	args = appendSets(args, "image.repository", cfg.RunnerImage, "image.tag", cfg.RunnerImageTag, "image.pullPolicy", cfg.ImagePullPolicy)
 	args = appendSets(args, "imagePullSecrets[0].name", cfg.GHCRSecret, "controlPlane.url", serviceURL(cfg), "controlPlane.existingSecret", "envpilot-runner-bootstrap")
 	args = appendSets(args, "project.id", cfg.ProjectID, "project.clusterId", cfg.ClusterID, "project.runnerId", cfg.RunnerID, "project.namespace", cfg.RunnerNamespace, "project.deploymentMode", cfg.DeploymentMode)
@@ -424,7 +426,7 @@ func installRunner(ctx context.Context, cfg config) error {
 	if err := runCmd(ctx, "helm", args...); err != nil {
 		return err
 	}
-	return runCmd(ctx, "kubectl", "rollout", "status", "deployment/envpilot-runner-chart", "-n", cfg.Namespace, "--timeout", timeoutArg(cfg))
+	return nil
 }
 
 func createAgentToken(ctx context.Context, cfg config) (string, error) {

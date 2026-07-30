@@ -47,7 +47,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.8",
+		"ghcr.io/envpilot/install:0.1.9",
 		"- -mode",
 		`- "clean-install"`,
 		"- -cluster-id",
