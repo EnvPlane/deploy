@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Immutable release version, for example 0.1.4
+        description: Immutable release version, for example 0.1.5
         required: true
         type: string
 

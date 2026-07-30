@@ -6,7 +6,7 @@ Install:
 
 ```sh
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.4 \
+  --version 0.1.5 \
   --namespace default \
   --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
   --set storage.className=gp2 \

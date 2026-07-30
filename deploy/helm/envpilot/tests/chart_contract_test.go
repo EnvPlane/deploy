@@ -45,7 +45,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.4",
+		"ghcr.io/envpilot/install:0.1.5",
 		"- -mode",
 		`- "clean-install"`,
 		"- -cluster-id",
@@ -113,5 +113,37 @@ func TestInitChartSupportsLegacyCommonImageTagOverride(t *testing.T) {
 	rendered := string(output)
 	if strings.Count(rendered, `- "0.1.99"`) != 4 {
 		t.Fatalf("legacy images.tag override must apply to every component image tag:\n%s", rendered)
+	}
+}
+
+func TestInitChartRendersWithLegacyScalarImageValues(t *testing.T) {
+	cmd := exec.Command(
+		"helm", "template", "envpilot", "..",
+		"--set", "install.clusterId=test-cluster",
+		"--set", "registry.token=ghp_test",
+		"--set-string", "images.api=ghcr.io/envpilot/api",
+		"--set-string", "images.frontend=ghcr.io/envpilot/frontend",
+		"--set-string", "images.agent=ghcr.io/envpilot/agent",
+		"--set-string", "images.runner=ghcr.io/envpilot/runner",
+		"--set-string", "images.tag=0.1.0",
+	)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("legacy scalar image values must remain upgrade-compatible: %v\n%s", err, string(output))
+	}
+	rendered := string(output)
+	for _, expected := range []string{
+		`- "ghcr.io/envpilot/api"`,
+		`- "ghcr.io/envpilot/frontend"`,
+		`- "ghcr.io/envpilot/agent"`,
+		`- "ghcr.io/envpilot/runner"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered legacy chart missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Count(rendered, `- "0.1.0"`) != 4 {
+		t.Fatalf("legacy images.tag must apply to every component tag:\n%s", rendered)
 	}
 }

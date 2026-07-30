@@ -79,21 +79,21 @@ spec:
             - -ghcr-username
             - {{ .Values.registry.username | quote }}
             - -api-image
-            - {{ .Values.images.api.repository | quote }}
+            - {{- if kindIs "string" .Values.images.api }} {{ .Values.images.api | quote }} {{- else }} {{ .Values.images.api.repository | quote }} {{- end }}
             - -frontend-image
-            - {{ .Values.images.frontend.repository | quote }}
+            - {{- if kindIs "string" .Values.images.frontend }} {{ .Values.images.frontend | quote }} {{- else }} {{ .Values.images.frontend.repository | quote }} {{- end }}
             - -agent-image
-            - {{ .Values.images.agent.repository | quote }}
+            - {{- if kindIs "string" .Values.images.agent }} {{ .Values.images.agent | quote }} {{- else }} {{ .Values.images.agent.repository | quote }} {{- end }}
             - -runner-image
-            - {{ .Values.images.runner.repository | quote }}
+            - {{- if kindIs "string" .Values.images.runner }} {{ .Values.images.runner | quote }} {{- else }} {{ .Values.images.runner.repository | quote }} {{- end }}
             - -api-image-tag
-            - {{ default .Values.images.api.tag .Values.images.tag | quote }}
+            - {{- if .Values.images.tag }} {{ .Values.images.tag | quote }} {{- else }} {{ .Values.images.api.tag | quote }} {{- end }}
             - -frontend-image-tag
-            - {{ default .Values.images.frontend.tag .Values.images.tag | quote }}
+            - {{- if .Values.images.tag }} {{ .Values.images.tag | quote }} {{- else }} {{ .Values.images.frontend.tag | quote }} {{- end }}
             - -agent-image-tag
-            - {{ default .Values.images.agent.tag .Values.images.tag | quote }}
+            - {{- if .Values.images.tag }} {{ .Values.images.tag | quote }} {{- else }} {{ .Values.images.agent.tag | quote }} {{- end }}
             - -runner-image-tag
-            - {{ default .Values.images.runner.tag .Values.images.tag | quote }}
+            - {{- if .Values.images.tag }} {{ .Values.images.tag | quote }} {{- else }} {{ .Values.images.runner.tag | quote }} {{- end }}
             - -image-pull-policy
             - {{ .Values.images.pullPolicy | quote }}
             - -charts-dir
