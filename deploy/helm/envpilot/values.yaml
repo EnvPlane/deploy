@@ -56,7 +56,7 @@ images:
   tag: ""
   api:
     repository: ghcr.io/envpilot/api
-    tag: "0.1.4"
+    tag: "0.1.5"
   frontend:
     repository: ghcr.io/envpilot/frontend
     tag: "0.1.5"

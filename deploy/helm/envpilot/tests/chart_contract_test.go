@@ -55,7 +55,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"- -deployment-backend",
 		`- "helm_direct"`,
 		"- -api-image-tag",
-		`- "0.1.4"`,
+		`- "0.1.5"`,
 		"- -frontend-image-tag",
 		`- "0.1.5"`,
 		"- -agent-image-tag",
