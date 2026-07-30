@@ -1,0 +1,15 @@
+# Published-artifact compatibility contract. Project component persistence and
+# fresh bootstrap SCM defaults require API 0.1.4 or newer.
+version: "0.1.10"
+runnerCommandAPI:
+  version: "1"
+  requestHeader: X-EnvPilot-Runner-Command-API-Version
+images:
+  api: ghcr.io/envpilot/api:0.1.4
+  frontend: ghcr.io/envpilot/frontend:0.1.5
+  agent: ghcr.io/envpilot/agent:0.1.1
+  runner: ghcr.io/envpilot/runner:0.1.3
+charts:
+  controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.1.2
+  agent: oci://ghcr.io/envpilot/envpilot-agent:0.1.1
+  runner: oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.5
