@@ -48,3 +48,25 @@ Deployment backend:
 
 - As an image pull secret in the bootstrap namespace so Kubernetes can pull `ghcr.io/envpilot/install`.
 - As `ENVPILOT_GHCR_TOKEN` inside the Job so `envpilot-install` can create the target namespace pull secret for EnvPilot application images.
+
+## Local minikube install
+
+For Docker-based minikube, do not advertise an Ingress hostname such as
+`envpilot.local` unless a host-reachable ingress controller is part of the local
+cluster setup. The supported one-chart local path exposes the Next.js frontend
+as a NodePort; it proxies `/api` to the in-cluster control-plane service.
+
+```sh
+helm install envpilot oci://ghcr.io/envpilot/envpilot \
+  --version 0.1.10 \
+  --namespace default \
+  --set install.clusterId=envpilot \
+  --set access.mode=nodeport \
+  --set registry.token="$GHCR_TOKEN"
+
+minikube -p envpilot service -n envpilot envpilot-control-plane-frontend --url
+```
+
+The second command prints the supported browser endpoint. Keep it running if
+minikube reports that it is creating a tunnel. The install does not require an
+Ingress addon, `/etc/hosts` entry, or a separate `minikube tunnel`.

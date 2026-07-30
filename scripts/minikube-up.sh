@@ -22,7 +22,6 @@ NAMESPACE="${ENVPILOT_NAMESPACE:-envpilot}"
 RELEASE="${ENVPILOT_RELEASE:-envpilot}"
 CHART="$DEPLOY_ROOT/deploy/helm/envpilot-control-plane"
 VALUES="$CHART/values-minikube.yaml"
-DOMAIN="envpilot.local"
 
 log() { printf '\n==> %s\n' "$*"; }
 
@@ -42,9 +41,6 @@ else
   log "Starting minikube profile '$PROFILE'"
   minikube start -p "$PROFILE" --cpus=4 --memory=6g
 fi
-
-log "Enabling ingress addon"
-minikube -p "$PROFILE" addons enable ingress
 
 # --- images ----------------------------------------------------------------
 # Build inside the minikube docker daemon so no registry is needed.
@@ -91,14 +87,12 @@ envpilot/runner:local. Install them with their Helm charts only after generating
 per-project bootstrap tokens; scripts/envpilot-clean-install.sh installs the
 full authenticated stack from published GHCR images.
 
-Access option 1 (port-forward, simplest):
-  kubectl --context $PROFILE -n $NAMESPACE port-forward svc/envpilot-control-plane 8080:8080
-  open http://localhost:8080
+Browser access (supported for the Docker minikube driver):
+  minikube -p $PROFILE service -n $NAMESPACE ${RELEASE}-control-plane-frontend --url
 
-Access option 2 (ingress):
-  1. echo "127.0.0.1 $DOMAIN" | sudo tee -a /etc/hosts
-  2. minikube -p $PROFILE tunnel      # keep running in a separate terminal
-  3. open http://$DOMAIN
+The command prints the frontend URL and keeps running when minikube needs a
+tunnel. The frontend proxies /api to the in-cluster control plane. No ingress
+addon, /etc/hosts entry, or separate minikube tunnel is required.
 
 Verify:    ./scripts/minikube-verify.sh
 Tear down: ./scripts/minikube-down.sh

@@ -9,3 +9,17 @@ Target namespace:
 Important:
   Install job namespace: {{ .Values.installer.namespace }}
   Target namespace: {{ .Values.install.namespace }}
+
+{{- if eq .Values.access.mode "nodeport" }}
+
+Local minikube access (keeps the command running when the Docker driver needs a tunnel):
+  minikube -p <profile> service -n {{ .Values.install.namespace }} {{ .Values.install.controlPlaneRelease }}-control-plane-frontend --url
+
+This frontend endpoint proxies /api to the control-plane service. Do not point
+envpilot.local at 127.0.0.1 unless you deliberately install an Ingress controller
+and expose it to the host.
+{{- else }}
+
+Ingress access:
+  https://envpilot.{{ .Values.project.endpointDomain }}
+{{- end }}

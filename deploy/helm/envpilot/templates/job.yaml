@@ -112,6 +112,12 @@ spec:
             - {{ .Values.project.loadBalancerType | quote }}
             - -endpoint-domain
             - {{ .Values.project.endpointDomain | quote }}
+            - -frontend-access-mode
+            - {{ .Values.access.mode | quote }}
+            {{- if .Values.access.nodePort }}
+            - -frontend-node-port
+            - {{ .Values.access.nodePort | quote }}
+            {{- end }}
             - -ingress-annotations-json
             - {{ toJson .Values.project.ingressAnnotations | quote }}
             - -app-repository-id

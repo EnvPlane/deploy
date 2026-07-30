@@ -14,9 +14,11 @@ frontend:
     tag: local
     pullPolicy: Never
   env:
-    # Same-origin: the ingress routes /api, /auth and /webhook to the API service.
+    # Same-origin: the frontend rewrites /api to the in-cluster API service.
     NEXT_PUBLIC_ENVPILOT_API_BASE_URL: ""
     ENVPILOT_API_INTERNAL_URL: "http://envpilot-control-plane:8080"
+  service:
+    type: NodePort
 
 imagePullSecrets: []
 
@@ -31,14 +33,11 @@ env:
   ENVPILOT_AGENT_IMAGE_TAG: "local"
   ENVPILOT_AGENT_IMAGE_PULL_POLICY: "Never"
 
+# A Docker-driver minikube ingress is not automatically reachable at
+# envpilot.local from the host. scripts/minikube-up.sh therefore exposes the
+# frontend through NodePort and prints the matching `minikube service` command.
 ingress:
-  enabled: true
-  domain: envpilot.local
-  className: nginx
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-  tls:
-    enabled: false
+  enabled: false
 
 dependencyWait:
   enabled: true

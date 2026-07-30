@@ -101,6 +101,26 @@ func TestControlPlaneChartRendersHTTPSIngressForFrontendAndAPI(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartRendersNodePortFrontendWithoutIngress(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "ingress.enabled=false",
+		"--set", "frontend.service.type=NodePort",
+		"--set", "frontend.service.nodePort=31080",
+	)
+	if strings.Contains(rendered, "kind: Ingress") {
+		t.Fatalf("nodeport access must not render an ingress:\n%s", rendered)
+	}
+	for _, expected := range []string{
+		"name: envpilot-control-plane-frontend",
+		"type: NodePort",
+		"nodePort: 31080",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestControlPlaneChartWiresPostgresRedisAndMigrations(t *testing.T) {
 	rendered := renderControlPlaneChart(t)
 	for _, expected := range []string{

@@ -59,6 +59,8 @@ type config struct {
 	LoadBalancerType   string
 	EndpointDomain     string
 	IngressAnnotations string
+	FrontendAccessMode string
+	FrontendNodePort   int
 	AppRepositoryID    string
 	GitOpsRepositoryID string
 	PostgresPassword   string
@@ -127,6 +129,8 @@ func parseFlags() config {
 	flag.StringVar(&cfg.LoadBalancerType, "load-balancer-type", getenv("ENVPILOT_LOAD_BALANCER_TYPE", "alb"), "seeded ingress load balancer type / ingress class")
 	flag.StringVar(&cfg.EndpointDomain, "endpoint-domain", getenv("ENVPILOT_ENDPOINT_DOMAIN", "tools.int"), "seeded endpoint DNS root")
 	flag.StringVar(&cfg.IngressAnnotations, "ingress-annotations-json", getenv("ENVPILOT_INGRESS_ANNOTATIONS_JSON", "{}"), "seeded ingress annotations as JSON object")
+	flag.StringVar(&cfg.FrontendAccessMode, "frontend-access-mode", getenv("ENVPILOT_FRONTEND_ACCESS_MODE", "ingress"), "control-plane frontend access mode: ingress or nodeport")
+	flag.IntVar(&cfg.FrontendNodePort, "frontend-node-port", getenvInt("ENVPILOT_FRONTEND_NODE_PORT", 0), "optional fixed NodePort when frontend-access-mode=nodeport")
 	flag.StringVar(&cfg.AppRepositoryID, "app-repository-id", getenv("ENVPILOT_APP_REPOSITORY_ID", "envpilot/app"), "seeded app repository id")
 	flag.StringVar(&cfg.GitOpsRepositoryID, "gitops-repository-id", getenv("ENVPILOT_GITOPS_REPOSITORY_ID", "envpilot/gitops"), "seeded GitOps repository id")
 	flag.StringVar(&cfg.PostgresPassword, "postgres-password", getenv("ENVPILOT_POSTGRES_PASSWORD", "envpilot"), "control-plane Postgres password")
@@ -147,6 +151,7 @@ func parseFlags() config {
 		cfg.RunnerID = cfg.ProjectID + "-runner"
 	}
 	cfg.DeploymentBackend = normalizeDeploymentBackend(cfg.DeploymentBackend)
+	cfg.FrontendAccessMode = normalizeFrontendAccessMode(cfg.FrontendAccessMode)
 	if cfg.RunnerNamespace == "" {
 		cfg.RunnerNamespace = cfg.Namespace
 	}
@@ -169,6 +174,9 @@ func run(ctx context.Context, cfg config) error {
 		}
 	}
 	if err := validateDeploymentBackend(cfg.DeploymentBackend); err != nil {
+		return err
+	}
+	if err := validateFrontendAccess(cfg); err != nil {
 		return err
 	}
 	if cfg.Mode == "clean-install" {
@@ -265,15 +273,23 @@ func installControlPlane(ctx context.Context, cfg config) error {
 	)
 	args = appendSets(args, "imagePullSecrets[0].name", cfg.GHCRSecret, "dependencyWait.enabled", "true")
 	args = appendSets(args, "env.ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS", "120", "env.ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS", "2")
-	if domain := strings.Trim(strings.ToLower(strings.TrimSpace(cfg.EndpointDomain)), "."); domain != "" {
-		args = appendSets(args, "ingress.domain", "envpilot."+domain)
-	}
-	if className := strings.TrimSpace(cfg.LoadBalancerType); className != "" {
-		args = appendSets(args, "ingress.className", className)
-	}
-	args = appendSets(args, "ingress.tls.enabled", "false")
-	if strings.TrimSpace(cfg.IngressAnnotations) != "" {
-		args = append(args, "--set-json", "ingress.annotations="+cfg.IngressAnnotations)
+	if cfg.FrontendAccessMode == "ingress" {
+		args = appendSets(args, "ingress.enabled", "true")
+		if domain := strings.Trim(strings.ToLower(strings.TrimSpace(cfg.EndpointDomain)), "."); domain != "" {
+			args = appendSets(args, "ingress.domain", "envpilot."+domain)
+		}
+		if className := strings.TrimSpace(cfg.LoadBalancerType); className != "" {
+			args = appendSets(args, "ingress.className", className)
+		}
+		args = appendSets(args, "ingress.tls.enabled", "false")
+		if strings.TrimSpace(cfg.IngressAnnotations) != "" {
+			args = append(args, "--set-json", "ingress.annotations="+cfg.IngressAnnotations)
+		}
+	} else {
+		args = appendSets(args, "ingress.enabled", "false", "frontend.service.type", "NodePort")
+		if cfg.FrontendNodePort != 0 {
+			args = appendSets(args, "frontend.service.nodePort", fmt.Sprintf("%d", cfg.FrontendNodePort))
+		}
 	}
 	if cfg.StorageClass != "" {
 		args = appendSets(args, "postgres.persistence.storageClassName", cfg.StorageClass, "redis.persistence.storageClassName", cfg.StorageClass)
@@ -579,6 +595,26 @@ func schedulingSets(prefix string, cfg config) []string {
 
 func serviceURL(cfg config) string {
 	return fmt.Sprintf("http://envpilot-control-plane.%s.svc.cluster.local:8080", cfg.Namespace)
+}
+
+func normalizeFrontendAccessMode(mode string) string {
+	return strings.ToLower(strings.TrimSpace(mode))
+}
+
+func validateFrontendAccess(cfg config) error {
+	switch cfg.FrontendAccessMode {
+	case "ingress":
+		if cfg.FrontendNodePort != 0 {
+			return errors.New("frontend node port requires --frontend-access-mode=nodeport")
+		}
+	case "nodeport":
+		if cfg.FrontendNodePort != 0 && (cfg.FrontendNodePort < 30000 || cfg.FrontendNodePort > 32767) {
+			return fmt.Errorf("frontend node port %d is outside the Kubernetes NodePort range 30000-32767", cfg.FrontendNodePort)
+		}
+	default:
+		return fmt.Errorf("unsupported frontend access mode %q: use ingress or nodeport", cfg.FrontendAccessMode)
+	}
+	return nil
 }
 
 func timeoutArg(cfg config) string { return fmt.Sprintf("%ds", int(cfg.Timeout.Seconds())) }

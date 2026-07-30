@@ -81,6 +81,26 @@ Follow progress:
 kubectl logs -n envpilot job/envpilot -f
 ```
 
+### Local minikube endpoint
+
+For a Docker-based local minikube profile, select the NodePort access contract
+instead of assuming `envpilot.local` is host-reachable:
+
+```sh
+helm install envpilot oci://ghcr.io/envpilot/envpilot \
+  --version 0.1.10 \
+  --namespace default \
+  --set install.clusterId=envpilot \
+  --set access.mode=nodeport \
+  --set registry.token="$GHCR_TOKEN"
+
+minikube -p envpilot service -n envpilot envpilot-control-plane-frontend --url
+```
+
+The returned frontend URL is the supported browser endpoint and proxies `/api`
+to the control plane. It requires neither an `/etc/hosts` entry nor
+`minikube tunnel`.
+
 By default:
 
 - Helm release namespace: `default`

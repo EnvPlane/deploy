@@ -15,6 +15,8 @@ frontend:
   service:
     type: ClusterIP
     port: 3000
+    # Set only for Service type NodePort. Leave empty for an allocated port.
+    nodePort: null
   env:
     NEXT_PUBLIC_ENVPILOT_API_BASE_URL: ""
   podAnnotations: {}

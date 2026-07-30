@@ -118,6 +118,39 @@ func TestInitChartSupportsDeploymentBackendSelection(t *testing.T) {
 	}
 }
 
+func TestInitChartSupportsNodePortFrontendAccess(t *testing.T) {
+	cmd := exec.Command(
+		"helm", "template", "envpilot", "..",
+		"--set", "install.clusterId=test-cluster",
+		"--set", "registry.token=ghp_test",
+		"--set", "access.mode=nodeport",
+		"--set", "access.nodePort=31080",
+	)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, string(output))
+	}
+	rendered := string(output)
+	for _, expected := range []string{
+		"- -frontend-access-mode",
+		`- "nodeport"`,
+		"- -frontend-node-port",
+		`- "31080"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
+		}
+	}
+	notes, err := os.ReadFile("../templates/NOTES.txt")
+	if err != nil {
+		t.Fatalf("read chart notes: %v", err)
+	}
+	if !strings.Contains(string(notes), "minikube -p <profile> service") {
+		t.Fatal("chart notes must document the supported local NodePort endpoint")
+	}
+}
+
 func TestInitChartSupportsLegacyCommonImageTagOverride(t *testing.T) {
 	cmd := exec.Command(
 		"helm", "template", "envpilot", "..",
