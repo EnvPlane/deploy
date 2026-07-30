@@ -42,6 +42,10 @@ type config struct {
 	AgentImage         string
 	RunnerImage        string
 	ImageTag           string
+	APIImageTag        string
+	FrontendImageTag   string
+	AgentImageTag      string
+	RunnerImageTag     string
 	ImagePullPolicy    string
 	StorageClass       string
 	NodeArch           string
@@ -98,7 +102,16 @@ func parseFlags() config {
 	flag.StringVar(&cfg.FrontendImage, "frontend-image", getenv("ENVPILOT_FRONTEND_IMAGE", "ghcr.io/envpilot/frontend"), "frontend image repository")
 	flag.StringVar(&cfg.AgentImage, "agent-image", getenv("ENVPILOT_AGENT_IMAGE", "ghcr.io/envpilot/agent"), "agent image repository")
 	flag.StringVar(&cfg.RunnerImage, "runner-image", getenv("ENVPILOT_RUNNER_IMAGE", "ghcr.io/envpilot/runner"), "runner image repository")
-	flag.StringVar(&cfg.ImageTag, "image-tag", getenv("ENVPILOT_IMAGE_TAG", "0.1.0"), "image tag")
+	legacyImageTag := getenv("ENVPILOT_IMAGE_TAG", "")
+	defaultImageTag := legacyImageTag
+	if defaultImageTag == "" {
+		defaultImageTag = "0.1.0"
+	}
+	flag.StringVar(&cfg.ImageTag, "image-tag", legacyImageTag, "deprecated common image tag; overrides all component image tags when set")
+	flag.StringVar(&cfg.APIImageTag, "api-image-tag", getenv("ENVPILOT_API_IMAGE_TAG", defaultImageTag), "API image tag")
+	flag.StringVar(&cfg.FrontendImageTag, "frontend-image-tag", getenv("ENVPILOT_FRONTEND_IMAGE_TAG", defaultImageTag), "frontend image tag")
+	flag.StringVar(&cfg.AgentImageTag, "agent-image-tag", getenv("ENVPILOT_AGENT_IMAGE_TAG", defaultImageTag), "agent image tag")
+	flag.StringVar(&cfg.RunnerImageTag, "runner-image-tag", getenv("ENVPILOT_RUNNER_IMAGE_TAG", defaultImageTag), "runner image tag")
 	flag.StringVar(&cfg.ImagePullPolicy, "image-pull-policy", getenv("ENVPILOT_IMAGE_PULL_POLICY", "Always"), "image pull policy")
 	flag.StringVar(&cfg.StorageClass, "storage-class", getenv("ENVPILOT_STORAGE_CLASS", ""), "storage class for PVCs")
 	flag.StringVar(&cfg.NodeArch, "node-arch", getenv("ENVPILOT_NODE_ARCH", ""), "optional kubernetes.io/arch node selector")
@@ -120,6 +133,12 @@ func parseFlags() config {
 	flag.BoolVar(&cfg.SeedProject, "seed-project", getenvBool("ENVPILOT_SEED_PROJECT", true), "seed minimal project/config before bootstrap")
 	flag.BoolVar(&cfg.PreserveNamespace, "preserve-namespace-cleanup", getenvBool("ENVPILOT_PRESERVE_NAMESPACE_CLEANUP", false), "clean releases and PVCs without deleting namespace")
 	flag.Parse()
+	if cfg.ImageTag != "" {
+		cfg.APIImageTag = cfg.ImageTag
+		cfg.FrontendImageTag = cfg.ImageTag
+		cfg.AgentImageTag = cfg.ImageTag
+		cfg.RunnerImageTag = cfg.ImageTag
+	}
 	if cfg.RunnerID == "" {
 		cfg.RunnerID = cfg.ProjectID + "-runner"
 	}
@@ -231,8 +250,8 @@ func createNamespaceAndRegistrySecret(ctx context.Context, cfg config) error {
 
 func installControlPlane(ctx context.Context, cfg config) error {
 	args := []string{"upgrade", "--install", cfg.ControlPlaneRel, filepath.Join(cfg.ChartsDir, "envpilot-control-plane"), "--namespace", cfg.Namespace}
-	args = appendSets(args, "image.repository", cfg.APIImage, "image.tag", cfg.ImageTag, "image.pullPolicy", cfg.ImagePullPolicy)
-	args = appendSets(args, "frontend.image.repository", cfg.FrontendImage, "frontend.image.tag", cfg.ImageTag, "frontend.image.pullPolicy", cfg.ImagePullPolicy)
+	args = appendSets(args, "image.repository", cfg.APIImage, "image.tag", cfg.APIImageTag, "image.pullPolicy", cfg.ImagePullPolicy)
+	args = appendSets(args, "frontend.image.repository", cfg.FrontendImage, "frontend.image.tag", cfg.FrontendImageTag, "frontend.image.pullPolicy", cfg.ImagePullPolicy)
 	args = appendSets(args, "imagePullSecrets[0].name", cfg.GHCRSecret, "dependencyWait.enabled", "true")
 	args = appendSets(args, "env.ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS", "120", "env.ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS", "2")
 	if domain := strings.Trim(strings.ToLower(strings.TrimSpace(cfg.EndpointDomain)), "."); domain != "" {
@@ -363,7 +382,7 @@ func createBootstrapSecrets(ctx context.Context, cfg config) error {
 
 func installAgent(ctx context.Context, cfg config) error {
 	args := []string{"upgrade", "--install", cfg.AgentRel, filepath.Join(cfg.ChartsDir, "envpilot-agent"), "--namespace", cfg.Namespace}
-	args = appendSets(args, "image.repository", cfg.AgentImage, "image.tag", cfg.ImageTag, "image.pullPolicy", cfg.ImagePullPolicy)
+	args = appendSets(args, "image.repository", cfg.AgentImage, "image.tag", cfg.AgentImageTag, "image.pullPolicy", cfg.ImagePullPolicy)
 	args = appendSets(args, "imagePullSecrets[0].name", cfg.GHCRSecret, "controlPlane.url", serviceURL(cfg), "controlPlane.existingSecret", "envpilot-agent-bootstrap")
 	args = appendSets(args, "cluster.id", cfg.ClusterID, "bootstrap.projectId", cfg.ProjectID, "agent.id", cfg.AgentID)
 	args = appendSets(args, "dependencyWait.enabled", "true", "dependencyWait.healthPath", "/api/v1/health", "agent.authPersistence.createClaim", "true")
@@ -381,7 +400,7 @@ func installAgent(ctx context.Context, cfg config) error {
 
 func installRunner(ctx context.Context, cfg config) error {
 	args := []string{"upgrade", "--install", cfg.RunnerRel, filepath.Join(cfg.ChartsDir, "envpilot-runner"), "--namespace", cfg.Namespace}
-	args = appendSets(args, "image.repository", cfg.RunnerImage, "image.tag", cfg.ImageTag, "image.pullPolicy", cfg.ImagePullPolicy)
+	args = appendSets(args, "image.repository", cfg.RunnerImage, "image.tag", cfg.RunnerImageTag, "image.pullPolicy", cfg.ImagePullPolicy)
 	args = appendSets(args, "imagePullSecrets[0].name", cfg.GHCRSecret, "controlPlane.url", serviceURL(cfg), "controlPlane.existingSecret", "envpilot-runner-bootstrap")
 	args = appendSets(args, "project.id", cfg.ProjectID, "project.clusterId", cfg.ClusterID, "project.runnerId", cfg.RunnerID, "project.namespace", cfg.RunnerNamespace, "project.deploymentMode", cfg.DeploymentMode)
 	args = appendSets(args, "project.configUrl", fmt.Sprintf("%s/api/v1/projects/%s/runner-config", serviceURL(cfg), cfg.ProjectID), "dependencyWait.enabled", "true", "dependencyWait.healthPath", "/api/v1/health")

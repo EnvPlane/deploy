@@ -6,7 +6,7 @@ Install:
 
 ```sh
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.0 \
+  --version 0.1.4 \
   --namespace default \
   --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
   --set storage.className=gp2 \
@@ -33,6 +33,10 @@ contains its own Job and cleans EnvPilot releases, PVCs, and bootstrap secrets
 inside it instead of deleting the namespace.
 
 The Job needs cluster-admin-equivalent permissions because it creates/deletes namespaces, installs Helm releases, manages cluster roles, and execs into Postgres to seed the first project.
+
+Published releases pin the API, frontend, Agent and Runner independently; do not
+override them with a single shared image tag. The compatibility set is recorded
+in `release/<chart-version>.yaml` in the deploy repository.
 
 Deployment backend:
 

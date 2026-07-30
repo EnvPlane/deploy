@@ -79,15 +79,21 @@ spec:
             - -ghcr-username
             - {{ .Values.registry.username | quote }}
             - -api-image
-            - {{ .Values.images.api | quote }}
+            - {{ .Values.images.api.repository | quote }}
             - -frontend-image
-            - {{ .Values.images.frontend | quote }}
+            - {{ .Values.images.frontend.repository | quote }}
             - -agent-image
-            - {{ .Values.images.agent | quote }}
+            - {{ .Values.images.agent.repository | quote }}
             - -runner-image
-            - {{ .Values.images.runner | quote }}
-            - -image-tag
-            - {{ .Values.images.tag | quote }}
+            - {{ .Values.images.runner.repository | quote }}
+            - -api-image-tag
+            - {{ default .Values.images.api.tag .Values.images.tag | quote }}
+            - -frontend-image-tag
+            - {{ default .Values.images.frontend.tag .Values.images.tag | quote }}
+            - -agent-image-tag
+            - {{ default .Values.images.agent.tag .Values.images.tag | quote }}
+            - -runner-image-tag
+            - {{ default .Values.images.runner.tag .Values.images.tag | quote }}
             - -image-pull-policy
             - {{ .Values.images.pullPolicy | quote }}
             - -charts-dir

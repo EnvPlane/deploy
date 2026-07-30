@@ -45,13 +45,21 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.0",
+		"ghcr.io/envpilot/install:0.1.4",
 		"- -mode",
 		`- "clean-install"`,
 		"- -cluster-id",
 		`- "test-cluster"`,
 		"- -deployment-backend",
 		`- "helm_direct"`,
+		"- -api-image-tag",
+		`- "0.1.3"`,
+		"- -frontend-image-tag",
+		`- "0.1.4"`,
+		"- -agent-image-tag",
+		`- "0.1.1"`,
+		"- -runner-image-tag",
+		`- "0.1.3"`,
 		"- -charts-dir",
 		`- "/opt/envpilot/helm"`,
 		"- -storage-class",
@@ -87,5 +95,23 @@ func TestInitChartSupportsDeploymentBackendSelection(t *testing.T) {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
 		}
+	}
+}
+
+func TestInitChartSupportsLegacyCommonImageTagOverride(t *testing.T) {
+	cmd := exec.Command(
+		"helm", "template", "envpilot", "..",
+		"--set", "install.clusterId=test-cluster",
+		"--set", "registry.token=ghp_test",
+		"--set", "images.tag=0.1.99",
+	)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, string(output))
+	}
+	rendered := string(output)
+	if strings.Count(rendered, `- "0.1.99"`) != 4 {
+		t.Fatalf("legacy images.tag override must apply to every component image tag:\n%s", rendered)
 	}
 }
