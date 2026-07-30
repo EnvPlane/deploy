@@ -84,6 +84,10 @@ spec:
             - {{- if kindIs "string" .Values.images.frontend }} {{ .Values.images.frontend | quote }} {{- else }} {{ .Values.images.frontend.repository | quote }} {{- end }}
             - -agent-image
             - {{- if kindIs "string" .Values.images.agent }} {{ .Values.images.agent | quote }} {{- else }} {{ .Values.images.agent.repository | quote }} {{- end }}
+            - -agent-helm-chart-ref
+            - {{ .Values.agentInstall.helmChartRef | quote }}
+            - -agent-helm-chart-version
+            - {{ .Values.agentInstall.helmChartVersion | quote }}
             - -runner-image
             - {{- if kindIs "string" .Values.images.runner }} {{ .Values.images.runner | quote }} {{- else }} {{ .Values.images.runner.repository | quote }} {{- end }}
             - -api-image-tag

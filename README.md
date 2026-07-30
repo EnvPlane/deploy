@@ -52,7 +52,7 @@ The installer uses `gh auth token` for GHCR unless `-ghcr-token` or
 EnvPilot is installed through one OCI Helm chart:
 
 ```text
-oci://ghcr.io/envpilot/envpilot:0.1.7
+oci://ghcr.io/envpilot/envpilot:0.1.8
 ```
 
 ## Enterprise one-chart install
@@ -64,7 +64,7 @@ creates bootstrap secrets, and installs the agent and runner.
 
 ```sh
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.7 \
+  --version 0.1.8 \
   --namespace default \
   --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
   --set storage.className=gp2 \

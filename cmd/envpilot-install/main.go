@@ -41,6 +41,8 @@ type config struct {
 	FrontendImage      string
 	AgentImage         string
 	RunnerImage        string
+	AgentHelmChartRef  string
+	AgentHelmChartVer  string
 	ImageTag           string
 	APIImageTag        string
 	FrontendImageTag   string
@@ -101,6 +103,8 @@ func parseFlags() config {
 	flag.StringVar(&cfg.APIImage, "api-image", getenv("ENVPILOT_API_IMAGE", "ghcr.io/envpilot/api"), "API image repository")
 	flag.StringVar(&cfg.FrontendImage, "frontend-image", getenv("ENVPILOT_FRONTEND_IMAGE", "ghcr.io/envpilot/frontend"), "frontend image repository")
 	flag.StringVar(&cfg.AgentImage, "agent-image", getenv("ENVPILOT_AGENT_IMAGE", "ghcr.io/envpilot/agent"), "agent image repository")
+	flag.StringVar(&cfg.AgentHelmChartRef, "agent-helm-chart-ref", getenv("ENVPILOT_AGENT_HELM_CHART_REF", "oci://ghcr.io/envpilot/envpilot-agent"), "published agent Helm chart reference")
+	flag.StringVar(&cfg.AgentHelmChartVer, "agent-helm-chart-version", getenv("ENVPILOT_AGENT_HELM_CHART_VERSION", "0.1.1"), "published agent Helm chart version")
 	flag.StringVar(&cfg.RunnerImage, "runner-image", getenv("ENVPILOT_RUNNER_IMAGE", "ghcr.io/envpilot/runner"), "runner image repository")
 	legacyImageTag := getenv("ENVPILOT_IMAGE_TAG", "")
 	defaultImageTag := legacyImageTag
@@ -252,6 +256,13 @@ func installControlPlane(ctx context.Context, cfg config) error {
 	args := []string{"upgrade", "--install", cfg.ControlPlaneRel, filepath.Join(cfg.ChartsDir, "envpilot-control-plane"), "--namespace", cfg.Namespace}
 	args = appendSets(args, "image.repository", cfg.APIImage, "image.tag", cfg.APIImageTag, "image.pullPolicy", cfg.ImagePullPolicy)
 	args = appendSets(args, "frontend.image.repository", cfg.FrontendImage, "frontend.image.tag", cfg.FrontendImageTag, "frontend.image.pullPolicy", cfg.ImagePullPolicy)
+	args = appendSets(args,
+		"env.ENVPILOT_AGENT_HELM_CHART_REF", cfg.AgentHelmChartRef,
+		"env.ENVPILOT_AGENT_HELM_CHART_VERSION", cfg.AgentHelmChartVer,
+		"env.ENVPILOT_AGENT_IMAGE_REPOSITORY", cfg.AgentImage,
+		"env.ENVPILOT_AGENT_IMAGE_TAG", cfg.AgentImageTag,
+		"env.ENVPILOT_AGENT_IMAGE_PULL_POLICY", cfg.ImagePullPolicy,
+	)
 	args = appendSets(args, "imagePullSecrets[0].name", cfg.GHCRSecret, "dependencyWait.enabled", "true")
 	args = appendSets(args, "env.ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS", "120", "env.ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS", "2")
 	if domain := strings.Trim(strings.ToLower(strings.TrimSpace(cfg.EndpointDomain)), "."); domain != "" {
