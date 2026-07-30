@@ -1,8 +1,12 @@
-{{- if and .Values.installer.createNamespace (not (lookup "v1" "Namespace" "" .Values.installer.namespace)) -}}
+{{- if .Values.installer.createNamespace -}}
 apiVersion: v1
 kind: Namespace
 metadata:
   name: {{ .Values.installer.namespace | quote }}
+  annotations:
+    # The installer operates in this namespace. A failed hook upgrade must
+    # never make Helm delete the control-plane namespace and its workloads.
+    helm.sh/resource-policy: keep
   labels:
     app.kubernetes.io/name: {{ include "envpilot.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}

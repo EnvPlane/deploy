@@ -12,6 +12,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"../Chart.yaml",
 		"../values.yaml",
 		"../templates/job.yaml",
+		"../templates/namespace.yaml",
 		"../templates/rbac.yaml",
 		"../templates/secret.yaml",
 		"../templates/image-pull-secret.yaml",
@@ -39,13 +40,14 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 	for _, expected := range []string{
 		"kind: Namespace",
 		`name: "envpilot"`,
+		`helm.sh/resource-policy: keep`,
 		"kind: Job",
 		`namespace: "envpilot"`,
 		`"helm.sh/hook": post-install,post-upgrade`,
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.6",
+		"ghcr.io/envpilot/install:0.1.7",
 		"- -mode",
 		`- "clean-install"`,
 		"- -cluster-id",
@@ -72,6 +74,20 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
 		}
+	}
+}
+
+func TestInitChartKeepsInstallerNamespaceOnUpgrade(t *testing.T) {
+	template, err := os.ReadFile("../templates/namespace.yaml")
+	if err != nil {
+		t.Fatalf("read namespace template: %v", err)
+	}
+	text := string(template)
+	if strings.Contains(text, "lookup") {
+		t.Fatal("namespace template must remain rendered during upgrades so Helm does not delete it")
+	}
+	if !strings.Contains(text, "helm.sh/resource-policy: keep") {
+		t.Fatal("installer namespace must be kept across failed hook upgrades")
 	}
 }
 
