@@ -54,7 +54,7 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 		"ENVPILOT_POSTGRES_MIGRATIONS_DIR",
 		"ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS",
 		`ENVPILOT_GITHUB_WEBHOOK_DEBUG_PAYLOAD_LOG: "false"`,
-		"domain: envpilot.local",
+		"domain: envpilot.bethunder.ca",
 		"certManager:",
 		"postgres:",
 		"redis:",
@@ -79,11 +79,13 @@ func TestControlPlaneChartRendersHTTPSIngressForFrontendAndAPI(t *testing.T) {
 		"--set", "ingress.className=nginx",
 		"--set", "ingress.certManager.enabled=true",
 		"--set", "ingress.certManager.clusterIssuer=letsencrypt-prod",
+		"--set", "ingress.tls.enabled=true",
 	)
 	for _, expected := range []string{
 		"kind: Ingress",
 		`ingressClassName: nginx`,
 		`cert-manager.io/cluster-issuer: "letsencrypt-prod"`,
+		`host: "demo.envpilot.example.com"`,
 		`- "demo.envpilot.example.com"`,
 		`secretName: envpilot-tls`,
 		`path: /api`,
@@ -131,7 +133,7 @@ func TestControlPlaneChartUsesPersistentImages(t *testing.T) {
 	for _, expected := range []string{
 		"repository: ghcr.io/envpilot/api",
 		"repository: ghcr.io/envpilot/frontend",
-		`tag: "0.1.0"`,
+		`tag: "0.1.2"`,
 	} {
 		if !strings.Contains(valuesText, expected) {
 			t.Fatalf("values file does not contain %q", expected)
