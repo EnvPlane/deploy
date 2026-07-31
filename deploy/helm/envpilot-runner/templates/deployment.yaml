@@ -62,6 +62,17 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
+            # The runner image has a read-only root filesystem. Helm writes
+            # cache and config files during chart preflight, so keep every
+            # HOME/XDG path under the explicit writable /tmp emptyDir.
+            - name: HOME
+              value: /tmp
+            - name: XDG_CACHE_HOME
+              value: /tmp/.cache
+            - name: XDG_CONFIG_HOME
+              value: /tmp/.config
+            - name: XDG_DATA_HOME
+              value: /tmp/.local/share
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ .Values.controlPlane.url | quote }}
             - name: ENVPILOT_CLUSTER_ID
@@ -109,8 +120,10 @@ spec:
                   name: {{ include "envpilot-runner.tokenSecretName" . }}
                   key: {{ .Values.controlPlane.tokenKey }}
             {{- end }}
-          {{- if .Values.controlPlane.authPersistence.enabled }}
           volumeMounts:
+            - name: runner-work
+              mountPath: /tmp
+          {{- if .Values.controlPlane.authPersistence.enabled }}
             - name: {{ .Values.controlPlane.authPersistence.volumeName }}
               mountPath: {{ .Values.controlPlane.authPersistence.mountPath | quote }}
           {{- end }}
@@ -137,8 +150,10 @@ spec:
             timeoutSeconds: 2
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      {{- if .Values.controlPlane.authPersistence.enabled }}
       volumes:
+        - name: runner-work
+          emptyDir: {}
+      {{- if .Values.controlPlane.authPersistence.enabled }}
         - name: {{ .Values.controlPlane.authPersistence.volumeName }}
           {{- if .Values.controlPlane.authPersistence.existingClaim }}
           persistentVolumeClaim:

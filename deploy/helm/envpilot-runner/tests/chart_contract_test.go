@@ -31,6 +31,11 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 	for _, expected := range []string{
 		"kind: Deployment",
 		"imagePullSecrets",
+		"name: HOME",
+		"name: XDG_CACHE_HOME",
+		"name: XDG_CONFIG_HOME",
+		"name: XDG_DATA_HOME",
+		"name: runner-work",
 		"ENVPILOT_CONTROL_PLANE_URL",
 		"ENVPILOT_PROJECT_CONFIG_URL",
 		"ENVPILOT_PROJECT_CONFIG_TOKEN",
@@ -47,6 +52,22 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 	rendered := renderRunnerChart(t)
 	if !strings.Contains(rendered, "- runner") {
 		t.Fatalf("rendered chart must start runner subcommand:\n%s", rendered)
+	}
+	for _, expected := range []string{
+		"name: HOME",
+		"value: /tmp",
+		"name: XDG_CACHE_HOME",
+		"value: /tmp/.cache",
+		"name: XDG_CONFIG_HOME",
+		"value: /tmp/.config",
+		"name: XDG_DATA_HOME",
+		"value: /tmp/.local/share",
+		"mountPath: /tmp",
+		"emptyDir: {}",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered runner chart must provide writable Helm workspace %q:\n%s", expected, rendered)
+		}
 	}
 
 	rbac, err := os.ReadFile("../templates/rbac.yaml")
