@@ -1,6 +1,23 @@
 apiVersion: v2
 name: envpilot
-description: Single-chart EnvPilot installer that runs envpilot-install as a Kubernetes Job.
+description: EnvPilot same-cluster umbrella chart.
 type: application
-version: 0.1.17
-appVersion: "0.1.17"
+version: 0.3.0
+appVersion: "0.3.0"
+dependencies:
+  - name: envpilot-control-plane
+    version: 0.3.0
+    repository: file://../envpilot-control-plane
+    condition: controlPlane.enabled
+  - name: envpilot-frontend
+    version: 0.2.0
+    repository: file://../envpilot-frontend
+    condition: frontend.enabled
+  - name: envpilot-agent
+    version: 0.2.0
+    repository: file://../envpilot-agent
+    condition: agent.enabled
+  - name: envpilot-runner
+    version: 0.3.0
+    repository: file://../envpilot-runner
+    condition: runner.enabled

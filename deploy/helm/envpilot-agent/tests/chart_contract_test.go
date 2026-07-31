@@ -32,18 +32,19 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 	for _, expected := range []string{
 		"kind: ClusterRole",
 		"kind: ClusterRoleBinding",
-		"- namespaces",
-		"- kustomizations",
-		"- helmreleases",
-		"- ingressclasses",
-		"- customresourcedefinitions",
-		"- storageclasses",
-		"- networking.k8s.io",
-		"- apiextensions.k8s.io",
-		"- storage.k8s.io",
-		"- get",
-		"- list",
-		"- watch",
+		"rbac.discovery.scope",
+		"rbac.discovery.namespaces",
+		"rbac.discovery.readSecrets",
+		"resources: [\"namespaces\"]",
+		"resources: [\"kustomizations\"]",
+		"resources: [\"helmreleases\"]",
+		"resources: [\"ingressclasses\"]",
+		"resources: [\"customresourcedefinitions\"]",
+		"resources: [\"storageclasses\"]",
+		"apiGroups: [\"networking.k8s.io\"]",
+		"apiGroups: [\"apiextensions.k8s.io\"]",
+		"apiGroups: [\"storage.k8s.io\"]",
+		"\"get\",\"list\",\"watch\"",
 	} {
 		if !strings.Contains(rbacText, expected) {
 			t.Fatalf("rbac template does not contain %q", expected)
@@ -131,15 +132,81 @@ func TestAgentChartGrantsEveryCapabilityScannerRead(t *testing.T) {
 	}
 	rbacText := string(rbac)
 
-	// Keep this in sync with KubernetesNamespaceSource capability discovery.
-	// These endpoints are cluster-scoped, but the agent only needs read access.
+	// API-call-to-RBAC contract: resource_scanner.go and kubernetes.go issue
+	// only GET/list/watch calls for these Kubernetes resources. Cluster scope is
+	// explicit because namespaces, capability probes and ingress classes are
+	// cluster-scoped.
 	for _, rule := range []string{
-		"apiGroups:\n      - networking.k8s.io\n    resources:\n      - ingresses\n      - networkpolicies\n      - ingressclasses\n    verbs:\n      - get\n      - list\n      - watch",
-		"apiGroups:\n      - apiextensions.k8s.io\n    resources:\n      - customresourcedefinitions\n    verbs:\n      - get\n      - list\n      - watch",
-		"apiGroups:\n      - storage.k8s.io\n    resources:\n      - storageclasses\n    verbs:\n      - get\n      - list\n      - watch",
+		"resources: [\"namespaces\"]\n    verbs: [\"get\",\"list\",\"watch\"]",
+		"- resourcequotas",
+		"- limitranges",
+		"- persistentvolumeclaims",
+		"- serviceaccounts",
+		"resources: [\"deployments\",\"daemonsets\",\"replicasets\",\"statefulsets\"]",
+		"resources: [\"jobs\",\"cronjobs\"]",
+		"resources: [\"ingressclasses\"]",
+		"resources: [\"customresourcedefinitions\"]",
+		"resources: [\"storageclasses\"]",
+		"verbs: [\"get\",\"list\",\"watch\"]",
 	} {
 		if !strings.Contains(rbacText, rule) {
 			t.Fatalf("capability scanner RBAC rule is missing or not read-only:\n%s", rule)
+		}
+	}
+	if strings.Contains(rbacText, "resources: [\"secrets\"]") && !strings.Contains(rbacText, "rbac.discovery.readSecrets") {
+		t.Fatalf("Secret API read must remain an explicit opt-in")
+	}
+}
+
+func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
+	namespaceScoped := renderAgentChart(t,
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.namespaces[0]=team-a",
+		"--set", "rbac.discovery.namespaces[1]=team-b",
+	)
+	for _, expected := range []string{"kind: Role", "kind: RoleBinding", "namespace: \"team-a\"", "namespace: \"team-b\"", `name: ENVPILOT_WATCH_NAMESPACES`, `value: "team-a,team-b"`} {
+		if !strings.Contains(namespaceScoped, expected) {
+			t.Fatalf("namespace-scoped discovery missing %q:\n%s", expected, namespaceScoped)
+		}
+	}
+	for _, forbidden := range []string{"kind: ClusterRole", "kind: ClusterRoleBinding", "ingressclasses", "customresourcedefinitions", "storageclasses"} {
+		if strings.Contains(namespaceScoped, forbidden) {
+			t.Fatalf("namespace-scoped discovery must omit cluster RBAC %q:\n%s", forbidden, namespaceScoped)
+		}
+	}
+
+	external := renderAgentChart(t,
+		"--set", "serviceAccount.create=false",
+		"--set", "serviceAccount.name=platform-agent",
+		"--set", "rbac.create=false",
+	)
+	if !strings.Contains(external, "serviceAccountName: platform-agent") || strings.Contains(external, "kind: ClusterRole") || strings.Contains(external, "kind: ServiceAccount") {
+		t.Fatalf("existing ServiceAccount/external RBAC render is incorrect:\n%s", external)
+	}
+}
+
+func TestAgentAPIToRBACContractKeepsSecretReadsOptIn(t *testing.T) {
+	defaultRender := renderAgentChart(t)
+	if strings.Contains(defaultRender, "resources: [\"secrets\"]") {
+		t.Fatalf("default Agent RBAC must not read Kubernetes Secrets:\n%s", defaultRender)
+	}
+	secretRender := renderAgentChart(t, "--set", "rbac.discovery.readSecrets=true")
+	for _, expected := range []string{"resources: [\"secrets\"]", "verbs: [\"get\",\"list\",\"watch\"]"} {
+		if !strings.Contains(secretRender, expected) {
+			t.Fatalf("explicit Secret-discovery RBAC missing %q:\n%s", expected, secretRender)
+		}
+	}
+}
+
+func TestAgentChartRejectsIncompleteDiscoveryOrServiceAccountContracts(t *testing.T) {
+	for _, args := range [][]string{
+		{"--set", "rbac.discovery.scope=namespace"},
+		{"--set", "serviceAccount.create=false"},
+	} {
+		cmd := exec.Command("helm", append([]string{"template", "envpilot-agent", ".."}, args...)...)
+		cmd.Dir = "."
+		if output, err := cmd.CombinedOutput(); err == nil {
+			t.Fatalf("invalid RBAC values unexpectedly rendered: %v\n%s", args, output)
 		}
 	}
 }
@@ -174,11 +241,15 @@ func TestAgentChartDefaultsToAllNonProtectedNamespaces(t *testing.T) {
 		"excludeNamespaces:",
 		"- default",
 		"- kube-system",
-		"- kubernetes-dashboard",
 		"- envpilot-system",
 	} {
 		if !strings.Contains(valuesText, expected) {
 			t.Fatalf("values.yaml does not contain %q", expected)
+		}
+	}
+	for _, providerSpecific := range []string{"local-path-storage", "ingress-nginx", "kubernetes-dashboard"} {
+		if strings.Contains(valuesText, providerSpecific) {
+			t.Fatalf("values.yaml must not assume the %q platform namespace", providerSpecific)
 		}
 	}
 }
@@ -298,4 +369,15 @@ func TestAgentChartRendersDefaultAuthPersistencePVC(t *testing.T) {
 			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
 		}
 	}
+}
+
+func renderAgentChart(t *testing.T, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("helm", append([]string{"template", "envpilot-agent", ".."}, args...)...)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, output)
+	}
+	return string(output)
 }

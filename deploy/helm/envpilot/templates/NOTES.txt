@@ -1,35 +1,16 @@
-EnvPilot install job has been created.
+EnvPilot is installed as a direct Helm umbrella release.
 
-Track installation:
-  kubectl logs -n {{ .Values.installer.namespace }} job/{{ include "envpilot.fullname" . }} -f
+The release namespace is the EnvPilot workload namespace. Helm directly owns
+the enabled control-plane, frontend, Agent and Runner resources; no installer
+Job, nested Helm invocation, or cluster-wide installer RBAC is created.
 
-Target namespace:
-  {{ .Values.install.namespace }}
+Frontend service:
+  envpilot-frontend (or envpilot-frontend.fullnameOverride when configured)
 
-Important:
-  Install job namespace: {{ .Values.installer.namespace }}
-  Target namespace: {{ .Values.install.namespace }}
+Same-cluster Agent and Runner are disabled by default. Enable either only after
+supplying its project-scoped registration Secret through envpilot-agent or
+envpilot-runner values. For a remote execution cluster, install the published
+envpilot-agent or envpilot-runner chart there instead.
 
-{{- if eq .Values.access.mode "nodeport" }}
-
-Local minikube access (keeps the command running when the Docker driver needs a tunnel):
-  minikube -p <profile> service -n {{ .Values.install.namespace }} {{ .Values.install.controlPlaneRelease }}-control-plane-frontend --url
-
-This frontend endpoint proxies /api to the control-plane service. Do not point
-envpilot.local at 127.0.0.1 unless you deliberately install an Ingress controller
-and expose it to the host.
-{{- else }}
-
-Ingress access:
-  http://envpilot.{{ .Values.project.endpointDomain }}
-
-For local minikube, ensure the nginx ingress addon/controller is enabled and
-envpilot.local resolves to the host address used by minikube ingress.
-Docker-driver minikube requires a privileged tunnel:
-  minikube -p <profile> addons enable ingress
-  minikube -p <profile> tunnel
-
-Keep the tunnel process running. With Docker-driver minikube,
-envpilot.local should resolve to 127.0.0.1. With VM-driver minikube, it can
-resolve to `minikube -p <profile> ip`.
-{{- end }}
+Migration from the retired installer-Job release is documented in:
+  https://github.com/envpilot/deploy/blob/main/deploy/helm/envpilot/README.md

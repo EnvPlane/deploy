@@ -1,0 +1,3 @@
+{{- if and (not .Values.serviceAccount.create) (not .Values.serviceAccount.name) -}}
+{{- fail "serviceAccount.name is required when serviceAccount.create=false" -}}
+{{- end -}}

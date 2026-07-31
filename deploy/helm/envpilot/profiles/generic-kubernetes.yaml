@@ -1,0 +1,11 @@
+# Generic Kubernetes: internal ClusterIP services only.
+access:
+  mode: disabled
+platformDependencies:
+  ingress: { mode: disabled }
+  dns: { mode: disabled }
+  storage: { mode: existing }
+envpilot-control-plane:
+  service: { type: ClusterIP, port: 8080 }
+envpilot-frontend:
+  service: { type: ClusterIP, port: 3000 }

@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "EnvPilot umbrella chart values",
+  "type": "object",
+  "additionalProperties": true,
+  "definitions": {
+    "enabled": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": { "enabled": { "type": "boolean" } }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "digest": { "type": "string", "pattern": "^(|sha256:[a-fA-F0-9]{64})$" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] },
+        "sourceRevision": { "type": "string" },
+        "release": { "type": "string" }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "requests": { "type": "object", "additionalProperties": { "type": "string" } },
+        "limits": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "scheduling": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "nodeSelector": { "type": "object", "additionalProperties": { "type": "string" } },
+        "tolerations": { "type": "array", "items": { "type": "object" } },
+        "affinity": { "type": "object" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": { "name": { "type": "string", "minLength": 1 } }
+          }
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "size": { "type": "string", "minLength": 1 },
+        "storageClassName": { "type": "string" },
+        "existingClaim": { "type": "string" }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "mode": { "type": "string", "enum": ["", "internal", "external", "disabled"] },
+        "enabled": { "type": "boolean" },
+        "image": { "$ref": "#/definitions/image" },
+        "auth": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "existingSecret": { "type": "string" },
+            "passwordKey": { "type": "string" }
+          }
+        },
+        "external": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "existingSecret": { "type": "string" },
+            "urlKey": { "type": "string" }
+          }
+        },
+        "persistence": { "$ref": "#/definitions/persistence" }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "external" } } },
+          "then": {
+            "properties": {
+              "external": {
+                "required": ["existingSecret"],
+                "properties": { "existingSecret": { "minLength": 1 } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["auto", "managed", "existing", "disabled"] },
+        "provider": { "type": "string" },
+        "existingClassName": { "type": "string" },
+        "existingSecret": { "type": "string" },
+        "state": { "type": "string", "enum": ["", "disabled", "declared", "pending", "ready", "unavailable"] },
+        "managed": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "firstStartRegistration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["disabled", "managed", "existing"] },
+        "secretName": { "type": "string", "minLength": 1 },
+        "existingSecret": { "type": "string" },
+        "tokenTTLSeconds": { "type": "integer", "minimum": 1 },
+        "project": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "name": { "type": "string" },
+            "productId": { "type": "string", "minLength": 1 },
+            "appRepositoryId": { "type": "string", "minLength": 1 },
+            "gitopsRepositoryId": { "type": "string", "minLength": 1 }
+          }
+        },
+        "cluster": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "id": { "type": "string" } }
+        },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "id": { "type": "string", "minLength": 1 } }
+        },
+        "runner": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "namespace": { "type": "string" },
+            "deploymentMode": { "type": "string", "enum": ["helm", "gitops"] }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "enum": ["managed", "existing"] } } },
+          "then": {
+            "required": ["project", "cluster", "agent", "runner"],
+            "properties": {
+              "project": { "required": ["id", "productId", "appRepositoryId", "gitopsRepositoryId"] },
+              "cluster": {
+                "required": ["id"],
+                "properties": { "id": { "minLength": 1 } }
+              },
+              "agent": { "required": ["id"] },
+              "runner": { "required": ["id", "deploymentMode"] }
+            }
+          }
+        },
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "existing" } } },
+          "then": {
+            "required": ["existingSecret"],
+            "properties": { "existingSecret": { "minLength": 1 } }
+          }
+        }
+      ]
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 0 },
+        "image": { "$ref": "#/definitions/image" },
+        "resources": { "$ref": "#/definitions/resources" },
+        "nodeSelector": { "type": "object", "additionalProperties": { "type": "string" } },
+        "tolerations": { "type": "array", "items": { "type": "object" } },
+        "affinity": { "type": "object" },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" },
+        "imagePullSecrets": { "$ref": "#/definitions/security/properties/imagePullSecrets" }
+      }
+    }
+  },
+  "properties": {
+    "global": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "envpilot": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "platformDependencyStatus": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": { "enabled": { "type": "boolean" } }
+            },
+            "firstStartRegistration": { "$ref": "#/definitions/firstStartRegistration" }
+          }
+        }
+      }
+    },
+    "controlPlane": { "$ref": "#/definitions/enabled" },
+    "frontend": { "$ref": "#/definitions/enabled" },
+    "agent": { "$ref": "#/definitions/enabled" },
+    "runner": { "$ref": "#/definitions/enabled" },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["disabled", "ingress", "gateway"] },
+        "ingress": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "host": { "type": "string" },
+            "className": { "type": "string" },
+            "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+            "tls": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "secretName": { "type": "string" }
+              }
+            }
+          }
+        },
+        "gateway": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "name": { "type": "string" },
+            "namespace": { "type": "string" },
+            "sectionName": { "type": "string" },
+            "hostnames": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "services": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "controlPlaneName": { "type": "string", "minLength": 1 },
+            "frontendName": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "ingress" } } },
+          "then": {
+            "properties": {
+              "ingress": {
+                "required": ["host"],
+                "properties": { "host": { "minLength": 1 } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "gateway" } } },
+          "then": {
+            "properties": {
+              "gateway": {
+                "required": ["name"],
+                "properties": { "name": { "minLength": 1 } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "platformDependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ingress": { "$ref": "#/definitions/dependency" },
+        "dns": { "$ref": "#/definitions/dependency" },
+        "storage": { "$ref": "#/definitions/dependency" }
+      }
+    },
+    "envpilot-control-plane": {
+      "allOf": [
+        { "$ref": "#/definitions/component" },
+        {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+                "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+                "nodePort": { "type": ["integer", "null"], "minimum": 30000, "maximum": 32767 }
+              }
+            },
+            "postgres": { "$ref": "#/definitions/database" },
+            "redis": { "$ref": "#/definitions/database" },
+            "persistence": { "$ref": "#/definitions/persistence" },
+            "secretEnv": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "envpilot-frontend": {
+      "allOf": [
+        { "$ref": "#/definitions/component" },
+        {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+                "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+                "nodePort": { "type": ["integer", "null"], "minimum": 30000, "maximum": 32767 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "envpilot-agent": {
+      "allOf": [
+        { "$ref": "#/definitions/component" },
+        {
+          "type": "object",
+          "properties": {
+            "controlPlane": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "url": { "type": "string" },
+                "existingSecret": { "type": "string" },
+                "registrationTokenKey": { "type": "string" }
+              }
+            },
+            "agent": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": { "authPersistence": { "$ref": "#/definitions/persistence" } }
+            }
+          }
+        }
+      ]
+    },
+    "envpilot-runner": {
+      "allOf": [
+        { "$ref": "#/definitions/component" },
+        {
+          "type": "object",
+          "properties": {
+            "controlPlane": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "url": { "type": "string" },
+                "existingSecret": { "type": "string" },
+                "tokenKey": { "type": "string" },
+                "configTokenKey": { "type": "string" },
+                "authPersistence": { "$ref": "#/definitions/persistence" }
+              }
+            },
+            "helmRegistry": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "existingSecret": { "type": "string" },
+                "configKey": { "type": "string" }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

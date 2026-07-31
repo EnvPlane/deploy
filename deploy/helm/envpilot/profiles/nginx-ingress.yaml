@@ -1,0 +1,13 @@
+# Uses an existing ingress-nginx installation; this chart does not install it.
+access:
+  mode: ingress
+  ingress:
+    host: envpilot.example.invalid
+    className: nginx
+platformDependencies:
+  ingress:
+    mode: existing
+    provider: nginx
+    existingClassName: nginx
+  dns: { mode: disabled }
+  storage: { mode: existing }

@@ -16,8 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
+      - name: Verify canonical Helm chart sources
+        run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Package chart
-        run: helm package deploy/helm/envpilot-control-plane --destination dist
+        run: |
+          helm dependency build --skip-refresh deploy/helm/envpilot-control-plane
+          helm package deploy/helm/envpilot-control-plane --destination dist
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:

@@ -83,9 +83,10 @@ cat <<EOF
 EnvPilot control plane is deployed.
 
 Local agent and runner images are available as envpilot/agent:local and
-envpilot/runner:local. Install them with their Helm charts only after generating
-per-project bootstrap tokens; scripts/envpilot-clean-install.sh installs the
-full authenticated stack from published GHCR images.
+envpilot/runner:local. Enable same-cluster Agent and Runner in the direct
+umbrella chart only after supplying their project-scoped bootstrap Secrets.
+The published install contract is one `helm upgrade --install` command; no
+installer script or in-cluster nested Helm execution is used.
 
 Browser access (supported for the Docker minikube driver):
   minikube -p $PROFILE service -n $NAMESPACE ${RELEASE}-control-plane-frontend --url

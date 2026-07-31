@@ -4,8 +4,11 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 )
+
+var buildControlPlaneDependencies sync.Once
 
 func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	requiredFiles := []string{
@@ -17,6 +20,7 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 		"../templates/redis.yaml",
 		"../templates/service.yaml",
 		"../templates/serviceaccount.yaml",
+		"../Chart.lock",
 	}
 	for _, path := range requiredFiles {
 		if _, err := os.Stat(path); err != nil {
@@ -54,10 +58,12 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 		"ENVPILOT_POSTGRES_MIGRATIONS_DIR",
 		"ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS",
 		`ENVPILOT_GITHUB_WEBHOOK_DEBUG_PAYLOAD_LOG: "false"`,
-		"domain: envpilot.bethunder.ca",
-		"certManager:",
+		"enabled: false",
+		"domain: \"\"",
+		"annotations: {}",
 		"postgres:",
 		"redis:",
+		"mode: \"\"",
 	} {
 		if !strings.Contains(valuesText, expected) {
 			t.Fatalf("values file does not contain %q", expected)
@@ -73,8 +79,76 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	}
 }
 
-func TestControlPlaneChartRendersHTTPSIngressForFrontendAndAPI(t *testing.T) {
+func TestControlPlaneChartUsesNamespaceScopedSecretReaderInsteadOfClusterAdmin(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
+		"--set", "rbac.secretReader.namespaces[0]=envpilot-secrets",
+		"--set", "rbac.secretReader.namespaces[1]=shared-secrets",
+	)
+	for _, expected := range []string{
+		"kind: Role",
+		"kind: RoleBinding",
+		"name: envpilot-control-plane-secret-reader",
+		"namespace: \"envpilot-secrets\"",
+		"namespace: \"shared-secrets\"",
+		"resources: [\"secrets\"]",
+		"verbs: [\"get\"]",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("control-plane least-privilege RBAC missing %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{"kind: ClusterRole", "kind: ClusterRoleBinding", "apiGroups: [\"*\"]", "resources: [\"*\"]", "verbs: [\"*\"]"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("control-plane RBAC retained broad permission %q:\n%s", forbidden, rendered)
+		}
+	}
+}
+
+func TestControlPlaneChartSupportsExistingServiceAccountAndExternalRBAC(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "serviceAccount.create=false",
+		"--set", "serviceAccount.name=platform-api",
+		"--set", "rbac.create=false",
+	)
+	if !strings.Contains(rendered, "serviceAccountName: platform-api") {
+		t.Fatalf("existing ServiceAccount was not selected:\n%s", rendered)
+	}
+	for _, forbidden := range []string{"kind: ServiceAccount", "kind: Role", "kind: RoleBinding"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("rbac.create=false must not render %s:\n%s", forbidden, rendered)
+		}
+	}
+	cmd := exec.Command("helm", "template", "envpilot", "..", "--set", "serviceAccount.create=false")
+	cmd.Dir = "."
+	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "serviceAccount.name is required") {
+		t.Fatalf("missing existing ServiceAccount name must fail, err=%v output=%s", err, output)
+	}
+}
+
+func TestControlPlaneDefaultRenderMeetsRestrictedPodSecurityBaseline(t *testing.T) {
+	rendered := renderControlPlaneChart(t)
+	for _, expected := range []string{
+		"runAsNonRoot: true",
+		"seccompProfile:",
+		"type: RuntimeDefault",
+		"allowPrivilegeEscalation: false",
+		"drop:",
+		"- ALL",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("restricted pod-security baseline missing %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{"privileged: true", "hostNetwork: true", "hostPID: true", "hostIPC: true", "hostPath:"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("restricted pod-security render contains %q:\n%s", forbidden, rendered)
+		}
+	}
+}
+
+func TestControlPlaneChartRendersIngressForFrontendAndAPIWhenExplicitlyEnabled(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "ingress.enabled=true",
 		"--set", "ingress.domain=demo.envpilot.example.com",
 		"--set", "ingress.className=nginx",
 		"--set", "ingress.certManager.enabled=true",
@@ -152,7 +226,6 @@ func TestControlPlaneChartUsesPersistentImages(t *testing.T) {
 	valuesText := string(values)
 	for _, expected := range []string{
 		"repository: ghcr.io/envpilot/api",
-		"repository: ghcr.io/envpilot/frontend",
 		`tag: "0.1.6"`,
 	} {
 		if !strings.Contains(valuesText, expected) {
@@ -164,8 +237,50 @@ func TestControlPlaneChartUsesPersistentImages(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartUsesCanonicalFrontendDependency(t *testing.T) {
+	chart, err := os.ReadFile("../Chart.yaml")
+	if err != nil {
+		t.Fatalf("read Chart.yaml: %v", err)
+	}
+	for _, expected := range []string{
+		"name: envpilot-frontend",
+		"repository: file://../envpilot-frontend",
+		"condition: frontend.enabled",
+	} {
+		if !strings.Contains(string(chart), expected) {
+			t.Fatalf("control-plane chart dependency missing %q", expected)
+		}
+	}
+	for _, legacyTemplate := range []string{
+		"../templates/frontend-deployment.yaml",
+		"../templates/frontend-service.yaml",
+	} {
+		if _, err := os.Stat(legacyTemplate); !os.IsNotExist(err) {
+			t.Fatalf("embedded frontend template %s must be removed", legacyTemplate)
+		}
+	}
+	rendered := renderControlPlaneChart(t)
+	for _, expected := range []string{
+		"name: envpilot-control-plane-frontend",
+		"app.kubernetes.io/name: envpilot-control-plane",
+		"app.kubernetes.io/component: frontend",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("legacy frontend upgrade render missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func renderControlPlaneChart(t *testing.T, args ...string) string {
 	t.Helper()
+	buildControlPlaneDependencies.Do(func() {
+		cmd := exec.Command("helm", "dependency", "build", "--skip-refresh", "..")
+		cmd.Dir = "."
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("helm dependency build failed: %v\n%s", err, string(output))
+		}
+	})
 	commandArgs := append([]string{"template", "envpilot", ".."}, args...)
 	cmd := exec.Command("helm", commandArgs...)
 	cmd.Dir = "."

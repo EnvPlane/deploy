@@ -4,6 +4,9 @@ image:
   repository: ghcr.io/envpilot/agent
   pullPolicy: IfNotPresent
   tag: "0.1.4"
+  digest: ""
+  sourceRevision: ""
+  release: ""
 
 imagePullSecrets: []
 nameOverride: ""
@@ -97,9 +100,6 @@ watch:
     - kube-system
     - kube-public
     - kube-node-lease
-    - local-path-storage
-    - ingress-nginx
-    - kubernetes-dashboard
     - envpilot
     - envpilot-system
   resyncSeconds: 30
@@ -115,6 +115,15 @@ serviceAccount:
 rbac:
   create: true
   annotations: {}
+  discovery:
+    # cluster grants read-only visibility across the selected namespaces plus
+    # cluster capability probes. namespace renders one Role per listed
+    # namespace and deliberately omits cluster-scoped probes.
+    scope: cluster # namespace | cluster
+    namespaces: []
+    # Secret reads are sensitive and disabled by default. Set true only when
+    # manifest discovery must include Secret metadata for selected namespaces.
+    readSecrets: false
 
 podAnnotations: {}
 podLabels: {}

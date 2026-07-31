@@ -1,32 +1,26 @@
-{{- define "envpilot.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{- define "envpilot.fullname" -}}
-{{- if .Values.fullnameOverride -}}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- define "envpilot.firstStartRegistrationSecretName" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $registration := default (dict) (get $envpilot "firstStartRegistration") -}}
+{{- $mode := default "disabled" $registration.mode -}}
+{{- if eq $mode "existing" -}}
+{{- required "global.envpilot.firstStartRegistration.existingSecret is required when mode=existing" $registration.existingSecret -}}
 {{- else -}}
-{{- include "envpilot.name" . -}}
+{{- default (printf "%s-first-start-registration" .Release.Name) $registration.secretName -}}
 {{- end -}}
 {{- end -}}
 
-{{- define "envpilot.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{- define "envpilot.labels" -}}
-helm.sh/chart: {{ include "envpilot.chart" . }}
-app.kubernetes.io/name: {{ include "envpilot.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: envpilot
-{{- end -}}
-
-{{- define "envpilot.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create -}}
-{{- default (include "envpilot.fullname" .) .Values.serviceAccount.name -}}
+{{/* Resolve a declared platform dependency state without probing or changing the cluster. */}}
+{{- define "envpilot.platformDependencyState" -}}
+{{- $dependency := . -}}
+{{- $mode := default "disabled" $dependency.mode -}}
+{{- if $dependency.state -}}
+{{- $dependency.state -}}
+{{- else if eq $mode "disabled" -}}
+disabled
+{{- else if eq $mode "existing" -}}
+declared
 {{- else -}}
-{{- default "default" .Values.serviceAccount.name -}}
+pending
 {{- end -}}
 {{- end -}}

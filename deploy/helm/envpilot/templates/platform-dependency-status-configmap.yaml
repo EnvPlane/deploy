@@ -1,0 +1,25 @@
+{{- $dependencies := .Values.platformDependencies -}}
+{{- $ingress := $dependencies.ingress -}}
+{{- $dns := $dependencies.dns -}}
+{{- $storage := $dependencies.storage -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-platform-dependency-status
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: control-plane
+data:
+  ENVPILOT_PLATFORM_INGRESS_MODE: {{ default "disabled" $ingress.mode | quote }}
+  ENVPILOT_PLATFORM_INGRESS_PROVIDER: {{ default "" $ingress.provider | quote }}
+  ENVPILOT_PLATFORM_INGRESS_REFERENCE: {{ default "" $ingress.existingClassName | quote }}
+  ENVPILOT_PLATFORM_INGRESS_STATE: {{ include "envpilot.platformDependencyState" $ingress | quote }}
+  ENVPILOT_PLATFORM_DNS_MODE: {{ default "disabled" $dns.mode | quote }}
+  ENVPILOT_PLATFORM_DNS_PROVIDER: {{ default "" $dns.provider | quote }}
+  ENVPILOT_PLATFORM_DNS_REFERENCE: {{ default "" $dns.existingSecret | quote }}
+  ENVPILOT_PLATFORM_DNS_STATE: {{ include "envpilot.platformDependencyState" $dns | quote }}
+  ENVPILOT_PLATFORM_STORAGE_MODE: {{ default "disabled" $storage.mode | quote }}
+  ENVPILOT_PLATFORM_STORAGE_PROVIDER: {{ default "" $storage.provider | quote }}
+  ENVPILOT_PLATFORM_STORAGE_REFERENCE: {{ default "" $storage.existingClassName | quote }}
+  ENVPILOT_PLATFORM_STORAGE_STATE: {{ include "envpilot.platformDependencyState" $storage | quote }}

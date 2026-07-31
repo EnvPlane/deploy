@@ -1,93 +1,127 @@
-# EnvPilot chart
+# EnvPilot umbrella chart
 
-This is the single public EnvPilot Helm chart. It creates the EnvPilot namespace and runs `envpilot-install` as a Kubernetes Job in that namespace. The Job installs the EnvPilot control-plane, creates bootstrap secrets, seeds the default project/config, and installs the agent and runner.
+`envpilot` is the supported same-cluster installation path. It is a Helm v2
+umbrella chart: Helm directly renders and owns the enabled control-plane,
+frontend, Agent and Runner child charts. It does not run an installer image,
+nested Helm or `kubectl`, create or delete namespaces, or grant wildcard
+installer RBAC.
 
-Install:
-
-```sh
-helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.17 \
-  --namespace default \
-  --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
-  --set project.loadBalancerType=alb \
-  --set project.endpointDomain=tools.int \
-  --set storage.className=gp2 \
-  --set scheduling.nodeArch=arm64 \
-  --set scheduling.toleration.key=pool \
-  --set scheduling.toleration.value=apps \
-  --set deployment.backend=helm_direct \
-  --set registry.token="$GHCR_TOKEN"
-```
-
-Follow progress:
-
-```sh
-kubectl logs -n envpilot job/envpilot -f
-```
-
-By default the chart creates and uses `installer.namespace=envpilot`.
-The target application namespace is also `install.namespace=envpilot`.
-Use an existing Helm release namespace such as `default`; the chart creates the
-runtime namespace separately.
-
-When `install.mode=clean-install`, the installer preserves the namespace that
-contains its own Job and cleans EnvPilot releases, PVCs, and bootstrap secrets
-inside it instead of deleting the namespace.
-
-The Job needs cluster-admin-equivalent permissions because it creates/deletes namespaces, installs Helm releases, manages cluster roles, and execs into Postgres to seed the first project.
-
-Published releases pin the API, frontend, Agent and Runner independently; do not
-override them with a single shared image tag. The compatibility set is recorded
-in `release/<chart-version>.yaml` in the deploy repository.
-
-The installer passes `compatibility.apiContractVersion` to the control-plane.
-The frontend checks `GET /api/v1/capabilities` before enabling optional
-bootstrap actions such as demo/offline SCM mode. Do not override API or
-frontend image tags with versions from different release manifests.
-
-Deployment backend:
-
-- `deployment.backend=helm_direct`: default, installs feature environments through Helm direct.
-- `deployment.backend=fluxcd`: seeds project config for FluxCD/GitOps backend.
-- `deployment.backend=argocd`: reserved for Argo CD, accepted as a planned value but installer exits with a clear not implemented error until the backend exists.
-
-`registry.token` is used twice:
-
-- As an image pull secret in the bootstrap namespace so Kubernetes can pull `ghcr.io/envpilot/install`.
-- As `ENVPILOT_GHCR_TOKEN` inside the Job so `envpilot-install` can create the target namespace pull secret for EnvPilot application images.
-
-## Local minikube install
-
-The published chart defaults to the documented local browser URL
-`http://envpilot.local` through an nginx IngressClass. Enable the minikube ingress
-addon first.
-
-For Docker-driver minikube, keep a privileged tunnel running and map
-`envpilot.local` to `127.0.0.1`. For VM-driver minikube, `envpilot.local` can
-resolve to `minikube -p envpilot ip`.
-
-```sh
-minikube -p envpilot addons enable ingress
-# Docker-driver path:
-minikube -p envpilot tunnel
-# Ensure /etc/hosts contains: 127.0.0.1 envpilot.local
-
-helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.17 \
-  --namespace default \
-  --set install.clusterId=envpilot \
-  --set registry.token="$GHCR_TOKEN"
-```
-
-If local ingress is not available, use the explicit NodePort fallback:
+Install the release into the namespace where EnvPilot workloads belong:
 
 ```sh
 helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.17 \
-  --namespace default \
-  --set install.clusterId=envpilot \
-  --set access.mode=nodeport \
-  --set registry.token="$GHCR_TOKEN"
-
-minikube -p envpilot service -n envpilot envpilot-control-plane-frontend --url
+  --version 0.3.0 \
+  --namespace envpilot \
+  --create-namespace \
+  -f values.yaml
 ```
+
+The default values install the control-plane and browser frontend. Agent and
+Runner are disabled until explicitly selected. For a first-start same-cluster
+install, enable both and let the umbrella create a stable chart-managed Secret:
+
+```yaml
+agent:
+  enabled: true
+runner:
+  enabled: true
+global:
+  envpilot:
+    firstStartRegistration:
+      mode: managed
+      cluster:
+        id: management-cluster
+```
+
+This is still one `helm upgrade --install` operation: the control plane creates
+the minimal project/bootstrap identity at startup, while Agent and Runner use
+the chart Secret only for their one-time registration exchange. To use an
+operator-owned Secret instead, use `mode: existing` and `existingSecret`; see
+[`VALUES.md`](VALUES.md). Never put plaintext registration, SCM, registry, or
+cloud credentials in values.
+
+Remote execution targets are not part of a same-cluster Helm release. Install
+the published `envpilot-agent` or `envpilot-runner` chart in the remote cluster
+with its project/cluster-scoped registration Secret.
+
+## Values
+
+The provider-neutral values contract and JSON schema are documented in
+[`VALUES.md`](VALUES.md). Defaults do not select a Kubernetes provider,
+IngressClass, DNS provider, hostname, StorageClass, or cloud integration.
+Expose EnvPilot with an explicit `access.mode` (`ingress` or `gateway`) or keep
+the default ClusterIP-only Services. Ready-to-use operator overlays live in
+[`profiles/`](profiles/) for generic Kubernetes, nginx Ingress, AWS ALB,
+Gateway API, NodePort, LoadBalancer, and externally managed data services.
+
+| Values key | Purpose |
+|---|---|
+| `controlPlane.enabled` | Enable the API and its data-store resources. |
+| `frontend.enabled` | Enable the separately packaged frontend child chart. |
+| `agent.enabled` | Enable an Agent in the same cluster after configuring its existing Secret. |
+| `runner.enabled` | Enable a Runner in the same cluster after configuring its existing Secret. |
+| `access.*` | Optional provider-neutral `Ingress` or Gateway API `HTTPRoute`. |
+| `envpilot-*.image.*` | Per-component immutable image reference and pull policy. |
+
+The umbrella never creates or deletes Kubernetes clusters. Platform dependency
+modes document whether ingress, DNS and storage are externally managed or
+provided by a separate reconciler; see `VALUES.md` for the explicit
+`auto|managed|existing|disabled` contract.
+
+## Migration from the installer Job chart (0.1.x)
+
+The previous `envpilot` chart installed a privileged Job which created nested
+Helm releases. It must not be upgraded blindly from a different release
+namespace: the old nested control-plane release owns its resources in the
+workload namespace.
+
+1. Back up the control-plane database/PVCs and save every existing component
+   values file: `helm get values <release> -n <namespace> -a`.
+2. Identify the workload namespace and nested control-plane release with
+   `helm list -A`. In the standard installer layout it is release `envpilot` in
+   namespace `envpilot`.
+3. Uninstall only the outer installer-Job release. Its former `Namespace` has
+   the Helm `keep` policy; verify the workload namespace and nested releases
+   remain before continuing. This removes the obsolete Job and wildcard
+   ClusterRole/ClusterRoleBinding.
+4. Upgrade the nested control-plane release in its *workload namespace* to the
+   umbrella chart. Use the migration overlay below so the existing frontend
+   Deployment keeps its immutable selector and name.
+5. Leave existing standalone Agent and Runner releases disabled in the umbrella
+   initially. Rotate/reissue their credentials and migrate each only in a
+   maintenance window; do not delete an auth PVC without a backup or a
+   replacement credential.
+
+`migration-values.yaml`:
+
+```yaml
+envpilot-control-plane:
+  frontend:
+    enabled: false
+    serviceName: envpilot-control-plane-frontend
+
+envpilot-frontend:
+  enabled: true
+  fullnameOverride: envpilot-control-plane-frontend
+  legacyControlPlaneSelector: true
+
+agent:
+  enabled: false
+runner:
+  enabled: false
+```
+
+Then run:
+
+```sh
+helm upgrade envpilot oci://ghcr.io/envpilot/envpilot \
+  --version 0.3.0 \
+  --namespace envpilot \
+  --reuse-values \
+  -f migration-values.yaml
+```
+
+Review `helm diff` (when available), then validate API and frontend health
+before migrating an execution target. The old Runner chart remains migratable
+in place using the compatibility values documented in
+[`../envpilot-runner/NOTES.txt`](../envpilot-runner/templates/NOTES.txt).

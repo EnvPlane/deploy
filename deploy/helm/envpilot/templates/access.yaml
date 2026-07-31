@@ -1,0 +1,109 @@
+{{- $access := .Values.access | default dict -}}
+{{- $mode := default "disabled" $access.mode -}}
+{{- $services := $access.services | default dict -}}
+{{- $controlPlaneService := default "envpilot-control-plane" $services.controlPlaneName -}}
+{{- $frontendService := default "envpilot-frontend" $services.frontendName -}}
+{{- if eq $mode "ingress" }}
+{{- $ingress := $access.ingress | default dict -}}
+{{- $host := required "access.ingress.host is required when access.mode=ingress" $ingress.host -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-access
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: access
+  {{- with $ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $ingress.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  {{- if and $ingress.tls $ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ $host | quote }}
+      secretName: {{ required "access.ingress.tls.secretName is required when TLS is enabled" $ingress.tls.secretName | quote }}
+  {{- end }}
+  rules:
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $controlPlaneService }}
+                port:
+                  name: http
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $controlPlaneService }}
+                port:
+                  name: http
+          - path: /webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $controlPlaneService }}
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $frontendService }}
+                port:
+                  name: http
+{{- else if eq $mode "gateway" }}
+{{- $gateway := $access.gateway | default dict -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-access
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: access
+spec:
+  parentRefs:
+    - name: {{ required "access.gateway.name is required when access.mode=gateway" $gateway.name | quote }}
+      {{- with $gateway.namespace }}
+      namespace: {{ . | quote }}
+      {{- end }}
+      {{- with $gateway.sectionName }}
+      sectionName: {{ . | quote }}
+      {{- end }}
+  {{- with $gateway.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+        - path:
+            type: PathPrefix
+            value: /auth
+        - path:
+            type: PathPrefix
+            value: /webhook
+      backendRefs:
+        - name: {{ $controlPlaneService }}
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ $frontendService }}
+          port: 3000
+{{- else if ne $mode "disabled" }}
+{{- fail (printf "unsupported access.mode %q; expected disabled, ingress or gateway" $mode) }}
+{{- end }}

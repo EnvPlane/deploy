@@ -4,57 +4,23 @@ image:
   repository: ghcr.io/envpilot/api
   pullPolicy: IfNotPresent
   tag: "0.1.6"
+  # When set, digest takes precedence over tag.
+  digest: ""
+  # Optional immutable build metadata rendered on the Pod template. CI sets
+  # these independently from the image reference so operators can trace a
+  # running workload back to its source revision and release.
+  sourceRevision: ""
+  release: ""
 
 frontend:
   enabled: true
-  replicaCount: 1
-  image:
-    repository: ghcr.io/envpilot/frontend
-    pullPolicy: IfNotPresent
-    tag: "0.1.5"
-  service:
-    type: ClusterIP
-    port: 3000
-    # Set only for Service type NodePort. Leave empty for an allocated port.
-    nodePort: null
-  env:
-    NEXT_PUBLIC_ENVPILOT_API_BASE_URL: ""
-  podAnnotations: {}
-  podLabels: {}
-  podSecurityContext:
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
-  securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: false
-    runAsNonRoot: true
-    runAsUser: 10001
-    runAsGroup: 10001
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-  livenessProbe:
-    enabled: true
-    path: /
-    initialDelaySeconds: 10
-    periodSeconds: 20
-    timeoutSeconds: 2
-    failureThreshold: 3
-  readinessProbe:
-    enabled: true
-    path: /
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 2
-    failureThreshold: 3
+  # The control-plane chart consumes the canonical envpilot-frontend child
+  # chart. These values preserve the existing standalone release resource
+  # names and immutable selectors during an in-place upgrade from <= 0.1.x.
+  fullnameOverride: envpilot-control-plane-frontend
+  legacyControlPlaneSelector: true
+  # Used by ingress.yaml; it must match fullnameOverride above.
+  serviceName: envpilot-control-plane-frontend
 
 imagePullSecrets: []
 nameOverride: ""
@@ -66,19 +32,15 @@ args: []
 service:
   type: ClusterIP
   port: 8080
+  nodePort: null
 
 ingress:
-  enabled: true
-  domain: envpilot.bethunder.ca
-  className: alb
-  annotations:
-    alb.ingress.kubernetes.io/group.name: "envpilot-control-plane-public"
-    alb.ingress.kubernetes.io/group.order: "10"
-    alb.ingress.kubernetes.io/healthcheck-path: /api/v1/health
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    external-dns.alpha.kubernetes.io/hostname: envpilot.bethunder.ca
+  enabled: false
+  # Configure domain, className and provider-specific annotations explicitly
+  # in an environment values file. The chart has no platform routing default.
+  domain: ""
+  className: ""
+  annotations: {}
   certManager:
     enabled: false
     clusterIssuer: selfsigned-cluster-issuer
@@ -103,8 +65,8 @@ env:
   ENVPILOT_API_CONTRACT_VERSION: "1"
   # The bootstrap Agent-token endpoint requires a chart reference in order to
   # generate self-contained install instructions. Keep this published default
-  # valid for a normal chart install; local minikube values override it with
-  # the temporary HTTP chart server used by the two-profile E2E flow.
+  # valid for a normal chart install; environment values can override it for
+  # an internal chart registry or other target-specific distribution path.
   ENVPILOT_AGENT_HELM_CHART_REF: "oci://ghcr.io/envpilot/envpilot-agent"
   ENVPILOT_AGENT_HELM_CHART_VERSION: ""
   ENVPILOT_ADDR: ":8080"
@@ -121,11 +83,15 @@ dependencyWait:
 secretEnv: {}
 
 postgres:
+  # Empty preserves legacy postgres.enabled semantics. Set explicitly to
+  # internal, external or disabled for the provider-neutral umbrella contract.
+  mode: ""
   enabled: true
   image:
     repository: postgres
     tag: "16-alpine"
     pullPolicy: IfNotPresent
+    digest: ""
   auth:
     database: envpilot
     username: envpilot
@@ -138,6 +104,10 @@ postgres:
     enabled: true
     size: 8Gi
     storageClassName: ""
+  external:
+    # existingSecret must contain a complete PostgreSQL connection URL.
+    existingSecret: ""
+    urlKey: database-url
   resources:
     requests:
       cpu: 100m
@@ -147,17 +117,25 @@ postgres:
       memory: 512Mi
 
 redis:
+  # Empty preserves legacy redis.enabled semantics. Set explicitly to
+  # internal, external or disabled for the provider-neutral umbrella contract.
+  mode: ""
   enabled: true
   image:
     repository: redis
     tag: "7-alpine"
     pullPolicy: IfNotPresent
+    digest: ""
   service:
     port: 6379
   persistence:
     enabled: true
     size: 1Gi
     storageClassName: ""
+  external:
+    # existingSecret must contain a complete Redis connection URL.
+    existingSecret: ""
+    urlKey: redis-url
   resources:
     requests:
       cpu: 50m
@@ -178,6 +156,13 @@ serviceAccount:
 
 rbac:
   create: true
+  annotations: {}
+  # Namespace-scoped read-only access used only when the control plane resolves
+  # Kubernetes/external-secret references. Empty means this release namespace.
+  # Add namespaces deliberately; no ClusterRole is created by this chart.
+  secretReader:
+    enabled: true
+    namespaces: []
 
 podAnnotations: {}
 podLabels: {}

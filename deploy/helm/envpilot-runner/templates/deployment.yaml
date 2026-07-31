@@ -1,4 +1,9 @@
 {{- $helmRegistry := default (dict) .Values.helmRegistry -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
+{{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
+{{- $firstStartEnabled := eq (include "envpilot-runner.usesFirstStartRegistration" .) "true" -}}
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-runner.imageMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,10 +22,8 @@ spec:
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with .Values.podAnnotations }}
       annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- toYaml $podAnnotations | nindent 8 }}
     spec:
       serviceAccountName: {{ include "envpilot-runner.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
@@ -32,8 +35,8 @@ spec:
       {{- if .Values.dependencyWait.enabled }}
       initContainers:
         - name: wait-control-plane
-          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: {{ include "envpilot-runner.image" . | quote }}
+          imagePullPolicy: {{ include "envpilot-runner.imagePullPolicy" . }}
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -51,8 +54,8 @@ spec:
       {{- end }}
       containers:
         - name: runner
-          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: {{ include "envpilot-runner.image" . | quote }}
+          imagePullPolicy: {{ include "envpilot-runner.imagePullPolicy" . }}
           {{- with .Values.command }}
           command:
             {{- toYaml . | nindent 12 }}
@@ -76,23 +79,23 @@ spec:
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ .Values.controlPlane.url | quote }}
             - name: ENVPILOT_CLUSTER_ID
-              value: {{ default .Release.Name .Values.project.clusterId | quote }}
+              value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else }}{{ default .Release.Name .Values.project.clusterId | quote }}{{ end }}
             - name: ENVPILOT_PROJECT_ID
-              value: {{ .Values.project.id | quote }}
+              value: {{ if $firstStartEnabled }}{{ $firstStart.project.id | quote }}{{ else }}{{ .Values.project.id | quote }}{{ end }}
             - name: ENVPILOT_RUNNER_ID
-              value: {{ default (include "envpilot-runner.fullname" .) .Values.project.runnerId | quote }}
+              value: {{ if $firstStartEnabled }}{{ $firstStart.runner.id | quote }}{{ else }}{{ default (include "envpilot-runner.fullname" .) .Values.project.runnerId | quote }}{{ end }}
             - name: ENVPILOT_RUNNER_NAMESPACE
-              value: {{ .Values.project.namespace | quote }}
+              value: {{ if $firstStartEnabled }}{{ default .Release.Namespace $firstStart.runner.namespace | quote }}{{ else }}{{ .Values.project.namespace | quote }}{{ end }}
             - name: ENVPILOT_RUNNER_DEPLOYMENT_MODE
-              value: {{ .Values.project.deploymentMode | quote }}
+              value: {{ if $firstStartEnabled }}{{ $firstStart.runner.deploymentMode | quote }}{{ else }}{{ .Values.project.deploymentMode | quote }}{{ end }}
             - name: ENVPILOT_PROJECT_CONFIG_URL
               value: {{ .Values.project.configUrl | quote }}
-            {{- if or .Values.controlPlane.existingSecret (and .Values.controlPlane.configToken .Values.controlPlane.allowUnsafePlaintextTokens) }}
+            {{- if or $firstStartEnabled .Values.controlPlane.existingSecret (and .Values.controlPlane.configToken .Values.controlPlane.allowUnsafePlaintextTokens) }}
             - name: ENVPILOT_PROJECT_CONFIG_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "envpilot-runner.tokenSecretName" . }}
-                  key: {{ .Values.controlPlane.configTokenKey }}
+                  key: {{ if $firstStartEnabled }}runner-project-config-token{{ else }}{{ .Values.controlPlane.configTokenKey }}{{ end }}
             {{- end }}
             - name: ENVPILOT_RUNNER_HEARTBEAT_INTERVAL_SECONDS
               value: {{ .Values.controlPlane.heartbeatIntervalSeconds | quote }}
@@ -113,12 +116,12 @@ spec:
             - name: ENVPILOT_RUNNER_AUTH_TOKEN_FILE
               value: {{ printf "%s/%s" .Values.controlPlane.authPersistence.mountPath .Values.controlPlane.authPersistence.fileName | quote }}
             {{- end }}
-            {{- if or .Values.controlPlane.existingSecret (and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens) }}
+            {{- if or $firstStartEnabled .Values.controlPlane.existingSecret (and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens) }}
             - name: ENVPILOT_RUNNER_REGISTRATION_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "envpilot-runner.tokenSecretName" . }}
-                  key: {{ .Values.controlPlane.tokenKey }}
+                  key: {{ if $firstStartEnabled }}runner-registration-token{{ else }}{{ .Values.controlPlane.tokenKey }}{{ end }}
             {{- end }}
           volumeMounts:
             - name: runner-work

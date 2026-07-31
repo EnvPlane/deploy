@@ -1,0 +1,15 @@
+dependencies:
+- name: envpilot-control-plane
+  repository: file://../envpilot-control-plane
+  version: 0.3.0
+- name: envpilot-frontend
+  repository: file://../envpilot-frontend
+  version: 0.2.0
+- name: envpilot-agent
+  repository: file://../envpilot-agent
+  version: 0.2.0
+- name: envpilot-runner
+  repository: file://../envpilot-runner
+  version: 0.3.0
+digest: sha256:3793a84efa47bf138c29c3302343223b25c6df890fbe03294a94f300a66d5d4a
+generated: "2026-07-31T22:59:21.655499+02:00"

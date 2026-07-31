@@ -1,0 +1,28 @@
+# Immutable compatibility contract for the provider-neutral umbrella values API.
+version: "0.3.0"
+apiContract:
+  version: "1"
+  features:
+    scmOfflineBootstrap: true
+runnerCommandAPI:
+  version: "1"
+  requestHeader: X-EnvPilot-Runner-Command-API-Version
+images:
+  api: ghcr.io/envpilot/api:0.1.6
+  frontend: ghcr.io/envpilot/frontend:0.1.5
+  agent: ghcr.io/envpilot/agent:0.1.4
+  runner: ghcr.io/envpilot/runner:0.1.4
+charts:
+  umbrella: oci://ghcr.io/envpilot/envpilot:0.3.0
+  controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.3.0
+  frontend: oci://ghcr.io/envpilot/envpilot-frontend:0.2.0
+  agent: oci://ghcr.io/envpilot/envpilot-agent:0.2.0
+  runner: oci://ghcr.io/envpilot/envpilot-runner:0.3.0
+sameCluster:
+  namespace: envpilot
+  agentRunnerDefault: disabled
+  installerImage: absent
+valuesContract:
+  providerNeutral: true
+  schema: deploy/helm/envpilot/values.schema.json
+  platformDependencyModes: [auto, managed, existing, disabled]

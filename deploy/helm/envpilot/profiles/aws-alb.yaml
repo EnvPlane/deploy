@@ -1,0 +1,18 @@
+# Uses an existing AWS Load Balancer Controller and, optionally, external-dns.
+access:
+  mode: ingress
+  ingress:
+    host: envpilot.example.invalid
+    className: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+platformDependencies:
+  ingress:
+    mode: existing
+    provider: aws-alb
+    existingClassName: alb
+  dns:
+    mode: existing
+    provider: external-dns
+  storage: { mode: existing }

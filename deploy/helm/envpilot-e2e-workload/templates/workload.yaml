@@ -1,3 +1,4 @@
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-e2e-workload.imageMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,11 +16,17 @@ spec:
       labels:
         app.kubernetes.io/name: {{ include "envpilot-e2e-workload.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        {{- toYaml $podAnnotations | nindent 8 }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: e2e-workload
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: {{ include "envpilot-e2e-workload.image" . | quote }}
+          imagePullPolicy: {{ include "envpilot-e2e-workload.imagePullPolicy" . }}
           ports:
             - containerPort: 8080
               name: http

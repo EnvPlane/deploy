@@ -1,4 +1,5 @@
 {{- if .Values.ttlCleanup.enabled }}
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.ttlCleanup.podAnnotations)) (include "envpilot-agent.imageMetadata" . | fromYaml) -}}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -31,10 +32,8 @@ spec:
             {{- with .Values.ttlCleanup.podLabels }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with .Values.ttlCleanup.podAnnotations }}
           annotations:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- toYaml $podAnnotations | nindent 12 }}
         spec:
           serviceAccountName: {{ include "envpilot-agent.serviceAccountName" . }}
           restartPolicy: OnFailure
@@ -46,8 +45,8 @@ spec:
             {{- toYaml .Values.podSecurityContext | nindent 12 }}
           containers:
             - name: ttl-cleanup
-              image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
-              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              image: {{ include "envpilot-agent.image" . | quote }}
+              imagePullPolicy: {{ include "envpilot-agent.imagePullPolicy" . }}
               args:
                 - ttl-cleanup
               env:
@@ -55,12 +54,12 @@ spec:
                   value: {{ .Values.controlPlane.url | quote }}
                 - name: ENVPILOT_TTL_CLEANUP_TIMEOUT_SECONDS
                   value: {{ .Values.ttlCleanup.timeoutSeconds | quote }}
-                {{- if or .Values.controlPlane.existingSecret (and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens) }}
+                {{- if or (eq (include "envpilot-agent.usesFirstStartRegistration" .) "true") .Values.controlPlane.existingSecret (and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens) }}
                 - name: ENVPILOT_AGENT_REGISTRATION_TOKEN
                   valueFrom:
                     secretKeyRef:
                       name: {{ include "envpilot-agent.tokenSecretName" . }}
-                      key: {{ .Values.controlPlane.registrationTokenKey }}
+                      key: {{ if eq (include "envpilot-agent.usesFirstStartRegistration" .) "true" }}agent-registration-token{{ else }}{{ .Values.controlPlane.registrationTokenKey }}{{ end }}
                 {{- end }}
               securityContext:
                 {{- toYaml .Values.securityContext | nindent 16 }}

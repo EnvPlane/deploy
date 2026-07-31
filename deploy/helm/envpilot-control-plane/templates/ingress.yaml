@@ -46,8 +46,8 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                {{- if $.Values.frontend.enabled }}
-                name: {{ include "envpilot-control-plane.fullname" $ }}-frontend
+                {{- if $.Values.frontend.serviceName }}
+                name: {{ $.Values.frontend.serviceName }}
                 {{- else }}
                 name: {{ include "envpilot-control-plane.fullname" $ }}
                 {{- end }}

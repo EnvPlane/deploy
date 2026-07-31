@@ -1,0 +1,7 @@
+{{- $global := default (dict) .Values.global -}}
+{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $registration := default (dict) (get $envpilot "firstStartRegistration") -}}
+{{- $mode := default "disabled" $registration.mode -}}
+{{- if and (ne $mode "disabled") (or (not .Values.agent.enabled) (not .Values.runner.enabled)) -}}
+{{- fail "global.envpilot.firstStartRegistration requires agent.enabled=true and runner.enabled=true in the same umbrella release" -}}
+{{- end -}}

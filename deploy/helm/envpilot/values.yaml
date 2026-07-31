@@ -1,130 +1,271 @@
-image:
-  repository: ghcr.io/envpilot/install
-  tag: "0.1.17"
-  pullPolicy: Always
-  createPullSecret: true
-  pullSecretName: envpilot-ghcr
-  pullSecrets: []
+# Provider-neutral EnvPilot umbrella defaults. No ingress controller, DNS
+# provider, domain, StorageClass, cloud load balancer, or Kubernetes provider is
+# assumed. Configure environment-specific integration in a separate values file.
 
-installer:
-  namespace: envpilot
-  createNamespace: true
+# Conditional child-chart switches. Child configuration remains under the
+# canonical chart name so immutable selectors are not rewritten by aliases.
+controlPlane:
+  enabled: true
+frontend:
+  enabled: true
+agent:
+  enabled: false
+runner:
+  enabled: false
 
-install:
-  mode: clean-install
-  namespace: envpilot
-  projectId: default
-  clusterId: ""
-  agentId: envpilot-agent
-  runnerId: ""
-  runnerNamespace: ""
-  runnerReleaseName: ""
-  runnerDeploymentMode: helm
-  controlPlaneRelease: envpilot
-  agentRelease: envpilot-agent
-  runnerRelease: envpilot-runner
-  chartsDir: /opt/envpilot/helm
-  timeoutSeconds: 240
-  seedProject: true
-  preserveNamespaceCleanup: true
+# Cross-child first-start registration for an Agent and Runner installed in
+# this same release/cluster. `managed` creates one Helm-owned Secret and keeps
+# its values stable across upgrades; `existing` consumes an operator-created
+# Secret. The Secret is mounted only into the control plane and the matching
+# runtime pods. It is never exposed through a bootstrap API response.
+global:
+  envpilot:
+    # Lets the umbrella pass declared platform dependency metadata to the API
+    # capabilities endpoint. It is configuration-only and performs no probes
+    # or installation of controllers, DNS, StorageClasses or tunnels.
+    platformDependencyStatus:
+      enabled: true
+    firstStartRegistration:
+      mode: disabled # disabled | managed | existing
+      secretName: envpilot-first-start-registration
+      existingSecret: ""
+      tokenTTLSeconds: 86400
+      project:
+        id: envpilot
+        name: EnvPilot
+        productId: generic
+        appRepositoryId: envpilot/app
+        gitopsRepositoryId: envpilot/gitops
+      cluster:
+        id: ""
+      agent:
+        id: envpilot-agent
+      runner:
+        id: envpilot-runner
+        # Empty resolves to the umbrella release namespace at render time.
+        namespace: ""
+        deploymentMode: helm
 
-deployment:
-  # Supported: helm_direct, fluxcd. Planned/not implemented: argocd.
-  backend: helm_direct
-
-compatibility:
-  # Browser/API feature contract. The installer passes this value to the
-  # control-plane so an incompatible frontend can disable optional actions.
-  apiContractVersion: "1"
-
-# How users reach the browser UI after the installer Job completes.
-# The published chart defaults to the documented local minikube path:
-# envpilot.local through an nginx IngressClass. Docker-driver minikube also
-# needs `minikube tunnel` so host ports 80/443 route to the local ingress.
-# Production installs should override project.loadBalancerType,
-# project.endpointDomain and project.ingressAnnotations explicitly.
+# Public access is opt-in. "ingress" creates an Ingress against an existing
+# configured IngressClass; "gateway" creates an HTTPRoute against an existing
+# Gateway. Neither mode installs a provider.
 access:
-  mode: ingress
-  nodePort: 0
+  mode: disabled # disabled | ingress | gateway
+  services:
+    controlPlaneName: envpilot-control-plane
+    frontendName: envpilot-frontend
+  ingress:
+    host: ""
+    className: ""
+    annotations: {}
+    tls:
+      enabled: false
+      secretName: ""
+  gateway:
+    name: ""
+    namespace: ""
+    sectionName: ""
+    hostnames: []
 
-project:
-  productId: envpilot-smoke
-  productChartPath: /var/lib/envpilot/charts/envpilot-smoke
-  loadBalancerType: nginx
-  endpointDomain: local
-  ingressAnnotations: {}
-  appRepositoryId: envpilot/app
-  gitopsRepositoryId: envpilot/gitops
+# Declarative platform-dependency intent. The direct umbrella currently only
+# consumes existing platform services; auto/managed are explicit future
+# reconciler modes and require a provider configuration when implemented.
+platformDependencies:
+  ingress:
+    mode: disabled # auto | managed | existing | disabled
+    provider: ""
+    existingClassName: ""
+    state: ""
+    managed: {}
+  dns:
+    mode: disabled # auto | managed | existing | disabled
+    provider: ""
+    existingSecret: ""
+    state: ""
+    managed: {}
+  storage:
+    mode: existing # auto | managed | existing | disabled
+    provider: ""
+    existingClassName: ""
+    state: ""
+    managed: {}
 
-registry:
-  secretName: ghcr-envpilot
-  server: ghcr.io
-  username: envpilot
-  token: ""
-  existingTokenSecret: ""
-  existingTokenSecretKey: token
-  skipSecret: false
-
-images:
-  # `tag` remains as a deprecated all-components override for existing Helm
-  # callers. Published releases pin each runtime component independently.
-  tag: ""
-  api:
+envpilot-control-plane:
+  fullnameOverride: envpilot-control-plane
+  image:
     repository: ghcr.io/envpilot/api
     tag: "0.1.6"
+    digest: ""
+    pullPolicy: IfNotPresent
+    sourceRevision: ""
+    release: ""
+  imagePullSecrets: []
+  replicaCount: 1
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: null
+  # Umbrella owns frontend separately; disable the standalone transitional
+  # frontend dependency and route access resources to envpilot-frontend.
   frontend:
+    enabled: false
+    serviceName: envpilot-frontend
+  # Public access is rendered by templates/access.yaml, not this child chart.
+  ingress:
+    enabled: false
+    domain: ""
+    className: ""
+    annotations: {}
+  env:
+    ENVPILOT_API_CONTRACT_VERSION: "1"
+    ENVPILOT_AGENT_HELM_CHART_REF: "oci://ghcr.io/envpilot/envpilot-agent"
+    ENVPILOT_AGENT_HELM_CHART_VERSION: ""
+  # internal creates in-release StatefulSets. external references a Secret
+  # containing complete connection URLs. disabled leaves the corresponding
+  # application variable unset for an externally injected configuration.
+  postgres:
+    # mode: internal | external | disabled. Omitted intentionally: the legacy
+    # enabled=true contract selects internal and keeps existing values working.
+    enabled: true
+    image:
+      repository: postgres
+      tag: "16-alpine"
+      digest: ""
+      pullPolicy: IfNotPresent
+    auth:
+      database: envpilot
+      username: envpilot
+      password: envpilot # use auth.existingSecret in production
+      existingSecret: ""
+      passwordKey: password
+    external:
+      existingSecret: ""
+      urlKey: database-url
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClassName: ""
+  redis:
+    # mode: internal | external | disabled. Omitted intentionally: the legacy
+    # enabled=true contract selects internal and keeps existing values working.
+    enabled: true
+    image:
+      repository: redis
+      tag: "7-alpine"
+      digest: ""
+      pullPolicy: IfNotPresent
+    external:
+      existingSecret: ""
+      urlKey: redis-url
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClassName: ""
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClassName: ""
+  # Prefer existingSecret references above. secretEnv remains for compatibility
+  # with prior releases and must not contain credentials in committed values.
+  secretEnv: {}
+
+envpilot-frontend:
+  fullnameOverride: envpilot-frontend
+  image:
     repository: ghcr.io/envpilot/frontend
     tag: "0.1.5"
-  agent:
+    digest: ""
+    pullPolicy: IfNotPresent
+    sourceRevision: ""
+    release: ""
+  imagePullSecrets: []
+  replicaCount: 1
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+  service:
+    type: ClusterIP
+    port: 3000
+    nodePort: null
+
+# Same-cluster execution targets are opt-in. Use existing project-scoped
+# registration Secrets; never put bootstrap tokens into this values file.
+envpilot-agent:
+  fullnameOverride: envpilot-agent
+  image:
     repository: ghcr.io/envpilot/agent
     tag: "0.1.4"
-  runner:
+    digest: ""
+    pullPolicy: IfNotPresent
+    sourceRevision: ""
+    release: ""
+  imagePullSecrets: []
+  replicaCount: 1
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+  controlPlane:
+    url: http://envpilot-control-plane:8080
+    existingSecret: ""
+    registrationTokenKey: registration-token
+  cluster:
+    id: ""
+  bootstrap:
+    projectId: ""
+  agent:
+    id: ""
+    authPersistence:
+      enabled: true
+      existingClaim: ""
+      existingSecret: ""
+      storageClassName: ""
+
+envpilot-runner:
+  fullnameOverride: envpilot-runner
+  image:
     repository: ghcr.io/envpilot/runner
     tag: "0.1.4"
-  pullPolicy: Always
-
-agentInstall:
-  helmChartRef: oci://ghcr.io/envpilot/envpilot-agent
-  helmChartVersion: "0.1.1"
-
-storage:
-  className: ""
-
-scheduling:
-  nodeArch: ""
-  toleration:
-    key: ""
-    value: ""
-    effect: NoSchedule
-
-postgres:
-  password: envpilot
-
-rbac:
-  create: true
-
-serviceAccount:
-  create: true
-  name: ""
-  annotations: {}
-
-job:
-  backoffLimit: 0
-  ttlSecondsAfterFinished: 86400
-  activeDeadlineSeconds: 1200
-  annotations: {}
-  podAnnotations: {}
+    digest: ""
+    pullPolicy: IfNotPresent
+    sourceRevision: ""
+    release: ""
+  imagePullSecrets: []
+  replicaCount: 1
   resources: {}
-  securityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    runAsUser: 10001
-    runAsGroup: 10001
-    capabilities:
-      drop:
-        - ALL
-  podSecurityContext:
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+  controlPlane:
+    url: http://envpilot-control-plane:8080
+    existingSecret: ""
+    tokenKey: token
+    configTokenKey: project-config-token
+    authPersistence:
+      enabled: true
+      existingClaim: ""
+      existingSecret: ""
+      storageClassName: ""
+  helmRegistry:
+    existingSecret: ""
+    configKey: .dockerconfigjson
+  project:
+    id: ""
+    clusterId: ""
+    namespace: ""
+    runnerId: ""
+    deploymentMode: helm
+    configUrl: ""

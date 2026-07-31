@@ -1,3 +1,18 @@
+{{- $postgresMode := default (ternary "internal" "disabled" .Values.postgres.enabled) .Values.postgres.mode -}}
+{{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
+{{- $platformDependencyStatus := default (dict) (get $globalEnvPilot "platformDependencyStatus") -}}
+{{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
+{{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
+{{- $firstStartMode := default "disabled" $firstStart.mode -}}
+{{- $firstStartSecret := "" -}}
+{{- if eq $firstStartMode "existing" -}}
+{{- $firstStartSecret = required "global.envpilot.firstStartRegistration.existingSecret is required when mode=existing" $firstStart.existingSecret -}}
+{{- else if eq $firstStartMode "managed" -}}
+{{- $firstStartSecret = default (printf "%s-first-start-registration" .Release.Name) $firstStart.secretName -}}
+{{- end -}}
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-control-plane.imageMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,10 +31,8 @@ spec:
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with .Values.podAnnotations }}
       annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- toYaml $podAnnotations | nindent 8 }}
     spec:
       serviceAccountName: {{ include "envpilot-control-plane.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
@@ -30,9 +43,9 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- if .Values.dependencyWait.enabled }}
       initContainers:
-        {{- if .Values.postgres.enabled }}
+        {{- if eq $postgresMode "internal" }}
         - name: wait-postgres
-          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          image: {{ include "envpilot-control-plane.postgresImage" . | quote }}
           imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -57,9 +70,9 @@ spec:
                   name: {{ default (include "envpilot-control-plane.postgresName" .) .Values.postgres.auth.existingSecret }}
                   key: {{ .Values.postgres.auth.passwordKey | quote }}
         {{- end }}
-        {{- if .Values.redis.enabled }}
+        {{- if eq $redisMode "internal" }}
         - name: wait-redis
-          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          image: {{ include "envpilot-control-plane.redisImage" . | quote }}
           imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -79,10 +92,15 @@ spec:
               done
         {{- end }}
       {{- end }}
+      {{- if $platformDependencyStatusEnabled }}
+      envFrom:
+        - configMapRef:
+            name: {{ printf "%s-platform-dependency-status" .Release.Name | quote }}
+      {{- end }}
       containers:
         - name: api
-          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: {{ include "envpilot-control-plane.image" . | quote }}
+          imagePullPolicy: {{ include "envpilot-control-plane.imagePullPolicy" . }}
           {{- with .Values.command }}
           command:
             {{- toYaml . | nindent 12 }}
@@ -96,7 +114,7 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           env:
-            {{- if .Values.postgres.enabled }}
+            {{- if eq $postgresMode "internal" }}
             - name: ENVPILOT_POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -104,14 +122,67 @@ spec:
                   key: {{ .Values.postgres.auth.passwordKey | quote }}
             - name: ENVPILOT_DATABASE_URL
               value: "postgres://{{ .Values.postgres.auth.username }}:$(ENVPILOT_POSTGRES_PASSWORD)@{{ include "envpilot-control-plane.postgresName" . }}:{{ .Values.postgres.service.port }}/{{ .Values.postgres.auth.database }}?sslmode=disable"
+            {{- else if eq $postgresMode "external" }}
+            - name: ENVPILOT_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "postgres.external.existingSecret is required when postgres.mode=external" .Values.postgres.external.existingSecret | quote }}
+                  key: {{ .Values.postgres.external.urlKey | quote }}
             {{- end }}
-            {{- if .Values.redis.enabled }}
+            {{- if eq $redisMode "internal" }}
             - name: ENVPILOT_REDIS_URL
               value: "redis://{{ include "envpilot-control-plane.redisName" . }}:{{ .Values.redis.service.port }}/0"
+            {{- else if eq $redisMode "external" }}
+            - name: ENVPILOT_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "redis.external.existingSecret is required when redis.mode=external" .Values.redis.external.existingSecret | quote }}
+                  key: {{ .Values.redis.external.urlKey | quote }}
             {{- end }}
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
+            {{- end }}
+            {{- if ne $firstStartMode "disabled" }}
+            - name: ENVPILOT_SAME_CLUSTER_REGISTRATION_ENABLED
+              value: "true"
+            - name: ENVPILOT_SAME_CLUSTER_PROJECT_ID
+              value: {{ $firstStart.project.id | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_PROJECT_NAME
+              value: {{ $firstStart.project.name | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_PRODUCT_ID
+              value: {{ $firstStart.project.productId | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_APP_REPOSITORY_ID
+              value: {{ $firstStart.project.appRepositoryId | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_GITOPS_REPOSITORY_ID
+              value: {{ $firstStart.project.gitopsRepositoryId | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_CLUSTER_ID
+              value: {{ $firstStart.cluster.id | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_AGENT_ID
+              value: {{ $firstStart.agent.id | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_RUNNER_ID
+              value: {{ $firstStart.runner.id | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_RUNNER_NAMESPACE
+              value: {{ default .Release.Namespace $firstStart.runner.namespace | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_RUNNER_DEPLOYMENT_MODE
+              value: {{ $firstStart.runner.deploymentMode | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_REGISTRATION_TOKEN_TTL_SECONDS
+              value: {{ $firstStart.tokenTTLSeconds | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $firstStartSecret | quote }}
+                  key: agent-registration-token
+            - name: ENVPILOT_SAME_CLUSTER_RUNNER_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $firstStartSecret | quote }}
+                  key: runner-registration-token
+            - name: ENVPILOT_SAME_CLUSTER_RUNNER_PROJECT_CONFIG_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $firstStartSecret | quote }}
+                  key: runner-project-config-token
             {{- end }}
             {{- if .Values.secretEnv }}
             {{- range $key, $_ := .Values.secretEnv }}

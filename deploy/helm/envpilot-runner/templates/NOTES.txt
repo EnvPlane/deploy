@@ -22,12 +22,15 @@ Auth persistence:
   and skip bootstrap registration. Rotate by creating a new deployment
   instruction/token set and updating the persisted Secret.
 
-Migration from chart <= 0.1.2:
-  Older releases used the fixed resource name envpilot-runner-chart. Preserve
-  the existing Deployment, RBAC and envpilot-runner-chart-auth PVC with:
+Migration from the retired envpilot-runner-chart OCI chart:
+  Older releases used the fixed resource name and immutable selector
+  envpilot-runner-chart. Preserve the existing Deployment, RBAC and
+  envpilot-runner-chart-auth PVC with:
 
-    helm upgrade {{ .Release.Name }} <runner-chart> --namespace {{ .Release.Namespace }} --reuse-values \
-      --set fullnameOverride=envpilot-runner-chart
+    helm upgrade {{ .Release.Name }} oci://ghcr.io/envpilot/envpilot-runner \
+      --namespace {{ .Release.Namespace }} --reuse-values \
+      --set fullnameOverride=envpilot-runner-chart \
+      --set legacyChartName=envpilot-runner-chart
 
   New releases intentionally receive independent names and auth PVCs. Do not
-  assign that legacy fullnameOverride to a second release in the same namespace.
+  assign either legacy setting to a second release in the same namespace.

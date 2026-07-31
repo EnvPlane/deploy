@@ -1,0 +1,15 @@
+apiVersion: v2
+name: envpilot-frontend
+description: EnvPilot browser frontend
+type: application
+version: 0.2.0
+appVersion: "0.1.5"
+keywords:
+  - envpilot
+  - frontend
+  - ui
+home: https://envpilot.local
+sources:
+  - https://github.com/envpilot/frontend
+maintainers:
+  - name: EnvPilot Platform Team

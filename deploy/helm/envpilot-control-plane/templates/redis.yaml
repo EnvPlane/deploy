@@ -1,4 +1,5 @@
-{{- if .Values.redis.enabled }}
+{{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
+{{- if eq $redisMode "internal" }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -41,6 +42,9 @@ spec:
         app.kubernetes.io/component: redis
     spec:
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
         fsGroup: 999
         seccompProfile:
           type: RuntimeDefault
@@ -58,8 +62,16 @@ spec:
       {{- end }}
       containers:
         - name: redis
-          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          image: {{ include "envpilot-control-plane.redisImage" . | quote }}
           imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
           args:
             - redis-server
             - --appendonly

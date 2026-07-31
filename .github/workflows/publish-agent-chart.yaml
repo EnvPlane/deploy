@@ -16,6 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
+      - name: Verify canonical chart sources
+        run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Package chart
         run: helm package deploy/helm/envpilot-agent --destination dist
       - name: Authenticate to GHCR

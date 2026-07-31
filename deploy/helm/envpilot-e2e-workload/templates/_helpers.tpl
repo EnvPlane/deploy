@@ -16,3 +16,31 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: envpilot-e2e
 {{- end -}}
+
+{{- define "envpilot-e2e-workload.image" -}}
+{{- $repository := required "image.repository is required" .Values.image.repository -}}
+{{- $digest := trim (default "" .Values.image.digest) -}}
+{{- if $digest -}}
+{{- printf "%s@%s" $repository $digest -}}
+{{- else -}}
+{{- $tag := required "image.tag is required when image.digest is not set" .Values.image.tag -}}
+{{- if eq (lower $tag) "latest" -}}
+{{- fail "image.tag must not be latest; use an immutable tag or image.digest" -}}
+{{- end -}}
+{{- printf "%s:%s" $repository $tag -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "envpilot-e2e-workload.imagePullPolicy" -}}
+{{- $policy := required "image.pullPolicy is required" .Values.image.pullPolicy -}}
+{{- if not (has $policy (list "Always" "IfNotPresent" "Never")) -}}
+{{- fail "image.pullPolicy must be Always, IfNotPresent, or Never" -}}
+{{- end -}}
+{{- $policy -}}
+{{- end -}}
+
+{{- define "envpilot-e2e-workload.imageMetadata" -}}
+envpilot.io/image-reference: {{ include "envpilot-e2e-workload.image" . | quote }}
+envpilot.io/source-revision: {{ default "" .Values.image.sourceRevision | quote }}
+envpilot.io/release: {{ default "" .Values.image.release | quote }}
+{{- end -}}

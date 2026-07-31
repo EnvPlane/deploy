@@ -4,6 +4,9 @@ image:
   repository: ghcr.io/envpilot/runner
   pullPolicy: IfNotPresent
   tag: "0.1.4"
+  digest: ""
+  sourceRevision: ""
+  release: ""
 
 imagePullSecrets: []
 
@@ -15,8 +18,12 @@ nameOverride: ""
 # New releases use <release>-<chart> resource names. Existing releases from
 # chart <= 0.1.2 used the fixed name envpilot-runner-chart; preserve their
 # Deployment, RBAC and auth PVC on upgrade with:
-#   --set fullnameOverride=envpilot-runner-chart
+#   --set fullnameOverride=envpilot-runner-chart \
+#   --set legacyChartName=envpilot-runner-chart
 fullnameOverride: ""
+# The legacy chart name also preserves the immutable Deployment selector when
+# migrating from the retired oci://ghcr.io/envpilot/envpilot-runner-chart name.
+legacyChartName: ""
 
 controlPlane:
   url: ""

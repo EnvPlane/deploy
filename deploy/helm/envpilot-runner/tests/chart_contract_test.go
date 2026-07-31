@@ -160,7 +160,7 @@ func TestRunnerChartDocumentsAuthPersistenceSecret(t *testing.T) {
 	if !strings.Contains(rendered, "kind: PersistentVolumeClaim") {
 		t.Fatalf("rendered chart missing default auth persistence PVC:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "claimName: \"envpilot-runner-envpilot-runner-chart-auth\"") {
+	if !strings.Contains(rendered, "claimName: \"envpilot-runner-auth\"") {
 		t.Fatalf("rendered chart missing auth PVC claim reference:\n%s", rendered)
 	}
 }
@@ -239,6 +239,27 @@ func TestRunnerChartDefaultRBACIsLeastPrivilege(t *testing.T) {
 	}
 }
 
+func TestRunnerChartSupportsExistingServiceAccountAndExternalRBAC(t *testing.T) {
+	rendered := renderRunnerChart(t,
+		"--set", "serviceAccount.create=false",
+		"--set", "serviceAccount.name=platform-runner",
+		"--set", "rbac.create=false",
+	)
+	if !strings.Contains(rendered, "serviceAccountName: platform-runner") {
+		t.Fatalf("existing ServiceAccount was not selected:\n%s", rendered)
+	}
+	for _, forbidden := range []string{"kind: ServiceAccount", "kind: Role", "kind: RoleBinding", "kind: ClusterRole", "kind: ClusterRoleBinding"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("rbac.create=false must not render %s:\n%s", forbidden, rendered)
+		}
+	}
+	cmd := exec.Command("helm", "template", "envpilot-runner", "..", "--set", "serviceAccount.create=false")
+	cmd.Dir = "."
+	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "serviceAccount.name is required") {
+		t.Fatalf("missing existing ServiceAccount name must fail, err=%v output=%s", err, output)
+	}
+}
+
 func TestRunnerChartPreconfiguredNamespaceWriterRendersPerNamespace(t *testing.T) {
 	rendered := renderRunnerChart(
 		t,
@@ -248,10 +269,10 @@ func TestRunnerChartPreconfiguredNamespaceWriterRendersPerNamespace(t *testing.T
 	)
 	docs := renderedDocs(rendered)
 	for _, namespace := range []string{"envpilot-pr-123", "envpilot-pr-124"} {
-		if role := findResourceDoc(docs, "Role", "envpilot-runner-envpilot-runner-chart-feature-env-writer", namespace); role == "" {
+		if role := findResourceDoc(docs, "Role", "envpilot-runner-feature-env-writer", namespace); role == "" {
 			t.Fatalf("feature-env-writer Role not found in namespace %s:\n%s", namespace, rendered)
 		}
-		binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-envpilot-runner-chart-feature-env-writer", namespace)
+		binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-feature-env-writer", namespace)
 		if binding == "" {
 			t.Fatalf("feature-env-writer RoleBinding not found in namespace %s:\n%s", namespace, rendered)
 		}
@@ -259,7 +280,7 @@ func TestRunnerChartPreconfiguredNamespaceWriterRendersPerNamespace(t *testing.T
 			t.Fatalf("feature namespace writer RoleBinding must bind the release service account:\n%s", binding)
 		}
 	}
-	if role := findResourceDoc(docs, "Role", "envpilot-runner-envpilot-runner-chart-feature-env-writer", "envpilot-system"); role != "" {
+	if role := findResourceDoc(docs, "Role", "envpilot-runner-feature-env-writer", "envpilot-system"); role != "" {
 		t.Fatalf("preconfigured namespace mode must not also render release-namespace writer Role:\n%s", role)
 	}
 }
@@ -271,10 +292,10 @@ func TestRunnerChartGeneratedFeatureNamespaceWriterRendersPerNamespace(t *testin
 		"--set", "rbac.featureEnvWriter.generatedNamespaces[0]=envpilot-pr-201",
 	)
 	docs := renderedDocs(rendered)
-	if role := findResourceDoc(docs, "Role", "envpilot-runner-envpilot-runner-chart-feature-env-writer", "envpilot-pr-201"); role == "" {
+	if role := findResourceDoc(docs, "Role", "envpilot-runner-feature-env-writer", "envpilot-pr-201"); role == "" {
 		t.Fatalf("generated feature namespace writer Role not found:\n%s", rendered)
 	}
-	if binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-envpilot-runner-chart-feature-env-writer", "envpilot-pr-201"); binding == "" {
+	if binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-feature-env-writer", "envpilot-pr-201"); binding == "" {
 		t.Fatalf("generated feature namespace writer RoleBinding not found:\n%s", rendered)
 	}
 }
@@ -383,22 +404,22 @@ func TestRunnerChartRendersIndependentResourcesForTwoReleases(t *testing.T) {
 		}
 	}
 	for _, expected := range []string{
-		"runner-a-envpilot-runner-chart",
-		"runner-a-envpilot-runner-chart-auth",
-		"runner-a-envpilot-runner-chart-token",
-		"runner-a-envpilot-runner-chart-discovery-reader",
-		"runner-a-envpilot-runner-chart-feature-env-writer",
+		"runner-a-envpilot-runner",
+		"runner-a-envpilot-runner-auth",
+		"runner-a-envpilot-runner-token",
+		"runner-a-envpilot-runner-discovery-reader",
+		"runner-a-envpilot-runner-feature-env-writer",
 	} {
 		if !strings.Contains(releaseA, expected) {
 			t.Fatalf("runner-a render missing release-aware resource %q:\n%s", expected, releaseA)
 		}
 	}
 	for _, expected := range []string{
-		"runner-b-envpilot-runner-chart",
-		"runner-b-envpilot-runner-chart-auth",
-		"runner-b-envpilot-runner-chart-token",
-		"runner-b-envpilot-runner-chart-discovery-reader",
-		"runner-b-envpilot-runner-chart-feature-env-writer",
+		"runner-b-envpilot-runner",
+		"runner-b-envpilot-runner-auth",
+		"runner-b-envpilot-runner-token",
+		"runner-b-envpilot-runner-discovery-reader",
+		"runner-b-envpilot-runner-feature-env-writer",
 	} {
 		if !strings.Contains(releaseB, expected) {
 			t.Fatalf("runner-b render missing release-aware resource %q:\n%s", expected, releaseB)
@@ -407,7 +428,10 @@ func TestRunnerChartRendersIndependentResourcesForTwoReleases(t *testing.T) {
 }
 
 func TestRunnerChartLegacyFullnameOverridePreservesExistingAuthPVC(t *testing.T) {
-	legacy := renderRunnerChartWithRelease(t, "envpilot-runner", "--set", "fullnameOverride=envpilot-runner-chart")
+	legacy := renderRunnerChartWithRelease(t, "envpilot-runner",
+		"--set", "fullnameOverride=envpilot-runner-chart",
+		"--set", "legacyChartName=envpilot-runner-chart",
+	)
 	docs := renderedDocs(legacy)
 	for _, kind := range []string{"Deployment", "ServiceAccount"} {
 		if resource := findResourceDoc(docs, kind, "envpilot-runner-chart", ""); resource == "" {
@@ -421,7 +445,8 @@ func TestRunnerChartLegacyFullnameOverridePreservesExistingAuthPVC(t *testing.T)
 	if err != nil {
 		t.Fatalf("read chart notes: %v", err)
 	}
-	if !strings.Contains(string(notes), "fullnameOverride=envpilot-runner-chart") {
+	if !strings.Contains(string(notes), "fullnameOverride=envpilot-runner-chart") ||
+		!strings.Contains(string(notes), "legacyChartName=envpilot-runner-chart") {
 		t.Fatalf("chart notes must document the legacy fullname migration")
 	}
 }
