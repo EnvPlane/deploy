@@ -13,6 +13,6 @@ images:
   agent: ghcr.io/envpilot/agent:0.1.4
   runner: ghcr.io/envpilot/runner:0.1.4
 charts:
-  controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.1.4
-  agent: oci://ghcr.io/envpilot/envpilot-agent:0.1.1
-  runner: oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.9
+  controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.1.5
+  agent: oci://ghcr.io/envpilot/envpilot-agent:0.1.2
+  runner: oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.10
