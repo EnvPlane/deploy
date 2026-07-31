@@ -245,7 +245,7 @@ start_chart_server() {
 }
 
 complete_bootstrap() {
-  local readiness patch
+  local readiness patch scan_start
   readiness="$(api_get "/api/projects/$PROJECT_ID" | jq -r '.deployment_readiness.ready')"
   if [[ "$readiness" == true ]]; then
     log "Fixture project is already deploy-ready"
@@ -254,9 +254,12 @@ complete_bootstrap() {
   log "Configuring bootstrap through the supported session API"
   patch="$(jq -n \
     --arg base "$BASE_NAMESPACE" --arg ref "$E2E_CHART_REF" \
-    '{current_step:10,step_data:{selectedNamespaces:[$base],deployment:{backend:"helm_direct",helmDirect:{chartRef:$ref,namespaceMode:"shared",releaseNamePattern:"{{ .project.id }}-{{ .environment.name }}",namespacePattern:"envpilot-pr-{{ .PRNumber }}",timeout:120,wait:true,createNamespace:false,valuesOverrideStrategy:"merge",imageTagValuePath:"image.tag"}}}}')"
+    '{current_step:10,step_data:{selectedBaseNamespaces:[$base],deployment:{backend:"helm_direct",helmDirect:{chartRef:$ref,namespaceMode:"shared",releaseNamePattern:"{{ .project.id }}-{{ .environment.name }}",namespacePattern:"envpilot-pr-{{ .PRNumber }}",timeout:120,wait:true,createNamespace:false,valuesOverrideStrategy:"merge",imageTagValuePath:"image.tag"}}}}')"
   api_json PATCH "/api/projects/$PROJECT_ID/bootstrap-session" "$patch" >/dev/null
-  api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/resource-scan/start" '{}' >/dev/null
+  scan_start="$(api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/resource-scan/start" '{}')"
+  if [[ "$(jq -r '.data.resourceScanStatus // empty' <<<"$scan_start")" != "pending" ]]; then
+    die "resource scan start was not accepted with selectedBaseNamespaces; response did not report pending status"
+  fi
   wait_for "successful resource scan" 180 "[[ \$(api_get /api/projects/$PROJECT_ID/bootstrap-session/agent-status | jq -r .resourceScanStatus) == completed ]]" >/dev/null
   api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/helm-direct/preflight" '{}' >/dev/null
   wait_for "Runner Helm chart preflight" 90 "[[ \$(api_get /api/projects/$PROJECT_ID/bootstrap-session | jq -r '.data.helmDirectChartValidation.status // empty') == succeeded ]]" >/dev/null

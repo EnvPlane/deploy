@@ -309,6 +309,11 @@ finishes. No external chart registry is required because the script packages
 the committed `envpilot-e2e-workload` chart and transfers the locally built
 Agent/Runner images into the target profile.
 
+When preparing the bootstrap session, the fixture stores its base namespace in
+`selectedBaseNamespaces` (the resource-scan API contract). Do not use the
+deprecated `selectedNamespaces` key: it is ignored by the control-plane and
+causes resource-scan start to fail before dispatch.
+
 For diagnostics, retain the generated environment with:
 
 ```sh

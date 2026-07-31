@@ -121,6 +121,26 @@ func TestLocalEnvironmentFixtureUsesAccessibleSCMDefaultsAndPreflight(t *testing
 	}
 }
 
+func TestLocalEnvironmentFixtureUsesCanonicalResourceScanNamespacesField(t *testing.T) {
+	script, err := os.ReadFile("../../../../scripts/minikube-environment-e2e.sh")
+	if err != nil {
+		t.Fatalf("read local E2E fixture script: %v", err)
+	}
+	text := string(script)
+	for _, expected := range []string{
+		`selectedBaseNamespaces:[$base]`,
+		`resource-scan/start`,
+		`resource scan start was not accepted with selectedBaseNamespaces`,
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("local E2E fixture missing resource-scan contract marker %q", expected)
+		}
+	}
+	if strings.Contains(text, `step_data:{selectedNamespaces:[$base]`) {
+		t.Fatal("local E2E fixture must not use deprecated selectedNamespaces for resource scan")
+	}
+}
+
 func TestInitChartKeepsInstallerNamespaceOnUpgrade(t *testing.T) {
 	template, err := os.ReadFile("../templates/namespace.yaml")
 	if err != nil {
