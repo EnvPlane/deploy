@@ -47,7 +47,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.16",
+		"ghcr.io/envpilot/install:0.1.17",
 		"- -frontend-access-mode",
 		`- "ingress"`,
 		"- -load-balancer-type",
@@ -90,13 +90,13 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 }
 
 func TestPublishedReleasePinsAPICompatibility(t *testing.T) {
-	release, err := os.ReadFile("../../../../release/0.1.16.yaml")
+	release, err := os.ReadFile("../../../../release/0.1.17.yaml")
 	if err != nil {
 		t.Fatalf("read published release manifest: %v", err)
 	}
 	manifest := string(release)
 	for _, expected := range []string{
-		`version: "0.1.16"`,
+		`version: "0.1.17"`,
 		"apiContract:",
 		`version: "1"`,
 		"scmOfflineBootstrap: true",
@@ -169,7 +169,7 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			"Runner Helm chart preflight failed for",
 		},
 		"../../../../scripts/envpilot-clean-install.sh": {
-			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.16}\"",
+			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.17}\"",
 			"AGENT_IMAGE_TAG=\"${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}\"",
 			"RUNNER_IMAGE_TAG=\"${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}\"",
 			"verify_api_capabilities",

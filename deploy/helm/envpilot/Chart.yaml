@@ -2,5 +2,5 @@ apiVersion: v2
 name: envpilot
 description: Single-chart EnvPilot installer that runs envpilot-install as a Kubernetes Job.
 type: application
-version: 0.1.16
-appVersion: "0.1.16"
+version: 0.1.17
+appVersion: "0.1.17"
