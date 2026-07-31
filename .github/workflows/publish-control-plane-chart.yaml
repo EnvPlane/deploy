@@ -19,8 +19,8 @@ jobs:
       - name: Package chart
         run: helm package deploy/helm/envpilot-control-plane --destination dist
       - name: Authenticate to GHCR
-        run: echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Publish OCI chart
         run: helm push dist/envpilot-control-plane-*.tgz oci://ghcr.io/${{ github.repository_owner }}
