@@ -225,6 +225,10 @@ install_agent() {
   add_set "image.repository" "${AGENT_IMAGE}"
   add_set "image.tag" "${AGENT_IMAGE_TAG}"
   add_set "image.pullPolicy" "${IMAGE_PULL_POLICY}"
+  # Explicitly override any previous emergency scale-down on an idempotent
+  # install. A Helm release at replicaCount=0 is installed but cannot publish
+  # the Agent capability report required for bootstrap readiness.
+  add_set "replicaCount" "1"
   add_set "imagePullSecrets[0].name" "${GHCR_SECRET}"
   add_set "controlPlane.url" "http://envpilot-control-plane.${NAMESPACE}.svc.cluster.local:8080"
   add_set "controlPlane.existingSecret" "envpilot-agent-bootstrap"
@@ -253,6 +257,9 @@ install_runner() {
   add_set "image.repository" "${RUNNER_IMAGE}"
   add_set "image.tag" "${RUNNER_IMAGE_TAG}"
   add_set "image.pullPolicy" "${IMAGE_PULL_POLICY}"
+  # See install_agent: an existing release must be scaled back up by the
+  # documented installer, otherwise it can never receive Helm commands.
+  add_set "replicaCount" "1"
   add_set "imagePullSecrets[0].name" "${GHCR_SECRET}"
   add_set "controlPlane.url" "http://envpilot-control-plane.${NAMESPACE}.svc.cluster.local:8080"
   add_set "controlPlane.existingSecret" "envpilot-runner-bootstrap"

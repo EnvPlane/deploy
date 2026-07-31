@@ -101,6 +101,12 @@ ingress:
 
 env:
   ENVPILOT_API_CONTRACT_VERSION: "1"
+  # The bootstrap Agent-token endpoint requires a chart reference in order to
+  # generate self-contained install instructions. Keep this published default
+  # valid for a normal chart install; local minikube values override it with
+  # the temporary HTTP chart server used by the two-profile E2E flow.
+  ENVPILOT_AGENT_HELM_CHART_REF: "oci://ghcr.io/envpilot/envpilot-agent"
+  ENVPILOT_AGENT_HELM_CHART_VERSION: ""
   ENVPILOT_ADDR: ":8080"
   ENVPILOT_DATA_DIR: "/var/lib/envpilot/data"
   ENVPILOT_GITOPS_DIR: "/var/lib/envpilot/data/gitops"

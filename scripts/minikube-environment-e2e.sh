@@ -27,6 +27,7 @@ AGENT_ID="${ENVPILOT_E2E_AGENT_ID:-envpilot-e2e-agent}"
 AGENT_RELEASE="${ENVPILOT_E2E_AGENT_RELEASE:-envpilot-e2e-agent}"
 RUNNER_RELEASE="${ENVPILOT_E2E_RUNNER_RELEASE:-envpilot-e2e-runner}"
 CHART_PORT="${ENVPILOT_E2E_CHART_PORT:-18082}"
+AGENT_CHART_PORT="${ENVPILOT_E2E_AGENT_CHART_PORT:-18083}"
 CHART_ARCHIVE_NAME=""
 SCM_PROVIDER="${ENVPILOT_E2E_SCM_PROVIDER:-gitlab}"
 # These are the canonical repositories reachable by the local E2E GitLab
@@ -177,6 +178,7 @@ install_agent() {
     --from-literal=registration-token="$token" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
   helm upgrade --install "$AGENT_RELEASE" "$AGENT_CHART" \
     --kube-context "$TARGET_PROFILE" --namespace "$AGENT_NAMESPACE" \
+    --set replicaCount=1 \
     --set-string fullnameOverride="$AGENT_ID" \
     --set-string image.repository=envpilot/agent --set-string image.tag=local --set image.pullPolicy=Never \
     --set-string controlPlane.url="http://host.minikube.internal:18080" \
@@ -218,6 +220,7 @@ install_runner() {
     --from-literal=token="$token" --from-literal=project-config-token="$config" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
   helm upgrade --install "$RUNNER_RELEASE" "$RUNNER_CHART" \
     --kube-context "$TARGET_PROFILE" --namespace "$RUNNER_NAMESPACE" \
+    --set replicaCount=1 \
     --set-string fullnameOverride="$RUNNER_RELEASE" \
     --set-string image.repository=envpilot/runner --set-string image.tag=local --set image.pullPolicy=Never \
     --set-string controlPlane.url="http://host.minikube.internal:18080" \
@@ -340,7 +343,7 @@ create_and_verify_environment() {
 }
 
 log "Preparing two-minikube API gateway and local images"
-"$DEPLOY_ROOT/scripts/minikube-agent-access.sh" start "$TARGET_PROFILE"
+ENVPILOT_AGENT_CHART_PORT="$AGENT_CHART_PORT" "$DEPLOY_ROOT/scripts/minikube-agent-access.sh" start "$TARGET_PROFILE"
 curl --fail --silent --show-error "$API_URL/api/v1/health" >/dev/null
 minikube -p "$CONTROL_PROFILE" status >/dev/null
 minikube -p "$TARGET_PROFILE" status >/dev/null

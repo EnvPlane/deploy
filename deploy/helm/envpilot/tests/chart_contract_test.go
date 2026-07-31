@@ -160,6 +160,8 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			"Fixture project is deploy-ready",
 			`releaseNamePattern:"envpilot-e2e"`,
 			`curl -fsS "http://127.0.0.1:$CHART_PORT/$CHART_ARCHIVE_NAME"`,
+			`AGENT_CHART_PORT="${ENVPILOT_E2E_AGENT_CHART_PORT:-18083}"`,
+			`ENVPILOT_AGENT_CHART_PORT="$AGENT_CHART_PORT"`,
 			"Runner Helm chart preflight failed for",
 		},
 		"../../../../scripts/envpilot-clean-install.sh": {
@@ -184,6 +186,63 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			if !strings.Contains(text, marker) {
 				t.Fatalf("fixture script %s missing %q", path, marker)
 			}
+		}
+	}
+}
+
+func TestInstallersExplicitlyScaleExecutionTargetsUp(t *testing.T) {
+	for path, expected := range map[string][]string{
+		"../../../../scripts/minikube-environment-e2e.sh": {
+			`helm upgrade --install "$AGENT_RELEASE"`,
+			`helm upgrade --install "$RUNNER_RELEASE"`,
+			"--set replicaCount=1",
+			`rollout status "deployment/$AGENT_ID"`,
+			`rollout status "deployment/$RUNNER_RELEASE"`,
+		},
+		"../../../../scripts/envpilot-clean-install.sh": {
+			`add_set "replicaCount" "1"`,
+			`rollout status "deployment/envpilot-agent"`,
+			`rollout status "deployment/envpilot-runner-chart"`,
+		},
+	} {
+		script, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read installer %s: %v", path, err)
+		}
+		text := string(script)
+		for _, marker := range expected {
+			if !strings.Contains(text, marker) {
+				t.Fatalf("installer %s must ensure an execution target is running; missing %q", path, marker)
+			}
+		}
+	}
+}
+
+func TestControlPlaneSuppliesAgentChartReferenceForBootstrapTokens(t *testing.T) {
+	values, err := os.ReadFile("../../envpilot-control-plane/values.yaml")
+	if err != nil {
+		t.Fatalf("read control-plane values: %v", err)
+	}
+	if !strings.Contains(string(values), "ENVPILOT_AGENT_HELM_CHART_REF: \"oci://ghcr.io/envpilot/envpilot-agent\"") {
+		t.Fatal("control-plane chart must configure an Agent chart reference so bootstrap agent-token requests do not return 503")
+	}
+}
+
+func TestLocalAgentAccessHelperAvoidsStaleChartPortCollisions(t *testing.T) {
+	script, err := os.ReadFile("../../../../scripts/minikube-agent-access.sh")
+	if err != nil {
+		t.Fatalf("read agent access helper: %v", err)
+	}
+	text := string(script)
+	for _, marker := range []string{
+		"port_available()",
+		"select_chart_port()",
+		"ENVPILOT_AGENT_CHART_PORT",
+		"Chart server port $CHART_PORT is already in use; using",
+		"ENVPILOT_AGENT_CONTROL_PLANE_PORT",
+	} {
+		if !strings.Contains(text, marker) {
+			t.Fatalf("agent access helper missing collision recovery marker %q", marker)
 		}
 	}
 }

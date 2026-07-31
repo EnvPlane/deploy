@@ -42,6 +42,40 @@ stop_process() {
   fi
 }
 
+port_available() {
+  python3 - "$1" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    sock.bind(("127.0.0.1", port))
+except OSError:
+    raise SystemExit(1)
+finally:
+    sock.close()
+PY
+}
+
+select_chart_port() {
+  if port_available "$CHART_PORT"; then
+    return
+  fi
+  if [[ -n "${ENVPILOT_AGENT_CHART_PORT:-}" ]]; then
+    die "requested chart server port $CHART_PORT is already in use; choose a free ENVPILOT_AGENT_CHART_PORT"
+  fi
+  local candidate
+  for candidate in $(seq $((CHART_PORT + 1)) $((CHART_PORT + 20))); do
+    if port_available "$candidate"; then
+      log "Chart server port $CHART_PORT is already in use; using $candidate instead"
+      CHART_PORT="$candidate"
+      return
+    fi
+  done
+  die "no free local chart server port found after $CHART_PORT"
+}
+
 case "$action" in
   stop)
     stop_process "$port_forward_pid"
@@ -79,6 +113,11 @@ done
 
 stop_process "$port_forward_pid"
 stop_process "$chart_server_pid"
+select_chart_port
+
+if ! port_available "$CONTROL_PORT"; then
+  die "control-plane gateway port $CONTROL_PORT is already in use; stop the conflicting process or set ENVPILOT_AGENT_CONTROL_PLANE_PORT"
+fi
 
 log "Starting a control-plane gateway on host port $CONTROL_PORT"
 nohup kubectl --context "$CONTROL_PROFILE" -n "$NAMESPACE" port-forward --address 0.0.0.0 "svc/$CONTROL_SERVICE" "$CONTROL_PORT:8080" >"$ACCESS_DIR/control-plane-port-forward.log" 2>&1 &
