@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/envpilot/agent
   pullPolicy: IfNotPresent
-  tag: "0.1.1"
+  tag: "0.1.4"
 
 imagePullSecrets: []
 nameOverride: ""

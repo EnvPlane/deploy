@@ -109,7 +109,7 @@ func TestRunnerChartUsesPersistentImage(t *testing.T) {
 	valuesText := string(values)
 	for _, expected := range []string{
 		"repository: ghcr.io/envpilot/runner",
-		`tag: "0.1.3"`,
+		`tag: "0.1.4"`,
 	} {
 		if !strings.Contains(valuesText, expected) {
 			t.Fatalf("values.yaml does not contain %q", expected)
