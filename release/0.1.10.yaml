@@ -1,6 +1,10 @@
 # Published-artifact compatibility contract. Project component persistence and
 # fresh bootstrap SCM defaults require API 0.1.5 or newer.
 version: "0.1.10"
+apiContract:
+  version: "1"
+  features:
+    scmOfflineBootstrap: true
 runnerCommandAPI:
   version: "1"
   requestHeader: X-EnvPilot-Runner-Command-API-Version

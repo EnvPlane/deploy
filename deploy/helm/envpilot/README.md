@@ -38,6 +38,11 @@ Published releases pin the API, frontend, Agent and Runner independently; do not
 override them with a single shared image tag. The compatibility set is recorded
 in `release/<chart-version>.yaml` in the deploy repository.
 
+The installer passes `compatibility.apiContractVersion` to the control-plane.
+The frontend checks `GET /api/v1/capabilities` before enabling optional
+bootstrap actions such as demo/offline SCM mode. Do not override API or
+frontend image tags with versions from different release manifests.
+
 Deployment backend:
 
 - `deployment.backend=helm_direct`: default, installs feature environments through Helm direct.

@@ -66,6 +66,8 @@ spec:
             - {{ .Values.install.runnerDeploymentMode | quote }}
             - -deployment-backend
             - {{ .Values.deployment.backend | quote }}
+            - -api-contract-version
+            - {{ .Values.compatibility.apiContractVersion | quote }}
             - -control-plane-release
             - {{ .Values.install.controlPlaneRelease | quote }}
             - -agent-release

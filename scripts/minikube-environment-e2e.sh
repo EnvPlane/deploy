@@ -27,11 +27,15 @@ AGENT_RELEASE="${ENVPILOT_E2E_AGENT_RELEASE:-envpilot-e2e-agent}"
 RUNNER_RELEASE="${ENVPILOT_E2E_RUNNER_RELEASE:-envpilot-e2e-runner}"
 CHART_PORT="${ENVPILOT_E2E_CHART_PORT:-18082}"
 SCM_PROVIDER="${ENVPILOT_E2E_SCM_PROVIDER:-gitlab}"
-APP_REPOSITORY_URL="${ENVPILOT_E2E_APP_REPOSITORY_URL:-https://gitlab.com/bh/CMS/cms.git}"
-GITOPS_REPOSITORY_URL="${ENVPILOT_E2E_GITOPS_REPOSITORY_URL:-https://gitlab.com/bh/DevOps/fluxCD/clusters.git}"
+# These are the canonical repositories reachable by the local E2E GitLab
+# credential. The old bh/... aliases return 404 for that credential. Keep both
+# values overridable so a different installation can inject its own pair.
+APP_REPOSITORY_URL="${ENVPILOT_E2E_APP_REPOSITORY_URL:-https://gitlab.com/betario/cms-team/cms.git}"
+GITOPS_REPOSITORY_URL="${ENVPILOT_E2E_GITOPS_REPOSITORY_URL:-https://gitlab.com/betario/devops/gitops/fluxcd/clusters.git}"
 APP_DEFAULT_BRANCH="${ENVPILOT_E2E_APP_DEFAULT_BRANCH:-develop}"
 GITOPS_DEFAULT_BRANCH="${ENVPILOT_E2E_GITOPS_DEFAULT_BRANCH:-main}"
 SCM_TOKEN="${ENVPILOT_E2E_SCM_TOKEN:-}"
+SCM_TOKEN_FILE="${ENVPILOT_E2E_SCM_TOKEN_FILE:-}"
 USE_UI="${ENVPILOT_E2E_USE_UI:-false}"
 UI_BASE_URL="${ENVPILOT_E2E_UI_BASE_URL:-}"
 KEEP_ENVIRONMENT=false
@@ -46,10 +50,21 @@ done
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-for bin in curl helm jq kubectl minikube python3 sed; do
+for bin in awk curl helm jq kubectl minikube python3 sed; do
   command -v "$bin" >/dev/null 2>&1 || die "'$bin' is required"
 done
-[[ -n "$SCM_TOKEN" ]] || die "set ENVPILOT_E2E_SCM_TOKEN for the normal SCM validation path"
+if [[ -z "$SCM_TOKEN" && -n "$SCM_TOKEN_FILE" ]]; then
+  [[ -r "$SCM_TOKEN_FILE" ]] || die "SCM token file is not readable: $SCM_TOKEN_FILE"
+  case "$SCM_PROVIDER" in
+    gitlab)
+      SCM_TOKEN="$(awk '/^glpat-/{print; exit}' "$SCM_TOKEN_FILE")"
+      ;;
+    github)
+      SCM_TOKEN="$(awk '/^(ghp_|github_pat_)/{print; exit}' "$SCM_TOKEN_FILE")"
+      ;;
+  esac
+fi
+[[ -n "$SCM_TOKEN" ]] || die "set ENVPILOT_E2E_SCM_TOKEN or ENVPILOT_E2E_SCM_TOKEN_FILE for the normal SCM validation path"
 [[ "$SCM_PROVIDER" == "github" || "$SCM_PROVIDER" == "gitlab" ]] || die "ENVPILOT_E2E_SCM_PROVIDER must be github or gitlab"
 
 CHART_DIR="$DEPLOY_ROOT/deploy/helm/envpilot-e2e-workload"
@@ -125,7 +140,13 @@ validate_scm() {
     --arg token "$SCM_TOKEN" \
     '{provider:$provider, appRepoUrl:$app, gitopsRepoUrl:$gitops, appDefaultBranch:$appBranch, gitopsDefaultBranch:$gitopsBranch, authMethod:"oauth", oauthToken:$token}')"
   result="$(api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/validate-scm" "$payload")"
-  jq -e '.valid == true' >/dev/null <<<"$result" || die "SCM validation failed: $(jq -r '(.errors // []) | map(.message // .code) | join("; ")' <<<"$result")"
+  if ! jq -e '.valid == true and .appRepositoryReadable == true and .gitopsRepositoryWritable == true and .hasAuthenticationValidated == true' >/dev/null <<<"$result"; then
+    local diagnostics
+    diagnostics="$(jq -r '[(.errors // [])[] | [(.field // "scm"), (.code // "validation_error"), (.message // "validation failed")] | join(": ")] | join("; ")' <<<"$result")"
+    [[ -n "$diagnostics" ]] || diagnostics="validation returned invalid repository or permission state"
+    die "SCM preflight failed for provider=$SCM_PROVIDER app=$APP_REPOSITORY_URL@$APP_DEFAULT_BRANCH gitops=$GITOPS_REPOSITORY_URL@$GITOPS_DEFAULT_BRANCH: $diagnostics"
+  fi
+  log "SCM preflight passed: provider=$SCM_PROVIDER appReadable=true gitopsWritable=true"
 }
 
 ensure_project_and_session() {

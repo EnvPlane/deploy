@@ -54,6 +54,8 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		`- "test-cluster"`,
 		"- -deployment-backend",
 		`- "helm_direct"`,
+		"- -api-contract-version",
+		`- "1"`,
 		"- -api-image-tag",
 		`- "0.1.5"`,
 		"- -frontend-image-tag",
@@ -77,6 +79,44 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
+func TestPublishedReleasePinsOfflineBootstrapCompatibility(t *testing.T) {
+	release, err := os.ReadFile("../../../../release/0.1.10.yaml")
+	if err != nil {
+		t.Fatalf("read published release manifest: %v", err)
+	}
+	manifest := string(release)
+	for _, expected := range []string{
+		`version: "0.1.10"`,
+		"apiContract:",
+		`version: "1"`,
+		"scmOfflineBootstrap: true",
+		"api: ghcr.io/envpilot/api:0.1.5",
+		"frontend: ghcr.io/envpilot/frontend:0.1.5",
+	} {
+		if !strings.Contains(manifest, expected) {
+			t.Fatalf("release manifest missing compatibility marker %q:\n%s", expected, manifest)
+		}
+	}
+}
+
+func TestLocalEnvironmentFixtureUsesAccessibleSCMDefaultsAndPreflight(t *testing.T) {
+	script, err := os.ReadFile("../../../../scripts/minikube-environment-e2e.sh")
+	if err != nil {
+		t.Fatalf("read local E2E fixture script: %v", err)
+	}
+	text := string(script)
+	for _, expected := range []string{
+		`APP_REPOSITORY_URL="${ENVPILOT_E2E_APP_REPOSITORY_URL:-https://gitlab.com/betario/cms-team/cms.git}"`,
+		`GITOPS_REPOSITORY_URL="${ENVPILOT_E2E_GITOPS_REPOSITORY_URL:-https://gitlab.com/betario/devops/gitops/fluxcd/clusters.git}"`,
+		`.valid == true and .appRepositoryReadable == true and .gitopsRepositoryWritable == true`,
+		"SCM preflight failed for provider=",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("local E2E fixture missing %q", expected)
 		}
 	}
 }

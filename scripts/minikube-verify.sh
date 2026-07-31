@@ -45,6 +45,7 @@ check() { # check <path> [expected-http-code]
 
 log "API endpoints"
 check /api/v1/health
+check /api/v1/capabilities
 check /api/v1/products
 check /api/v1/projects
 check /api/v1/environments
@@ -54,6 +55,14 @@ check /api/v1/openapi
 
 log "Health payload"
 curl -s "${BASE}/api/v1/health"; echo
+
+log "API capability contract"
+capabilities="$(curl -fsS "${BASE}/api/v1/capabilities" 2>/dev/null || true)"
+if [[ "$(printf '%s' "$capabilities" | jq -r '.apiContractVersion // empty')" == "1" ]] && [[ "$(printf '%s' "$capabilities" | jq -r '.features.scmOfflineBootstrap // false')" == "true" ]]; then
+  ok "SCM offline bootstrap capability advertised"
+else
+  bad "SCM offline bootstrap capability missing or incompatible: ${capabilities}"
+fi
 
 log "Postgres connectivity"
 if kubectl -n "$NAMESPACE" exec statefulset/envpilot-control-plane-postgres -- \

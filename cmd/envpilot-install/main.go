@@ -43,6 +43,7 @@ type config struct {
 	RunnerImage        string
 	AgentHelmChartRef  string
 	AgentHelmChartVer  string
+	APIContractVersion string
 	ImageTag           string
 	APIImageTag        string
 	FrontendImageTag   string
@@ -107,17 +108,14 @@ func parseFlags() config {
 	flag.StringVar(&cfg.AgentImage, "agent-image", getenv("ENVPILOT_AGENT_IMAGE", "ghcr.io/envpilot/agent"), "agent image repository")
 	flag.StringVar(&cfg.AgentHelmChartRef, "agent-helm-chart-ref", getenv("ENVPILOT_AGENT_HELM_CHART_REF", "oci://ghcr.io/envpilot/envpilot-agent"), "published agent Helm chart reference")
 	flag.StringVar(&cfg.AgentHelmChartVer, "agent-helm-chart-version", getenv("ENVPILOT_AGENT_HELM_CHART_VERSION", "0.1.1"), "published agent Helm chart version")
+	flag.StringVar(&cfg.APIContractVersion, "api-contract-version", getenv("ENVPILOT_API_CONTRACT_VERSION", "1"), "published control-plane API contract version")
 	flag.StringVar(&cfg.RunnerImage, "runner-image", getenv("ENVPILOT_RUNNER_IMAGE", "ghcr.io/envpilot/runner"), "runner image repository")
 	legacyImageTag := getenv("ENVPILOT_IMAGE_TAG", "")
-	defaultImageTag := legacyImageTag
-	if defaultImageTag == "" {
-		defaultImageTag = "0.1.0"
-	}
 	flag.StringVar(&cfg.ImageTag, "image-tag", legacyImageTag, "deprecated common image tag; overrides all component image tags when set")
-	flag.StringVar(&cfg.APIImageTag, "api-image-tag", getenv("ENVPILOT_API_IMAGE_TAG", defaultImageTag), "API image tag")
-	flag.StringVar(&cfg.FrontendImageTag, "frontend-image-tag", getenv("ENVPILOT_FRONTEND_IMAGE_TAG", defaultImageTag), "frontend image tag")
-	flag.StringVar(&cfg.AgentImageTag, "agent-image-tag", getenv("ENVPILOT_AGENT_IMAGE_TAG", defaultImageTag), "agent image tag")
-	flag.StringVar(&cfg.RunnerImageTag, "runner-image-tag", getenv("ENVPILOT_RUNNER_IMAGE_TAG", defaultImageTag), "runner image tag")
+	flag.StringVar(&cfg.APIImageTag, "api-image-tag", getenv("ENVPILOT_API_IMAGE_TAG", "0.1.5"), "API image tag")
+	flag.StringVar(&cfg.FrontendImageTag, "frontend-image-tag", getenv("ENVPILOT_FRONTEND_IMAGE_TAG", "0.1.5"), "frontend image tag")
+	flag.StringVar(&cfg.AgentImageTag, "agent-image-tag", getenv("ENVPILOT_AGENT_IMAGE_TAG", "0.1.1"), "agent image tag")
+	flag.StringVar(&cfg.RunnerImageTag, "runner-image-tag", getenv("ENVPILOT_RUNNER_IMAGE_TAG", "0.1.3"), "runner image tag")
 	flag.StringVar(&cfg.ImagePullPolicy, "image-pull-policy", getenv("ENVPILOT_IMAGE_PULL_POLICY", "Always"), "image pull policy")
 	flag.StringVar(&cfg.StorageClass, "storage-class", getenv("ENVPILOT_STORAGE_CLASS", ""), "storage class for PVCs")
 	flag.StringVar(&cfg.NodeArch, "node-arch", getenv("ENVPILOT_NODE_ARCH", ""), "optional kubernetes.io/arch node selector")
@@ -273,6 +271,7 @@ func installControlPlane(ctx context.Context, cfg config) error {
 	)
 	args = appendSets(args, "imagePullSecrets[0].name", cfg.GHCRSecret, "dependencyWait.enabled", "true")
 	args = appendSets(args, "env.ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS", "120", "env.ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS", "2")
+	args = appendSets(args, "env.ENVPILOT_API_CONTRACT_VERSION", cfg.APIContractVersion)
 	if cfg.FrontendAccessMode == "ingress" {
 		args = appendSets(args, "ingress.enabled", "true")
 		if domain := strings.Trim(strings.ToLower(strings.TrimSpace(cfg.EndpointDomain)), "."); domain != "" {

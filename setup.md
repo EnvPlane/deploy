@@ -274,6 +274,16 @@ export ENVPILOT_E2E_SCM_TOKEN='...'
 unset ENVPILOT_E2E_SCM_TOKEN
 ```
 
+Alternatively, point the script at a local credential file with one token per
+line (a `glpat-...` line for GitLab and/or a `ghp_...`/`github_pat_...` line for
+GitHub). The matching token is selected for the configured provider and is
+never printed or persisted:
+
+```sh
+ENVPILOT_E2E_SCM_TOKEN_FILE=/path/to/scm-tokens \
+./scripts/minikube-environment-e2e.sh
+```
+
 The default path submits the same public `POST /api/v1/environments` request as
 the UI. To additionally run the real Playwright UI flow, first make the
 frontend reachable to the local browser and set its base URL:
@@ -285,8 +295,12 @@ ENVPILOT_E2E_UI_BASE_URL=http://envpilot.local \
 ./scripts/minikube-environment-e2e.sh
 ```
 
-The default fixture uses GitLab app branch `develop` and GitOps branch `main`.
-Override `ENVPILOT_E2E_APP_REPOSITORY_URL`,
+The default fixture uses the canonical repositories
+`https://gitlab.com/betario/cms-team/cms.git` (app, `develop`) and
+`https://gitlab.com/betario/devops/gitops/fluxcd/clusters.git` (GitOps, `main`).
+The script performs a repository readability/write-permission preflight before
+installing the Agent or Runner and prints only safe field/code/message
+diagnostics. Override `ENVPILOT_E2E_APP_REPOSITORY_URL`,
 `ENVPILOT_E2E_GITOPS_REPOSITORY_URL`, their branch variables, and
 `ENVPILOT_E2E_SCM_PROVIDER` for another accessible pair of repositories. The
 target runner resolves the local chart through

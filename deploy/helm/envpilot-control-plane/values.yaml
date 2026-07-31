@@ -100,6 +100,7 @@ ingress:
     hosts: []
 
 env:
+  ENVPILOT_API_CONTRACT_VERSION: "1"
   ENVPILOT_ADDR: ":8080"
   ENVPILOT_DATA_DIR: "/var/lib/envpilot/data"
   ENVPILOT_GITOPS_DIR: "/var/lib/envpilot/data/gitops"

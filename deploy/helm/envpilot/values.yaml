@@ -32,6 +32,11 @@ deployment:
   # Supported: helm_direct, fluxcd. Planned/not implemented: argocd.
   backend: helm_direct
 
+compatibility:
+  # Browser/API feature contract. The installer passes this value to the
+  # control-plane so an incompatible frontend can disable optional actions.
+  apiContractVersion: "1"
+
 # How users reach the browser UI after the installer Job completes.
 # "ingress" preserves the production default. For Docker-based local minikube,
 # use "nodeport" and obtain the reachable URL with `minikube service --url`.
