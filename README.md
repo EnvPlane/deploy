@@ -123,3 +123,19 @@ command, then run the generated `helm upgrade --install` command for the same
 release. The runner stays live but unready while awaiting this recovery; do not
 delete its auth PVC. The replacement registration token safely supersedes the
 persisted runner auth token on the next rollout.
+
+## GitHub Actions publishing
+
+Pushes to `main` publish the deploy installer image and all charts from this
+repository automatically. The installer image is published with `main`,
+`latest`, and immutable `sha-*` tags:
+
+```text
+ghcr.io/envpilot/install
+```
+
+OCI chart versions use the source chart version plus the workflow run number,
+for example `0.1.10-main.42`, so every main build is immutable. The workflow
+uses the repository `GITHUB_TOKEN` by default; configure the organisation
+`GHCR_TOKEN` secret when package write permissions are not granted to the
+workflow token.
