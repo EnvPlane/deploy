@@ -18,14 +18,16 @@ CLUSTER_ID="${ENVPILOT_E2E_CLUSTER_ID:-$TARGET_PROFILE}"
 PROJECT_ID="${ENVPILOT_E2E_PROJECT_ID:-envpilot-e2e-fixture}"
 PROJECT_NAME="${ENVPILOT_E2E_PROJECT_NAME:-EnvPilot local E2E fixture}"
 BASE_NAMESPACE="${ENVPILOT_E2E_BASE_NAMESPACE:-envpilot-e2e-base}"
-FEATURE_NAMESPACE="${ENVPILOT_E2E_FEATURE_NAMESPACE:-envpilot-pr-101}"
-ENVIRONMENT_ID="${ENVPILOT_E2E_ENVIRONMENT_ID:-envpilot-e2e-full-101}"
+PR_NUMBER="${ENVPILOT_E2E_PR_NUMBER:-101}"
+FEATURE_NAMESPACE="${ENVPILOT_E2E_FEATURE_NAMESPACE:-envpilot-pr-${PR_NUMBER}}"
+ENVIRONMENT_ID="${ENVPILOT_E2E_ENVIRONMENT_ID:-envpilot-e2e-full-${PR_NUMBER}}"
 AGENT_NAMESPACE="${ENVPILOT_E2E_AGENT_NAMESPACE:-envpilot}"
 RUNNER_NAMESPACE="${ENVPILOT_E2E_RUNNER_NAMESPACE:-envpilot}"
 AGENT_ID="${ENVPILOT_E2E_AGENT_ID:-envpilot-e2e-agent}"
 AGENT_RELEASE="${ENVPILOT_E2E_AGENT_RELEASE:-envpilot-e2e-agent}"
 RUNNER_RELEASE="${ENVPILOT_E2E_RUNNER_RELEASE:-envpilot-e2e-runner}"
 CHART_PORT="${ENVPILOT_E2E_CHART_PORT:-18082}"
+CHART_ARCHIVE_NAME=""
 SCM_PROVIDER="${ENVPILOT_E2E_SCM_PROVIDER:-gitlab}"
 # These are the canonical repositories reachable by the local E2E GitLab
 # credential. The old bh/... aliases return 404 for that credential. Keep both
@@ -237,11 +239,18 @@ start_chart_server() {
   local archive
   archive="$(find "$temp_dir" -maxdepth 1 -name 'envpilot-e2e-workload-*.tgz' -print -quit)"
   [[ -n "$archive" ]] || die "failed to package E2E chart"
+  CHART_ARCHIVE_NAME="$(basename "$archive")"
   nohup python3 -m http.server "$CHART_PORT" --bind 0.0.0.0 --directory "$temp_dir" >"$temp_dir/chart-server.log" 2>&1 &
   chart_server_pid="$!"
-  sleep 1
-  kill -0 "$chart_server_pid" >/dev/null 2>&1 || die "fixture chart server did not start"
-  E2E_CHART_REF="http://host.minikube.internal:$CHART_PORT/$(basename "$archive")"
+  for _ in $(seq 1 30); do
+    if kill -0 "$chart_server_pid" >/dev/null 2>&1 && curl -fsS "http://127.0.0.1:$CHART_PORT/$CHART_ARCHIVE_NAME" -o /dev/null; then
+      E2E_CHART_REF="http://host.minikube.internal:$CHART_PORT/$CHART_ARCHIVE_NAME"
+      return 0
+    fi
+    sleep 1
+  done
+  cat "$temp_dir/chart-server.log" >&2 || true
+  die "fixture chart server did not become reachable"
 }
 
 complete_bootstrap() {
@@ -254,17 +263,40 @@ complete_bootstrap() {
   log "Configuring bootstrap through the supported session API"
   patch="$(jq -n \
     --arg base "$BASE_NAMESPACE" --arg ref "$E2E_CHART_REF" \
-    '{current_step:10,step_data:{selectedBaseNamespaces:[$base],deployment:{backend:"helm_direct",helmDirect:{chartRef:$ref,namespaceMode:"shared",releaseNamePattern:"{{ .project.id }}-{{ .environment.name }}",namespacePattern:"envpilot-pr-{{ .PRNumber }}",timeout:120,wait:true,createNamespace:false,valuesOverrideStrategy:"merge",imageTagValuePath:"image.tag"}}}}')"
+    '{current_step:10,step_data:{selectedBaseNamespaces:[$base],deployment:{backend:"helm_direct",helmDirect:{chartRef:$ref,namespaceMode:"shared",releaseNamePattern:"envpilot-e2e",namespacePattern:"envpilot-pr-{{ .PRNumber }}",timeout:120,wait:true,createNamespace:false,valuesOverrideStrategy:"merge",imageTagValuePath:"image.tag"}}}}')"
   api_json PATCH "/api/projects/$PROJECT_ID/bootstrap-session" "$patch" >/dev/null
   scan_start="$(api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/resource-scan/start" '{}')"
   if [[ "$(jq -r '.data.resourceScanStatus // empty' <<<"$scan_start")" != "pending" ]]; then
     die "resource scan start was not accepted with selectedBaseNamespaces; response did not report pending status"
   fi
   wait_for "successful resource scan" 180 "[[ \$(api_get /api/projects/$PROJECT_ID/bootstrap-session/agent-status | jq -r .resourceScanStatus) == completed ]]" >/dev/null
-  api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/helm-direct/preflight" '{}' >/dev/null
-  wait_for "Runner Helm chart preflight" 90 "[[ \$(api_get /api/projects/$PROJECT_ID/bootstrap-session | jq -r '.data.helmDirectChartValidation.status // empty') == succeeded ]]" >/dev/null
+  local preflight_status preflight_error
+  for attempt in $(seq 1 3); do
+    api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/helm-direct/preflight" '{}' >/dev/null
+    preflight_status="$(api_get "/api/projects/$PROJECT_ID/bootstrap-session" | jq -r '.data.helmDirectChartValidation.status // empty')"
+    if [[ "$preflight_status" == succeeded ]]; then
+      break
+    fi
+    if [[ "$attempt" == 3 ]]; then
+      preflight_error="$(api_get "/api/projects/$PROJECT_ID/bootstrap-session" | jq -r '.data.helmDirectChartValidation.error // "chart preflight did not complete"')"
+      die "Runner Helm chart preflight failed for $E2E_CHART_REF: $preflight_error"
+    fi
+    sleep 2
+  done
   api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/compile" '{}' >/dev/null
   wait_for "deploy-ready project" 30 "[[ \$(api_get /api/projects/$PROJECT_ID | jq -r .deployment_readiness.ready) == true ]]" >/dev/null
+}
+
+assert_deploy_ready() {
+  local project readiness missing
+  project="$(api_get "/api/projects/$PROJECT_ID")"
+  readiness="$(jq -r '.deployment_readiness.ready // false' <<<"$project")"
+  if [[ "$readiness" != true ]]; then
+    missing="$(jq -r '(.deployment_readiness.missing_prerequisites // []) | join("; ")' <<<"$project")"
+    [[ -n "$missing" ]] || missing="readiness was not reported by the API"
+    die "fixture project $PROJECT_ID is not deploy-ready: $missing"
+  fi
+  log "Fixture project is deploy-ready: $PROJECT_ID"
 }
 
 create_environment_through_ui() {
@@ -292,8 +324,8 @@ create_and_verify_environment() {
     create_environment_through_ui
   else
     payload="$(jq -n \
-      --arg id "$ENVIRONMENT_ID" --arg project "$PROJECT_ID" --arg provider "$SCM_PROVIDER" --arg repository "$APP_REPOSITORY_URL" \
-      '{id:$id,project:$project,product:"generic",mode:"full",ttlHours:1,source:{provider:$provider,repository:$repository,pullRequestId:"101",branch:"feature/envpilot-e2e",commit:"",author:"envpilot-e2e"}}')"
+      --arg id "$ENVIRONMENT_ID" --arg project "$PROJECT_ID" --arg provider "$SCM_PROVIDER" --arg repository "$APP_REPOSITORY_URL" --arg prNumber "$PR_NUMBER" \
+      '{id:$id,project:$project,product:"generic",mode:"full",ttlHours:1,source:{provider:$provider,repository:$repository,pullRequestId:$prNumber,branch:("feature/envpilot-e2e-" + $prNumber),commit:"",author:"envpilot-e2e"}}')"
     created="$(api_json POST /api/v1/environments "$payload")"
     [[ "$(jq -r .status <<<"$created")" == creating ]] || die "environment was not reserved in creating state"
     wait_for "Runner create result" 120 "[[ \$(api_get /api/v1/environments/$ENVIRONMENT_ID | jq -r .status) == ready ]]" >/dev/null
@@ -321,6 +353,7 @@ install_agent
 install_runner
 start_chart_server
 complete_bootstrap
+assert_deploy_ready
 create_and_verify_environment
 
 log "E2E passed. The project, healthy base namespace, Agent and Runner remain reusable."

@@ -141,6 +141,37 @@ func TestLocalEnvironmentFixtureUsesCanonicalResourceScanNamespacesField(t *test
 	}
 }
 
+func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
+	for path, expected := range map[string][]string{
+		"../../../../scripts/minikube-environment-e2e.sh": {
+			"assert_deploy_ready()",
+			"deployment_readiness.ready",
+			"deployment_readiness.missing_prerequisites",
+			"Fixture project is deploy-ready",
+			`releaseNamePattern:"envpilot-e2e"`,
+			`curl -fsS "http://127.0.0.1:$CHART_PORT/$CHART_ARCHIVE_NAME"`,
+			"Runner Helm chart preflight failed for",
+		},
+		"../../../../scripts/envpilot-clean-install.sh": {
+			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.11}\"",
+			"AGENT_IMAGE_TAG=\"${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}\"",
+			"RUNNER_IMAGE_TAG=\"${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}\"",
+			"verify_api_capabilities",
+		},
+	} {
+		script, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read fixture script %s: %v", path, err)
+		}
+		text := string(script)
+		for _, marker := range expected {
+			if !strings.Contains(text, marker) {
+				t.Fatalf("fixture script %s missing %q", path, marker)
+			}
+		}
+	}
+}
+
 func TestInitChartKeepsInstallerNamespaceOnUpgrade(t *testing.T) {
 	template, err := os.ReadFile("../templates/namespace.yaml")
 	if err != nil {

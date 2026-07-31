@@ -26,12 +26,12 @@ API_IMAGE="${ENVPILOT_API_IMAGE:-ghcr.io/envpilot/api}"
 FRONTEND_IMAGE="${ENVPILOT_FRONTEND_IMAGE:-ghcr.io/envpilot/frontend}"
 AGENT_IMAGE="${ENVPILOT_AGENT_IMAGE:-ghcr.io/envpilot/agent}"
 RUNNER_IMAGE="${ENVPILOT_RUNNER_IMAGE:-ghcr.io/envpilot/runner}"
-RELEASE_VERSION="${ENVPILOT_RELEASE_VERSION:-0.1.10}"
+RELEASE_VERSION="${ENVPILOT_RELEASE_VERSION:-0.1.11}"
 IMAGE_TAG="${ENVPILOT_IMAGE_TAG:-}"
 API_IMAGE_TAG="${ENVPILOT_API_IMAGE_TAG:-0.1.5}"
 FRONTEND_IMAGE_TAG="${ENVPILOT_FRONTEND_IMAGE_TAG:-0.1.5}"
-AGENT_IMAGE_TAG="${ENVPILOT_AGENT_IMAGE_TAG:-0.1.1}"
-RUNNER_IMAGE_TAG="${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.3}"
+AGENT_IMAGE_TAG="${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}"
+RUNNER_IMAGE_TAG="${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}"
 IMAGE_PULL_POLICY="${ENVPILOT_IMAGE_PULL_POLICY:-Always}"
 
 STORAGE_CLASS="${ENVPILOT_STORAGE_CLASS:-}"
@@ -138,6 +138,18 @@ start_port_forward() {
   cat /tmp/envpilot-port-forward.log >&2 || true
   echo "control-plane API did not become reachable through port-forward" >&2
   exit 1
+}
+
+verify_api_capabilities() {
+  local capabilities
+  capabilities="$(curl -fsS "$(api_url)/api/v1/capabilities")" || {
+    echo "control-plane capability endpoint is unavailable; refusing to continue with an unverified API image" >&2
+    exit 1
+  }
+  if [[ "$(jq -r '.apiContractVersion // empty' <<<"${capabilities}")" != "1" ]] || [[ "$(jq -r '.features.scmOfflineBootstrap // false' <<<"${capabilities}")" != "true" ]]; then
+    echo "control-plane API capability contract mismatch: expected apiContractVersion=1 and scmOfflineBootstrap=true; got ${capabilities}" >&2
+    exit 1
+  fi
 }
 
 create_bootstrap_secrets() {
@@ -250,6 +262,7 @@ esac
 create_namespace_and_pull_secret
 install_control_plane
 start_port_forward
+verify_api_capabilities
 create_bootstrap_secrets
 install_agent
 install_runner
