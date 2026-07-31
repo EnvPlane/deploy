@@ -42,6 +42,7 @@ SCM_TOKEN_FILE="${ENVPILOT_E2E_SCM_TOKEN_FILE:-}"
 USE_UI="${ENVPILOT_E2E_USE_UI:-false}"
 UI_BASE_URL="${ENVPILOT_E2E_UI_BASE_URL:-}"
 KEEP_ENVIRONMENT=false
+KEEP_AGENT_ACCESS="${ENVPILOT_E2E_KEEP_AGENT_ACCESS:-true}"
 
 for arg in "$@"; do
   case "$arg" in
@@ -121,7 +122,11 @@ cleanup() {
   if [[ "$KEEP_ENVIRONMENT" != true && $status -eq 0 ]]; then
     cleanup_environment || true
   fi
-  "$DEPLOY_ROOT/scripts/minikube-agent-access.sh" stop >/dev/null 2>&1 || true
+  if [[ $status -ne 0 || "$KEEP_AGENT_ACCESS" != true ]]; then
+    "$DEPLOY_ROOT/scripts/minikube-agent-access.sh" stop >/dev/null 2>&1 || true
+  else
+    log "Keeping the local Agent/Runner gateway running for the reusable fixture. Stop it with: $DEPLOY_ROOT/scripts/minikube-agent-access.sh stop"
+  fi
   exit "$status"
 }
 trap cleanup EXIT

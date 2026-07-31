@@ -164,6 +164,8 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			`ENVPILOT_AGENT_CHART_PORT="$AGENT_CHART_PORT"`,
 			"select_fixture_chart_port()",
 			"ENVPILOT_E2E_CHART_PORT",
+			"ENVPILOT_E2E_KEEP_AGENT_ACCESS",
+			"Keeping the local Agent/Runner gateway running for the reusable fixture",
 			"Runner Helm chart preflight failed for",
 		},
 		"../../../../scripts/envpilot-clean-install.sh": {
