@@ -159,9 +159,11 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			"deployment_readiness.missing_prerequisites",
 			"Fixture project is deploy-ready",
 			`releaseNamePattern:"envpilot-e2e"`,
-			`curl -fsS "http://127.0.0.1:$CHART_PORT/$CHART_ARCHIVE_NAME"`,
+			`curl -fsS --max-time 2 "http://127.0.0.1:$CHART_PORT/$CHART_ARCHIVE_NAME"`,
 			`AGENT_CHART_PORT="${ENVPILOT_E2E_AGENT_CHART_PORT:-18083}"`,
 			`ENVPILOT_AGENT_CHART_PORT="$AGENT_CHART_PORT"`,
+			"select_fixture_chart_port()",
+			"ENVPILOT_E2E_CHART_PORT",
 			"Runner Helm chart preflight failed for",
 		},
 		"../../../../scripts/envpilot-clean-install.sh": {

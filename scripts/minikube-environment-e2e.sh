@@ -53,6 +53,40 @@ done
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
+port_available() {
+  python3 - "$1" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    sock.bind(("127.0.0.1", port))
+except OSError:
+    raise SystemExit(1)
+finally:
+    sock.close()
+PY
+}
+
+select_fixture_chart_port() {
+  if port_available "$CHART_PORT"; then
+    return
+  fi
+  if [[ -n "${ENVPILOT_E2E_CHART_PORT:-}" ]]; then
+    die "requested fixture chart port $CHART_PORT is already in use; choose a free ENVPILOT_E2E_CHART_PORT"
+  fi
+  local candidate
+  for candidate in $(seq $((CHART_PORT + 1)) $((CHART_PORT + 20))); do
+    if port_available "$candidate"; then
+      log "Fixture chart port $CHART_PORT is already in use; using $candidate instead"
+      CHART_PORT="$candidate"
+      return
+    fi
+  done
+  die "no free local fixture chart port found after $CHART_PORT"
+}
+
 for bin in awk curl helm jq kubectl minikube python3 sed; do
   command -v "$bin" >/dev/null 2>&1 || die "'$bin' is required"
 done
@@ -238,6 +272,7 @@ install_runner() {
 
 start_chart_server() {
   log "Packaging the target-runner-resolvable fixture chart"
+  select_fixture_chart_port
   helm package "$CHART_DIR" --destination "$temp_dir" >/dev/null
   local archive
   archive="$(find "$temp_dir" -maxdepth 1 -name 'envpilot-e2e-workload-*.tgz' -print -quit)"
@@ -246,7 +281,11 @@ start_chart_server() {
   nohup python3 -m http.server "$CHART_PORT" --bind 0.0.0.0 --directory "$temp_dir" >"$temp_dir/chart-server.log" 2>&1 &
   chart_server_pid="$!"
   for _ in $(seq 1 30); do
-    if kill -0 "$chart_server_pid" >/dev/null 2>&1 && curl -fsS "http://127.0.0.1:$CHART_PORT/$CHART_ARCHIVE_NAME" -o /dev/null; then
+    if ! kill -0 "$chart_server_pid" >/dev/null 2>&1; then
+      cat "$temp_dir/chart-server.log" >&2 || true
+      die "fixture chart server exited before becoming reachable"
+    fi
+    if curl -fsS --max-time 2 "http://127.0.0.1:$CHART_PORT/$CHART_ARCHIVE_NAME" -o /dev/null 2>/dev/null; then
       E2E_CHART_REF="http://host.minikube.internal:$CHART_PORT/$CHART_ARCHIVE_NAME"
       return 0
     fi
