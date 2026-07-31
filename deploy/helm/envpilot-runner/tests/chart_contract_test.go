@@ -42,6 +42,7 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 		"ENVPILOT_RUNNER_REGISTRATION_TOKEN",
 		"ENVPILOT_RUNNER_AUTH_TOKEN",
 		"ENVPILOT_RUNNER_AUTH_TOKEN_FILE",
+		"path: /livez",
 		"name: wait-control-plane",
 		"/health",
 	} {
@@ -52,6 +53,9 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 	rendered := renderRunnerChart(t)
 	if !strings.Contains(rendered, "- runner") {
 		t.Fatalf("rendered chart must start runner subcommand:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "path: /livez") || !strings.Contains(rendered, "readinessProbe:\n            httpGet:\n              path: /health") {
+		t.Fatalf("runner chart must keep stale identities live while marking them unready:\n%s", rendered)
 	}
 	for _, expected := range []string{
 		"name: HOME",

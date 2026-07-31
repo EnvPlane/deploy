@@ -114,3 +114,12 @@ instead of deleting the namespace.
 The installer Job requires cluster-admin-equivalent permissions because it creates and
 deletes namespaces, installs Helm releases, creates cluster roles, and seeds the
 fresh control-plane database.
+
+## Runner bootstrap recovery
+
+If a target runner reports `stale_bootstrap_identity`, rotate its bootstrap
+credentials in the project Bootstrap screen, apply the newly generated Secret
+command, then run the generated `helm upgrade --install` command for the same
+release. The runner stays live but unready while awaiting this recovery; do not
+delete its auth PVC. The replacement registration token safely supersedes the
+persisted runner auth token on the next rollout.
