@@ -47,7 +47,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.14",
+		"ghcr.io/envpilot/install:0.1.15",
 		"- -frontend-access-mode",
 		`- "ingress"`,
 		"- -load-balancer-type",
@@ -90,13 +90,13 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 }
 
 func TestPublishedReleasePinsOfflineBootstrapCompatibility(t *testing.T) {
-	release, err := os.ReadFile("../../../../release/0.1.14.yaml")
+	release, err := os.ReadFile("../../../../release/0.1.15.yaml")
 	if err != nil {
 		t.Fatalf("read published release manifest: %v", err)
 	}
 	manifest := string(release)
 	for _, expected := range []string{
-		`version: "0.1.14"`,
+		`version: "0.1.15"`,
 		"apiContract:",
 		`version: "1"`,
 		"scmOfflineBootstrap: true",
@@ -104,6 +104,7 @@ func TestPublishedReleasePinsOfflineBootstrapCompatibility(t *testing.T) {
 		"frontend: ghcr.io/envpilot/frontend:0.1.5",
 		"url: http://envpilot.local",
 		"ingressClassName: nginx",
+		"dockerDriverTunnel: true",
 	} {
 		if !strings.Contains(manifest, expected) {
 			t.Fatalf("release manifest missing compatibility marker %q:\n%s", expected, manifest)
@@ -161,7 +162,7 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			"Runner Helm chart preflight failed for",
 		},
 		"../../../../scripts/envpilot-clean-install.sh": {
-			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.14}\"",
+			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.15}\"",
 			"AGENT_IMAGE_TAG=\"${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}\"",
 			"RUNNER_IMAGE_TAG=\"${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}\"",
 			"verify_api_capabilities",
@@ -287,6 +288,7 @@ func TestInitChartDefaultsToDocumentedLocalIngress(t *testing.T) {
 	for _, expected := range []string{
 		"http://envpilot.{{ .Values.project.endpointDomain }}",
 		"minikube -p <profile> addons enable ingress",
+		"minikube -p <profile> tunnel",
 	} {
 		if !strings.Contains(string(notes), expected) {
 			t.Fatalf("chart notes must document local ingress marker %q", expected)

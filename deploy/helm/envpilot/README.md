@@ -6,7 +6,7 @@ Install:
 
 ```sh
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.14 \
+  --version 0.1.15 \
   --namespace default \
   --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
   --set project.loadBalancerType=alb \
@@ -60,16 +60,20 @@ Deployment backend:
 
 The published chart defaults to the documented local browser URL
 `http://envpilot.local` through an nginx IngressClass. Enable the minikube ingress
-addon and make `envpilot.local` resolve to the minikube IP before the browser
-smoke test.
+addon first.
+
+For Docker-driver minikube, keep a privileged tunnel running and map
+`envpilot.local` to `127.0.0.1`. For VM-driver minikube, `envpilot.local` can
+resolve to `minikube -p envpilot ip`.
 
 ```sh
 minikube -p envpilot addons enable ingress
-minikube -p envpilot ip
-# Add this IP for envpilot.local in /etc/hosts if it is not already present.
+# Docker-driver path:
+minikube -p envpilot tunnel
+# Ensure /etc/hosts contains: 127.0.0.1 envpilot.local
 
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.14 \
+  --version 0.1.15 \
   --namespace default \
   --set install.clusterId=envpilot \
   --set registry.token="$GHCR_TOKEN"
@@ -79,7 +83,7 @@ If local ingress is not available, use the explicit NodePort fallback:
 
 ```sh
 helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.14 \
+  --version 0.1.15 \
   --namespace default \
   --set install.clusterId=envpilot \
   --set access.mode=nodeport \

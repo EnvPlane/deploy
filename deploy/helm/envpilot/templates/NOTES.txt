@@ -24,7 +24,12 @@ Ingress access:
   http://envpilot.{{ .Values.project.endpointDomain }}
 
 For local minikube, ensure the nginx ingress addon/controller is enabled and
-envpilot.local resolves to the minikube IP. Example:
+envpilot.local resolves to the host address used by minikube ingress.
+Docker-driver minikube requires a privileged tunnel:
   minikube -p <profile> addons enable ingress
-  minikube -p <profile> ip
+  minikube -p <profile> tunnel
+
+Keep the tunnel process running. With Docker-driver minikube,
+envpilot.local should resolve to 127.0.0.1. With VM-driver minikube, it can
+resolve to `minikube -p <profile> ip`.
 {{- end }}

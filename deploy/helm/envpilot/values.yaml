@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/envpilot/install
-  tag: "0.1.14"
+  tag: "0.1.15"
   pullPolicy: Always
   createPullSecret: true
   pullSecretName: envpilot-ghcr
@@ -39,9 +39,10 @@ compatibility:
 
 # How users reach the browser UI after the installer Job completes.
 # The published chart defaults to the documented local minikube path:
-# envpilot.local through an nginx IngressClass. Production installs should
-# override project.loadBalancerType, project.endpointDomain and
-# project.ingressAnnotations explicitly.
+# envpilot.local through an nginx IngressClass. Docker-driver minikube also
+# needs `minikube tunnel` so host ports 80/443 route to the local ingress.
+# Production installs should override project.loadBalancerType,
+# project.endpointDomain and project.ingressAnnotations explicitly.
 access:
   mode: ingress
   nodePort: 0
