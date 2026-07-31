@@ -242,6 +242,7 @@ func TestLocalAgentAccessHelperAvoidsStaleChartPortCollisions(t *testing.T) {
 		"ENVPILOT_AGENT_CHART_PORT",
 		"Chart server port $CHART_PORT is already in use; using",
 		"ENVPILOT_AGENT_CONTROL_PLANE_PORT",
+		"A just-stopped kubectl port-forward can hold its listener briefly",
 	} {
 		if !strings.Contains(text, marker) {
 			t.Fatalf("agent access helper missing collision recovery marker %q", marker)

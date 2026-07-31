@@ -37,6 +37,15 @@ stop_process() {
     pid="$(<"$pid_file")"
     if kill -0 "$pid" >/dev/null 2>&1; then
       kill "$pid" || true
+      # A just-stopped kubectl port-forward can hold its listener briefly.
+      # Wait before removing the PID file so an immediate E2E rerun does not
+      # mistake the stale gateway for an unrelated process.
+      for _ in $(seq 1 20); do
+        if ! kill -0 "$pid" >/dev/null 2>&1; then
+          break
+        fi
+        sleep 0.1
+      done
     fi
     rm -f "$pid_file"
   fi
