@@ -6,7 +6,7 @@ Install:
 
 ```sh
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.15 \
+  --version 0.1.16 \
   --namespace default \
   --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
   --set project.loadBalancerType=alb \
@@ -73,7 +73,7 @@ minikube -p envpilot tunnel
 # Ensure /etc/hosts contains: 127.0.0.1 envpilot.local
 
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.15 \
+  --version 0.1.16 \
   --namespace default \
   --set install.clusterId=envpilot \
   --set registry.token="$GHCR_TOKEN"
@@ -83,7 +83,7 @@ If local ingress is not available, use the explicit NodePort fallback:
 
 ```sh
 helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.15 \
+  --version 0.1.16 \
   --namespace default \
   --set install.clusterId=envpilot \
   --set access.mode=nodeport \

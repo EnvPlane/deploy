@@ -1,0 +1,24 @@
+# Published-artifact compatibility contract for the 0.1.16 umbrella release.
+# API 0.1.6 is the first immutable API artifact containing the public
+# /api/v1/capabilities contract used by the clean installer.
+version: "0.1.16"
+apiContract:
+  version: "1"
+  features:
+    scmOfflineBootstrap: true
+runnerCommandAPI:
+  version: "1"
+  requestHeader: X-EnvPilot-Runner-Command-API-Version
+images:
+  api: ghcr.io/envpilot/api:0.1.6
+  frontend: ghcr.io/envpilot/frontend:0.1.5
+  agent: ghcr.io/envpilot/agent:0.1.4
+  runner: ghcr.io/envpilot/runner:0.1.4
+charts:
+  controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.1.6
+  agent: oci://ghcr.io/envpilot/envpilot-agent:0.1.2
+  runner: oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.10
+localAccess:
+  url: http://envpilot.local
+  ingressClassName: nginx
+  dockerDriverTunnel: true

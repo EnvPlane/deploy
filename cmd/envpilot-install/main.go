@@ -132,7 +132,7 @@ func parseFlags() config {
 	flag.StringVar(&cfg.RunnerImage, "runner-image", getenv("ENVPILOT_RUNNER_IMAGE", "ghcr.io/envpilot/runner"), "runner image repository")
 	legacyImageTag := getenv("ENVPILOT_IMAGE_TAG", "")
 	flag.StringVar(&cfg.ImageTag, "image-tag", legacyImageTag, "deprecated common image tag; overrides all component image tags when set")
-	flag.StringVar(&cfg.APIImageTag, "api-image-tag", getenv("ENVPILOT_API_IMAGE_TAG", "0.1.5"), "API image tag")
+	flag.StringVar(&cfg.APIImageTag, "api-image-tag", getenv("ENVPILOT_API_IMAGE_TAG", "0.1.6"), "API image tag")
 	flag.StringVar(&cfg.FrontendImageTag, "frontend-image-tag", getenv("ENVPILOT_FRONTEND_IMAGE_TAG", "0.1.5"), "frontend image tag")
 	flag.StringVar(&cfg.AgentImageTag, "agent-image-tag", getenv("ENVPILOT_AGENT_IMAGE_TAG", "0.1.4"), "agent image tag")
 	flag.StringVar(&cfg.RunnerImageTag, "runner-image-tag", getenv("ENVPILOT_RUNNER_IMAGE_TAG", "0.1.4"), "runner image tag")

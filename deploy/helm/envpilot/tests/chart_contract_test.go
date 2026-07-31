@@ -47,7 +47,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.15",
+		"ghcr.io/envpilot/install:0.1.16",
 		"- -frontend-access-mode",
 		`- "ingress"`,
 		"- -load-balancer-type",
@@ -63,7 +63,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"- -api-contract-version",
 		`- "1"`,
 		"- -api-image-tag",
-		`- "0.1.5"`,
+		`- "0.1.6"`,
 		"- -frontend-image-tag",
 		`- "0.1.5"`,
 		"- -agent-image-tag",
@@ -89,18 +89,19 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 	}
 }
 
-func TestPublishedReleasePinsOfflineBootstrapCompatibility(t *testing.T) {
-	release, err := os.ReadFile("../../../../release/0.1.15.yaml")
+func TestPublishedReleasePinsAPICompatibility(t *testing.T) {
+	release, err := os.ReadFile("../../../../release/0.1.16.yaml")
 	if err != nil {
 		t.Fatalf("read published release manifest: %v", err)
 	}
 	manifest := string(release)
 	for _, expected := range []string{
-		`version: "0.1.15"`,
+		`version: "0.1.16"`,
 		"apiContract:",
 		`version: "1"`,
 		"scmOfflineBootstrap: true",
-		"api: ghcr.io/envpilot/api:0.1.5",
+		"api: ghcr.io/envpilot/api:0.1.6",
+		"controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.1.6",
 		"frontend: ghcr.io/envpilot/frontend:0.1.5",
 		"url: http://envpilot.local",
 		"ingressClassName: nginx",
@@ -162,7 +163,7 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			"Runner Helm chart preflight failed for",
 		},
 		"../../../../scripts/envpilot-clean-install.sh": {
-			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.15}\"",
+			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.16}\"",
 			"AGENT_IMAGE_TAG=\"${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}\"",
 			"RUNNER_IMAGE_TAG=\"${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}\"",
 			"verify_api_capabilities",
