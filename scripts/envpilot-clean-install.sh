@@ -53,6 +53,20 @@ FRONTEND_IMAGE_TAG="${ENVPILOT_FRONTEND_IMAGE_TAG:-0.1.5}"
 AGENT_IMAGE_TAG="${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}"
 RUNNER_IMAGE_TAG="${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}"
 IMAGE_PULL_POLICY="${ENVPILOT_IMAGE_PULL_POLICY:-Always}"
+AUTO_FIXTURE_PROJECT="${ENVPILOT_AUTO_FIXTURE_PROJECT:-true}"
+FIXTURE_UPSERT="${ENVPILOT_FIXTURE_UPSERT:-true}"
+FIXTURE_PROJECT_ID="${ENVPILOT_FIXTURE_PROJECT_ID:-envpilot-e2e-fixture}"
+FIXTURE_PROJECT_NAME="${ENVPILOT_FIXTURE_PROJECT_NAME:-EnvPilot local E2E fixture}"
+FIXTURE_BASE_NAMESPACE="${ENVPILOT_FIXTURE_BASE_NAMESPACE:-envpilot-e2e-base}"
+FIXTURE_CLUSTER_ID="${ENVPILOT_FIXTURE_CLUSTER_ID:-${CLUSTER_ID}}"
+FIXTURE_SCM_PROVIDER="${ENVPILOT_FIXTURE_SCM_PROVIDER:-gitlab}"
+FIXTURE_APP_REPO_URL="${ENVPILOT_FIXTURE_APP_REPO_URL:-https://gitlab.com/betario/cms-team/cms.git}"
+FIXTURE_APP_DEFAULT_BRANCH="${ENVPILOT_FIXTURE_APP_DEFAULT_BRANCH:-develop}"
+FIXTURE_GITOPS_REPO_URL="${ENVPILOT_FIXTURE_GITOPS_REPO_URL:-https://gitlab.com/betario/devops/gitops/fluxcd/clusters.git}"
+FIXTURE_GITOPS_DEFAULT_BRANCH="${ENVPILOT_FIXTURE_GITOPS_DEFAULT_BRANCH:-main}"
+FIXTURE_GITOPS_PATH="${ENVPILOT_FIXTURE_GITOPS_PATH:-clusters}"
+FIXTURE_BASE_ENVIRONMENT="${ENVPILOT_FIXTURE_BASE_ENVIRONMENT:-envpilot-e2e-base}"
+FIXTURE_TTL_HOURS="${ENVPILOT_FIXTURE_TTL_HOURS:-1}"
 
 STORAGE_CLASS="${ENVPILOT_STORAGE_CLASS:-}"
 NODE_ARCH="${ENVPILOT_NODE_ARCH:-}"
@@ -188,6 +202,109 @@ verify_api_capabilities() {
   fi
 }
 
+project_exists() {
+  local response status
+  response="$(mktemp)"
+  status="$(curl -sS -o "${response}" -w "%{http_code}" "$(api_url)/api/v1/projects/${PROJECT_ID}" || true)"
+  case "${status}" in
+    200)
+      rm -f "${response}"
+      return 0
+      ;;
+    404)
+      rm -f "${response}"
+      return 1
+      ;;
+    *)
+      local body
+      body="$(cat "${response}")"
+      rm -f "${response}"
+      echo "Unable to read project ${PROJECT_ID}: HTTP ${status} ${body}" >&2
+      exit 1
+      ;;
+  esac
+}
+
+upsert_fixture_project() {
+  local response status body payload
+  payload="$(jq -n \
+    --arg id "${PROJECT_ID}" \
+    --arg name "${FIXTURE_PROJECT_NAME}" \
+    --arg cluster "${FIXTURE_CLUSTER_ID}" \
+    --arg provider "${FIXTURE_SCM_PROVIDER}" \
+    --arg appRepo "${FIXTURE_APP_REPO_URL}" \
+    --arg appBranch "${FIXTURE_APP_DEFAULT_BRANCH}" \
+    --arg gitopsRepo "${FIXTURE_GITOPS_REPO_URL}" \
+    --arg gitopsBranch "${FIXTURE_GITOPS_DEFAULT_BRANCH}" \
+    --arg gitopsPath "${FIXTURE_GITOPS_PATH}" \
+    --arg baseNs "${FIXTURE_BASE_NAMESPACE}" \
+    --arg baseEnv "${FIXTURE_BASE_ENVIRONMENT}" \
+    --argjson ttl "${FIXTURE_TTL_HOURS}" \
+    '{id:$id,name:$name,product_id:"generic",cluster_id:$cluster,git_repo:{provider:$provider,url:$appRepo,default_branch:$appBranch},gitops_repo:{provider:$provider,url:$gitopsRepo,default_branch:$gitopsBranch,path:$gitopsPath},base_env_config:{environment_id:$baseEnv,namespace:$baseNs,services:[{name:"e2e-base-workload",namespace:$baseNs}]},cost_policy:{default_ttl_hours:$ttl}}')"
+  response="$(mktemp)"
+  status="$(curl -sS -X PUT \
+    -H 'Content-Type: application/json' \
+    -d "${payload}" \
+    -o "${response}" \
+    -w "%{http_code}" \
+    "$(api_url)/api/v1/projects/${PROJECT_ID}" || true)"
+  if [[ "${status}" != "200" && "${status}" != "201" ]]; then
+    body="$(cat "${response}")"
+    rm -f "${response}"
+    echo "Failed to upsert fixture project ${PROJECT_ID}; HTTP ${status}; response=${body}" >&2
+    exit 1
+  fi
+  rm -f "${response}"
+}
+
+ensure_fixture_project() {
+  if project_exists; then
+    if [[ "${PROJECT_ID}" == "${FIXTURE_PROJECT_ID}" && "${AUTO_FIXTURE_PROJECT}" == "true" && "${FIXTURE_UPSERT}" == "true" ]]; then
+      echo "Project ${PROJECT_ID} exists; aligning it with fixture defaults."
+      upsert_fixture_project
+    fi
+    return 0
+  fi
+
+  if [[ "${PROJECT_ID}" != "${FIXTURE_PROJECT_ID}" ]]; then
+    if [[ "${AUTO_FIXTURE_PROJECT}" == "true" ]]; then
+      echo "Project ${PROJECT_ID} was not found. To use one-shot setup, set ENVPILOT_PROJECT_ID=${FIXTURE_PROJECT_ID}." >&2
+    else
+      echo "Project ${PROJECT_ID} was not found in control-plane." >&2
+    fi
+    echo "Create it first with PUT /api/v1/projects/${PROJECT_ID}, or set ENVPILOT_PROJECT_ID=${FIXTURE_PROJECT_ID} to use the local fixture bootstrap." >&2
+    exit 2
+  fi
+
+  if [[ "${AUTO_FIXTURE_PROJECT}" != "true" ]]; then
+    echo "Auto fixture creation is disabled. Set ENVPILOT_AUTO_FIXTURE_PROJECT=true to create ${FIXTURE_PROJECT_ID} automatically, or create the project first." >&2
+    exit 2
+  fi
+
+  upsert_fixture_project
+  echo "Created/updated fallback E2E fixture project ${PROJECT_ID}."
+}
+
+ensure_bootstrap_session() {
+  local response status
+  response="$(mktemp)"
+  status="$(curl -sS -X POST \
+    -H 'Content-Type: application/json' \
+    -d '{}' \
+    -o "${response}" \
+    -w "%{http_code}" \
+    "$(api_url)/api/projects/${PROJECT_ID}/bootstrap-session" || true)"
+  if [[ "${status}" == "200" || "${status}" == "201" || "${status}" == "409" ]]; then
+    rm -f "${response}"
+    return 0
+  fi
+  local body
+  body="$(cat "${response}")"
+  rm -f "${response}"
+  echo "Failed to initialize bootstrap session for ${PROJECT_ID}; HTTP ${status}; response=${body}" >&2
+  exit 1
+}
+
 create_bootstrap_secrets() {
   local agent_token
   agent_token="$(curl -fsS -X POST "$(api_url)/api/projects/${PROJECT_ID}/bootstrap-session/agent-token" \
@@ -281,7 +398,16 @@ install_runner() {
   helm upgrade --install "${RUNNER_RELEASE}" "${CHART_DIR}/envpilot-runner" \
     --namespace "${NAMESPACE}" \
     "${helm_set_args[@]}"
-  kubectl rollout status "deployment/envpilot-runner-chart" -n "${NAMESPACE}" --timeout=240s
+  local runner_deployment
+  for runner_deployment in "${RUNNER_RELEASE}-envpilot-runner-chart" "envpilot-runner-chart" "${RUNNER_RELEASE}" "envpilot-runner"; do
+    if kubectl get deployment "${runner_deployment}" -n "${NAMESPACE}" >/dev/null 2>&1; then
+      kubectl rollout status "deployment/${runner_deployment}" -n "${NAMESPACE}" --timeout=240s
+      return 0
+    fi
+  done
+  echo "Runner deployment for release ${RUNNER_RELEASE} was not found. Running 'kubectl get deployments -n ${NAMESPACE}' for diagnostics." >&2
+  kubectl get deployments -n "${NAMESPACE}" >&2
+  return 1
 }
 
 start_frontend_access() {
@@ -351,6 +477,8 @@ create_namespace_and_pull_secret
 install_control_plane
 start_port_forward
 verify_api_capabilities
+ensure_fixture_project
+ensure_bootstrap_session
 create_bootstrap_secrets
 install_agent
 install_runner
