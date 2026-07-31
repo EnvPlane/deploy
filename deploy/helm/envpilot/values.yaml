@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/envpilot/install
-  tag: "0.1.11"
+  tag: "0.1.13"
   pullPolicy: Always
   createPullSecret: true
   pullSecretName: envpilot-ghcr
@@ -68,21 +68,21 @@ images:
   tag: ""
   api:
     repository: ghcr.io/envpilot/api
-    tag: "main"
+    tag: "0.1.5"
   frontend:
     repository: ghcr.io/envpilot/frontend
-    tag: "main"
+    tag: "0.1.5"
   agent:
     repository: ghcr.io/envpilot/agent
     tag: "0.1.4"
   runner:
     repository: ghcr.io/envpilot/runner
-    tag: "main"
+    tag: "0.1.4"
   pullPolicy: Always
 
 agentInstall:
   helmChartRef: oci://ghcr.io/envpilot/envpilot-agent
-  helmChartVersion: "0.1.7"
+  helmChartVersion: "0.1.1"
 
 storage:
   className: ""

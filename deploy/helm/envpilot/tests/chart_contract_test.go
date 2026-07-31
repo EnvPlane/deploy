@@ -47,7 +47,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.11",
+		"ghcr.io/envpilot/install:0.1.13",
 		"- -mode",
 		`- "clean-install"`,
 		"- -cluster-id",
@@ -57,15 +57,15 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"- -api-contract-version",
 		`- "1"`,
 		"- -api-image-tag",
-		`- "main"`,
+		`- "0.1.5"`,
 		"- -frontend-image-tag",
-		`- "main"`,
+		`- "0.1.5"`,
 		"- -agent-image-tag",
-		`- "main"`,
+		`- "0.1.4"`,
 		"- -agent-helm-chart-ref",
 		`- "oci://ghcr.io/envpilot/envpilot-agent"`,
 		"- -agent-helm-chart-version",
-		`- "0.1.7"`,
+		`- "0.1.1"`,
 		"- -runner-image-tag",
 		`- "0.1.4"`,
 		"- -charts-dir",
@@ -84,13 +84,13 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 }
 
 func TestPublishedReleasePinsOfflineBootstrapCompatibility(t *testing.T) {
-	release, err := os.ReadFile("../../../../release/0.1.11.yaml")
+	release, err := os.ReadFile("../../../../release/0.1.13.yaml")
 	if err != nil {
 		t.Fatalf("read published release manifest: %v", err)
 	}
 	manifest := string(release)
 	for _, expected := range []string{
-		`version: "0.1.11"`,
+		`version: "0.1.13"`,
 		"apiContract:",
 		`version: "1"`,
 		"scmOfflineBootstrap: true",
@@ -153,7 +153,7 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			"Runner Helm chart preflight failed for",
 		},
 		"../../../../scripts/envpilot-clean-install.sh": {
-			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.11}\"",
+			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.13}\"",
 			"AGENT_IMAGE_TAG=\"${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}\"",
 			"RUNNER_IMAGE_TAG=\"${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}\"",
 			"verify_api_capabilities",
