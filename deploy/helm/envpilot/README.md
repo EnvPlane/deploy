@@ -6,7 +6,7 @@ Install:
 
 ```sh
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.10 \
+  --version 0.1.11 \
   --namespace default \
   --set install.clusterId=aws-bethunder-dev-bethunder-dev-1-21 \
   --set storage.className=gp2 \
@@ -63,7 +63,7 @@ as a NodePort; it proxies `/api` to the in-cluster control-plane service.
 
 ```sh
 helm install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.1.10 \
+  --version 0.1.11 \
   --namespace default \
   --set install.clusterId=envpilot \
   --set access.mode=nodeport \

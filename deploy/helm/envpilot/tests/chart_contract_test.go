@@ -47,7 +47,7 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.10",
+		"ghcr.io/envpilot/install:0.1.11",
 		"- -mode",
 		`- "clean-install"`,
 		"- -cluster-id",
@@ -84,13 +84,13 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 }
 
 func TestPublishedReleasePinsOfflineBootstrapCompatibility(t *testing.T) {
-	release, err := os.ReadFile("../../../../release/0.1.10.yaml")
+	release, err := os.ReadFile("../../../../release/0.1.11.yaml")
 	if err != nil {
 		t.Fatalf("read published release manifest: %v", err)
 	}
 	manifest := string(release)
 	for _, expected := range []string{
-		`version: "0.1.10"`,
+		`version: "0.1.11"`,
 		"apiContract:",
 		`version: "1"`,
 		"scmOfflineBootstrap: true",

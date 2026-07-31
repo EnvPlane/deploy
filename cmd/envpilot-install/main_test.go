@@ -2,6 +2,36 @@ package main
 
 import "testing"
 
+func TestValidateAPICapabilities(t *testing.T) {
+	tests := []struct {
+		name string
+		got  apiCapabilities
+		want bool
+	}{
+		{
+			name: "compatible",
+			got:  apiCapabilities{APIContractVersion: "1", Features: map[string]bool{"scmOfflineBootstrap": true}},
+			want: true,
+		},
+		{
+			name: "old API contract",
+			got:  apiCapabilities{APIContractVersion: "0", Features: map[string]bool{"scmOfflineBootstrap": true}},
+		},
+		{
+			name: "missing offline capability",
+			got:  apiCapabilities{APIContractVersion: "1", Features: map[string]bool{}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAPICapabilities(tt.got, "1")
+			if (err == nil) != tt.want {
+				t.Fatalf("validateAPICapabilities(%+v) error = %v, want success=%t", tt.got, err, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateFrontendAccess(t *testing.T) {
 	tests := []struct {
 		name string

@@ -73,6 +73,26 @@ type config struct {
 	PreserveNamespace  bool
 }
 
+type apiCapabilities struct {
+	APIContractVersion string          `json:"apiContractVersion"`
+	Features           map[string]bool `json:"features"`
+}
+
+func validateAPICapabilities(payload apiCapabilities, expectedContract string) error {
+	expected := strings.TrimSpace(expectedContract)
+	if expected == "" {
+		expected = "1"
+	}
+	actual := strings.TrimSpace(payload.APIContractVersion)
+	if actual != expected {
+		return fmt.Errorf("control-plane API contract mismatch: installer requires %q, API advertises %q", expected, actual)
+	}
+	if payload.Features == nil || !payload.Features["scmOfflineBootstrap"] {
+		return errors.New("control-plane API contract mismatch: scmOfflineBootstrap capability is missing")
+	}
+	return nil
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -114,8 +134,8 @@ func parseFlags() config {
 	flag.StringVar(&cfg.ImageTag, "image-tag", legacyImageTag, "deprecated common image tag; overrides all component image tags when set")
 	flag.StringVar(&cfg.APIImageTag, "api-image-tag", getenv("ENVPILOT_API_IMAGE_TAG", "0.1.5"), "API image tag")
 	flag.StringVar(&cfg.FrontendImageTag, "frontend-image-tag", getenv("ENVPILOT_FRONTEND_IMAGE_TAG", "0.1.5"), "frontend image tag")
-	flag.StringVar(&cfg.AgentImageTag, "agent-image-tag", getenv("ENVPILOT_AGENT_IMAGE_TAG", "0.1.1"), "agent image tag")
-	flag.StringVar(&cfg.RunnerImageTag, "runner-image-tag", getenv("ENVPILOT_RUNNER_IMAGE_TAG", "0.1.3"), "runner image tag")
+	flag.StringVar(&cfg.AgentImageTag, "agent-image-tag", getenv("ENVPILOT_AGENT_IMAGE_TAG", "0.1.4"), "agent image tag")
+	flag.StringVar(&cfg.RunnerImageTag, "runner-image-tag", getenv("ENVPILOT_RUNNER_IMAGE_TAG", "0.1.4"), "runner image tag")
 	flag.StringVar(&cfg.ImagePullPolicy, "image-pull-policy", getenv("ENVPILOT_IMAGE_PULL_POLICY", "Always"), "image pull policy")
 	flag.StringVar(&cfg.StorageClass, "storage-class", getenv("ENVPILOT_STORAGE_CLASS", ""), "storage class for PVCs")
 	flag.StringVar(&cfg.NodeArch, "node-arch", getenv("ENVPILOT_NODE_ARCH", ""), "optional kubernetes.io/arch node selector")
@@ -190,16 +210,19 @@ func run(ctx context.Context, cfg config) error {
 	if err := installControlPlane(ctx, cfg); err != nil {
 		return err
 	}
-	if cfg.SeedProject {
-		if err := seedProject(ctx, cfg); err != nil {
-			return err
-		}
-	}
 	pf, err := startPortForward(ctx, cfg)
 	if err != nil {
 		return err
 	}
 	defer pf()
+	if err := verifyAPICapabilities(ctx, cfg); err != nil {
+		return err
+	}
+	if cfg.SeedProject {
+		if err := seedProject(ctx, cfg); err != nil {
+			return err
+		}
+	}
 	if err := createBootstrapSecrets(ctx, cfg); err != nil {
 		return err
 	}
@@ -519,6 +542,28 @@ func startPortForward(ctx context.Context, cfg config) (func(), error) {
 	}
 	cleanup()
 	return nil, fmt.Errorf("control-plane port-forward did not become ready: %s", stderr.String())
+}
+
+func verifyAPICapabilities(ctx context.Context, cfg config) error {
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/v1/capabilities", cfg.LocalPort)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("create API capability request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("control-plane capability check failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("control-plane capability check failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	var payload apiCapabilities
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return fmt.Errorf("decode control-plane capabilities: %w", err)
+	}
+	return validateAPICapabilities(payload, cfg.APIContractVersion)
 }
 
 func runCmd(ctx context.Context, name string, args ...string) error {
