@@ -21,5 +21,10 @@ and expose it to the host.
 {{- else }}
 
 Ingress access:
-  https://envpilot.{{ .Values.project.endpointDomain }}
+  http://envpilot.{{ .Values.project.endpointDomain }}
+
+For local minikube, ensure the nginx ingress addon/controller is enabled and
+envpilot.local resolves to the minikube IP. Example:
+  minikube -p <profile> addons enable ingress
+  minikube -p <profile> ip
 {{- end }}

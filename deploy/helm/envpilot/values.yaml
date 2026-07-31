@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/envpilot/install
-  tag: "0.1.13"
+  tag: "0.1.14"
   pullPolicy: Always
   createPullSecret: true
   pullSecretName: envpilot-ghcr
@@ -38,8 +38,10 @@ compatibility:
   apiContractVersion: "1"
 
 # How users reach the browser UI after the installer Job completes.
-# "ingress" preserves the production default. For Docker-based local minikube,
-# use "nodeport" and obtain the reachable URL with `minikube service --url`.
+# The published chart defaults to the documented local minikube path:
+# envpilot.local through an nginx IngressClass. Production installs should
+# override project.loadBalancerType, project.endpointDomain and
+# project.ingressAnnotations explicitly.
 access:
   mode: ingress
   nodePort: 0
@@ -47,8 +49,8 @@ access:
 project:
   productId: envpilot-smoke
   productChartPath: /var/lib/envpilot/charts/envpilot-smoke
-  loadBalancerType: alb
-  endpointDomain: tools.int
+  loadBalancerType: nginx
+  endpointDomain: local
   ingressAnnotations: {}
   appRepositoryId: envpilot/app
   gitopsRepositoryId: envpilot/gitops

@@ -47,7 +47,13 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 		"kind: ClusterRole",
 		`type: kubernetes.io/dockerconfigjson`,
 		`name: "envpilot-ghcr"`,
-		"ghcr.io/envpilot/install:0.1.13",
+		"ghcr.io/envpilot/install:0.1.14",
+		"- -frontend-access-mode",
+		`- "ingress"`,
+		"- -load-balancer-type",
+		`- "nginx"`,
+		"- -endpoint-domain",
+		`- "local"`,
 		"- -mode",
 		`- "clean-install"`,
 		"- -cluster-id",
@@ -84,18 +90,20 @@ func TestInitChartTemplatesInstallerJob(t *testing.T) {
 }
 
 func TestPublishedReleasePinsOfflineBootstrapCompatibility(t *testing.T) {
-	release, err := os.ReadFile("../../../../release/0.1.13.yaml")
+	release, err := os.ReadFile("../../../../release/0.1.14.yaml")
 	if err != nil {
 		t.Fatalf("read published release manifest: %v", err)
 	}
 	manifest := string(release)
 	for _, expected := range []string{
-		`version: "0.1.13"`,
+		`version: "0.1.14"`,
 		"apiContract:",
 		`version: "1"`,
 		"scmOfflineBootstrap: true",
 		"api: ghcr.io/envpilot/api:0.1.5",
 		"frontend: ghcr.io/envpilot/frontend:0.1.5",
+		"url: http://envpilot.local",
+		"ingressClassName: nginx",
 	} {
 		if !strings.Contains(manifest, expected) {
 			t.Fatalf("release manifest missing compatibility marker %q:\n%s", expected, manifest)
@@ -153,7 +161,7 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			"Runner Helm chart preflight failed for",
 		},
 		"../../../../scripts/envpilot-clean-install.sh": {
-			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.13}\"",
+			"RELEASE_VERSION=\"${ENVPILOT_RELEASE_VERSION:-0.1.14}\"",
 			"AGENT_IMAGE_TAG=\"${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}\"",
 			"RUNNER_IMAGE_TAG=\"${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}\"",
 			"verify_api_capabilities",
@@ -245,6 +253,44 @@ func TestInitChartSupportsNodePortFrontendAccess(t *testing.T) {
 	}
 	if !strings.Contains(string(notes), "minikube -p <profile> service") {
 		t.Fatal("chart notes must document the supported local NodePort endpoint")
+	}
+}
+
+func TestInitChartDefaultsToDocumentedLocalIngress(t *testing.T) {
+	cmd := exec.Command(
+		"helm", "template", "envpilot", "..",
+		"--set", "install.clusterId=test-cluster",
+		"--set", "registry.token=ghp_test",
+	)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, string(output))
+	}
+	rendered := string(output)
+	for _, expected := range []string{
+		"- -frontend-access-mode",
+		`- "ingress"`,
+		"- -load-balancer-type",
+		`- "nginx"`,
+		"- -endpoint-domain",
+		`- "local"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered chart missing local ingress default %q:\n%s", expected, rendered)
+		}
+	}
+	notes, err := os.ReadFile("../templates/NOTES.txt")
+	if err != nil {
+		t.Fatalf("read chart notes: %v", err)
+	}
+	for _, expected := range []string{
+		"http://envpilot.{{ .Values.project.endpointDomain }}",
+		"minikube -p <profile> addons enable ingress",
+	} {
+		if !strings.Contains(string(notes), expected) {
+			t.Fatalf("chart notes must document local ingress marker %q", expected)
+		}
 	}
 }
 
