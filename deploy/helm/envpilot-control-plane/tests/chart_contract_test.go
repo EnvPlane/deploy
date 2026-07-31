@@ -153,7 +153,7 @@ func TestControlPlaneChartUsesPersistentImages(t *testing.T) {
 	for _, expected := range []string{
 		"repository: ghcr.io/envpilot/api",
 		"repository: ghcr.io/envpilot/frontend",
-		`tag: "0.1.5"`,
+		`tag: "main"`,
 	} {
 		if !strings.Contains(valuesText, expected) {
 			t.Fatalf("values file does not contain %q", expected)

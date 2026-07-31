@@ -68,16 +68,16 @@ images:
   tag: ""
   api:
     repository: ghcr.io/envpilot/api
-    tag: "0.1.5"
+    tag: "main"
   frontend:
     repository: ghcr.io/envpilot/frontend
-    tag: "0.1.5"
+    tag: "main"
   agent:
     repository: ghcr.io/envpilot/agent
     tag: "0.1.4"
   runner:
     repository: ghcr.io/envpilot/runner
-    tag: "0.1.4"
+    tag: "main"
   pullPolicy: Always
 
 agentInstall:

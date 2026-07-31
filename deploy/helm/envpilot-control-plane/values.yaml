@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/envpilot/api
   pullPolicy: IfNotPresent
-  tag: "0.1.5"
+  tag: "main"
 
 frontend:
   enabled: true
@@ -11,7 +11,7 @@ frontend:
   image:
     repository: ghcr.io/envpilot/frontend
     pullPolicy: IfNotPresent
-    tag: "0.1.5"
+    tag: "main"
   service:
     type: ClusterIP
     port: 3000
