@@ -17,6 +17,26 @@ CONTROL_PLANE_RELEASE="${ENVPILOT_CONTROL_PLANE_RELEASE:-envpilot}"
 AGENT_RELEASE="${ENVPILOT_AGENT_RELEASE:-envpilot-agent}"
 RUNNER_RELEASE="${ENVPILOT_RUNNER_RELEASE:-envpilot-runner}"
 
+# The shell installer is primarily used for local minikube installs. A
+# ClusterIP frontend is not reachable from the host and an ALB ingress is not
+# provisioned by minikube, so use a minikube service tunnel there. Clusters
+# without a running minikube profile retain the production ingress default.
+MINIKUBE_PROFILE="${ENVPILOT_MINIKUBE_PROFILE:-${MINIKUBE_PROFILE:-}}"
+if [[ -z "${MINIKUBE_PROFILE}" ]] && command -v kubectl >/dev/null 2>&1; then
+  MINIKUBE_PROFILE="$(kubectl config current-context 2>/dev/null || true)"
+fi
+if [[ -n "${ENVPILOT_FRONTEND_ACCESS_MODE:-}" ]]; then
+  FRONTEND_ACCESS_MODE="${ENVPILOT_FRONTEND_ACCESS_MODE}"
+elif command -v minikube >/dev/null 2>&1 && [[ -n "${MINIKUBE_PROFILE}" ]] && minikube status -p "${MINIKUBE_PROFILE}" >/dev/null 2>&1; then
+  FRONTEND_ACCESS_MODE="nodeport"
+else
+  FRONTEND_ACCESS_MODE="ingress"
+fi
+FRONTEND_NODE_PORT="${ENVPILOT_FRONTEND_NODE_PORT:-}"
+FRONTEND_SERVICE="${CONTROL_PLANE_RELEASE}-control-plane-frontend"
+FRONTEND_ACCESS_PID_FILE="${ENVPILOT_FRONTEND_ACCESS_PID_FILE:-/tmp/envpilot-frontend-service.pid}"
+FRONTEND_ACCESS_LOG="${ENVPILOT_FRONTEND_ACCESS_LOG:-/tmp/envpilot-frontend-service.log}"
+
 GHCR_SECRET="${ENVPILOT_GHCR_SECRET:-ghcr-envpilot}"
 GHCR_SERVER="${ENVPILOT_GHCR_SERVER:-ghcr.io}"
 GHCR_USERNAME="${ENVPILOT_GHCR_USERNAME:-envpilot}"
@@ -107,6 +127,22 @@ install_control_plane() {
   add_set "env.ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS" "120"
   add_set "env.ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS" "2"
   add_set "env.ENVPILOT_API_CONTRACT_VERSION" "1"
+  case "${FRONTEND_ACCESS_MODE}" in
+    nodeport)
+      add_set "ingress.enabled" "false"
+      add_set "frontend.service.type" "NodePort"
+      if [[ -n "${FRONTEND_NODE_PORT}" ]]; then
+        add_set "frontend.service.nodePort" "${FRONTEND_NODE_PORT}"
+      fi
+      ;;
+    ingress)
+      add_set "frontend.service.type" "ClusterIP"
+      ;;
+    *)
+      echo "unsupported ENVPILOT_FRONTEND_ACCESS_MODE=${FRONTEND_ACCESS_MODE}; use nodeport or ingress" >&2
+      exit 1
+      ;;
+  esac
   if [[ -n "${STORAGE_CLASS}" ]]; then
     add_set "postgres.persistence.storageClassName" "${STORAGE_CLASS}"
     add_set "redis.persistence.storageClassName" "${STORAGE_CLASS}"
@@ -241,6 +277,51 @@ install_runner() {
   kubectl rollout status "deployment/envpilot-runner-chart" -n "${NAMESPACE}" --timeout=240s
 }
 
+start_frontend_access() {
+  if [[ "${FRONTEND_ACCESS_MODE}" != "nodeport" ]]; then
+    echo "Browser UI: ingress mode enabled; use the configured ingress hostname."
+    return 0
+  fi
+
+  if ! command -v minikube >/dev/null 2>&1; then
+    echo "Browser UI is exposed as NodePort, but minikube is unavailable. Run:" >&2
+    echo "  kubectl get svc -n ${NAMESPACE} ${FRONTEND_SERVICE}" >&2
+    return 0
+  fi
+  if [[ -z "${MINIKUBE_PROFILE}" ]]; then
+    MINIKUBE_PROFILE="$(kubectl config current-context 2>/dev/null || true)"
+  fi
+  if [[ -z "${MINIKUBE_PROFILE}" ]]; then
+    echo "Browser UI is exposed as NodePort. Set ENVPILOT_MINIKUBE_PROFILE and rerun the service command." >&2
+    return 0
+  fi
+
+  if [[ -f "${FRONTEND_ACCESS_PID_FILE}" ]]; then
+    local old_pid
+    old_pid="$(cat "${FRONTEND_ACCESS_PID_FILE}" 2>/dev/null || true)"
+    [[ -z "${old_pid}" ]] || kill "${old_pid}" >/dev/null 2>&1 || true
+  fi
+  : >"${FRONTEND_ACCESS_LOG}"
+  nohup minikube -p "${MINIKUBE_PROFILE}" service -n "${NAMESPACE}" "${FRONTEND_SERVICE}" --url --wait=5 >"${FRONTEND_ACCESS_LOG}" 2>&1 &
+  local access_pid="$!"
+  printf '%s\n' "${access_pid}" >"${FRONTEND_ACCESS_PID_FILE}"
+
+  local browser_url=""
+  for _ in $(seq 1 30); do
+    browser_url="$(sed -n 's#^\(https\?://[^[:space:]]*\).*#\1#p' "${FRONTEND_ACCESS_LOG}" | head -n 1)"
+    if [[ -n "${browser_url}" ]] && curl -fsS --max-time 3 "${browser_url}/" >/dev/null 2>&1; then
+      echo "Browser UI: ${browser_url}"
+      echo "Stop local frontend tunnel: kill ${access_pid}"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "frontend NodePort was created, but minikube tunnel did not become reachable" >&2
+  echo "Run: minikube -p ${MINIKUBE_PROFILE} service -n ${NAMESPACE} ${FRONTEND_SERVICE} --url" >&2
+  cat "${FRONTEND_ACCESS_LOG}" >&2 || true
+  return 1
+}
+
 require_cmd kubectl
 require_cmd helm
 require_cmd curl
@@ -268,3 +349,4 @@ install_agent
 install_runner
 
 kubectl get pods,pvc -n "${NAMESPACE}"
+start_frontend_access

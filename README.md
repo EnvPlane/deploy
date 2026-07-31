@@ -47,6 +47,15 @@ bin/envpilot-install \
 The installer uses `gh auth token` for GHCR unless `-ghcr-token` or
 `ENVPILOT_GHCR_TOKEN` is set.
 
+For a local minikube clean install, `scripts/envpilot-clean-install.sh` selects
+NodePort access and starts a `minikube service` tunnel for the frontend. It
+prints a browser URL after checking that the page responds. Override
+`ENVPILOT_MINIKUBE_PROFILE` when the active kubectl context is not the profile
+name, or set `ENVPILOT_FRONTEND_ACCESS_MODE=ingress` on a cluster with a
+host-reachable ingress controller. If the tunnel cannot start, the installer
+prints the exact `minikube service ... --url` recovery command instead of
+leaving a dead `envpilot.local` hostname.
+
 ## Published Helm chart
 
 EnvPilot is installed through one OCI Helm chart:

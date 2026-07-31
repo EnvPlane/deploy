@@ -157,6 +157,12 @@ func TestLocalEnvironmentFixtureAssertsDeployReadiness(t *testing.T) {
 			"AGENT_IMAGE_TAG=\"${ENVPILOT_AGENT_IMAGE_TAG:-0.1.4}\"",
 			"RUNNER_IMAGE_TAG=\"${ENVPILOT_RUNNER_IMAGE_TAG:-0.1.4}\"",
 			"verify_api_capabilities",
+			"FRONTEND_ACCESS_MODE=\"${ENVPILOT_FRONTEND_ACCESS_MODE}\"",
+			"minikube status -p \"${MINIKUBE_PROFILE}\"",
+			"frontend.service.type",
+			"start_frontend_access()",
+			"Browser UI:",
+			"minikube -p ${MINIKUBE_PROFILE} service",
 		},
 	} {
 		script, err := os.ReadFile(path)
