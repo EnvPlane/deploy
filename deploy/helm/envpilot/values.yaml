@@ -143,11 +143,11 @@ envpilot-control-plane:
   fullnameOverride: envpilot-control-plane
   image:
     repository: ghcr.io/envpilot/api
-    tag: "sha-6dbe3635f3ce345e8c85aa7deb5fd1ef8907b65c"
-    digest: "sha256:d7f67acdb2f683604db7e88ae36c93b087144ef45a0e11c19a9d710a490d0e8c"
+    tag: "sha-ebd8a6bf8d012abda31712050f4f9b748151a90e"
+    digest: "sha256:e5536f7c4b0f162a8b764c76e8785c722596d1415070b8c9f4836ac84a619791"
     pullPolicy: IfNotPresent
-    sourceRevision: "6dbe3635f3ce345e8c85aa7deb5fd1ef8907b65c"
-    release: "sha-6dbe3635f3ce345e8c85aa7deb5fd1ef8907b65c"
+    sourceRevision: "ebd8a6bf8d012abda31712050f4f9b748151a90e"
+    release: "sha-ebd8a6bf8d012abda31712050f4f9b748151a90e"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -239,11 +239,11 @@ envpilot-frontend:
   fullnameOverride: envpilot-frontend
   image:
     repository: ghcr.io/envpilot/frontend
-    tag: "sha-d86624e10b46ba0d7287fccfb042cd065e63e3be"
-    digest: "sha256:8219c917964c802e9ceb71132e6702dfe58960ff83dadfd97aac70f6a5def7a4"
+    tag: "sha-115e158f4ca47fda957b7823ea834d5deb0e1397"
+    digest: "sha256:65f823a622ad14775eeacf0ba13cc8da250a519e20f4e91a42ea1f1104a7a0d6"
     pullPolicy: IfNotPresent
-    sourceRevision: "d86624e10b46ba0d7287fccfb042cd065e63e3be"
-    release: "sha-d86624e10b46ba0d7287fccfb042cd065e63e3be"
+    sourceRevision: "115e158f4ca47fda957b7823ea834d5deb0e1397"
+    release: "sha-115e158f4ca47fda957b7823ea834d5deb0e1397"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -263,11 +263,11 @@ envpilot-agent:
   fullnameOverride: envpilot-agent
   image:
     repository: ghcr.io/envpilot/agent
-    tag: "sha-27144632cfb69f48d896cf56c1e11bf5b16641a7"
-    digest: "sha256:56c918e57e54226c9a80220e9509ee643efaa0b79c3e341a3256cbfb44dc938a"
+    tag: "sha-7c4dc7c2ba693b7042a2f9cbc238c44fab1aed00"
+    digest: "sha256:36ba5259e4ec16e09c5477bc2ac4e9911d1145613f05f4f2852559a03394ba2d"
     pullPolicy: IfNotPresent
-    sourceRevision: "27144632cfb69f48d896cf56c1e11bf5b16641a7"
-    release: "sha-27144632cfb69f48d896cf56c1e11bf5b16641a7"
+    sourceRevision: "7c4dc7c2ba693b7042a2f9cbc238c44fab1aed00"
+    release: "sha-7c4dc7c2ba693b7042a2f9cbc238c44fab1aed00"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
