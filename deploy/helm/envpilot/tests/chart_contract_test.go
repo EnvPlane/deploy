@@ -524,6 +524,29 @@ func TestPublishedArtifactE2EContract(t *testing.T) {
 	}
 }
 
+func TestInstallationDocsQuickStartSmoke(t *testing.T) {
+	docs, err := os.ReadFile("../../../../docs/installation.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(docs)
+	for _, expected := range []string{
+		"helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot",
+		"--version 0.3.0", "--namespace envpilot", "--values values.yaml",
+		"auto", "managed", "existing", "disabled", "Kubernetes 1.26",
+		"Private registry", "minikube-", "not required",
+	} {
+		if !strings.Contains(contents, expected) {
+			t.Fatalf("installation docs missing %q", expected)
+		}
+	}
+	for _, forbidden := range []string{"helm install envpilot-control-plane", "installer Job is required"} {
+		if strings.Contains(contents, forbidden) {
+			t.Fatalf("installation docs contain unsupported production path %q", forbidden)
+		}
+	}
+}
+
 func TestAllComponentRenderMeetsRestrictedPodSecurityBaseline(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "agent.enabled=true",

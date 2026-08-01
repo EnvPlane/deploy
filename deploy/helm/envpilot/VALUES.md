@@ -171,11 +171,11 @@ explicit `mode`: `auto`, `managed`, `existing`, or `disabled`. They declare
 platform intent and provider/Secret references without embedding a cloud or
 Kubernetes-distribution assumption in chart defaults.
 
-The current direct umbrella consumes existing ingress/Gateway, DNS, and storage
+The direct umbrella consumes existing ingress/Gateway, DNS, and storage
 capabilities. It does not silently install a platform provider. `auto` and
-`managed` are reserved for the separately designed, scoped platform reconciler;
-until that reconciler ships, select `existing` or `disabled` and provision the
-platform outside EnvPilot.
+`managed` are handled only by the optional, scoped platform reconciler and
+require explicit pinned provider configuration; otherwise select `existing` or
+`disabled` and provision the platform outside EnvPilot.
 
 The umbrella renders the declared mode, provider, reference and state into a
 non-secret ConfigMap and the control plane exposes it as
