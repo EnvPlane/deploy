@@ -11,6 +11,11 @@ on:
         description: Existing umbrella version to reinstall and verify
         required: true
         type: string
+      resume:
+        description: Resume signing, verification and GitHub Release for an already-published OCI version
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -55,6 +60,7 @@ jobs:
       - name: Verify canonical chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Generate immutable compatibility manifest
+        if: inputs.resume != true
         run: |
           ./scripts/generate-umbrella-compatibility-manifest.sh \
             --version '${{ steps.version.outputs.version }}' \
@@ -72,18 +78,38 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Authenticate cosign to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Reject an existing umbrella OCI version
+        if: inputs.resume != true
         run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envpilot/envpilot --version '${{ steps.version.outputs.version }}'
       - name: Package umbrella chart
+        if: inputs.resume != true
         run: helm package deploy/helm/envpilot --destination dist --version '${{ steps.version.outputs.version }}' --app-version '${{ steps.version.outputs.version }}'
       - name: Publish umbrella OCI chart
         id: push
+        env:
+          RESUME: ${{ inputs.resume }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          output="$(helm push "dist/envpilot-${{ steps.version.outputs.version }}.tgz" oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+          if [[ "$RESUME" == true ]]; then
+            mkdir -p /tmp/envpilot-release-resume deploy/helm/envpilot/compatibility
+            output="$(helm pull "oci://ghcr.io/envpilot/envpilot" --version "$VERSION" --destination /tmp/envpilot-release-resume 2>&1 | tee /dev/stderr)"
+            package="/tmp/envpilot-release-resume/envpilot-$VERSION.tgz"
+            tar -xOf "$package" '*/compatibility/release.json' > deploy/helm/envpilot/compatibility/release.json
+          else
+            package="dist/envpilot-$VERSION.tgz"
+            output="$(helm push "$package" oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+          fi
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "package=$package" >> "$GITHUB_OUTPUT"
       - name: Sign and attest published chart
         env:
           CHART_REF: ghcr.io/envpilot/envpilot@${{ steps.push.outputs.digest }}
@@ -109,7 +135,7 @@ jobs:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           gh release create "envpilot-v$VERSION" \
-            "dist/envpilot-$VERSION.tgz" \
+            "${{ steps.push.outputs.package }}" \
             deploy/helm/envpilot/compatibility/release.json \
             --repo envpilot/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
             --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"
