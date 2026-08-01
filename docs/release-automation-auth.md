@@ -7,11 +7,11 @@ umbrella values. Neither path accepts mutable `main` or `latest` release pins.
 
 ## Preferred authentication: one GitHub App
 
-Use one private GitHub App named `envpilot-release-automation`. Install it only
-on `envpilot/bootstrap`, `envpilot/deploy` and `envpilot/frontend`; it does not
-need access to the runtime repositories that publish images. The control-plane
-and runner source checks read `bootstrap` and `frontend`, while every component
-reads the canonical deploy source. Give the installation these repository
+Use one private GitHub App named `envpilot-release-automation`. Install it on
+`envpilot/deploy`, `envpilot/frontend`, `envpilot/control-plane`,
+`envpilot/agent` and `envpilot/runner`. The deploy receiver needs access to each
+runtime repository's private GHCR package to verify a submitted immutable image
+digest before it changes umbrella values. Give the installation these
 permissions:
 
 | Permission | Access | Why it is needed |
@@ -19,11 +19,12 @@ permissions:
 | Metadata | Read-only | Required by every installation token. |
 | Contents | Read and write | Read the canonical deploy source, dispatch events and update the serialised automation branches. |
 | Pull requests | Read and write | Create and auto-merge the values and dependency update PRs. |
+| Packages | Read-only | Verify immutable GHCR manifests from the runtime repositories before creating a values PR. |
 
-No webhook, organization administration, Actions, secrets, packages, workflows,
-issues or checks permission is required. Restrict the installation to the
-`envpilot/deploy` repository. Runtime publishing continues to use its own
-short-lived `GITHUB_TOKEN` for the component image package only.
+No webhook, organization administration, Actions, secrets, workflows, issues or
+checks permission is required. Runtime publishing continues to use its own
+short-lived `GITHUB_TOKEN` for writing the component image package only; the App
+is read-only for Packages.
 
 Store the App credentials as Actions secrets, never in a repository file,
 values file, artifact, log or workflow output:
@@ -36,9 +37,10 @@ values file, artifact, log or workflow output:
 Component workflows mint two short-lived tokens from this same App: a
 `contents: read` token for the additional deploy source checkout and a
 `contents: write` token for `repository_dispatch`. Deploy workflows mint a
-`contents: write`, `pull-requests: write` token only inside trusted receiver
-jobs to update the automation branch and PR. The private key is never made
-available to pull-request or fork-triggered workflows.
+`contents: write`, `pull-requests: write`, `packages: read` token only inside
+trusted receiver jobs to verify the source package, update the automation branch
+and create a PR. The private key is never made available to pull-request or
+fork-triggered workflows.
 
 ## Fine-grained PAT fallback
 
@@ -50,8 +52,9 @@ fallback is selected. Never use a classic PAT or an account-wide token.
 
 ## App setup and rotation
 
-1. Create the private App in the `envpilot` account and install it on
-   `envpilot/deploy` only.
+1. Create the private App in the `envpilot` account, grant Packages read-only,
+   and install it on `deploy`, `frontend`, `control-plane`, `agent` and
+   `runner`.
 2. Generate a private key once, add its ID and PEM to the two named secrets in
    each listed repository, then securely delete the downloaded PEM file.
 3. Run a manual publish in one component and confirm that `deploy` receives a
