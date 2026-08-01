@@ -93,6 +93,11 @@ type dnsProvider struct {
 	Chart string
 }
 
+type storageProvider struct {
+	Provisioner string
+	Chart       string
+}
+
 var ingressProviders = map[string]ingressProvider{
 	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "oci://ghcr.io/ingress-nginx/ingress-nginx"},
 	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "oci://ghcr.io/ingress-nginx/ingress-nginx"},
@@ -100,6 +105,10 @@ var ingressProviders = map[string]ingressProvider{
 
 var dnsProviders = map[string]dnsProvider{
 	"external-dns": {Chart: "oci://ghcr.io/kubernetes-sigs/external-dns/external-dns"},
+}
+
+var storageProviders = map[string]storageProvider{
+	"local-path-provisioner": {Provisioner: "rancher.io/local-path", Chart: "oci://ghcr.io/rancher/local-path-provisioner"},
 }
 
 func main() {
@@ -140,6 +149,12 @@ func run() error {
 		}
 		statusData[name] = res
 	}
+	if os.Getenv("ENVPILOT_RECONCILE_GATE_STORAGE") == "true" && statusData["storage"].State != "detected" && statusData["storage"].State != "managed" {
+		if err := persistStatus(core, statusData); err != nil {
+			return err
+		}
+		return fmt.Errorf("bundled PostgreSQL/Redis require a ready storage dependency: %s", statusData["storage"].Message)
+	}
 	return persistStatus(core, statusData)
 }
 
@@ -156,6 +171,12 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 		if err := validateDNSConfig(dep); err != nil {
 			r.State = "incompatible"
 			return r, err
+		}
+	}
+	if name == "storage" {
+		if _, ok := storageProviders[dep.Provider]; dep.Mode == "managed" && !ok {
+			r.State = "incompatible"
+			return r, fmt.Errorf("unsupported storage provider %q; configure a registered provider", dep.Provider)
 		}
 	}
 	if dep.Mode == "existing" || dep.Mode == "auto" {
@@ -203,6 +224,13 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 			return r, fmt.Errorf("external-dns provider requires pinned chart %s", provider.Chart)
 		}
 	}
+	if name == "storage" {
+		provider, ok := storageProviders[dep.Provider]
+		if !ok || dep.Managed.ChartRef != provider.Chart {
+			r.State = "incompatible"
+			return r, fmt.Errorf("storage provider %s requires pinned chart %s", dep.Provider, provider.Chart)
+		}
+	}
 	if err := helmApply(dep.Managed, restCfg); err != nil {
 		return r, fmt.Errorf("managed %s provider: %w", name, err)
 	}
@@ -216,6 +244,12 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 	}
 	if name == "dns" && dep.Managed.Smoke.Host != "" {
 		if err := verifyDNSSmoke(dep, client); err != nil {
+			r.State = "degraded"
+			return r, err
+		}
+	}
+	if name == "storage" {
+		if err := verifyStorageSmoke(dep, client); err != nil {
 			r.State = "degraded"
 			return r, err
 		}
@@ -276,10 +310,18 @@ func detect(name string, dep capability, client dynamic.Interface) (bool, string
 		}
 		for _, item := range list.Items {
 			if dep.ExistingClassName != "" && item.GetName() == dep.ExistingClassName {
-				return true, item.GetName(), nil
+				provisioner, _ := item.Object["provisioner"].(string)
+				if storageProvisionerAvailable(client, provisioner) {
+					return true, item.GetName(), nil
+				}
+				return false, "", fmt.Errorf("StorageClass %s provisioner %s is unavailable", item.GetName(), provisioner)
 			}
 			if dep.ExistingClassName == "" && item.GetAnnotations()["storageclass.kubernetes.io/is-default-class"] == "true" {
-				return true, item.GetName(), nil
+				provisioner, _ := item.Object["provisioner"].(string)
+				if storageProvisionerAvailable(client, provisioner) {
+					return true, item.GetName(), nil
+				}
+				return false, "", fmt.Errorf("default StorageClass %s provisioner %s is unavailable", item.GetName(), provisioner)
 			}
 		}
 	case "dns":
@@ -305,7 +347,7 @@ func detect(name string, dep capability, client dynamic.Interface) (bool, string
 				continue
 			}
 			status, hasStatus := deployment.Object["status"].(map[string]any)
-			available, _ := status["availableReplicas"].(int64)
+			available := replicaCount(status)
 			if !hasStatus || available < 1 {
 				return false, "", fmt.Errorf("external-dns deployment %s is not healthy", deployment.GetName())
 			}
@@ -362,6 +404,93 @@ func externalDNSArgsMatch(deployment unstructured.Unstructured, dep capability) 
 		}
 	}
 	return args["txt-owner-id"] == dep.OwnershipID && args["policy"] == dep.Policy
+}
+
+func storageProvisionerAvailable(client dynamic.Interface, provisioner string) bool {
+	if provisioner == "" {
+		return false
+	}
+	if drivers, err := client.Resource(schema.GroupVersionResource{Group: "storage.k8s.io", Version: "v1", Resource: "csidrivers"}).List(ctx, metav1.ListOptions{}); err == nil {
+		for _, driver := range drivers.Items {
+			if driver.GetName() == provisioner {
+				return true
+			}
+		}
+	}
+	deployments, err := client.Resource(schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false
+	}
+	for _, deployment := range deployments.Items {
+		name := strings.ToLower(deployment.GetName())
+		if !strings.Contains(name, "local-path") && !strings.Contains(name, "provisioner") {
+			continue
+		}
+		status, ok := deployment.Object["status"].(map[string]any)
+		available := replicaCount(status)
+		if ok && available > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func replicaCount(status map[string]any) int64 {
+	if value, ok := status["availableReplicas"].(int64); ok {
+		return value
+	}
+	if value, ok := status["availableReplicas"].(float64); ok {
+		return int64(value)
+	}
+	return 0
+}
+
+func verifyStorageSmoke(dep capability, client dynamic.Interface) error {
+	namespace := dep.Managed.Smoke.Namespace
+	if namespace == "" {
+		namespace = os.Getenv("ENVPILOT_RECONCILE_NAMESPACE")
+	}
+	if namespace != os.Getenv("ENVPILOT_RECONCILE_NAMESPACE") {
+		return fmt.Errorf("storage smoke namespace %q must match reconciler namespace", namespace)
+	}
+	className := dep.ExistingClassName
+	if className == "" {
+		classes, err := client.Resource(schema.GroupVersionResource{Group: "storage.k8s.io", Version: "v1", Resource: "storageclasses"}).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("resolve storage smoke class: %w", err)
+		}
+		for _, item := range classes.Items {
+			if item.GetAnnotations()["storageclass.kubernetes.io/is-default-class"] == "true" {
+				className = item.GetName()
+				break
+			}
+		}
+		if className == "" {
+			return fmt.Errorf("storage smoke could not resolve a StorageClass")
+		}
+	}
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}
+	obj := map[string]any{
+		"apiVersion": "v1", "kind": "PersistentVolumeClaim",
+		"metadata": map[string]any{"generateName": "envpilot-storage-smoke-", "namespace": namespace, "labels": map[string]any{"app.kubernetes.io/managed-by": "envpilot-platform-reconciler"}},
+		"spec":     map[string]any{"accessModes": []any{"ReadWriteOnce"}, "resources": map[string]any{"requests": map[string]any{"storage": "1Mi"}}, "storageClassName": className},
+	}
+	created, err := client.Resource(gvr).Namespace(namespace).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("create storage smoke PVC: %w", err)
+	}
+	defer client.Resource(gvr).Namespace(namespace).Delete(ctx, created.GetName(), metav1.DeleteOptions{})
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		current, err := client.Resource(gvr).Namespace(namespace).Get(ctx, created.GetName(), metav1.GetOptions{})
+		if err == nil {
+			if status, ok := current.Object["status"].(map[string]any); ok && status["phase"] == "Bound" {
+				return nil
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("storage smoke PVC %s did not become Bound before timeout", created.GetName())
 }
 
 func verifyDNSSmoke(dep capability, client dynamic.Interface) error {

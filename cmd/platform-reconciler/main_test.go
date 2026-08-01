@@ -13,7 +13,8 @@ import (
 func TestDetectCompatibleExistingCapabilities(t *testing.T) {
 	objects := []runtime.Object{
 		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "IngressClass", "metadata": map[string]any{"name": "nginx"}, "spec": map[string]any{"controller": "k8s.io/ingress-nginx"}}},
-		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "storage.k8s.io/v1", "kind": "StorageClass", "metadata": map[string]any{"name": "standard", "annotations": map[string]any{"storageclass.kubernetes.io/is-default-class": "true"}}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "storage.k8s.io/v1", "kind": "StorageClass", "metadata": map[string]any{"name": "standard", "annotations": map[string]any{"storageclass.kubernetes.io/is-default-class": "true"}}, "provisioner": "rancher.io/local-path"}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "storage.k8s.io/v1", "kind": "CSIDriver", "metadata": map[string]any{"name": "rancher.io/local-path"}}},
 		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Service", "metadata": map[string]any{"name": "ingress-nginx-controller", "namespace": "ingress-nginx", "labels": map[string]any{"app.kubernetes.io/component": "controller"}}}},
 		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Endpoints", "metadata": map[string]any{"name": "ingress-nginx-controller", "namespace": "ingress-nginx"}, "subsets": []any{map[string]any{"addresses": []any{map[string]any{"ip": "10.0.0.1"}}}}}},
 	}
@@ -22,6 +23,7 @@ func TestDetectCompatibleExistingCapabilities(t *testing.T) {
 		{Version: "v1", Resource: "services"}:                                   "ServiceList",
 		{Version: "v1", Resource: "endpoints"}:                                  "EndpointsList",
 		{Group: "storage.k8s.io", Version: "v1", Resource: "storageclasses"}:    "StorageClassList",
+		{Group: "storage.k8s.io", Version: "v1", Resource: "csidrivers"}:        "CSIDriverList",
 	}, objects...)
 	if ok, ref, err := detect("ingress", capability{Provider: "nginx", ExistingClassName: "nginx"}, client); err != nil || !ok || ref != "nginx" {
 		t.Fatalf("ingress detection = %v %q %v", ok, ref, err)

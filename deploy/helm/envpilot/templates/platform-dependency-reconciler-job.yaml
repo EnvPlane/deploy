@@ -52,6 +52,12 @@ spec:
               value: {{ printf "%s-platform-dependency-reconciler-status" .Release.Name | quote }}
             - name: ENVPILOT_RECONCILE_CLEANUP
               value: {{ default true $r.cleanupManagedOnUninstall | quote }}
+            {{- $storage := .Values.platformDependencies.storage -}}
+            {{- $controlPlane := index .Values "envpilot-control-plane" -}}
+            {{- if and (ne (default "disabled" $storage.mode) "disabled") (or $controlPlane.postgres.enabled $controlPlane.redis.enabled) }}
+            - name: ENVPILOT_RECONCILE_GATE_STORAGE
+              value: "true"
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ALL] }

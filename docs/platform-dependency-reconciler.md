@@ -25,6 +25,15 @@ namespace to be the reconciler namespace. Existing classes with a different
 controller are reported as incompatible, preventing class and release
 collisions; healthy existing controllers are reused without adoption.
 
+Storage detection requires both a configured or default StorageClass and an
+available provisioner (a matching CSIDriver or healthy provisioner Deployment),
+not merely a class object. The first managed provider is
+`local-path-provisioner`, configured with the pinned
+`oci://ghcr.io/rancher/local-path-provisioner` chart. Cloud CSI providers are
+never inferred. Managed storage runs a short-lived PVC smoke test and removes
+the claim after it reaches `Bound`; a failed or timed-out claim is reported as
+`degraded` and must not be used to back bundled PostgreSQL or Redis.
+
 The pre-delete hook runs cleanup only for managed providers with
 `ownership: envpilot` and `managed.cleanupPolicy: delete`. External providers
 are always retained. Re-running install/upgrade is idempotent: Helm SDK install

@@ -322,9 +322,9 @@ func TestProviderNeutralProfilesRenderDeclaredAccessAndServiceModes(t *testing.T
 			forbidden: []string{"kind: Ingress", "kind: HTTPRoute"},
 		},
 		{
-			name:    "LoadBalancer",
-			profile: "loadbalancer.yaml",
-			expected: []string{"type: LoadBalancer"},
+			name:      "LoadBalancer",
+			profile:   "loadbalancer.yaml",
+			expected:  []string{"type: LoadBalancer"},
 			forbidden: []string{"kind: Ingress", "kind: HTTPRoute"},
 		},
 		{
@@ -423,7 +423,9 @@ func TestManagedIngressProviderRendersPinnedSmokeContract(t *testing.T) {
 		"--set", "platformDependencies.ingress.managed.smoke.host=envpilot.example.test",
 	)
 	for _, expected := range []string{"resources: [\"services\", \"endpoints\"]", "resources: [\"ingresses\"]", "ENVPILOT_RECONCILE_ACTION", "envpilot.example.test"} {
-		if !strings.Contains(rendered, expected) { t.Fatalf("managed ingress contract missing %q:\n%s", expected, rendered) }
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("managed ingress contract missing %q:\n%s", expected, rendered)
+		}
 	}
 }
 
@@ -444,6 +446,30 @@ func TestManagedExternalDNSRendersScopedContract(t *testing.T) {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("managed DNS contract missing %q:\n%s", expected, rendered)
 		}
+	}
+}
+
+func TestManagedLocalPathStorageRendersSmokeContract(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencies.storage.mode=managed",
+		"--set", "platformDependencies.storage.provider=local-path-provisioner",
+		"--set", "platformDependencies.storage.ownership=envpilot",
+		"--set", "platformDependencies.storage.managed.chartRef=oci://ghcr.io/rancher/local-path-provisioner",
+		"--set", "platformDependencies.storage.managed.version=0.0.28",
+		"--set", "platformDependencies.storage.managed.releaseName=envpilot-local-path",
+	)
+	for _, expected := range []string{"resources: [\"storageclasses\"]", "resources: [\"csidrivers\"]", "resources: [\"persistentvolumeclaims\"]", "local-path-provisioner", "envpilot-local-path"} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("managed storage contract missing %q:\n%s", expected, rendered)
+		}
+	}
+	gated := renderUmbrella(t,
+		"--set", "platformDependencies.storage.mode=existing",
+		"--set", "platformDependencies.storage.existingClassName=standard",
+		"--set", "platformDependencies.storage.provider=local-path-provisioner",
+	)
+	if !strings.Contains(gated, "ENVPILOT_RECONCILE_GATE_STORAGE") {
+		t.Fatalf("bundled database storage gate was not rendered:\n%s", gated)
 	}
 }
 
