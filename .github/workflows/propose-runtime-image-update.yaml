@@ -1,0 +1,127 @@
+name: Propose runtime image update
+
+on:
+  repository_dispatch:
+    types: [envpilot-image-published]
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Runtime component
+        required: true
+        type: choice
+        options: [control-plane, frontend, agent, runner]
+      repository:
+        description: Canonical GHCR repository
+        required: true
+        type: string
+      tag:
+        description: Immutable full-SHA tag
+        required: true
+        type: string
+      digest:
+        description: Multi-architecture manifest digest
+        required: true
+        type: string
+      source_revision:
+        description: Full source commit SHA
+        required: true
+        type: string
+
+# The workflow itself has no write-capable GITHUB_TOKEN. A dedicated PR App
+# token is minted only inside this trusted repository_dispatch/manual job.
+permissions:
+  contents: read
+
+concurrency:
+  group: propose-runtime-image-${{ github.event.client_payload.component || inputs.component }}
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    if: github.repository == 'envpilot/deploy' && (github.event_name == 'repository_dispatch' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    steps:
+      - id: payload
+        name: Validate trusted payload
+        env:
+          COMPONENT: ${{ github.event.client_payload.component || inputs.component }}
+          REPOSITORY: ${{ github.event.client_payload.repository || inputs.repository }}
+          TAG: ${{ github.event.client_payload.tag || inputs.tag }}
+          DIGEST: ${{ github.event.client_payload.digest || inputs.digest }}
+          SOURCE_REVISION: ${{ github.event.client_payload.source_revision || inputs.source_revision }}
+        run: |
+          set -euo pipefail
+          case "$COMPONENT" in control-plane|frontend|agent|runner) ;; *) echo "invalid component" >&2; exit 1;; esac
+          [[ "$TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "invalid immutable tag" >&2; exit 1; }
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "invalid digest" >&2; exit 1; }
+          [[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source revision" >&2; exit 1; }
+          case "$COMPONENT:$REPOSITORY" in
+            control-plane:ghcr.io/envpilot/api|frontend:ghcr.io/envpilot/frontend|agent:ghcr.io/envpilot/agent|runner:ghcr.io/envpilot/runner) ;;
+            *) echo "repository is not canonical for component" >&2; exit 1;;
+          esac
+          {
+            echo "component=$COMPONENT"
+            echo "repository=$REPOSITORY"
+            echo "tag=$TAG"
+            echo "digest=$DIGEST"
+            echo "source_revision=$SOURCE_REVISION"
+          } >> "$GITHUB_OUTPUT"
+      - id: auth_method
+        name: Select deploy PR authentication
+        env:
+          APP_ID: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY }}
+          FALLBACK_PAT: ${{ secrets.ENVPILOT_DEPLOY_PR_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$APP_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+            echo "method=app" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$FALLBACK_PAT" ]]; then
+            echo "method=pat" >> "$GITHUB_OUTPUT"
+            echo "::warning::Using fine-grained PAT fallback; configure the GitHub App secrets."
+          else
+            echo "Neither GitHub App credentials nor fallback PAT is configured." >&2
+            exit 1
+          fi
+      - id: deploy_pr_app
+        if: steps.auth_method.outputs.method == 'app'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_ID }}
+          private-key: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY }}
+          owner: envpilot
+          repositories: deploy
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+      - name: Update immutable image pin
+        run: |
+          scripts/update-runtime-image-values.sh \
+            --component '${{ steps.payload.outputs.component }}' \
+            --repository '${{ steps.payload.outputs.repository }}' \
+            --tag '${{ steps.payload.outputs.tag }}' \
+            --digest '${{ steps.payload.outputs.digest }}' \
+            --source-revision '${{ steps.payload.outputs.source_revision }}'
+      - name: Validate umbrella render
+        run: |
+          helm dependency build --skip-refresh deploy/helm/envpilot
+          helm lint deploy/helm/envpilot
+          helm template envpilot deploy/helm/envpilot >/dev/null
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          add-paths: deploy/helm/envpilot/values.yaml
+          branch: automation/runtime-image-${{ steps.payload.outputs.component }}-${{ steps.payload.outputs.tag }}
+          delete-branch: true
+          commit-message: "chore(release): pin ${{ steps.payload.outputs.component }} image ${{ steps.payload.outputs.tag }}"
+          title: "chore(release): pin ${{ steps.payload.outputs.component }} ${{ steps.payload.outputs.tag }}"
+          body: |
+            Automated immutable runtime image update.
+
+            - component: `${{ steps.payload.outputs.component }}`
+            - repository: `${{ steps.payload.outputs.repository }}`
+            - tag: `${{ steps.payload.outputs.tag }}`
+            - digest: `${{ steps.payload.outputs.digest }}`
+            - source revision: `${{ steps.payload.outputs.source_revision }}`
