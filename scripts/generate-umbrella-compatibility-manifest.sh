@@ -29,9 +29,9 @@ dep_json() {
   [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid child chart version for $name" >&2; exit 1; }
   jq -cn --arg name "$name" --arg version "$v" --arg repository "$chart_repo" '{name:$name,version:$version,repository:$repository}'
 }
-images="$(printf '%s\n' "$(image_json envpilot-control-plane control-plane)" "$(image_json envpilot-frontend frontend)" "$(image_json envpilot-agent agent)" "$(image_json envpilot-runner runner)" | jq -s .)"
+images="$(printf '%s\n' "$(image_json envpilot-control-plane control-plane)" "$(image_json envpilot-frontend frontend)" "$(image_json envpilot-agent agent)" "$(image_json envpilot-runner runner)" "$(image_json platformDependencyReconciler platform-reconciler)" | jq -s .)"
 charts="$(printf '%s\n' "$(dep_json envpilot-control-plane oci://ghcr.io/envpilot/envpilot-control-plane)" "$(dep_json envpilot-frontend oci://ghcr.io/envpilot/envpilot-frontend)" "$(dep_json envpilot-agent oci://ghcr.io/envpilot/envpilot-agent)" "$(dep_json envpilot-runner oci://ghcr.io/envpilot/envpilot-runner)" | jq -s .)"
-[[ "$(jq 'length' <<<"$images")" == 4 ]] || { echo "compatibility manifest requires four immutable images" >&2; exit 1; }
+[[ "$(jq 'length' <<<"$images")" == 5 ]] || { echo "compatibility manifest requires five immutable images" >&2; exit 1; }
 [[ "$(jq 'length' <<<"$charts")" == 4 ]] || { echo "compatibility manifest requires four child charts" >&2; exit 1; }
 mkdir -p "$(dirname "$output")"
 jq -n --arg version "$version" --arg sourceRevision "$source_revision" --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson images "$images" --argjson charts "$charts" '{schemaVersion:1,umbrella:{name:"envpilot",version:$version},sourceRevision:$sourceRevision,generatedAt:$generatedAt,images:$images,childCharts:$charts}' > "$output"

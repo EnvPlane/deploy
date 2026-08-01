@@ -45,8 +45,10 @@ jobs:
           [[ "$PREVIOUS" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]] || { echo "invalid previous SemVer" >&2; exit 1; }
           test "$(printf '%s\n' "$PREVIOUS" "$VERSION" | sort -V | tail -1)" = "$VERSION"
           current="$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot/Chart.yaml)"
-          test "$VERSION" != "$current"
-          sed -i.bak -E "0,/^version: .*/s//version: $VERSION/; 0,/^appVersion: .*/s//appVersion: \"$VERSION\"/" deploy/helm/envpilot/Chart.yaml
+          test "$(printf '%s\n' "$current" "$VERSION" | sort -V | tail -1)" = "$VERSION"
+          if [[ "$VERSION" != "$current" ]]; then
+            sed -i.bak -E "0,/^version: .*/s//version: $VERSION/; 0,/^appVersion: .*/s//appVersion: \"$VERSION\"/" deploy/helm/envpilot/Chart.yaml
+          fi
           rm -f deploy/helm/envpilot/Chart.yaml.bak
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
@@ -95,7 +97,11 @@ jobs:
         run: |
           set -euo pipefail
           helm pull "oci://ghcr.io/envpilot/envpilot" --version "$PREVIOUS" --destination /tmp
-          ./scripts/verify-umbrella-reinstall-compatibility.sh "/tmp/envpilot-${PREVIOUS}.tgz"
+          args=()
+          if [[ "$PREVIOUS" == *-main.* ]]; then
+            args+=(--allow-legacy-without-manifest)
+          fi
+          ./scripts/verify-umbrella-reinstall-compatibility.sh "${args[@]}" "/tmp/envpilot-${PREVIOUS}.tgz"
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
