@@ -139,11 +139,9 @@ jobs:
           set -euo pipefail
           git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/envpilot/deploy.git"
           git fetch origin main
+          git checkout -B main origin/main
           if git fetch origin refs/heads/automation/runtime-image-pins:refs/remotes/origin/automation/runtime-image-pins; then
-            git checkout -B automation/runtime-image-pins origin/automation/runtime-image-pins
-            git merge --no-edit origin/main
-          else
-            git checkout -B automation/runtime-image-pins origin/main
+            git merge --no-edit origin/automation/runtime-image-pins
           fi
       - id: release
         name: Select the current compatibility manifest
@@ -184,6 +182,7 @@ jobs:
           add-paths: |
             deploy/helm/envpilot/values.yaml
             ${{ steps.release.outputs.file }}
+          base: main
           branch: automation/runtime-image-pins
           delete-branch: false
           commit-message: "chore(release): pin ${{ steps.payload.outputs.component }} image ${{ steps.payload.outputs.tag }}"
