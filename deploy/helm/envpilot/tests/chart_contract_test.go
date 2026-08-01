@@ -365,13 +365,16 @@ func TestPlatformDependencyStatusContractIsRenderedForControlPlane(t *testing.T)
 		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
 		"--set", "platformDependencies.dns.mode=disabled",
 		"--set", "platformDependencies.storage.mode=managed",
+		"--set", "platformDependencies.storage.provider=local-path",
 	)
 	for _, expected := range []string{
 		"name: envpilot-platform-dependency-status",
 		"ENVPILOT_PLATFORM_INGRESS_PROVIDER: \"nginx\"",
 		"ENVPILOT_PLATFORM_INGRESS_REFERENCE: \"ingress-nginx\"",
-		"ENVPILOT_PLATFORM_INGRESS_STATE: \"declared\"",
-		"ENVPILOT_PLATFORM_STORAGE_STATE: \"pending\"",
+		"ENVPILOT_PLATFORM_INGRESS_OWNERSHIP: \"external\"",
+		"ENVPILOT_PLATFORM_INGRESS_STATE: \"detected\"",
+		"ENVPILOT_PLATFORM_STORAGE_PROVIDER: \"local-path\"",
+		"ENVPILOT_PLATFORM_STORAGE_STATE: \"managed\"",
 		"configMapRef:",
 		"name: \"envpilot-platform-dependency-status\"",
 	} {

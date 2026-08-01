@@ -13,4 +13,4 @@ platformDependencies:
     provider: gateway-api
     existingClassName: shared-gateway
   dns: { mode: disabled }
-  storage: { mode: existing }
+  storage: { mode: disabled }

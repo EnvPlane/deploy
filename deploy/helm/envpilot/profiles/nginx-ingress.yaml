@@ -10,4 +10,4 @@ platformDependencies:
     provider: nginx
     existingClassName: nginx
   dns: { mode: disabled }
-  storage: { mode: existing }
+  storage: { mode: disabled }

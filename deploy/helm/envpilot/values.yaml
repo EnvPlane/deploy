@@ -67,26 +67,41 @@ access:
     sectionName: ""
     hostnames: []
 
-# Declarative platform-dependency intent. The direct umbrella currently only
-# consumes existing platform services; auto/managed are explicit future
-# reconciler modes and require a provider configuration when implemented.
+# External platform capability contract. EnvPilot never adopts resources owned
+# by a platform provider. `auto` detects a healthy compatible capability first
+# and may install only the explicitly configured provider when detection fails.
 platformDependencies:
   ingress:
     mode: disabled # auto | managed | existing | disabled
     provider: ""
     existingClassName: ""
+    namespace: ""
+    version: ""
+    ownership: external # external | envpilot
+    credentials:
+      existingSecret: ""
     state: ""
     managed: {}
   dns:
     mode: disabled # auto | managed | existing | disabled
     provider: ""
     existingSecret: ""
+    namespace: ""
+    version: ""
+    ownership: external
+    credentials:
+      existingSecret: ""
     state: ""
     managed: {}
   storage:
-    mode: existing # auto | managed | existing | disabled
+    mode: disabled # auto | managed | existing | disabled
     provider: ""
     existingClassName: ""
+    namespace: ""
+    version: ""
+    ownership: external
+    credentials:
+      existingSecret: ""
     state: ""
     managed: {}
 

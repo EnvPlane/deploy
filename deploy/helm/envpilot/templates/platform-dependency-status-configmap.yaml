@@ -14,12 +14,24 @@ data:
   ENVPILOT_PLATFORM_INGRESS_MODE: {{ default "disabled" $ingress.mode | quote }}
   ENVPILOT_PLATFORM_INGRESS_PROVIDER: {{ default "" $ingress.provider | quote }}
   ENVPILOT_PLATFORM_INGRESS_REFERENCE: {{ default "" $ingress.existingClassName | quote }}
+  ENVPILOT_PLATFORM_INGRESS_OWNERSHIP: {{ default "external" $ingress.ownership | quote }}
+  ENVPILOT_PLATFORM_INGRESS_NAMESPACE: {{ default "" $ingress.namespace | quote }}
+  ENVPILOT_PLATFORM_INGRESS_VERSION: {{ default "" $ingress.version | quote }}
+  ENVPILOT_PLATFORM_INGRESS_CREDENTIALS_SECRET: {{ default "" $ingress.credentials.existingSecret | quote }}
   ENVPILOT_PLATFORM_INGRESS_STATE: {{ include "envpilot.platformDependencyState" $ingress | quote }}
   ENVPILOT_PLATFORM_DNS_MODE: {{ default "disabled" $dns.mode | quote }}
   ENVPILOT_PLATFORM_DNS_PROVIDER: {{ default "" $dns.provider | quote }}
   ENVPILOT_PLATFORM_DNS_REFERENCE: {{ default "" $dns.existingSecret | quote }}
+  ENVPILOT_PLATFORM_DNS_OWNERSHIP: {{ default "external" $dns.ownership | quote }}
+  ENVPILOT_PLATFORM_DNS_NAMESPACE: {{ default "" $dns.namespace | quote }}
+  ENVPILOT_PLATFORM_DNS_VERSION: {{ default "" $dns.version | quote }}
+  ENVPILOT_PLATFORM_DNS_CREDENTIALS_SECRET: {{ default "" $dns.credentials.existingSecret | quote }}
   ENVPILOT_PLATFORM_DNS_STATE: {{ include "envpilot.platformDependencyState" $dns | quote }}
   ENVPILOT_PLATFORM_STORAGE_MODE: {{ default "disabled" $storage.mode | quote }}
   ENVPILOT_PLATFORM_STORAGE_PROVIDER: {{ default "" $storage.provider | quote }}
   ENVPILOT_PLATFORM_STORAGE_REFERENCE: {{ default "" $storage.existingClassName | quote }}
+  ENVPILOT_PLATFORM_STORAGE_OWNERSHIP: {{ default "external" $storage.ownership | quote }}
+  ENVPILOT_PLATFORM_STORAGE_NAMESPACE: {{ default "" $storage.namespace | quote }}
+  ENVPILOT_PLATFORM_STORAGE_VERSION: {{ default "" $storage.version | quote }}
+  ENVPILOT_PLATFORM_STORAGE_CREDENTIALS_SECRET: {{ default "" $storage.credentials.existingSecret | quote }}
   ENVPILOT_PLATFORM_STORAGE_STATE: {{ include "envpilot.platformDependencyState" $storage | quote }}

@@ -105,16 +105,29 @@
     },
     "dependency": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "required": ["mode"],
       "properties": {
         "mode": { "type": "string", "enum": ["auto", "managed", "existing", "disabled"] },
         "provider": { "type": "string" },
         "existingClassName": { "type": "string" },
         "existingSecret": { "type": "string" },
-        "state": { "type": "string", "enum": ["", "disabled", "declared", "pending", "ready", "unavailable"] },
+        "namespace": { "type": "string" },
+        "version": { "type": "string" },
+        "ownership": { "type": "string", "enum": ["external", "envpilot"] },
+        "credentials": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "existingSecret": { "type": "string" } }
+        },
+        "state": { "type": "string", "enum": ["", "detected", "managed", "missing", "incompatible", "degraded", "disabled", "declared", "pending", "ready", "unavailable"] },
         "managed": { "type": "object", "additionalProperties": true }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "enum": ["auto", "managed"] } } },
+          "then": { "required": ["provider"] }
+        }
+      ]
     },
     "firstStartRegistration": {
       "type": "object",

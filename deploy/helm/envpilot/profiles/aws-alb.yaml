@@ -15,4 +15,5 @@ platformDependencies:
   dns:
     mode: existing
     provider: external-dns
-  storage: { mode: existing }
+    existingSecret: external-dns-credentials
+  storage: { mode: disabled }

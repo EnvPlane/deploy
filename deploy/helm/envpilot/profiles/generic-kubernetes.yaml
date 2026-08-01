@@ -4,7 +4,7 @@ access:
 platformDependencies:
   ingress: { mode: disabled }
   dns: { mode: disabled }
-  storage: { mode: existing }
+  storage: { mode: disabled }
 envpilot-control-plane:
   service: { type: ClusterIP, port: 8080 }
 envpilot-frontend:

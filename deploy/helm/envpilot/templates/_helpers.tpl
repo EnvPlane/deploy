@@ -14,13 +14,24 @@
 {{- define "envpilot.platformDependencyState" -}}
 {{- $dependency := . -}}
 {{- $mode := default "disabled" $dependency.mode -}}
+{{- if and (or (eq $mode "auto") (eq $mode "managed")) (empty $dependency.provider) -}}
+{{- fail (printf "platformDependencies provider is required when mode=%s; configure an explicit provider or use existing/disabled" $mode) -}}
+{{- end -}}
+{{- if eq $mode "existing" -}}
+{{- $reference := default $dependency.existingClassName $dependency.existingSecret -}}
+{{- if empty $reference -}}
+{{- fail "platformDependencies existing mode requires existingClassName or existingSecret" -}}
+{{- end -}}
+{{- end -}}
 {{- if $dependency.state -}}
 {{- $dependency.state -}}
 {{- else if eq $mode "disabled" -}}
 disabled
 {{- else if eq $mode "existing" -}}
-declared
+detected
+{{- else if eq $mode "managed" -}}
+managed
 {{- else -}}
-pending
+missing
 {{- end -}}
 {{- end -}}
