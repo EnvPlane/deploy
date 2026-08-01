@@ -185,6 +185,16 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 			return r, err
 		}
 		if found {
+			// A StorageClass has no portable "controller deployment" contract:
+			// in-tree and hosted provisioners commonly have neither a CSIDriver
+			// object nor a discoverable Deployment. The dynamic PVC smoke test is
+			// the authoritative availability proof for every provider.
+			if name == "storage" {
+				if err := verifyStorageSmoke(dep, client); err != nil {
+					r.State = "degraded"
+					return r, err
+				}
+			}
 			r.State = "detected"
 			r.Reference = reference
 			return r, nil
@@ -311,17 +321,17 @@ func detect(name string, dep capability, client dynamic.Interface) (bool, string
 		for _, item := range list.Items {
 			if dep.ExistingClassName != "" && item.GetName() == dep.ExistingClassName {
 				provisioner, _ := item.Object["provisioner"].(string)
-				if storageProvisionerAvailable(client, provisioner) {
+				if provisioner != "" {
 					return true, item.GetName(), nil
 				}
-				return false, "", fmt.Errorf("StorageClass %s provisioner %s is unavailable", item.GetName(), provisioner)
+				return false, "", fmt.Errorf("StorageClass %s has no provisioner", item.GetName())
 			}
 			if dep.ExistingClassName == "" && item.GetAnnotations()["storageclass.kubernetes.io/is-default-class"] == "true" {
 				provisioner, _ := item.Object["provisioner"].(string)
-				if storageProvisionerAvailable(client, provisioner) {
+				if provisioner != "" {
 					return true, item.GetName(), nil
 				}
-				return false, "", fmt.Errorf("default StorageClass %s provisioner %s is unavailable", item.GetName(), provisioner)
+				return false, "", fmt.Errorf("default StorageClass %s has no provisioner", item.GetName())
 			}
 		}
 	case "dns":
@@ -404,35 +414,6 @@ func externalDNSArgsMatch(deployment unstructured.Unstructured, dep capability) 
 		}
 	}
 	return args["txt-owner-id"] == dep.OwnershipID && args["policy"] == dep.Policy
-}
-
-func storageProvisionerAvailable(client dynamic.Interface, provisioner string) bool {
-	if provisioner == "" {
-		return false
-	}
-	if drivers, err := client.Resource(schema.GroupVersionResource{Group: "storage.k8s.io", Version: "v1", Resource: "csidrivers"}).List(ctx, metav1.ListOptions{}); err == nil {
-		for _, driver := range drivers.Items {
-			if driver.GetName() == provisioner {
-				return true
-			}
-		}
-	}
-	deployments, err := client.Resource(schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return false
-	}
-	for _, deployment := range deployments.Items {
-		name := strings.ToLower(deployment.GetName())
-		if !strings.Contains(name, "local-path") && !strings.Contains(name, "provisioner") {
-			continue
-		}
-		status, ok := deployment.Object["status"].(map[string]any)
-		available := replicaCount(status)
-		if ok && available > 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func replicaCount(status map[string]any) int64 {
