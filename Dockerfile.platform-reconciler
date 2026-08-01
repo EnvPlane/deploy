@@ -12,5 +12,8 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/platform-reconciler /platform-reconciler
-USER nonroot:nonroot
+# Keep this numeric so Kubernetes can verify runAsNonRoot before the
+# distroless image is started. Named users cause CreateContainerConfigError
+# under the Restricted Pod Security profile.
+USER 65532:65532
 ENTRYPOINT ["/platform-reconciler"]
