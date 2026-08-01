@@ -137,6 +137,12 @@ jobs:
           PUSH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
+          # The shared automation branch may need a merge commit before its
+          # pending component pins can be refreshed. GitHub-hosted runners do
+          # not provide a committer identity by default, so declare the
+          # release bot explicitly before that merge.
+          git config user.name "envpilot-release-automation[bot]"
+          git config user.email "envpilot-release-automation[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/envpilot/deploy.git"
           git fetch origin main
           git checkout -B main origin/main
