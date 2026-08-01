@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -30,14 +31,22 @@ import (
 )
 
 type capability struct {
-	Mode              string        `json:"mode"`
-	Provider          string        `json:"provider"`
-	ExistingClassName string        `json:"existingClassName"`
-	ExistingSecret    string        `json:"existingSecret"`
-	Namespace         string        `json:"namespace"`
-	Version           string        `json:"version"`
-	Ownership         string        `json:"ownership"`
-	Managed           managedConfig `json:"managed"`
+	Mode              string            `json:"mode"`
+	Provider          string            `json:"provider"`
+	ExistingClassName string            `json:"existingClassName"`
+	ExistingSecret    string            `json:"existingSecret"`
+	Credentials       credentialsConfig `json:"credentials"`
+	Namespace         string            `json:"namespace"`
+	Version           string            `json:"version"`
+	Ownership         string            `json:"ownership"`
+	DomainFilters     []string          `json:"domainFilters"`
+	ZoneFilters       []string          `json:"zoneFilters"`
+	OwnershipID       string            `json:"ownershipId"`
+	Policy            string            `json:"policy"`
+	Managed           managedConfig     `json:"managed"`
+}
+type credentialsConfig struct {
+	ExistingSecret string `json:"existingSecret"`
 }
 type managedConfig struct {
 	ChartRef      string         `json:"chartRef"`
@@ -80,9 +89,17 @@ type ingressProvider struct {
 	Chart      string
 }
 
+type dnsProvider struct {
+	Chart string
+}
+
 var ingressProviders = map[string]ingressProvider{
 	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "oci://ghcr.io/ingress-nginx/ingress-nginx"},
 	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "oci://ghcr.io/ingress-nginx/ingress-nginx"},
+}
+
+var dnsProviders = map[string]dnsProvider{
+	"external-dns": {Chart: "oci://ghcr.io/kubernetes-sigs/external-dns/external-dns"},
 }
 
 func main() {
@@ -135,6 +152,12 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 		r.State = "disabled"
 		return r, nil
 	}
+	if name == "dns" {
+		if err := validateDNSConfig(dep); err != nil {
+			r.State = "incompatible"
+			return r, err
+		}
+	}
 	if dep.Mode == "existing" || dep.Mode == "auto" {
 		found, reference, err := detect(name, dep, client)
 		if err != nil {
@@ -173,6 +196,13 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 			}
 		}
 	}
+	if name == "dns" {
+		provider := dnsProviders[dep.Provider]
+		if dep.Managed.ChartRef != provider.Chart {
+			r.State = "incompatible"
+			return r, fmt.Errorf("external-dns provider requires pinned chart %s", provider.Chart)
+		}
+	}
 	if err := helmApply(dep.Managed, restCfg); err != nil {
 		return r, fmt.Errorf("managed %s provider: %w", name, err)
 	}
@@ -184,7 +214,39 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 			return r, err
 		}
 	}
+	if name == "dns" && dep.Managed.Smoke.Host != "" {
+		if err := verifyDNSSmoke(dep, client); err != nil {
+			r.State = "degraded"
+			return r, err
+		}
+	}
 	return r, nil
+}
+
+func validateDNSConfig(dep capability) error {
+	if dep.Provider != "external-dns" {
+		return fmt.Errorf("unsupported DNS provider %q; configure the registered external-dns provider", dep.Provider)
+	}
+	if dnsSecretName(dep) == "" {
+		return fmt.Errorf("DNS provider requires credentials.existingSecret")
+	}
+	if len(dep.DomainFilters) == 0 && len(dep.ZoneFilters) == 0 {
+		return fmt.Errorf("external-dns requires at least one domainFilters or zoneFilters entry")
+	}
+	if dep.OwnershipID == "" || dep.Policy == "" {
+		return fmt.Errorf("external-dns requires ownershipId and policy")
+	}
+	if dep.Policy != "sync" && dep.Policy != "upsert-only" {
+		return fmt.Errorf("external-dns policy must be sync or upsert-only")
+	}
+	return nil
+}
+
+func dnsSecretName(dep capability) string {
+	if dep.Credentials.ExistingSecret != "" {
+		return dep.Credentials.ExistingSecret
+	}
+	return dep.ExistingSecret
 }
 
 func detect(name string, dep capability, client dynamic.Interface) (bool, string, error) {
@@ -221,13 +283,114 @@ func detect(name string, dep capability, client dynamic.Interface) (bool, string
 			}
 		}
 	case "dns":
-		// DNS providers are represented by an operator-owned Secret reference;
-		// no provider resource is adopted or mutated by this reconciler.
-		if dep.ExistingSecret != "" {
-			return true, dep.ExistingSecret, nil
+		if err := validateDNSConfig(dep); err != nil {
+			return false, "", err
 		}
+		secretNamespace := dep.Namespace
+		if secretNamespace == "" {
+			secretNamespace = os.Getenv("ENVPILOT_RECONCILE_NAMESPACE")
+		}
+		secretName := dnsSecretName(dep)
+		secret, err := client.Resource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}).Namespace(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
+		data, hasData := secret.Object["data"].(map[string]any)
+		if err != nil || !hasData || len(data) == 0 {
+			return false, "", fmt.Errorf("DNS credentials Secret %s/%s is missing or empty", secretNamespace, secretName)
+		}
+		deployments, err := client.Resource(schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, "", err
+		}
+		for _, deployment := range deployments.Items {
+			if deployment.GetName() != "external-dns" && deployment.GetLabels()["app.kubernetes.io/name"] != "external-dns" {
+				continue
+			}
+			status, hasStatus := deployment.Object["status"].(map[string]any)
+			available, _ := status["availableReplicas"].(int64)
+			if !hasStatus || available < 1 {
+				return false, "", fmt.Errorf("external-dns deployment %s is not healthy", deployment.GetName())
+			}
+			if !externalDNSArgsMatch(deployment, dep) {
+				return false, "", fmt.Errorf("external-dns deployment %s has incompatible domain/zone filters, ownership ID or policy", deployment.GetName())
+			}
+			return true, deployment.GetNamespace() + "/" + deployment.GetName(), nil
+		}
+		return false, "", nil
 	}
 	return false, "", nil
+}
+
+func externalDNSArgsMatch(deployment unstructured.Unstructured, dep capability) bool {
+	spec, ok := deployment.Object["spec"].(map[string]any)
+	if !ok {
+		return false
+	}
+	template, ok := spec["template"].(map[string]any)
+	if !ok {
+		return false
+	}
+	podSpec, ok := template["spec"].(map[string]any)
+	if !ok {
+		return false
+	}
+	containers, ok := podSpec["containers"].([]any)
+	if !ok {
+		return false
+	}
+	args := map[string]string{}
+	for _, raw := range containers {
+		container, ok := raw.(map[string]any)
+		if !ok || container["name"] != "external-dns" {
+			continue
+		}
+		containerArgs, _ := container["args"].([]any)
+		for _, rawArg := range containerArgs {
+			arg, _ := rawArg.(string)
+			parts := strings.SplitN(strings.TrimPrefix(arg, "--"), "=", 2)
+			if len(parts) == 2 {
+				args[parts[0]] = parts[1]
+			}
+		}
+	}
+	for _, domain := range dep.DomainFilters {
+		if args["domain-filter"] != domain {
+			return false
+		}
+	}
+	for _, zone := range dep.ZoneFilters {
+		if args["zone-id-filter"] != zone {
+			return false
+		}
+	}
+	return args["txt-owner-id"] == dep.OwnershipID && args["policy"] == dep.Policy
+}
+
+func verifyDNSSmoke(dep capability, client dynamic.Interface) error {
+	smoke := dep.Managed.Smoke
+	if smoke.Namespace == "" {
+		smoke.Namespace = os.Getenv("ENVPILOT_RECONCILE_NAMESPACE")
+	}
+	if smoke.Namespace != os.Getenv("ENVPILOT_RECONCILE_NAMESPACE") || smoke.Host == "" {
+		return fmt.Errorf("DNS smoke requires host and reconciler namespace")
+	}
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "services"}
+	obj := map[string]any{
+		"apiVersion": "v1", "kind": "Service",
+		"metadata": map[string]any{"generateName": "envpilot-dns-smoke-", "namespace": smoke.Namespace, "annotations": map[string]any{"external-dns.alpha.kubernetes.io/hostname": smoke.Host, "external-dns.alpha.kubernetes.io/target": "127.0.0.1"}},
+		"spec":     map[string]any{"clusterIP": "None", "ports": []any{map[string]any{"name": "http", "port": 80}}, "selector": map[string]any{"app.kubernetes.io/name": "envpilot-dns-smoke"}},
+	}
+	created, err := client.Resource(gvr).Namespace(smoke.Namespace).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("create DNS smoke probe: %w", err)
+	}
+	defer client.Resource(gvr).Namespace(smoke.Namespace).Delete(ctx, created.GetName(), metav1.DeleteOptions{})
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		if addresses, err := net.LookupHost(smoke.Host); err == nil && len(addresses) > 0 {
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("DNS smoke record %s did not resolve before timeout", smoke.Host)
 }
 
 func ingressControllerHealthy(client dynamic.Interface, className string) bool {

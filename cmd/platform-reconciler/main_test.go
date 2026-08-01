@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,6 +48,34 @@ func TestOrphanIngressClassIsDegradedNotReady(t *testing.T) {
 	ok, _, err := detect("ingress", capability{Provider: "nginx", ExistingClassName: "nginx"}, client)
 	if err != nil || ok {
 		t.Fatalf("orphan ingress class detected as ready: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestDetectCompatibleExternalDNS(t *testing.T) {
+	objects := []runtime.Object{
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": "dns-credentials", "namespace": "envpilot"}, "data": map[string]any{"credentials": "redacted"}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "external-dns", "namespace": "envpilot", "labels": map[string]any{"app.kubernetes.io/name": "external-dns"}}, "spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"name": "external-dns", "args": []any{"--domain-filter=example.test", "--txt-owner-id=envpilot", "--policy=sync"}}}}}}, "status": map[string]any{"availableReplicas": int64(1)}}},
+	}
+	client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
+		{Version: "v1", Resource: "secrets"}:                    "SecretList",
+		{Group: "apps", Version: "v1", Resource: "deployments"}: "DeploymentList",
+	}, objects...)
+	dep := capability{Provider: "external-dns", Namespace: "envpilot", Credentials: credentialsConfig{ExistingSecret: "dns-credentials"}, DomainFilters: []string{"example.test"}, OwnershipID: "envpilot", Policy: "sync"}
+	ok, ref, err := detect("dns", dep, client)
+	if err != nil || !ok || ref != "envpilot/external-dns" {
+		t.Fatalf("external-dns detection = %v %q %v", ok, ref, err)
+	}
+}
+
+func TestExternalDNSScopeMismatchIsIncompatible(t *testing.T) {
+	objects := []runtime.Object{
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": "dns-credentials", "namespace": "envpilot"}, "data": map[string]any{"credentials": "redacted"}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "external-dns", "namespace": "envpilot", "labels": map[string]any{"app.kubernetes.io/name": "external-dns"}}, "spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"name": "external-dns", "args": []any{"--domain-filter=other.test", "--txt-owner-id=envpilot", "--policy=sync"}}}}}}, "status": map[string]any{"availableReplicas": int64(1)}}},
+	}
+	client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{{Version: "v1", Resource: "secrets"}: "SecretList", {Group: "apps", Version: "v1", Resource: "deployments"}: "DeploymentList"}, objects...)
+	dep := capability{Provider: "external-dns", Namespace: "envpilot", Credentials: credentialsConfig{ExistingSecret: "dns-credentials"}, DomainFilters: []string{"example.test"}, OwnershipID: "envpilot", Policy: "sync"}
+	if _, _, err := detect("dns", dep, client); err == nil || !strings.Contains(err.Error(), "incompatible") {
+		t.Fatalf("expected scope mismatch, got %v", err)
 	}
 }
 

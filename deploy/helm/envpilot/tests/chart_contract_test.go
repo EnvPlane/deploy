@@ -427,6 +427,26 @@ func TestManagedIngressProviderRendersPinnedSmokeContract(t *testing.T) {
 	}
 }
 
+func TestManagedExternalDNSRendersScopedContract(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencies.dns.mode=managed",
+		"--set", "platformDependencies.dns.provider=external-dns",
+		"--set", "platformDependencies.dns.ownership=envpilot",
+		"--set", "platformDependencies.dns.credentials.existingSecret=dns-credentials",
+		"--set", "platformDependencies.dns.domainFilters[0]=example.test",
+		"--set", "platformDependencies.dns.ownershipId=envpilot",
+		"--set", "platformDependencies.dns.policy=sync",
+		"--set", "platformDependencies.dns.managed.chartRef=oci://ghcr.io/kubernetes-sigs/external-dns/external-dns",
+		"--set", "platformDependencies.dns.managed.version=1.15.0",
+		"--set", "platformDependencies.dns.managed.releaseName=envpilot-external-dns",
+	)
+	for _, expected := range []string{"resources: [\"deployments\"]", "resources: [\"secrets\"]", "dns-credentials", "example.test", "envpilot-external-dns"} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("managed DNS contract missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestAllComponentRenderMeetsRestrictedPodSecurityBaseline(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "agent.enabled=true",
