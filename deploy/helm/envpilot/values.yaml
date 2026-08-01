@@ -185,7 +185,7 @@ envpilot-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envpilot/envpilot-agent"
-      version: "0.2.0"
+      version: "0.2.1"
   # internal creates in-release StatefulSets. external references a Secret
   # containing complete connection URLs. disabled leaves the corresponding
   # application variable unset for an externally injected configuration.
