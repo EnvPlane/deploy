@@ -5,7 +5,7 @@ Release:
   Namespace: {{ .Release.Namespace }}
 
 Control plane:
-  URL: {{ default "not configured" .Values.controlPlane.url }}
+  URL: {{ include "envpilot-agent.controlPlaneEndpoint" . }}
 
 The agent uses a read-only ClusterRole to observe EnvPilot namespaces, FluxCD Kustomizations,
 HelmReleases, workload readiness, ingress state, and Kubernetes events.

@@ -40,7 +40,7 @@ spec:
             - agent-install-check
           env:
             - name: ENVPILOT_CONTROL_PLANE_URL
-              value: {{ .Values.controlPlane.url | quote }}
+              value: {{ include "envpilot-agent.controlPlaneEndpoint" . | quote }}
             - name: ENVPILOT_CLUSTER_ID
               value: {{ default .Release.Name .Values.cluster.id | quote }}
             - name: ENVPILOT_BOOTSTRAP_PROJECT_ID

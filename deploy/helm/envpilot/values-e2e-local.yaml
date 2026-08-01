@@ -38,7 +38,10 @@ global:
 
 envpilot-agent:
   controlPlane:
-    url: http://envpilot-control-plane.envpilot.svc:8080
+    endpointMode: sameCluster
+    serviceName: envpilot-control-plane
+    namespace: envpilot
+    port: 8080
   watch:
     namespaces:
       - envpilot-e2e-base
@@ -48,7 +51,10 @@ envpilot-agent:
 
 envpilot-runner:
   controlPlane:
-    url: http://envpilot-control-plane.envpilot.svc:8080
+    endpointMode: sameCluster
+    serviceName: envpilot-control-plane
+    namespace: envpilot
+    port: 8080
     authPersistence:
       createClaim: false
   project:

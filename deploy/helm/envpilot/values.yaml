@@ -277,7 +277,11 @@ envpilot-agent:
   podSecurityContext: {}
   securityContext: {}
   controlPlane:
+    endpointMode: sameCluster
     url: http://envpilot-control-plane:8080
+    serviceName: envpilot-control-plane
+    namespace: ""
+    port: 8080
     existingSecret: ""
     registrationTokenKey: registration-token
   cluster:
@@ -310,7 +314,11 @@ envpilot-runner:
   podSecurityContext: {}
   securityContext: {}
   controlPlane:
+    endpointMode: sameCluster
     url: http://envpilot-control-plane:8080
+    serviceName: envpilot-control-plane
+    namespace: ""
+    port: 8080
     existingSecret: ""
     tokenKey: token
     configTokenKey: project-config-token

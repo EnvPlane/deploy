@@ -26,7 +26,19 @@ fullnameOverride: ""
 legacyChartName: ""
 
 controlPlane:
+  # sameCluster derives a Service DNS endpoint from this release. remote
+  # requires an explicit URL reachable from the target Runner pod.
+  endpointMode: sameCluster # sameCluster | remote
   url: ""
+  serviceName: ""
+  namespace: ""
+  port: 8080
+  tls:
+    # For a remote HTTPS control plane, mount a CA bundle from an existing
+    # Secret in this namespace. Empty keeps system trust only.
+    caSecret: ""
+    caKey: ca.crt
+    mountPath: /var/run/envpilot/control-plane-ca
   # GitOps-safe bootstrap:
   # create the Secret out-of-band with the control plane generated kubectl command,
   # then set existingSecret. Do not commit live bootstrap tokens in values files.
@@ -69,7 +81,6 @@ helmRegistry:
 
 dependencyWait:
   enabled: true
-  healthPath: /api/v1/health
 
 project:
   id: ""

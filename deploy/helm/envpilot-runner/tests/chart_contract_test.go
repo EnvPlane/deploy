@@ -43,7 +43,7 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 		"ENVPILOT_RUNNER_AUTH_TOKEN",
 		"ENVPILOT_RUNNER_AUTH_TOKEN_FILE",
 		"path: /livez",
-		"name: wait-control-plane",
+		"name: control-plane-preflight",
 		"/health",
 	} {
 		if !strings.Contains(deploymentText, expected) {
@@ -98,6 +98,29 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 		if !strings.Contains(rbacText, expected) {
 			t.Fatalf("rbac template does not contain %q", expected)
 		}
+	}
+}
+
+func TestRunnerChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
+	sameCluster := renderRunnerChart(t, "--namespace", "envpilot")
+	if !strings.Contains(sameCluster, `value: "http://envpilot-control-plane.envpilot.svc:8080"`) {
+		t.Fatalf("same-cluster Runner endpoint must be derived from Service DNS:\n%s", sameCluster)
+	}
+	remote := renderRunnerChart(t,
+		"--set", "controlPlane.endpointMode=remote",
+		"--set", "controlPlane.url=https://api.remote.example",
+		"--set", "controlPlane.tls.caSecret=remote-control-plane-ca",
+	)
+	if !strings.Contains(remote, `value: "https://api.remote.example"`) ||
+		!strings.Contains(remote, "ENVPILOT_CONTROL_PLANE_CA_FILE") ||
+		!strings.Contains(remote, `secretName: "remote-control-plane-ca"`) {
+		t.Fatalf("remote Runner endpoint override was not rendered:\n%s", remote)
+	}
+	cmd := exec.Command("helm", "template", "envpilot-runner", "..", "--set", "controlPlane.endpointMode=remote")
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "controlPlane.url is required") {
+		t.Fatalf("remote Runner endpoint without URL must fail, err=%v output=%s", err, output)
 	}
 }
 

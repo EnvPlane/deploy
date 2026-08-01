@@ -2,6 +2,7 @@
 {{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartEnabled := eq (include "envpilot-agent.usesFirstStartRegistration" .) "true" -}}
+{{- $controlPlaneEndpoint := include "envpilot-agent.controlPlaneEndpoint" . -}}
 {{- $discoveryScope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $watchNamespaces := .Values.watch.namespaces -}}
 {{- if eq $discoveryScope "namespace" -}}
@@ -38,7 +39,7 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- if .Values.dependencyWait.enabled }}
       initContainers:
-        - name: wait-control-plane
+        - name: control-plane-preflight
           image: {{ include "envpilot-agent.image" . | quote }}
           imagePullPolicy: {{ include "envpilot-agent.imagePullPolicy" . }}
           securityContext:
@@ -47,14 +48,21 @@ spec:
             capabilities:
               drop:
                 - ALL
-          command:
-            - sh
-            - -ec
-            - |
-              until wget -q -O- {{ trimSuffix "/" .Values.controlPlane.url }}{{ default "/api/v1/health" .Values.dependencyWait.healthPath }} >/dev/null; do
-                echo "waiting for control-plane"
-                sleep 2
-              done
+          args:
+            - agent-connectivity-check
+          env:
+            - name: ENVPILOT_CONTROL_PLANE_URL
+              value: {{ $controlPlaneEndpoint | quote }}
+            {{- if .Values.controlPlane.tls.caSecret }}
+            - name: ENVPILOT_CONTROL_PLANE_CA_FILE
+              value: {{ printf "%s/%s" (.Values.controlPlane.tls.mountPath | trimSuffix "/") .Values.controlPlane.tls.caKey | quote }}
+            {{- end }}
+          {{- if .Values.controlPlane.tls.caSecret }}
+          volumeMounts:
+            - name: control-plane-ca
+              mountPath: {{ .Values.controlPlane.tls.mountPath | quote }}
+              readOnly: true
+          {{- end }}
       {{- end }}
       containers:
         - name: agent
@@ -70,7 +78,11 @@ spec:
           {{- end }}
           env:
             - name: ENVPILOT_CONTROL_PLANE_URL
-              value: {{ .Values.controlPlane.url | quote }}
+              value: {{ $controlPlaneEndpoint | quote }}
+            {{- if .Values.controlPlane.tls.caSecret }}
+            - name: ENVPILOT_CONTROL_PLANE_CA_FILE
+              value: {{ printf "%s/%s" (.Values.controlPlane.tls.mountPath | trimSuffix "/") .Values.controlPlane.tls.caKey | quote }}
+            {{- end }}
             - name: ENVPILOT_CLUSTER_ID
               value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else }}{{ default .Release.Name .Values.cluster.id | quote }}{{ end }}
             - name: ENVPILOT_BOOTSTRAP_PROJECT_ID
@@ -133,6 +145,16 @@ spec:
           volumeMounts:
             - name: {{ .Values.agent.authPersistence.volumeName | quote }}
               mountPath: {{ .Values.agent.authPersistence.mountPath | quote }}
+            {{- if .Values.controlPlane.tls.caSecret }}
+            - name: control-plane-ca
+              mountPath: {{ .Values.controlPlane.tls.mountPath | quote }}
+              readOnly: true
+            {{- end }}
+          {{- else if .Values.controlPlane.tls.caSecret }}
+          volumeMounts:
+            - name: control-plane-ca
+              mountPath: {{ .Values.controlPlane.tls.mountPath | quote }}
+              readOnly: true
           {{- end }}
       {{- if .Values.agent.authPersistence.enabled }}
       volumes:
@@ -147,6 +169,14 @@ spec:
           emptyDir:
             {{- toYaml .Values.agent.authPersistence.emptyDir | nindent 12 }}
           {{- end }}
+      {{- end }}
+      {{- if .Values.controlPlane.tls.caSecret }}
+        - name: control-plane-ca
+          secret:
+            secretName: {{ .Values.controlPlane.tls.caSecret | quote }}
+            items:
+              - key: {{ .Values.controlPlane.tls.caKey | quote }}
+                path: {{ .Values.controlPlane.tls.caKey | quote }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

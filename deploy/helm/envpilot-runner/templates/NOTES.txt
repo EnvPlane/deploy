@@ -5,7 +5,7 @@ Release:
   Namespace: {{ .Release.Namespace }}
 
 Control plane:
-  URL: {{ default "not configured" .Values.controlPlane.url }}
+  URL: {{ include "envpilot-runner.controlPlaneEndpoint" . }}
   Project: {{ default "not configured" .Values.project.id }}
 
 Auth persistence:

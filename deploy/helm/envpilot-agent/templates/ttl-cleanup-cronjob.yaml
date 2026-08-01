@@ -51,7 +51,7 @@ spec:
                 - ttl-cleanup
               env:
                 - name: ENVPILOT_CONTROL_PLANE_URL
-                  value: {{ .Values.controlPlane.url | quote }}
+                  value: {{ include "envpilot-agent.controlPlaneEndpoint" . | quote }}
                 - name: ENVPILOT_TTL_CLEANUP_TIMEOUT_SECONDS
                   value: {{ .Values.ttlCleanup.timeoutSeconds | quote }}
                 {{- if or (eq (include "envpilot-agent.usesFirstStartRegistration" .) "true") .Values.controlPlane.existingSecret (and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens) }}
