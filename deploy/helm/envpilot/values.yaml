@@ -117,6 +117,8 @@ platformDependencyReconciler:
     pullPolicy: IfNotPresent
     sourceRevision: "78f9670e0fb89513cb8f565c6af26177a7a52fa1"
     release: "sha-78f9670e0fb89513cb8f565c6af26177a7a52fa1"
+  # Required when the reconciler image is in a private registry.
+  imagePullSecrets: []
   serviceAccount:
     create: true
     name: ""

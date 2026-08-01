@@ -423,6 +423,21 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 	}
 }
 
+func TestPlatformReconcilerSupportsPrivateRegistryPullSecrets(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "platformDependencyReconciler.imagePullSecrets[0].name=ghcr-envpilot",
+	)
+	for _, expected := range []string{
+		"name: envpilot-platform-reconciler",
+		"imagePullSecrets:\n        - name: ghcr-envpilot",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("platform reconciler private-registry render missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestPlatformReconcilerPrerequisitesRunBeforeTheGateJob(t *testing.T) {
 	rendered := renderUmbrella(t, "--set", "platformDependencyReconciler.enabled=true")
 	for _, expected := range []string{
@@ -559,7 +574,7 @@ func TestInstallationDocsQuickStartSmoke(t *testing.T) {
 	contents := string(docs)
 	for _, expected := range []string{
 		"helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot",
-		"--version 0.3.1", "--namespace envpilot", "--values values.yaml",
+		"--version 0.3.2", "--namespace envpilot", "--values values.yaml",
 		"auto", "managed", "existing", "disabled", "Kubernetes 1.26",
 		"Private registry", "minikube-", "not required",
 	} {
@@ -788,7 +803,7 @@ func TestUmbrellaPackageVendorsDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("package umbrella: %v\n%s", err, output)
 	}
-	archive := filepath.Join(temporary, "envpilot-0.3.1.tgz")
+	archive := filepath.Join(temporary, "envpilot-0.3.2.tgz")
 	cmd = exec.Command("tar", "-tzf", archive)
 	output, err = cmd.CombinedOutput()
 	if err != nil {

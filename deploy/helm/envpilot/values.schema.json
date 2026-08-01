@@ -239,6 +239,7 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "image": { "$ref": "#/definitions/image" },
+        "imagePullSecrets": { "$ref": "#/definitions/security/properties/imagePullSecrets" },
         "serviceAccount": {
           "type": "object", "additionalProperties": false,
           "properties": { "create": { "type": "boolean" }, "name": { "type": "string" } }
