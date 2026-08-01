@@ -45,6 +45,19 @@ global:
         # Empty resolves to the umbrella release namespace at render time.
         namespace: ""
         deploymentMode: helm
+    # Opt-in only. The local E2E profile creates a disposable base workload and
+    # reconciles this reserved project through real Agent discovery, Runner
+    # chart preflight and bootstrap compilation. It never affects user projects.
+    e2eFixture:
+      enabled: false
+      baseNamespace: envpilot-e2e-base
+      featureNamespace: envpilot-e2e-feature
+      chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload
+      appRepositoryURL: https://github.com/envpilot/envpilot-e2e-workload
+      gitopsRepositoryURL: https://github.com/envpilot/deploy
+      scmProvider: github
+      appDefaultBranch: main
+      gitopsDefaultBranch: main
 
 # Public access is opt-in. "ingress" creates an Ingress against an existing
 # configured IngressClass; "gateway" creates an HTTPRoute against an existing

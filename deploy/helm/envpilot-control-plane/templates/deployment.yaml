@@ -6,6 +6,7 @@
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
+{{- $e2eFixture := default (dict) (get $globalEnvPilot "e2eFixture") -}}
 {{- $firstStartSecret := "" -}}
 {{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
 {{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
@@ -210,6 +211,26 @@ spec:
                 secretKeyRef:
                   name: {{ $firstStartSecret | quote }}
                   key: runner-project-config-token
+            {{- end }}
+            {{- if $e2eFixture.enabled }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_ENABLED
+              value: "true"
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_BASE_NAMESPACE
+              value: {{ $e2eFixture.baseNamespace | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_FEATURE_NAMESPACE
+              value: {{ $e2eFixture.featureNamespace | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_CHART_REF
+              value: {{ $e2eFixture.chartRef | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_APP_REPOSITORY_URL
+              value: {{ $e2eFixture.appRepositoryURL | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_GITOPS_REPOSITORY_URL
+              value: {{ $e2eFixture.gitopsRepositoryURL | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_SCM_PROVIDER
+              value: {{ $e2eFixture.scmProvider | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_APP_DEFAULT_BRANCH
+              value: {{ $e2eFixture.appDefaultBranch | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_GITOPS_DEFAULT_BRANCH
+              value: {{ $e2eFixture.gitopsDefaultBranch | quote }}
             {{- end }}
             {{- if .Values.secretEnv }}
             {{- range $key, $_ := .Values.secretEnv }}

@@ -147,6 +147,40 @@ func TestUmbrellaInjectsReleaseCompatibleAgentChartContract(t *testing.T) {
 	}
 }
 
+func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
+	rendered := renderUmbrella(t, "--values", "../values-e2e-local.yaml")
+	for _, expected := range []string{
+		"# Source: envpilot/charts/envpilot-agent/templates/deployment.yaml",
+		"# Source: envpilot/charts/envpilot-runner/templates/deployment.yaml",
+		`name: "envpilot-e2e-base"`,
+		`name: "envpilot-e2e-feature"`,
+		"name: e2e-base-workload",
+		"name: ENVPILOT_SAME_CLUSTER_FIXTURE_ENABLED",
+		`value: "oci://ghcr.io/envpilot/envpilot-e2e-workload"`,
+		`value: "envpilot-e2e-base"`,
+		`value: "envpilot-e2e-feature"`,
+		"agent-registration-token",
+		"runner-registration-token",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("E2E fixture render missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "ENVPILOT_SAME_CLUSTER_FIXTURE_ENABLED\n              value: \"false\"") {
+		t.Fatalf("E2E fixture profile did not enable control-plane reconciliation:\n%s", rendered)
+	}
+}
+
+func TestUmbrellaRejectsFixtureWithoutChartManagedRuntime(t *testing.T) {
+	buildDependencies(t)
+	cmd := exec.Command("helm", "template", "envpilot", "..", "--set", "global.envpilot.e2eFixture.enabled=true")
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "requires managed or existing firstStartRegistration") {
+		t.Fatalf("fixture without first-start runtime must fail, err=%v output=%s", err, output)
+	}
+}
+
 func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	rendered := renderUmbrella(t)
 	for _, expected := range []string{

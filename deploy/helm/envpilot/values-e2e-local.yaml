@@ -1,0 +1,60 @@
+# Test-only profile for a published one-umbrella install on an already
+# provisioned local Kubernetes cluster. It does not create a cluster, ingress,
+# DNS or StorageClass. The profile enables an idempotent disposable fixture so
+# browser/API E2E can verify a positive Full-environment lifecycle.
+agent:
+  enabled: true
+runner:
+  enabled: true
+
+global:
+  envpilot:
+    firstStartRegistration:
+      mode: managed
+      project:
+        id: envpilot-e2e-fixture
+        name: EnvPilot E2E fixture
+        productId: generic
+        appRepositoryId: github.com/envpilot/envpilot-e2e-workload
+        gitopsRepositoryId: github.com/envpilot/deploy
+      cluster:
+        id: local-e2e
+      agent:
+        id: envpilot-e2e-agent
+      runner:
+        id: envpilot-e2e-runner
+        namespace: envpilot
+        deploymentMode: helm
+    e2eFixture:
+      enabled: true
+      baseNamespace: envpilot-e2e-base
+      featureNamespace: envpilot-e2e-feature
+      chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload
+      appRepositoryURL: https://github.com/envpilot/envpilot-e2e-workload
+      gitopsRepositoryURL: https://github.com/envpilot/deploy
+      scmProvider: github
+      appDefaultBranch: main
+      gitopsDefaultBranch: main
+
+envpilot-agent:
+  controlPlane:
+    url: http://envpilot-control-plane.envpilot.svc:8080
+  watch:
+    namespaces:
+      - envpilot-e2e-base
+  agent:
+    authPersistence:
+      createClaim: false
+
+envpilot-runner:
+  controlPlane:
+    url: http://envpilot-control-plane.envpilot.svc:8080
+    authPersistence:
+      createClaim: false
+  project:
+    configUrl: http://envpilot-control-plane.envpilot.svc:8080/api/v1/projects/envpilot-e2e-fixture/runner-config
+  rbac:
+    featureEnvWriter:
+      mode: preconfiguredNamespaces
+      namespaces:
+        - envpilot-e2e-feature

@@ -399,3 +399,24 @@ ENVPILOT_TEST_DATABASE_URL=postgres://envpilot:envpilot@localhost:5432/envpilot?
 Use the short product narrative:
 
 - [Clean demo flow: PR -> env -> URL -> cleanup](demo-flow-pr-env-url-cleanup.md)
+## Published one-umbrella positive Environment E2E
+
+`deploy/helm/envpilot/values-e2e-local.yaml` is a test-only profile for an
+already provisioned local cluster. It enables the chart-managed same-cluster
+Agent and Runner plus a disposable `envpilot-e2e-fixture`. The control plane
+still waits for the real resource scan, target-Runner Helm chart preflight and
+compile before it marks the project deploy-ready; no readiness check is bypassed.
+
+After publishing both the umbrella release and
+`oci://ghcr.io/envpilot/envpilot-e2e-workload:0.1.0`, run:
+
+```sh
+ENVPILOT_E2E_CONTEXT=minikube \
+ENVPILOT_E2E_UMBRELLA_REF=oci://ghcr.io/envpilot/envpilot \
+ENVPILOT_E2E_UMBRELLA_VERSION=<published-version> \
+./scripts/published-local-fixture-e2e.sh
+```
+
+The harness installs EnvPilot exactly once with `helm upgrade --install`, then
+uses port-forwards only to drive the browser test. It creates and removes a
+Full environment through the UI and verifies the runner lifecycle.

@@ -218,6 +218,37 @@
         }
       ]
     },
+    "e2eFixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "baseNamespace": { "type": "string" },
+        "featureNamespace": { "type": "string" },
+        "chartRef": { "type": "string" },
+        "appRepositoryURL": { "type": "string" },
+        "gitopsRepositoryURL": { "type": "string" },
+        "scmProvider": { "type": "string", "enum": ["github", "gitlab"] },
+        "appDefaultBranch": { "type": "string" },
+        "gitopsDefaultBranch": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "enabled": { "const": true } } },
+          "then": {
+            "required": ["baseNamespace", "featureNamespace", "chartRef", "appRepositoryURL", "gitopsRepositoryURL"],
+            "properties": {
+              "baseNamespace": { "minLength": 1 },
+              "featureNamespace": { "minLength": 1 },
+              "chartRef": { "minLength": 1 },
+              "appRepositoryURL": { "minLength": 1 },
+              "gitopsRepositoryURL": { "minLength": 1 }
+            }
+          }
+        }
+      ]
+    },
     "component": {
       "type": "object",
       "additionalProperties": true,
@@ -264,7 +295,8 @@
               "additionalProperties": false,
               "properties": { "enabled": { "type": "boolean" } }
             },
-            "firstStartRegistration": { "$ref": "#/definitions/firstStartRegistration" }
+            "firstStartRegistration": { "$ref": "#/definitions/firstStartRegistration" },
+            "e2eFixture": { "$ref": "#/definitions/e2eFixture" }
           }
         }
       }

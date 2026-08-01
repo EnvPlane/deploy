@@ -1,0 +1,35 @@
+name: Publish EnvPilot E2E workload Helm chart
+
+on:
+  push:
+    tags:
+      - 'e2e-workload-chart-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/setup-helm@v4
+      - name: Validate canonical chart and package
+        run: |
+          set -euo pipefail
+          ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
+          helm lint deploy/helm/envpilot-e2e-workload
+          helm package deploy/helm/envpilot-e2e-workload --destination dist
+      - name: Authenticate to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Reject an existing OCI version
+        run: |
+          ./scripts/check-oci-chart-version-available.sh \
+            --repository oci://ghcr.io/envpilot/envpilot-e2e-workload \
+            --version "$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot-e2e-workload/Chart.yaml)"
+      - name: Publish OCI chart
+        run: helm push dist/envpilot-e2e-workload-*.tgz oci://ghcr.io/${{ github.repository_owner }}
