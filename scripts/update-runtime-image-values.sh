@@ -78,12 +78,12 @@ old_repository="$(awk -v section="$section" '
 old_tag="$(awk -v section="$section" '
   $0 == section ":" { in_section=1 }
   in_section && $0 != section ":" && $0 ~ /^[^[:space:]]/ { exit }
-  in_section && $0 ~ /^    tag:/ { sub(/^    tag:[[:space:]]*/, ""); gsub(/\"/, ""); print; exit }
+  in_section && $0 ~ /^    tag:/ { sub(/^    tag:[[:space:]]*/, ""); gsub(/"/, ""); print; exit }
 ' "$values_file")"
 old_digest="$(awk -v section="$section" '
   $0 == section ":" { in_section=1 }
   in_section && $0 != section ":" && $0 ~ /^[^[:space:]]/ { exit }
-  in_section && $0 ~ /^    digest:/ { sub(/^    digest:[[:space:]]*/, ""); gsub(/\"/, ""); print; exit }
+  in_section && $0 ~ /^    digest:/ { sub(/^    digest:[[:space:]]*/, ""); gsub(/"/, ""); print; exit }
 ' "$values_file")"
 old_reference="${old_repository}:${old_tag}"
 [[ -n "$old_repository" && -n "$old_tag" ]] || die "could not read current image reference for $component"
