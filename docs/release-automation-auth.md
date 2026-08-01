@@ -8,10 +8,12 @@ umbrella values. Neither path accepts mutable `main` or `latest` release pins.
 ## Preferred authentication: one GitHub App
 
 Use one private GitHub App named `envpilot-release-automation`. Install it on
-`envpilot/deploy`, `envpilot/frontend`, `envpilot/control-plane`,
-`envpilot/agent` and `envpilot/runner`. The deploy receiver needs access to each
-runtime repository's private GHCR package to verify a submitted immutable image
-digest before it changes umbrella values. Give the installation these
+`envpilot/bootstrap`, `envpilot/deploy`, `envpilot/frontend`,
+`envpilot/control-plane`, `envpilot/agent` and `envpilot/runner`.
+Control-plane and Runner also read the canonical bootstrap source. The deploy
+receiver needs access to each runtime repository's private GHCR package to
+verify a submitted immutable image digest before it changes umbrella values.
+Give the installation these
 permissions:
 
 | Permission | Access | Why it is needed |
@@ -53,8 +55,8 @@ fallback is selected. Never use a classic PAT or an account-wide token.
 ## App setup and rotation
 
 1. Create the private App in the `envpilot` account, grant Packages read-only,
-   and install it on `deploy`, `frontend`, `control-plane`, `agent` and
-   `runner`.
+   and install it on `bootstrap`, `deploy`, `frontend`, `control-plane`,
+   `agent` and `runner`.
 2. Generate a private key once, add its ID and PEM to the two named secrets in
    each listed repository, then securely delete the downloaded PEM file.
 3. Run a manual publish in one component and confirm that `deploy` receives a
