@@ -473,6 +473,19 @@ func TestManagedLocalPathStorageRendersSmokeContract(t *testing.T) {
 	}
 }
 
+func TestPlatformDependencyE2EMatrixUsesUmbrellaAndOwnershipScenarios(t *testing.T) {
+	script, err := os.ReadFile("platform-dependency-matrix.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(script)
+	for _, expected := range []string{"helm upgrade --install", "empty existing mixed degraded", "helm uninstall", "platform-dependency-reconciler-status"} {
+		if !strings.Contains(contents, expected) {
+			t.Fatalf("platform E2E matrix missing %q", expected)
+		}
+	}
+}
+
 func TestAllComponentRenderMeetsRestrictedPodSecurityBaseline(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "agent.enabled=true",

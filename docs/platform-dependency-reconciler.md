@@ -40,3 +40,14 @@ are always retained. Re-running install/upgrade is idempotent: Helm SDK install
 is attempted first and an existing owned release is upgraded with the same
 pinned chart and values. The hook Job is recreated by Helm on each retry or
 upgrade and has a bounded deadline/backoff.
+
+## Provisioned-cluster E2E matrix
+
+`deploy/helm/envpilot/tests/platform-dependency-matrix.sh` runs the same
+umbrella release against contexts supplied in `PLATFORM_E2E_CONTEXT`, covering
+`empty`, `existing`, `mixed` and `degraded` dependency fixtures. It verifies
+the reconciler status ConfigMap, repeats `helm upgrade --install` for
+idempotency, and uninstalls the umbrella release. Existing resources are never
+adopted; managed resources are cleaned according to their ownership policy.
+The degraded fixture is expected to fail the hook and must retain an actionable
+diagnostic in the status ConfigMap.
