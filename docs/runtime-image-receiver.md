@@ -1,7 +1,7 @@
 # Runtime image publication receiver
 
 `.github/workflows/propose-runtime-image-update.yaml` is the only receiver for
-runtime image publication events. Component release workflows dispatch the
+`component-image-published` events. Component release workflows dispatch the
 following payload to `envpilot/deploy`:
 
 ```json
@@ -11,7 +11,8 @@ following payload to `envpilot/deploy`:
   "source_revision": "<40 lowercase hex characters>",
   "repository": "ghcr.io/envpilot/runner",
   "tag": "sha-<40 lowercase hex characters>",
-  "digest": "sha256:<64 lowercase hex characters>"
+  "digest": "sha256:<64 lowercase hex characters>",
+  "publication_id": "<component>:<source revision>:<digest>"
 }
 ```
 
@@ -29,7 +30,9 @@ All component events use one concurrency group and one refreshable branch,
 `automation/runtime-image-pins`. This makes simultaneous publications a
 serialized read/modify/test transaction instead of competing branches that can
 silently lose a pin. The receiver does not dispatch another image event, so
-its auto-merged PR cannot create a workflow loop. Chart lint, dependency build
+its auto-merged PR cannot create a workflow loop. Replaying the same
+publication is safe because the updater converges on the same values and
+refreshes the existing PR. Chart lint, dependency build
 and template rendering run before the PR is created; auto-merge is requested
 only after those checks succeed and normal repository branch protection remains
 the final merge gate.

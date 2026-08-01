@@ -2,7 +2,7 @@ name: Propose runtime image update
 
 on:
   repository_dispatch:
-    types: [envpilot-image-published]
+    types: [component-image-published]
   workflow_dispatch:
     inputs:
       component:
@@ -169,6 +169,8 @@ jobs:
           test -s "$RUNNER_TEMP/image-update-report.json"
           echo "old_reference=$(jq -r .oldReference "$RUNNER_TEMP/image-update-report.json")" >> "$GITHUB_OUTPUT"
           echo "old_digest=$(jq -r .oldDigest "$RUNNER_TEMP/image-update-report.json")" >> "$GITHUB_OUTPUT"
+      - name: Verify component update isolation
+        run: scripts/test-update-runtime-image-values.sh
       - name: Validate umbrella render
         run: |
           helm dependency build --skip-refresh deploy/helm/envpilot
