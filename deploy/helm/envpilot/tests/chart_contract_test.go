@@ -102,7 +102,6 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	for _, forbidden := range []string{
 		"name: envpilot-install",
 		"ghcr.io/envpilot/install",
-		"helm.sh/hook",
 		"kubectl delete namespace",
 		"kind: Ingress",
 		"kind: HTTPRoute",
@@ -366,6 +365,10 @@ func TestPlatformDependencyStatusContractIsRenderedForControlPlane(t *testing.T)
 		"--set", "platformDependencies.dns.mode=disabled",
 		"--set", "platformDependencies.storage.mode=managed",
 		"--set", "platformDependencies.storage.provider=local-path",
+		"--set", "platformDependencies.storage.ownership=envpilot",
+		"--set", "platformDependencies.storage.managed.chartRef=oci://ghcr.io/example/local-path",
+		"--set", "platformDependencies.storage.managed.version=1.0.0",
+		"--set", "platformDependencies.storage.managed.releaseName=local-path",
 	)
 	for _, expected := range []string{
 		"name: envpilot-platform-dependency-status",
@@ -381,6 +384,28 @@ func TestPlatformDependencyStatusContractIsRenderedForControlPlane(t *testing.T)
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("platform dependency contract missing %q:\n%s", expected, rendered)
 		}
+	}
+}
+
+func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "platformDependencies.ingress.mode=disabled",
+	)
+	for _, expected := range []string{
+		"\"helm.sh/hook\": pre-install,pre-upgrade",
+		"\"helm.sh/hook\": pre-delete",
+		"resources: [\"ingressclasses\"]",
+		"resources: [\"storageclasses\"]",
+		"app.kubernetes.io/component: platform-reconciler",
+		"ENVPILOT_RECONCILE_CONFIG_JSON",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("platform reconciler contract missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "resources: [\"deployments\", \"pods\"]") || strings.Contains(rendered, "helm.sh/hook: post-install") {
+		t.Fatal("platform reconciler must not own EnvPilot core workloads")
 	}
 }
 

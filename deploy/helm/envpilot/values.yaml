@@ -82,6 +82,7 @@ platformDependencies:
       existingSecret: ""
     state: ""
     managed: {}
+
   dns:
     mode: disabled # auto | managed | existing | disabled
     provider: ""
@@ -104,6 +105,22 @@ platformDependencies:
       existingSecret: ""
     state: ""
     managed: {}
+
+# Optional chart-owned reconciler. It only handles the three external
+# capabilities above; EnvPilot core workloads remain ordinary chart children.
+platformDependencyReconciler:
+  enabled: true
+  image:
+    repository: ghcr.io/envpilot/platform-reconciler
+    tag: "0.1.0"
+    digest: ""
+    pullPolicy: IfNotPresent
+  serviceAccount:
+    create: true
+    name: ""
+  backoffLimit: 4
+  activeDeadlineSeconds: 600
+  cleanupManagedOnUninstall: true
 
 envpilot-control-plane:
   fullnameOverride: envpilot-control-plane

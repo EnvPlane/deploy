@@ -17,6 +17,13 @@
 {{- if and (or (eq $mode "auto") (eq $mode "managed")) (empty $dependency.provider) -}}
 {{- fail (printf "platformDependencies provider is required when mode=%s; configure an explicit provider or use existing/disabled" $mode) -}}
 {{- end -}}
+{{- if or (eq $mode "auto") (eq $mode "managed") -}}
+{{- $managed := default (dict) $dependency.managed -}}
+{{- if and (eq $mode "managed") (ne (default "external" $dependency.ownership) "envpilot") -}}{{ fail "platformDependencies ownership must be envpilot when mode=managed" }}{{- end -}}
+{{- if empty $managed.chartRef -}}{{ fail "platformDependencies managed.chartRef is required for auto/managed mode" }}{{- end -}}
+{{- if empty $managed.version -}}{{ fail "platformDependencies managed.version is required for auto/managed mode" }}{{- end -}}
+{{- if empty $managed.releaseName -}}{{ fail "platformDependencies managed.releaseName is required for auto/managed mode" }}{{- end -}}
+{{- end -}}
 {{- if eq $mode "existing" -}}
 {{- $reference := default $dependency.existingClassName $dependency.existingSecret -}}
 {{- if empty $reference -}}

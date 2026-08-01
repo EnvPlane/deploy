@@ -120,7 +120,18 @@
           "properties": { "existingSecret": { "type": "string" } }
         },
         "state": { "type": "string", "enum": ["", "detected", "managed", "missing", "incompatible", "degraded", "disabled", "declared", "pending", "ready", "unavailable"] },
-        "managed": { "type": "object", "additionalProperties": true }
+        "managed": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "chartRef": { "type": "string" },
+            "version": { "type": "string" },
+            "releaseName": { "type": "string" },
+            "namespace": { "type": "string" },
+            "values": { "type": "object" },
+            "cleanupPolicy": { "type": "string", "enum": ["retain", "delete"] },
+            "rbacRules": { "type": "array", "items": { "type": "object" } }
+          }
+        }
       },
       "allOf": [
         {
@@ -207,6 +218,21 @@
         "podSecurityContext": { "type": "object" },
         "securityContext": { "type": "object" },
         "imagePullSecrets": { "$ref": "#/definitions/security/properties/imagePullSecrets" }
+      }
+    },
+    "platformDependencyReconciler": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "image": { "$ref": "#/definitions/image" },
+        "serviceAccount": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "create": { "type": "boolean" }, "name": { "type": "string" } }
+        },
+        "backoffLimit": { "type": "integer", "minimum": 0 },
+        "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
+        "cleanupManagedOnUninstall": { "type": "boolean" }
       }
     }
   },
@@ -309,6 +335,7 @@
         "storage": { "$ref": "#/definitions/dependency" }
       }
     },
+    "platformDependencyReconciler": { "$ref": "#/definitions/platformDependencyReconciler" },
     "envpilot-control-plane": {
       "allOf": [
         { "$ref": "#/definitions/component" },

@@ -1,0 +1,59 @@
+{{- if .Values.platformDependencyReconciler.enabled }}
+{{- $r := .Values.platformDependencyReconciler -}}
+{{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
+{{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
+{{- if $r.image.digest }}{{ $image = printf "%s@%s" $r.image.repository $r.image.digest }}{{ end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-platform-reconciler
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+spec:
+  backoffLimit: {{ default 4 $r.backoffLimit }}
+  activeDeadlineSeconds: {{ default 600 $r.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: envpilot
+        app.kubernetes.io/component: platform-reconciler
+    spec:
+      serviceAccountName: {{ $sa }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: reconciler
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ default "IfNotPresent" $r.image.pullPolicy }}
+          env:
+            - name: ENVPILOT_RECONCILE_ACTION
+              value: reconcile
+            - name: ENVPILOT_RECONCILE_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: ENVPILOT_RECONCILE_RELEASE
+              value: {{ .Release.Name | quote }}
+            - name: ENVPILOT_RECONCILE_CONFIG_MAP
+              value: {{ printf "%s-platform-dependency-reconciler" .Release.Name | quote }}
+            - name: ENVPILOT_RECONCILE_CONFIG_JSON
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ printf "%s-platform-dependency-reconciler" .Release.Name }}
+                  key: dependencies.json
+            - name: ENVPILOT_RECONCILE_STATUS_CONFIG_MAP
+              value: {{ printf "%s-platform-dependency-reconciler-status" .Release.Name | quote }}
+            - name: ENVPILOT_RECONCILE_CLEANUP
+              value: {{ default true $r.cleanupManagedOnUninstall | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: true
+{{- end }}
