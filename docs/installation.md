@@ -31,7 +31,7 @@ Create `values.yaml` from one of the examples below, then run exactly:
 
 ```sh
 helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.3.2 \
+  --version 0.3.3 \
   --namespace envpilot \
   --create-namespace \
   --values values.yaml \

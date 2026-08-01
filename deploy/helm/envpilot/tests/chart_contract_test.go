@@ -574,7 +574,7 @@ func TestInstallationDocsQuickStartSmoke(t *testing.T) {
 	contents := string(docs)
 	for _, expected := range []string{
 		"helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot",
-		"--version 0.3.2", "--namespace envpilot", "--values values.yaml",
+		"--version 0.3.3", "--namespace envpilot", "--values values.yaml",
 		"auto", "managed", "existing", "disabled", "Kubernetes 1.26",
 		"Private registry", "minikube-", "not required",
 	} {
@@ -803,7 +803,7 @@ func TestUmbrellaPackageVendorsDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("package umbrella: %v\n%s", err, output)
 	}
-	archive := filepath.Join(temporary, "envpilot-0.3.2.tgz")
+	archive := filepath.Join(temporary, "envpilot-0.3.3.tgz")
 	cmd = exec.Command("tar", "-tzf", archive)
 	output, err = cmd.CombinedOutput()
 	if err != nil {
