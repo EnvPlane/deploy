@@ -5,6 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
 )
 
@@ -12,9 +13,16 @@ func TestDetectCompatibleExistingCapabilities(t *testing.T) {
 	objects := []runtime.Object{
 		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "IngressClass", "metadata": map[string]any{"name": "nginx"}, "spec": map[string]any{"controller": "k8s.io/ingress-nginx"}}},
 		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "storage.k8s.io/v1", "kind": "StorageClass", "metadata": map[string]any{"name": "standard", "annotations": map[string]any{"storageclass.kubernetes.io/is-default-class": "true"}}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Service", "metadata": map[string]any{"name": "ingress-nginx-controller", "namespace": "ingress-nginx", "labels": map[string]any{"app.kubernetes.io/component": "controller"}}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Endpoints", "metadata": map[string]any{"name": "ingress-nginx-controller", "namespace": "ingress-nginx"}, "subsets": []any{map[string]any{"addresses": []any{map[string]any{"ip": "10.0.0.1"}}}}}},
 	}
-	client := fake.NewSimpleDynamicClient(runtime.NewScheme(), objects...)
-	if ok, ref, err := detect("ingress", capability{ExistingClassName: "nginx"}, client); err != nil || !ok || ref != "nginx" {
+	client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
+		{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}: "IngressClassList",
+		{Version: "v1", Resource: "services"}:                                   "ServiceList",
+		{Version: "v1", Resource: "endpoints"}:                                  "EndpointsList",
+		{Group: "storage.k8s.io", Version: "v1", Resource: "storageclasses"}:    "StorageClassList",
+	}, objects...)
+	if ok, ref, err := detect("ingress", capability{Provider: "nginx", ExistingClassName: "nginx"}, client); err != nil || !ok || ref != "nginx" {
 		t.Fatalf("ingress detection = %v %q %v", ok, ref, err)
 	}
 	if ok, ref, err := detect("storage", capability{}, client); err != nil || !ok || ref != "standard" {
@@ -23,10 +31,22 @@ func TestDetectCompatibleExistingCapabilities(t *testing.T) {
 }
 
 func TestManagedCapabilityWithoutPinnedChartIsActionable(t *testing.T) {
-	client := fake.NewSimpleDynamicClient(runtime.NewScheme())
+	client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{})
 	result, err := reconcile("ingress", capability{Mode: "managed", Provider: "nginx"}, client, nil)
 	if err == nil || result.State != "incompatible" {
 		t.Fatalf("managed validation = %#v, %v", result, err)
+	}
+}
+
+func TestOrphanIngressClassIsDegradedNotReady(t *testing.T) {
+	client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{{Version: "v1", Resource: "services"}: "ServiceList", {Version: "v1", Resource: "endpoints"}: "EndpointsList", {Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}: "IngressClassList"}, &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "networking.k8s.io/v1", "kind": "IngressClass",
+		"metadata": map[string]any{"name": "nginx"},
+		"spec":     map[string]any{"controller": "k8s.io/ingress-nginx"},
+	}})
+	ok, _, err := detect("ingress", capability{Provider: "nginx", ExistingClassName: "nginx"}, client)
+	if err != nil || ok {
+		t.Fatalf("orphan ingress class detected as ready: ok=%v err=%v", ok, err)
 	}
 }
 

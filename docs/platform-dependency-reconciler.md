@@ -14,6 +14,17 @@ reported as `detected` and are never adopted or modified. Failed detection or
 provider operations are persisted as `missing`, `incompatible` or `degraded`
 status in the reconciler ConfigMap and cause the hook to retry/fail visibly.
 
+Ingress providers are resolved through an extensible registry. The built-in
+`nginx` and `ingress-nginx` entries require controller
+`k8s.io/ingress-nginx` and the pinned
+`oci://ghcr.io/ingress-nginx/ingress-nginx` chart. An IngressClass is not
+healthy merely because it exists: a matching controller Service must have
+ready Endpoints or EndpointSlices. Managed ingress can optionally create a
+short-lived smoke Ingress to a configured test Service and requires the smoke
+namespace to be the reconciler namespace. Existing classes with a different
+controller are reported as incompatible, preventing class and release
+collisions; healthy existing controllers are reused without adoption.
+
 The pre-delete hook runs cleanup only for managed providers with
 `ownership: envpilot` and `managed.cleanupPolicy: delete`. External providers
 are always retained. Re-running install/upgrade is idempotent: Helm SDK install

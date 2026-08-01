@@ -129,6 +129,15 @@
             "namespace": { "type": "string" },
             "values": { "type": "object" },
             "cleanupPolicy": { "type": "string", "enum": ["retain", "delete"] },
+            "smoke": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "serviceName": { "type": "string" },
+                "namespace": { "type": "string" },
+                "port": { "type": "integer", "minimum": 1 },
+                "host": { "type": "string" }
+              }
+            },
             "rbacRules": { "type": "array", "items": { "type": "object" } }
           }
         }

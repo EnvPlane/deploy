@@ -409,6 +409,24 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 	}
 }
 
+func TestManagedIngressProviderRendersPinnedSmokeContract(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencies.ingress.mode=managed",
+		"--set", "platformDependencies.ingress.provider=nginx",
+		"--set", "platformDependencies.ingress.ownership=envpilot",
+		"--set", "platformDependencies.ingress.managed.chartRef=oci://ghcr.io/ingress-nginx/ingress-nginx",
+		"--set", "platformDependencies.ingress.managed.version=4.11.0",
+		"--set", "platformDependencies.ingress.managed.releaseName=envpilot-ingress-nginx",
+		"--set", "platformDependencies.ingress.managed.smoke.serviceName=envpilot-frontend",
+		"--set", "platformDependencies.ingress.managed.smoke.namespace=envpilot",
+		"--set", "platformDependencies.ingress.managed.smoke.port=3000",
+		"--set", "platformDependencies.ingress.managed.smoke.host=envpilot.example.test",
+	)
+	for _, expected := range []string{"resources: [\"services\", \"endpoints\"]", "resources: [\"ingresses\"]", "ENVPILOT_RECONCILE_ACTION", "envpilot.example.test"} {
+		if !strings.Contains(rendered, expected) { t.Fatalf("managed ingress contract missing %q:\n%s", expected, rendered) }
+	}
+}
+
 func TestAllComponentRenderMeetsRestrictedPodSecurityBaseline(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "agent.enabled=true",

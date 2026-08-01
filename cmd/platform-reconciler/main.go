@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"helm.sh/helm/v3/pkg/action"
@@ -16,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -44,6 +46,13 @@ type managedConfig struct {
 	Namespace     string         `json:"namespace"`
 	Values        map[string]any `json:"values"`
 	CleanupPolicy string         `json:"cleanupPolicy"`
+	Smoke         smokeConfig    `json:"smoke"`
+}
+type smokeConfig struct {
+	ServiceName string `json:"serviceName"`
+	Namespace   string `json:"namespace"`
+	Port        int64  `json:"port"`
+	Host        string `json:"host"`
 }
 type config struct {
 	Ingress capability `json:"ingress"`
@@ -65,6 +74,16 @@ var (
 	ctx        = context.Background()
 	statusData = map[string]result{}
 )
+
+type ingressProvider struct {
+	Controller string
+	Chart      string
+}
+
+var ingressProviders = map[string]ingressProvider{
+	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "oci://ghcr.io/ingress-nginx/ingress-nginx"},
+	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "oci://ghcr.io/ingress-nginx/ingress-nginx"},
+}
 
 func main() {
 	log.SetFlags(0)
@@ -97,7 +116,9 @@ func run() error {
 	for name, dep := range map[string]capability{"ingress": cfg.Ingress, "dns": cfg.DNS, "storage": cfg.Storage} {
 		res, e := reconcile(name, dep, client, restCfg)
 		if e != nil {
-			res.State = "degraded"
+			if res.State == "" {
+				res.State = "degraded"
+			}
 			res.Message = e.Error()
 		}
 		statusData[name] = res
@@ -133,25 +154,56 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 		r.State = "incompatible"
 		return r, fmt.Errorf("%s managed provider requires provider, managed.chartRef, managed.version and managed.releaseName", name)
 	}
+	if name == "ingress" {
+		provider, ok := ingressProviders[dep.Provider]
+		if !ok {
+			r.State = "incompatible"
+			return r, fmt.Errorf("unsupported ingress provider %q; configure a registered provider", dep.Provider)
+		}
+		if !strings.Contains(dep.Managed.ChartRef, "ingress-nginx") || dep.Managed.ChartRef != provider.Chart {
+			r.State = "incompatible"
+			return r, fmt.Errorf("ingress provider %s requires pinned chart %s", dep.Provider, provider.Chart)
+		}
+		if dep.ExistingClassName != "" {
+			if item, err := client.Resource(schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}).Get(ctx, dep.ExistingClassName, metav1.GetOptions{}); err == nil {
+				if spec, ok := item.Object["spec"].(map[string]any); !ok || spec["controller"] != provider.Controller {
+					r.State = "incompatible"
+					return r, fmt.Errorf("ingress class %s is owned by a different controller", dep.ExistingClassName)
+				}
+			}
+		}
+	}
 	if err := helmApply(dep.Managed, restCfg); err != nil {
 		return r, fmt.Errorf("managed %s provider: %w", name, err)
 	}
 	r.State = "managed"
 	r.Ownership = "envpilot"
+	if name == "ingress" && dep.Managed.Smoke.ServiceName != "" {
+		if err := verifyIngressSmoke(dep, client); err != nil {
+			r.State = "degraded"
+			return r, err
+		}
+	}
 	return r, nil
 }
 
 func detect(name string, dep capability, client dynamic.Interface) (bool, string, error) {
 	switch name {
 	case "ingress":
+		provider, ok := ingressProviders[dep.Provider]
+		if !ok {
+			return false, "", fmt.Errorf("unsupported ingress provider %q; configure a registered provider", dep.Provider)
+		}
 		list, err := client.Resource(schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, "", err
 		}
 		for _, item := range list.Items {
 			if dep.ExistingClassName == "" || item.GetName() == dep.ExistingClassName {
-				if c, ok := item.Object["spec"].(map[string]any); ok && c["controller"] != nil {
-					return true, item.GetName(), nil
+				if c, ok := item.Object["spec"].(map[string]any); ok && c["controller"] == provider.Controller {
+					if ingressControllerHealthy(client, item.GetName()) {
+						return true, item.GetName(), nil
+					}
 				}
 			}
 		}
@@ -176,6 +228,99 @@ func detect(name string, dep capability, client dynamic.Interface) (bool, string
 		}
 	}
 	return false, "", nil
+}
+
+func ingressControllerHealthy(client dynamic.Interface, className string) bool {
+	services, err := client.Resource(schema.GroupVersionResource{Version: "v1", Resource: "services"}).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false
+	}
+	for _, service := range services.Items {
+		labels := service.GetLabels()
+		if !strings.Contains(service.GetName(), "ingress") && labels["app.kubernetes.io/component"] != "controller" {
+			continue
+		}
+		endpoints, err := client.Resource(schema.GroupVersionResource{Version: "v1", Resource: "endpoints"}).Namespace(service.GetNamespace()).Get(ctx, service.GetName(), metav1.GetOptions{})
+		if err != nil {
+			continue
+		}
+		if subsets, ok := endpoints.Object["subsets"].([]any); ok && len(subsets) > 0 {
+			for _, raw := range subsets {
+				if s, ok := raw.(map[string]any); ok {
+					if addresses, ok := s["addresses"].([]any); ok && len(addresses) > 0 {
+						return true
+					}
+				}
+			}
+		}
+		// EndpointSlice is the preferred discovery API on newer clusters.
+		slices, err := client.Resource(schema.GroupVersionResource{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"}).Namespace(service.GetNamespace()).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, slice := range slices.Items {
+				labels := slice.GetLabels()
+				if labels["kubernetes.io/service-name"] != service.GetName() {
+					continue
+				}
+				if endpoints, ok := slice.Object["endpoints"].([]any); ok {
+					for _, raw := range endpoints {
+						if endpoint, ok := raw.(map[string]any); ok {
+							if conditions, ok := endpoint["conditions"].(map[string]any); ok && conditions["ready"] == false {
+								continue
+							}
+							if addresses, ok := endpoint["addresses"].([]any); ok && len(addresses) > 0 {
+								return true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	_ = className
+	return false
+}
+
+func verifyIngressSmoke(dep capability, client dynamic.Interface) error {
+	smoke := dep.Managed.Smoke
+	if smoke.Namespace == "" {
+		smoke.Namespace = dep.Managed.Namespace
+	}
+	if smoke.Namespace != os.Getenv("ENVPILOT_RECONCILE_NAMESPACE") {
+		return fmt.Errorf("ingress smoke namespace %q must match reconciler namespace", smoke.Namespace)
+	}
+	if smoke.Port == 0 || smoke.Host == "" {
+		return fmt.Errorf("ingress smoke requires managed.smoke.host and managed.smoke.port")
+	}
+	className := dep.ExistingClassName
+	if className == "" {
+		className = "nginx"
+	}
+	gvr := schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
+	obj := map[string]any{
+		"apiVersion": "networking.k8s.io/v1", "kind": "Ingress",
+		"metadata": map[string]any{"generateName": "envpilot-platform-smoke-", "namespace": smoke.Namespace, "labels": map[string]any{"app.kubernetes.io/managed-by": "envpilot-platform-reconciler"}},
+		"spec":     map[string]any{"ingressClassName": className, "rules": []any{map[string]any{"host": smoke.Host, "http": map[string]any{"paths": []any{map[string]any{"path": "/", "pathType": "Prefix", "backend": map[string]any{"service": map[string]any{"name": smoke.ServiceName, "port": map[string]any{"number": smoke.Port}}}}}}}}},
+	}
+	created, err := client.Resource(gvr).Namespace(smoke.Namespace).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("create ingress smoke probe: %w", err)
+	}
+	defer client.Resource(gvr).Namespace(smoke.Namespace).Delete(ctx, created.GetName(), metav1.DeleteOptions{})
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		current, err := client.Resource(gvr).Namespace(smoke.Namespace).Get(ctx, created.GetName(), metav1.GetOptions{})
+		if err == nil {
+			if status, ok := current.Object["status"].(map[string]any); ok {
+				if entries, ok := status["loadBalancer"].(map[string]any); ok {
+					if ingress, ok := entries["ingress"].([]any); ok && len(ingress) > 0 {
+						return nil
+					}
+				}
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("ingress smoke probe did not receive a controller endpoint")
 }
 
 type getter struct {
@@ -217,22 +362,35 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 	if err != nil {
 		return err
 	}
+	ch, err := loader.Load(path)
+	if err != nil {
+		return err
+	}
+	values := map[string]any{}
+	for key, value := range m.Values {
+		values[key] = value
+	}
+	values["envpilotOwnership"] = "envpilot"
+	get := action.NewGet(&conf)
+	existing, getErr := get.Run(m.ReleaseName)
+	if getErr == nil {
+		if existing.Config["envpilotOwnership"] != "envpilot" {
+			return fmt.Errorf("helm release %s exists but is not owned by envpilot", m.ReleaseName)
+		}
+		upgrade := action.NewUpgrade(&conf)
+		upgrade.Namespace = m.Namespace
+		upgrade.Wait = true
+		_, err = upgrade.Run(m.ReleaseName, ch, values)
+		return err
+	}
 	install := action.NewInstall(&conf)
 	install.ReleaseName = m.ReleaseName
 	install.Namespace = m.Namespace
 	install.CreateNamespace = false
 	install.Wait = true
-	ch, err := loader.Load(path)
-	if err != nil {
-		return err
-	}
-	if _, err = install.Run(ch, m.Values); err == nil {
+	if _, err = install.Run(ch, values); err == nil {
 		return nil
 	}
-	upgrade := action.NewUpgrade(&conf)
-	upgrade.Namespace = m.Namespace
-	upgrade.Wait = true
-	_, err = upgrade.Run(m.ReleaseName, ch, m.Values)
 	return err
 }
 func cleanup(cfg config, restCfg *rest.Config) error {
