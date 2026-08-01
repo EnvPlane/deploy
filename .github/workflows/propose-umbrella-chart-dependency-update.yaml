@@ -1,0 +1,137 @@
+name: Propose umbrella chart dependency update
+
+on:
+  repository_dispatch:
+    types: [component-chart-published]
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: propose-umbrella-chart-dependencies
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.repository == 'envpilot/deploy'
+    runs-on: ubuntu-latest
+    steps:
+      - id: payload
+        name: Validate chart publication
+        env:
+          COMPONENT: ${{ github.event.client_payload.component }}
+          CHART: ${{ github.event.client_payload.chart }}
+          VERSION: ${{ github.event.client_payload.version }}
+          REPOSITORY: ${{ github.event.client_payload.repository }}
+          DIGEST: ${{ github.event.client_payload.digest }}
+          SOURCE_REPOSITORY: ${{ github.event.client_payload.source_repository }}
+          SOURCE_REVISION: ${{ github.event.client_payload.source_revision }}
+        run: |
+          set -euo pipefail
+          case "$COMPONENT:$CHART:$REPOSITORY:$SOURCE_REPOSITORY" in
+            control-plane:envpilot-control-plane:oci://ghcr.io/envpilot/envpilot-control-plane:envpilot/deploy) ;;
+            frontend:envpilot-frontend:oci://ghcr.io/envpilot/envpilot-frontend:envpilot/deploy) ;;
+            agent:envpilot-agent:oci://ghcr.io/envpilot/envpilot-agent:envpilot/deploy) ;;
+            runner:envpilot-runner:oci://ghcr.io/envpilot/envpilot-runner:envpilot/deploy) ;;
+            *) echo "chart/source/repository is not canonical" >&2; exit 1 ;;
+          esac
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "invalid chart version" >&2; exit 1; }
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "invalid chart digest" >&2; exit 1; }
+          [[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source revision" >&2; exit 1; }
+          printf 'component=%s\nchart=%s\nversion=%s\nrepository=%s\ndigest=%s\nsource_revision=%s\n' \
+            "$COMPONENT" "$CHART" "$VERSION" "$REPOSITORY" "$DIGEST" "$SOURCE_REVISION" >> "$GITHUB_OUTPUT"
+      - uses: azure/setup-helm@v4
+      - uses: oras-project/setup-oras@v1
+      - name: Authenticate to GHCR
+        run: echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Verify published OCI chart and digest
+        env:
+          REPOSITORY: ${{ steps.payload.outputs.repository }}
+          VERSION: ${{ steps.payload.outputs.version }}
+          DIGEST: ${{ steps.payload.outputs.digest }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          helm show chart "$REPOSITORY:$VERSION" >/dev/null
+          oras login ghcr.io --username "$GITHUB_ACTOR" --password "$GITHUB_TOKEN"
+          descriptor="$(oras manifest fetch --descriptor "$REPOSITORY:$VERSION")"
+          jq -e --arg digest "$DIGEST" '.digest == $digest' <<<"$descriptor" >/dev/null || {
+            echo "published chart tag does not resolve to the supplied digest" >&2
+            exit 1
+          }
+      - id: auth
+        name: Select PR authentication
+        env:
+          APP_ID: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_ID }}
+          APP_KEY: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPILOT_DEPLOY_PR_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$APP_ID" && -n "$APP_KEY" ]]; then echo method=app >> "$GITHUB_OUTPUT"; elif [[ -n "$PAT" ]]; then echo method=pat >> "$GITHUB_OUTPUT"; else exit 1; fi
+      - id: app
+        if: steps.auth.outputs.method == 'app'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_ID }}
+          private-key: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY }}
+          owner: envpilot
+          repositories: deploy
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+      - name: Restore serialized dependency branch
+        env:
+          TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+        run: |
+          set -euo pipefail
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/envpilot/deploy.git"
+          git fetch origin main
+          if git fetch origin refs/heads/automation/umbrella-chart-dependencies:refs/remotes/origin/automation/umbrella-chart-dependencies; then
+            git checkout -B automation/umbrella-chart-dependencies origin/automation/umbrella-chart-dependencies
+            git merge --no-edit origin/main
+          else
+            git checkout -B automation/umbrella-chart-dependencies origin/main
+          fi
+      - name: Update matching dependency and vendor archive
+        run: |
+          set -euo pipefail
+          scripts/update-umbrella-chart-dependency.sh --component '${{ steps.payload.outputs.component }}' --version '${{ steps.payload.outputs.version }}'
+          helm dependency build --skip-refresh deploy/helm/envpilot
+          scripts/test-umbrella-chart-dependency-update.sh
+          helm lint deploy/helm/envpilot
+          helm template envpilot deploy/helm/envpilot >/dev/null
+      - id: pr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          branch: automation/umbrella-chart-dependencies
+          delete-branch: false
+          add-paths: |
+            deploy/helm/envpilot/Chart.yaml
+            deploy/helm/envpilot/Chart.lock
+            deploy/helm/envpilot/charts/
+          commit-message: "chore(chart): update ${{ steps.payload.outputs.chart }} to ${{ steps.payload.outputs.version }}"
+          title: "chore(chart): update ${{ steps.payload.outputs.chart }} to ${{ steps.payload.outputs.version }}"
+          body: |
+            Automated canonical child-chart dependency update.
+
+            - chart: `${{ steps.payload.outputs.chart }}`
+            - version: `${{ steps.payload.outputs.version }}`
+            - digest: `${{ steps.payload.outputs.digest }}`
+            - source commit: `${{ steps.payload.outputs.source_revision }}`
+
+            Only the matching umbrella dependency, Chart.lock and regenerated
+            archive are included. Values files are intentionally unchanged.
+      - name: Enable auto-merge after chart tests
+        if: steps.pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+        run: gh pr merge "$PR_NUMBER" --auto --squash --repo envpilot/deploy
