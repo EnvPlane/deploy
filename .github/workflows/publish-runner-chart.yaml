@@ -23,16 +23,19 @@ jobs:
       - name: Package chart
         run: helm package deploy/helm/envpilot-runner --destination dist
       - name: Authenticate to GHCR
-        run: echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Reject an existing OCI version
         run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envpilot/envpilot-runner --version '${{ steps.chart.outputs.version }}'
       - name: Publish OCI chart
         id: push
         run: |
+          set -euo pipefail
           output="$(helm push dist/envpilot-runner-*.tgz oci://ghcr.io/${{ github.repository_owner }} 2>&1 | tee /dev/stderr)"
-          echo "digest=$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')" >> "$GITHUB_OUTPUT"
+          digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - id: dispatch_auth
         env:
           CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
