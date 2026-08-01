@@ -5,75 +5,76 @@ Component repositories publish immutable multi-architecture images, then send a
 that event and opens a pull request which pins the exact image digest in the
 umbrella values. Neither path accepts mutable `main` or `latest` release pins.
 
-## Preferred authentication: three scoped GitHub Apps
+## Preferred authentication: one GitHub App
 
-Use three different GitHub Apps. Install each App only on the explicitly listed
-repositories, never organization-wide.
+Use one private GitHub App named `envpilot-release-automation`. Install it only
+on `envpilot/deploy`; it does not need access to runtime repositories. Give the
+installation these repository permissions:
 
-| Purpose | App installation permissions | Repository secrets |
+| Permission | Access | Why it is needed |
 |---|---|---|
-| Cross-repository source checkout | Contents: Read-only; Metadata: Read. Install on `bootstrap`, `deploy` and `frontend` only. | In component repos that read sibling sources: `ENVPILOT_SOURCE_READ_APP_ID`, `ENVPILOT_SOURCE_READ_APP_PRIVATE_KEY` |
-| Component dispatch | Contents: Read and write; Metadata: Read | In every runtime repo: `ENVPILOT_DEPLOY_DISPATCH_APP_ID`, `ENVPILOT_DEPLOY_DISPATCH_APP_PRIVATE_KEY` |
-| Deploy PR bot | Contents: Read and write; Pull requests: Read and write; Metadata: Read | In `envpilot/deploy`: `ENVPILOT_DEPLOY_PR_APP_ID`, `ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY` |
+| Metadata | Read-only | Required by every installation token. |
+| Contents | Read and write | Read the canonical deploy source, dispatch events and update the serialised automation branches. |
+| Pull requests | Read and write | Create and auto-merge the values and dependency update PRs. |
 
-The source-reader can only clone the listed sibling repositories. The dispatcher
-can request a token for `deploy` only and can invoke
-`repository_dispatch`; it cannot create a pull request. The PR bot private key
-is stored only in `deploy`, where the receiving workflow creates the branch and
-pull request. `actions/create-github-app-token` mints short-lived installation
-tokens at runtime. Do not add either private key to a repository file, values
-file, artifact, log, or workflow output.
+No webhook, organization administration, Actions, secrets, packages, workflows,
+issues or checks permission is required. Restrict the installation to the
+`envpilot/deploy` repository. Runtime publishing continues to use its own
+short-lived `GITHUB_TOKEN` for the component image package only.
 
-The component workflows request only `Contents: read` from the source-reader
-App and `Contents: write` from the dispatch App. The deploy workflow requests
-`Contents: write` and `Pull requests: write` only from the PR App. These are
-installation-token permissions, not broad repository `GITHUB_TOKEN` grants.
+Store the App credentials as Actions secrets, never in a repository file,
+values file, artifact, log or workflow output:
+
+| Secret | Where stored |
+|---|---|
+| `ENVPILOT_AUTOMATION_APP_ID` | `frontend`, `control-plane`, `agent`, `runner` and `deploy` repositories |
+| `ENVPILOT_AUTOMATION_APP_PRIVATE_KEY` | The same five repositories |
+
+Component workflows mint two short-lived tokens from this same App: a
+`contents: read` token for the additional deploy source checkout and a
+`contents: write` token for `repository_dispatch`. Deploy workflows mint a
+`contents: write`, `pull-requests: write` token only inside trusted receiver
+jobs to update the automation branch and PR. The private key is never made
+available to pull-request or fork-triggered workflows.
 
 ## Fine-grained PAT fallback
 
-Use this only while an App is unavailable. Fine-grained PATs must be owned by a
-dedicated bot account, expire on a documented schedule, and be restricted to
-`envpilot/deploy` only.
+Use `ENVPILOT_AUTOMATION_PAT` only while the App is unavailable. Store it in the
+same five repositories. It must belong to a dedicated bot account, expire on a
+documented schedule, be limited to `envpilot/deploy`, and have only Contents and
+Pull requests read/write access. The workflows emit a warning whenever this
+fallback is selected. Never use a classic PAT or an account-wide token.
 
-| Fallback secret | Where stored | Required permissions |
-|---|---|---|
-| `ENVPILOT_SOURCE_READ_PAT` | Component repositories that read sibling sources | Contents: Read-only; Metadata: Read on only the required sibling repositories |
-| `ENVPILOT_DEPLOY_DISPATCH_PAT` | Each runtime repository | Contents: Read and write; Metadata: Read; only on `envpilot/deploy` |
-| `ENVPILOT_DEPLOY_PR_PAT` | `envpilot/deploy` | Contents: Read and write; Pull requests: Read and write; Metadata: Read |
+## App setup and rotation
 
-The workflows log a warning whenever the PAT fallback is selected. A missing
-App and PAT fails before any cross-repository API request. Never use a classic
-PAT or an account-wide token.
+1. Create the private App in the `envpilot` account and install it on
+   `envpilot/deploy` only.
+2. Generate a private key once, add its ID and PEM to the two named secrets in
+   each listed repository, then securely delete the downloaded PEM file.
+3. Run a manual publish in one component and confirm that `deploy` receives a
+   dispatch and creates or refreshes the corresponding PR.
+4. Rotate by generating a second App key, replacing
+   `ENVPILOT_AUTOMATION_APP_PRIVATE_KEY` in all five repositories, validating a
+   manual dispatch, and revoking the old key. Rotate the fallback PAT by
+   replacement then immediate revocation.
 
-## Trust boundary and rotation
+GitHub only returns the private key at generation time. Treat its loss as a key
+rotation event, not as a request to recover or log it.
+
+## Trust boundary and diagnostics
 
 - Publish workflows run only for trusted `push` events to `main` and protected
   release tags; they do not run on `pull_request` or `pull_request_target`.
-- Each publish job checks the canonical repository name. Fork runs and manual
-  runs for non-`main` refs are skipped before any secret-bearing step, so forked
-  or untrusted workflow code cannot receive App keys or PATs.
-- The deploy update workflow runs only for `repository_dispatch` and manually
-  initiated runs by repository collaborators. It validates component,
-  repository, full `sha-<40 hex>` tag, digest and source revision before editing
-  values.
-- Rotate App private keys by adding the replacement secret, validating a manual
-  dispatch, then removing the old key. Rotate PATs by creating a replacement,
-  validating it, and revoking the previous token immediately.
-- Failed token minting normally means the App is not installed on `deploy`, its
-  installation lacks the listed permission, or the App ID/private key pair does
-  not match. HTTP 401 indicates an invalid or expired credential; HTTP 403
-  usually indicates repository scope or permission failure; HTTP 422 indicates a
-  rejected dispatch payload or duplicate PR branch.
-- A source checkout failure points to `ENVPILOT_SOURCE_READ_*`; a dispatch
-  failure points to `ENVPILOT_DEPLOY_DISPATCH_*`; and a PR creation failure
-  points to `ENVPILOT_DEPLOY_PR_*`. Do not broaden a token to fix a diagnostic;
-  correct the App installation or replace the matching fallback secret.
+- Canonical repository checks run before any token-bearing checkout. Fork runs
+  and non-`main` manual runs are skipped before App secrets are read.
+- The deploy receiver validates component, repository, full `sha-<40 hex>` tag,
+  digest and source revision before changing values.
+- A token-mint failure normally means the App is not installed on `deploy`, its
+  permissions are insufficient, or the ID/key pair does not match. HTTP 401 is
+  an invalid or expired credential; HTTP 403 is scope or permission failure;
+  HTTP 422 is a rejected dispatch payload or duplicate PR branch.
+- The component job fails after image publication when neither App nor fallback
+  is configured, making a missing values-update PR visible immediately.
 
-## Diagnostics
-
-The component job fails after image publication if no dispatcher credential is
-configured, so the missing values-update PR is visible immediately. The deploy
-job emits only component, repository, immutable tag and digest in its PR body;
-it never emits a token. Start by checking the `Select ... authentication` step,
-then verify the GitHub App installation scope and the exact `repository_dispatch`
-payload in the Actions UI.
+Start diagnosis with the `Select ... authentication` step, then verify the App
+installation scope and the exact `repository_dispatch` payload in Actions.

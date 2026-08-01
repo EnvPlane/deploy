@@ -102,9 +102,9 @@ jobs:
       - id: auth_method
         name: Select deploy PR authentication
         env:
-          APP_ID: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_ID }}
-          APP_PRIVATE_KEY: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY }}
-          FALLBACK_PAT: ${{ secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          APP_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
+          FALLBACK_PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
           if [[ -n "$APP_ID" && -n "$APP_PRIVATE_KEY" ]]; then
@@ -120,20 +120,20 @@ jobs:
         if: steps.auth_method.outputs.method == 'app'
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_ID }}
-          private-key: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
           owner: envpilot
           repositories: deploy
           permission-contents: write
           permission-pull-requests: write
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
-          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           ref: main
           fetch-depth: 0
       - name: Restore the shared update branch
         env:
-          PUSH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          PUSH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
           git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/envpilot/deploy.git"
@@ -179,7 +179,7 @@ jobs:
       - uses: peter-evans/create-pull-request@v7
         id: pull_request
         with:
-          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           add-paths: |
             deploy/helm/envpilot/values.yaml
             ${{ steps.release.outputs.file }}
@@ -202,6 +202,6 @@ jobs:
       - name: Enable auto-merge after passing tests
         if: steps.pull_request.outputs.pull-request-number != ''
         env:
-          GH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          GH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           PR_NUMBER: ${{ steps.pull_request.outputs.pull-request-number }}
         run: gh pr merge "$PR_NUMBER" --auto --squash --repo envpilot/deploy

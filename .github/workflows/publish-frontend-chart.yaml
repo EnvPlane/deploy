@@ -13,7 +13,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: azure/setup-helm@v4
       - id: chart
         run: echo "version=$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot-frontend/Chart.yaml)" >> "$GITHUB_OUTPUT"
@@ -31,21 +31,21 @@ jobs:
           echo "digest=$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')" >> "$GITHUB_OUTPUT"
       - id: dispatch_auth
         env:
-          APP_ID: ${{ secrets.ENVPILOT_DEPLOY_DISPATCH_APP_ID }}
-          APP_KEY: ${{ secrets.ENVPILOT_DEPLOY_DISPATCH_APP_PRIVATE_KEY }}
-          PAT: ${{ secrets.ENVPILOT_DEPLOY_DISPATCH_PAT }}
+          APP_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_ID }}
+          APP_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           if [[ -n "$APP_ID" && -n "$APP_KEY" ]]; then echo method=app >> "$GITHUB_OUTPUT"; elif [[ -n "$PAT" ]]; then echo method=pat >> "$GITHUB_OUTPUT"; else exit 1; fi
       - id: dispatch_app
         if: steps.dispatch_auth.outputs.method == 'app'
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.ENVPILOT_DEPLOY_DISPATCH_APP_ID }}
-          private-key: ${{ secrets.ENVPILOT_DEPLOY_DISPATCH_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
           owner: envpilot
           repositories: deploy
           permission-contents: write
       - name: Dispatch chart publication
         env:
-          GH_TOKEN: ${{ steps.dispatch_app.outputs.token || secrets.ENVPILOT_DEPLOY_DISPATCH_PAT }}
+          GH_TOKEN: ${{ steps.dispatch_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
         run: ./scripts/dispatch-chart-published.sh --component frontend --chart envpilot-frontend --version '${{ steps.chart.outputs.version }}' --digest '${{ steps.push.outputs.digest }}'

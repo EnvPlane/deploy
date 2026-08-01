@@ -65,9 +65,9 @@ jobs:
       - id: auth
         name: Select PR authentication
         env:
-          APP_ID: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_ID }}
-          APP_KEY: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY }}
-          PAT: ${{ secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          APP_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_ID }}
+          APP_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
           if [[ -n "$APP_ID" && -n "$APP_KEY" ]]; then echo method=app >> "$GITHUB_OUTPUT"; elif [[ -n "$PAT" ]]; then echo method=pat >> "$GITHUB_OUTPUT"; else exit 1; fi
@@ -75,20 +75,20 @@ jobs:
         if: steps.auth.outputs.method == 'app'
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_ID }}
-          private-key: ${{ secrets.ENVPILOT_DEPLOY_PR_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
           owner: envpilot
           repositories: deploy
           permission-contents: write
           permission-pull-requests: write
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ steps.app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          token: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
       - name: Restore serialized dependency branch
         env:
-          TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
           git remote set-url origin "https://x-access-token:${TOKEN}@github.com/envpilot/deploy.git"
@@ -110,7 +110,7 @@ jobs:
       - id: pr
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ steps.app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          token: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           branch: automation/umbrella-chart-dependencies
           delete-branch: false
           add-paths: |
@@ -132,6 +132,6 @@ jobs:
       - name: Enable auto-merge after chart tests
         if: steps.pr.outputs.pull-request-number != ''
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_DEPLOY_PR_PAT }}
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
         run: gh pr merge "$PR_NUMBER" --auto --squash --repo envpilot/deploy
