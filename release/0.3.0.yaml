@@ -12,6 +12,27 @@ images:
   frontend: ghcr.io/envpilot/frontend:0.1.5
   agent: ghcr.io/envpilot/agent:0.1.4
   runner: ghcr.io/envpilot/runner:0.1.4
+imagePins:
+  api:
+    repository: ghcr.io/envpilot/api
+    tag: ""
+    digest: ""
+    sourceRevision: ""
+  frontend:
+    repository: ghcr.io/envpilot/frontend
+    tag: ""
+    digest: ""
+    sourceRevision: ""
+  agent:
+    repository: ghcr.io/envpilot/agent
+    tag: ""
+    digest: ""
+    sourceRevision: ""
+  runner:
+    repository: ghcr.io/envpilot/runner
+    tag: ""
+    digest: ""
+    sourceRevision: ""
 charts:
   umbrella: oci://ghcr.io/envpilot/envpilot:0.3.0
   controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.3.0
