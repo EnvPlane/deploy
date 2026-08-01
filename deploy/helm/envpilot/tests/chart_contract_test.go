@@ -868,7 +868,7 @@ func TestUmbrellaConditionallyOwnsSameClusterExecutionTargets(t *testing.T) {
 		"# Source: envpilot/charts/envpilot-runner/templates/deployment.yaml",
 		"name: envpilot-agent",
 		"name: envpilot-runner",
-		`value: "http://envpilot-control-plane:8080"`,
+		`value: "http://envpilot-control-plane.envpilot.svc:8080"`,
 		`value: "management-cluster"`,
 		`value: "project-a"`,
 	} {
