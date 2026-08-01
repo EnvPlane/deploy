@@ -149,14 +149,6 @@ jobs:
           if git fetch origin refs/heads/automation/runtime-image-pins:refs/remotes/origin/automation/runtime-image-pins; then
             git merge --no-edit origin/automation/runtime-image-pins
           fi
-      - id: release
-        name: Select the current compatibility manifest
-        run: |
-          set -euo pipefail
-          version="$(awk '$1 == "version:" {gsub(/[\"'"'"']/,"",$2); print $2; exit}' deploy/helm/envpilot/Chart.yaml)"
-          test -n "$version"
-          test -f "release/$version.yaml"
-          echo "file=release/$version.yaml" >> "$GITHUB_OUTPUT"
       - name: Update immutable image pin
         run: |
           scripts/update-runtime-image-values.sh \
@@ -165,7 +157,6 @@ jobs:
             --tag '${{ steps.payload.outputs.tag }}' \
             --digest '${{ steps.payload.outputs.digest }}' \
             --source-revision '${{ steps.payload.outputs.source_revision }}' \
-            --release-file '${{ steps.release.outputs.file }}' \
             --report-file "$RUNNER_TEMP/image-update-report.json"
       - id: report
         name: Capture old and new references for the PR
@@ -187,7 +178,6 @@ jobs:
           token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           add-paths: |
             deploy/helm/envpilot/values.yaml
-            ${{ steps.release.outputs.file }}
           base: main
           branch: automation/runtime-image-pins
           delete-branch: false
@@ -201,10 +191,12 @@ jobs:
             - source commit: `${{ steps.payload.outputs.source_revision }}`
             - old reference: `${{ steps.report.outputs.old_reference }}`
             - new reference: `${{ steps.payload.outputs.repository }}@${{ steps.payload.outputs.digest }}` (tag `${{ steps.payload.outputs.tag }}`)
-            - compatibility manifest: `${{ steps.release.outputs.file }}`
+            - compatibility metadata: updated in the matching `values.yaml`
 
             The payload was validated against the component allowlist and the
-            immutable GHCR tag was inspected before this PR was refreshed.
+            immutable GHCR tag was inspected before this PR was refreshed. The
+            next atomic umbrella release generates the signed compatibility
+            manifest from these source values.
       - name: Enable auto-merge after passing tests
         if: steps.pull_request.outputs.pull-request-number != ''
         env:
