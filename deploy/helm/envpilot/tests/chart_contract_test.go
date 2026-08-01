@@ -423,6 +423,14 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 	}
 }
 
+func TestPlatformReconcilerCanCreateItsStatusConfigMap(t *testing.T) {
+	rendered := renderUmbrella(t, "--set", "platformDependencyReconciler.enabled=true")
+	if !strings.Contains(rendered, "resources: [\"configmaps\"]\n    # Kubernetes cannot match resourceNames") ||
+		!strings.Contains(rendered, "verbs: [\"create\"]\n  - apiGroups: [\"\"]\n    resources: [\"configmaps\"]\n    resourceNames:") {
+		t.Fatalf("platform reconciler must allow unscoped ConfigMap create and name-scoped mutations:\n%s", rendered)
+	}
+}
+
 func TestPlatformReconcilerSupportsPrivateRegistryPullSecrets(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "platformDependencyReconciler.enabled=true",
@@ -574,7 +582,7 @@ func TestInstallationDocsQuickStartSmoke(t *testing.T) {
 	contents := string(docs)
 	for _, expected := range []string{
 		"helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot",
-		"--version 0.3.3", "--namespace envpilot", "--values values.yaml",
+		"--version 0.3.4", "--namespace envpilot", "--values values.yaml",
 		"auto", "managed", "existing", "disabled", "Kubernetes 1.26",
 		"Private registry", "minikube-", "not required",
 	} {
@@ -803,7 +811,7 @@ func TestUmbrellaPackageVendorsDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("package umbrella: %v\n%s", err, output)
 	}
-	archive := filepath.Join(temporary, "envpilot-0.3.3.tgz")
+	archive := filepath.Join(temporary, "envpilot-0.3.4.tgz")
 	cmd = exec.Command("tar", "-tzf", archive)
 	output, err = cmd.CombinedOutput()
 	if err != nil {

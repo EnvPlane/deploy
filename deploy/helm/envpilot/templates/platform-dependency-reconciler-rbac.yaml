@@ -87,8 +87,14 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
+    # Kubernetes cannot match resourceNames on a create request because the
+    # object name is not part of its authorization attributes yet. Keep
+    # creation separate, and scope all reads/mutations to our two maps.
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
     resourceNames: ["{{ .Release.Name }}-platform-dependency-reconciler", "{{ .Release.Name }}-platform-dependency-reconciler-status"]
-    verbs: ["get", "create", "update", "patch"]
+    verbs: ["get", "update", "patch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "create", "delete", "patch", "update"]
