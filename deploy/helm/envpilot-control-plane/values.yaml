@@ -63,12 +63,6 @@ ingress:
 
 env:
   ENVPILOT_API_CONTRACT_VERSION: "1"
-  # The bootstrap Agent-token endpoint requires a chart reference in order to
-  # generate self-contained install instructions. Keep this published default
-  # valid for a normal chart install; environment values can override it for
-  # an internal chart registry or other target-specific distribution path.
-  ENVPILOT_AGENT_HELM_CHART_REF: "oci://ghcr.io/envpilot/envpilot-agent"
-  ENVPILOT_AGENT_HELM_CHART_VERSION: ""
   ENVPILOT_ADDR: ":8080"
   ENVPILOT_DATA_DIR: "/var/lib/envpilot/data"
   ENVPILOT_GITOPS_DIR: "/var/lib/envpilot/data/gitops"
@@ -86,6 +80,12 @@ agentBootstrap:
   image:
     repository: ghcr.io/envpilot/agent
     tag: "0.1.4"
+  # Standalone control-plane installs must explicitly provide a remote Agent
+  # chart contract. The umbrella injects its signed release-compatible child
+  # chart version into these fields.
+  chart:
+    ref: ""
+    version: ""
 
 dependencyWait:
   enabled: true

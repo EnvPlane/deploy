@@ -83,6 +83,13 @@ endpoint reachable from target Agent pods. Do not use `localhost`,
 `envpilot.local`, or a host-only ingress address. The one-time registration
 token remains only in the separately displayed bootstrap Secret command.
 
+The matching Agent chart is declared by
+`envpilot-control-plane.agentBootstrap.chart.ref` and `.version`. The umbrella
+release sets these from its `envpilot-agent` dependency, records the exact value
+in its signed compatibility manifest, and the dependency-update workflow keeps
+them together. A standalone control-plane chart has no implicit OCI chart
+version: set both fields explicitly for a remote Agent contract.
+
 ```yaml
 global:
   envpilot:

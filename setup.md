@@ -234,7 +234,7 @@ published OCI chart and an address reachable from agent pods:
 
 ```text
 ENVPILOT_AGENT_HELM_CHART_REF=oci://ghcr.io/envpilot/envpilot-agent
-ENVPILOT_AGENT_HELM_CHART_VERSION=0.1.0
+ENVPILOT_AGENT_HELM_CHART_VERSION=<version from the active umbrella compatibility manifest>
 ENVPILOT_AGENT_CONTROL_PLANE_URL=https://envpilot.example.com
 ```
 

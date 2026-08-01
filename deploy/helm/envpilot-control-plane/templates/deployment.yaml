@@ -9,13 +9,18 @@
 {{- $firstStartSecret := "" -}}
 {{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
 {{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
+{{- $agentBootstrapChart := default (dict) $agentBootstrap.chart -}}
 {{- $legacyAgentBootstrapEndpoint := default "" (get .Values.env "ENVPILOT_AGENT_CONTROL_PLANE_URL") -}}
 {{- $legacyAgentBootstrapRepository := default "" (get .Values.env "ENVPILOT_AGENT_IMAGE_REPOSITORY") -}}
 {{- $legacyAgentBootstrapTag := default "" (get .Values.env "ENVPILOT_AGENT_IMAGE_TAG") -}}
+{{- $legacyAgentBootstrapChartRef := default "" (get .Values.env "ENVPILOT_AGENT_HELM_CHART_REF") -}}
+{{- $legacyAgentBootstrapChartVersion := default "" (get .Values.env "ENVPILOT_AGENT_HELM_CHART_VERSION") -}}
 {{- $agentBootstrapEndpoint := default (printf "http://%s.%s.svc:%v" (include "envpilot-control-plane.fullname" .) .Release.Namespace .Values.service.port) (default $legacyAgentBootstrapEndpoint $agentBootstrap.controlPlaneURL) -}}
 {{- $agentBootstrapRepository := default "ghcr.io/envpilot/agent" (default $legacyAgentBootstrapRepository $agentBootstrapImage.repository) -}}
 {{- $agentBootstrapTag := default "0.1.4" (default $legacyAgentBootstrapTag $agentBootstrapImage.tag) -}}
-{{- $environment := omit (deepCopy .Values.env) "ENVPILOT_AGENT_CONTROL_PLANE_URL" "ENVPILOT_AGENT_IMAGE_REPOSITORY" "ENVPILOT_AGENT_IMAGE_TAG" -}}
+{{- $agentBootstrapChartRef := default $legacyAgentBootstrapChartRef $agentBootstrapChart.ref -}}
+{{- $agentBootstrapChartVersion := default $legacyAgentBootstrapChartVersion $agentBootstrapChart.version -}}
+{{- $environment := omit (deepCopy .Values.env) "ENVPILOT_AGENT_CONTROL_PLANE_URL" "ENVPILOT_AGENT_IMAGE_REPOSITORY" "ENVPILOT_AGENT_IMAGE_TAG" "ENVPILOT_AGENT_HELM_CHART_REF" "ENVPILOT_AGENT_HELM_CHART_VERSION" -}}
 {{- if eq $firstStartMode "existing" -}}
 {{- $firstStartSecret = required "global.envpilot.firstStartRegistration.existingSecret is required when mode=existing" $firstStart.existingSecret -}}
 {{- else if eq $firstStartMode "managed" -}}
@@ -132,6 +137,10 @@ spec:
               value: {{ $agentBootstrapRepository | quote }}
             - name: ENVPILOT_AGENT_IMAGE_TAG
               value: {{ $agentBootstrapTag | quote }}
+            - name: ENVPILOT_AGENT_HELM_CHART_REF
+              value: {{ $agentBootstrapChartRef | quote }}
+            - name: ENVPILOT_AGENT_HELM_CHART_VERSION
+              value: {{ $agentBootstrapChartVersion | quote }}
             {{- if eq $postgresMode "internal" }}
             - name: ENVPILOT_POSTGRES_PASSWORD
               valueFrom:

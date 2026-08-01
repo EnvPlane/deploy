@@ -116,6 +116,7 @@ jobs:
           add-paths: |
             deploy/helm/envpilot/Chart.yaml
             deploy/helm/envpilot/Chart.lock
+            deploy/helm/envpilot/values.yaml
             deploy/helm/envpilot/charts/
           commit-message: "chore(chart): update ${{ steps.payload.outputs.chart }} to ${{ steps.payload.outputs.version }}"
           title: "chore(chart): update ${{ steps.payload.outputs.chart }} to ${{ steps.payload.outputs.version }}"

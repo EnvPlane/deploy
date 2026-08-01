@@ -102,6 +102,51 @@ func TestUmbrellaUsesDirectCanonicalDependencies(t *testing.T) {
 	}
 }
 
+func TestUmbrellaInjectsReleaseCompatibleAgentChartContract(t *testing.T) {
+	chart, err := os.ReadFile("../Chart.yaml")
+	if err != nil {
+		t.Fatalf("read Chart.yaml: %v", err)
+	}
+	agentVersion := ""
+	inAgentDependency := false
+	for _, line := range strings.Split(string(chart), "\n") {
+		if line == "  - name: envpilot-agent" {
+			inAgentDependency = true
+			continue
+		}
+		if inAgentDependency && strings.HasPrefix(line, "  - name: ") {
+			break
+		}
+		if inAgentDependency {
+			if value, ok := strings.CutPrefix(line, "    version: "); ok {
+				agentVersion = strings.TrimSpace(value)
+				break
+			}
+		}
+	}
+	if agentVersion == "" {
+		t.Fatal("envpilot-agent dependency version is missing")
+	}
+	values, err := os.ReadFile("../values.yaml")
+	if err != nil {
+		t.Fatalf("read values.yaml: %v", err)
+	}
+	if !strings.Contains(string(values), `ref: "oci://ghcr.io/envpilot/envpilot-agent"`) || !strings.Contains(string(values), `version: "`+agentVersion+`"`) {
+		t.Fatalf("umbrella values must carry the release-compatible Agent chart contract for %s:\n%s", agentVersion, values)
+	}
+	rendered := renderUmbrella(t)
+	for _, expected := range []string{
+		`name: ENVPILOT_AGENT_HELM_CHART_REF`,
+		`value: "oci://ghcr.io/envpilot/envpilot-agent"`,
+		`name: ENVPILOT_AGENT_HELM_CHART_VERSION`,
+		`value: "` + agentVersion + `"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("active umbrella render missing Agent chart contract %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	rendered := renderUmbrella(t)
 	for _, expected := range []string{

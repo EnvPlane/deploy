@@ -96,7 +96,18 @@ func TestControlPlaneChartUsesServiceDNSForSameClusterAgentBootstrapAndAllowsRem
 	remote := renderControlPlaneChart(t,
 		"--namespace", "envpilot",
 		"--set", "agentBootstrap.controlPlaneURL=https://api.envpilot.example.com",
+		"--set", "agentBootstrap.chart.ref=oci://registry.example/envpilot-agent",
+		"--set", "agentBootstrap.chart.version=0.2.7",
 	)
+	for _, expected := range []string{
+		`value: "https://api.envpilot.example.com"`,
+		`value: "oci://registry.example/envpilot-agent"`,
+		`value: "0.2.7"`,
+	} {
+		if !strings.Contains(remote, expected) {
+			t.Fatalf("remote Agent contract was not rendered %q:\n%s", expected, remote)
+		}
+	}
 	if !strings.Contains(remote, `value: "https://api.envpilot.example.com"`) {
 		t.Fatalf("remote Agent endpoint override was not rendered:\n%s", remote)
 	}
