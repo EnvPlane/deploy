@@ -36,7 +36,7 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	for _, expected := range []string{
 		"kind: Deployment",
 		"name: api",
-		"range $key, $value := .Values.env",
+		"range $key, $value := $environment",
 		"ENVPILOT_DATABASE_URL",
 		"ENVPILOT_REDIS_URL",
 		"mountPath: /var/lib/envpilot",
@@ -76,6 +76,36 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	}
 	if !strings.Contains(string(service), "kind: Service") {
 		t.Fatalf("service template does not contain kind Service")
+	}
+}
+
+func TestControlPlaneChartUsesServiceDNSForSameClusterAgentBootstrapAndAllowsRemoteOverride(t *testing.T) {
+	sameCluster := renderControlPlaneChart(t, "--namespace", "envpilot")
+	for _, expected := range []string{
+		"name: ENVPILOT_AGENT_CONTROL_PLANE_URL",
+		`value: "http://envpilot-control-plane.envpilot.svc:8080"`,
+		"name: ENVPILOT_AGENT_IMAGE_REPOSITORY",
+		`value: "ghcr.io/envpilot/agent"`,
+		"name: ENVPILOT_AGENT_IMAGE_TAG",
+		`value: "0.1.4"`,
+	} {
+		if !strings.Contains(sameCluster, expected) {
+			t.Fatalf("same-cluster bootstrap render missing %q:\n%s", expected, sameCluster)
+		}
+	}
+	remote := renderControlPlaneChart(t,
+		"--namespace", "envpilot",
+		"--set", "agentBootstrap.controlPlaneURL=https://api.envpilot.example.com",
+	)
+	if !strings.Contains(remote, `value: "https://api.envpilot.example.com"`) {
+		t.Fatalf("remote Agent endpoint override was not rendered:\n%s", remote)
+	}
+	legacyRemote := renderControlPlaneChart(t,
+		"--namespace", "envpilot",
+		"--set", "env.ENVPILOT_AGENT_CONTROL_PLANE_URL=https://legacy-api.envpilot.example.com",
+	)
+	if strings.Count(legacyRemote, "name: ENVPILOT_AGENT_CONTROL_PLANE_URL") != 1 || !strings.Contains(legacyRemote, `value: "https://legacy-api.envpilot.example.com"`) {
+		t.Fatalf("legacy remote Agent endpoint must remain supported without duplicate environment variables:\n%s", legacyRemote)
 	}
 }
 

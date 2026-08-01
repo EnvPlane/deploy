@@ -162,6 +162,13 @@ envpilot-control-plane:
     ENVPILOT_API_CONTRACT_VERSION: "1"
     ENVPILOT_AGENT_HELM_CHART_REF: "oci://ghcr.io/envpilot/envpilot-agent"
     ENVPILOT_AGENT_HELM_CHART_VERSION: ""
+  # Empty means the same-cluster Service FQDN. Set only for an Agent installed
+  # in another cluster, where the endpoint must be explicitly pod-reachable.
+  agentBootstrap:
+    controlPlaneURL: ""
+    image:
+      repository: ghcr.io/envpilot/agent
+      tag: "sha-7e03dde324a6f5fd095682177f547d9ad30e7f12"
   # internal creates in-release StatefulSets. external references a Secret
   # containing complete connection URLs. disabled leaves the corresponding
   # application variable unset for an externally injected configuration.

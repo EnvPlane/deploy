@@ -77,6 +77,16 @@ env:
   ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS: "120"
   ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS: "2"
 
+# Endpoint and image used in generated bootstrap Agent instructions. An empty
+# endpoint resolves at render time to this chart's Service FQDN in the release
+# namespace (for example http://envpilot-control-plane.envpilot.svc:8080).
+# Set controlPlaneURL explicitly only for a remote Agent cluster.
+agentBootstrap:
+  controlPlaneURL: ""
+  image:
+    repository: ghcr.io/envpilot/agent
+    tag: "0.1.4"
+
 dependencyWait:
   enabled: true
 

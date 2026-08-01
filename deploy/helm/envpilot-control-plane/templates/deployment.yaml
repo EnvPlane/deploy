@@ -7,6 +7,15 @@
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- $firstStartSecret := "" -}}
+{{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
+{{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
+{{- $legacyAgentBootstrapEndpoint := default "" (get .Values.env "ENVPILOT_AGENT_CONTROL_PLANE_URL") -}}
+{{- $legacyAgentBootstrapRepository := default "" (get .Values.env "ENVPILOT_AGENT_IMAGE_REPOSITORY") -}}
+{{- $legacyAgentBootstrapTag := default "" (get .Values.env "ENVPILOT_AGENT_IMAGE_TAG") -}}
+{{- $agentBootstrapEndpoint := default (printf "http://%s.%s.svc:%v" (include "envpilot-control-plane.fullname" .) .Release.Namespace .Values.service.port) (default $legacyAgentBootstrapEndpoint $agentBootstrap.controlPlaneURL) -}}
+{{- $agentBootstrapRepository := default "ghcr.io/envpilot/agent" (default $legacyAgentBootstrapRepository $agentBootstrapImage.repository) -}}
+{{- $agentBootstrapTag := default "0.1.4" (default $legacyAgentBootstrapTag $agentBootstrapImage.tag) -}}
+{{- $environment := omit (deepCopy .Values.env) "ENVPILOT_AGENT_CONTROL_PLANE_URL" "ENVPILOT_AGENT_IMAGE_REPOSITORY" "ENVPILOT_AGENT_IMAGE_TAG" -}}
 {{- if eq $firstStartMode "existing" -}}
 {{- $firstStartSecret = required "global.envpilot.firstStartRegistration.existingSecret is required when mode=existing" $firstStart.existingSecret -}}
 {{- else if eq $firstStartMode "managed" -}}
@@ -114,6 +123,15 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           env:
+            # Bootstrap Agent instructions must use a pod-reachable endpoint,
+            # never the browser ingress host. A remote target cluster sets the
+            # explicit agentBootstrap.controlPlaneURL override.
+            - name: ENVPILOT_AGENT_CONTROL_PLANE_URL
+              value: {{ $agentBootstrapEndpoint | quote }}
+            - name: ENVPILOT_AGENT_IMAGE_REPOSITORY
+              value: {{ $agentBootstrapRepository | quote }}
+            - name: ENVPILOT_AGENT_IMAGE_TAG
+              value: {{ $agentBootstrapTag | quote }}
             {{- if eq $postgresMode "internal" }}
             - name: ENVPILOT_POSTGRES_PASSWORD
               valueFrom:
@@ -139,7 +157,7 @@ spec:
                   name: {{ required "redis.external.existingSecret is required when redis.mode=external" .Values.redis.external.existingSecret | quote }}
                   key: {{ .Values.redis.external.urlKey | quote }}
             {{- end }}
-            {{- range $key, $value := .Values.env }}
+            {{- range $key, $value := $environment }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}

@@ -68,6 +68,21 @@ For an operator-managed Secret, select `mode: existing` and supply the Secret
 name. It must provide `agent-registration-token`, `runner-registration-token`,
 and `runner-project-config-token`; the chart does not render or log its values.
 
+### Bootstrap Agent endpoint
+
+For an Agent installed in the same cluster as the umbrella release, leave
+`envpilot-control-plane.agentBootstrap.controlPlaneURL` empty. The control
+plane then generates bootstrap instructions using its Kubernetes Service FQDN
+(`http://envpilot-control-plane.<release-namespace>.svc:8080`), rather than a
+browser ingress hostname. The generated preflight runs `agent-connectivity-check`
+from the selected Agent image and does not consume the one-time registration
+credential.
+
+For a remote Agent cluster, set `agentBootstrap.controlPlaneURL` to an explicit
+endpoint reachable from target Agent pods. Do not use `localhost`,
+`envpilot.local`, or a host-only ingress address. The one-time registration
+token remains only in the separately displayed bootstrap Secret command.
+
 ```yaml
 global:
   envpilot:
