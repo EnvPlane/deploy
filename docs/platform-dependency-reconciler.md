@@ -51,3 +51,10 @@ idempotency, and uninstalls the umbrella release. Existing resources are never
 adopted; managed resources are cleaned according to their ownership policy.
 The degraded fixture is expected to fail the hook and must retain an actionable
 diagnostic in the status ConfigMap.
+
+The fast umbrella contract matrix is
+`deploy/helm/envpilot/tests/umbrella-contract-matrix.sh`. It runs lint, Helm
+JSON-schema validation, template policy checks and kubeconform for Kubernetes
+1.26, 1.29 and 1.32 across minimal, all-enabled, external database, Ingress,
+Gateway API, private registry and existing-secret profiles. It is intentionally
+cluster-free and does not provision minikube.

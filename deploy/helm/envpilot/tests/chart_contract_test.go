@@ -486,6 +486,23 @@ func TestPlatformDependencyE2EMatrixUsesUmbrellaAndOwnershipScenarios(t *testing
 	}
 }
 
+func TestUmbrellaContractMatrixCoversProfilesAndPolicies(t *testing.T) {
+	script, err := os.ReadFile("umbrella-contract-matrix.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(script)
+	for _, expected := range []string{
+		"minimal all-enabled external-databases ingress gateway private-registry existing-secrets",
+		"helm lint", "helm template", "kubeconform", "1.26.0", "1.29.0", "1.32.0",
+		"duplicate rendered resource", "namespace leakage", "envpilot-install", "cluster-admin",
+	} {
+		if !strings.Contains(contents, expected) {
+			t.Fatalf("umbrella contract matrix missing %q", expected)
+		}
+	}
+}
+
 func TestAllComponentRenderMeetsRestrictedPodSecurityBaseline(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "agent.enabled=true",
