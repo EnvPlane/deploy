@@ -101,7 +101,8 @@ jobs:
             mkdir -p /tmp/envpilot-release-resume deploy/helm/envpilot/compatibility
             output="$(helm pull "oci://ghcr.io/envpilot/envpilot" --version "$VERSION" --destination /tmp/envpilot-release-resume 2>&1 | tee /dev/stderr)"
             package="/tmp/envpilot-release-resume/envpilot-$VERSION.tgz"
-            manifest_path="$(tar -tzf "$package" | awk '/\/compatibility\/release\.json$/ { print; exit }')"
+            tar -tzf "$package" > /tmp/envpilot-release-resume/archive-files.txt
+            manifest_path="$(awk '/\/compatibility\/release\.json$/ { print; exit }' /tmp/envpilot-release-resume/archive-files.txt)"
             test -n "$manifest_path"
             tar -xOf "$package" "$manifest_path" > deploy/helm/envpilot/compatibility/release.json
           else
