@@ -1,4 +1,7 @@
-FROM golang:1.25 AS build
+# Build the Go binary on the native BuildKit platform and cross-compile it for
+# the requested target. This avoids QEMU-emulating the Go toolchain for arm64.
+FROM --platform=$BUILDPLATFORM golang:1.25 AS build
+ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
