@@ -38,6 +38,7 @@ spec:
         - name: control-plane-preflight
           image: {{ include "envpilot-runner.image" . | quote }}
           imagePullPolicy: {{ include "envpilot-runner.imagePullPolicy" . }}
+          workingDir: /tmp
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
@@ -64,6 +65,7 @@ spec:
         - name: runner
           image: {{ include "envpilot-runner.image" . | quote }}
           imagePullPolicy: {{ include "envpilot-runner.imagePullPolicy" . }}
+          workingDir: /tmp
           {{- with .Values.command }}
           command:
             {{- toYaml . | nindent 12 }}
