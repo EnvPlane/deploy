@@ -9,7 +9,9 @@ chart_archive="${1:-}"
 [[ -f "$chart_archive" ]] || { echo "chart archive is required" >&2; exit 2; }
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-if ! tar -tzf "$chart_archive" | grep -Eq '/compatibility/release\.json$'; then
+tar -tzf "$chart_archive" > "$tmp/archive-files.txt"
+manifest_path="$(awk '/\/compatibility\/release\.json$/ { print; exit }' "$tmp/archive-files.txt")"
+if [[ -z "$manifest_path" ]]; then
   if [[ "$allow_legacy_without_manifest" != true ]]; then
     echo "chart archive has no compatibility manifest" >&2
     exit 1
@@ -21,11 +23,11 @@ if ! tar -tzf "$chart_archive" | grep -Eq '/compatibility/release\.json$'; then
   echo "legacy chart reinstall render passed without compatibility manifest"
   exit 0
 fi
-tar -xOf "$chart_archive" "*/compatibility/release.json" > "$tmp/manifest.json"
+tar -xOf "$chart_archive" "$manifest_path" > "$tmp/manifest.json"
 jq -e '.schemaVersion == 1 and (.images|length == 5) and (.childCharts|length == 4) and all(.images[]; .digest|test("^sha256:[0-9a-f]{64}$"))' "$tmp/manifest.json" >/dev/null
 helm template reinstall-a "$chart_archive" > "$tmp/a.yaml"
 helm upgrade --install reinstall-a "$chart_archive" --dry-run=client --debug >/dev/null 2>&1
-test "$(sha256sum "$tmp/manifest.json" | awk '{print $1}')" = "$(tar -xOf "$chart_archive" "*/compatibility/release.json" | sha256sum | awk '{print $1}')" || {
+test "$(sha256sum "$tmp/manifest.json" | awk '{print $1}')" = "$(tar -xOf "$chart_archive" "$manifest_path" | sha256sum | awk '{print $1}')" || {
   echo "reinstall did not resolve the same compatibility manifest" >&2
   exit 1
 }
