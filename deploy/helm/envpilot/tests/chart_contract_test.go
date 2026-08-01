@@ -26,7 +26,7 @@ func buildDependencies(t *testing.T) {
 func renderUmbrella(t *testing.T, values ...string) string {
 	t.Helper()
 	buildDependencies(t)
-	args := append([]string{"template", "envpilot", ".."}, values...)
+	args := append([]string{"template", "envpilot", "..", "--namespace", "envpilot"}, values...)
 	cmd := exec.Command("helm", args...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()

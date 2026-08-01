@@ -8,8 +8,11 @@ umbrella values. Neither path accepts mutable `main` or `latest` release pins.
 ## Preferred authentication: one GitHub App
 
 Use one private GitHub App named `envpilot-release-automation`. Install it only
-on `envpilot/deploy`; it does not need access to runtime repositories. Give the
-installation these repository permissions:
+on `envpilot/bootstrap`, `envpilot/deploy` and `envpilot/frontend`; it does not
+need access to the runtime repositories that publish images. The control-plane
+and runner source checks read `bootstrap` and `frontend`, while every component
+reads the canonical deploy source. Give the installation these repository
+permissions:
 
 | Permission | Access | Why it is needed |
 |---|---|---|
