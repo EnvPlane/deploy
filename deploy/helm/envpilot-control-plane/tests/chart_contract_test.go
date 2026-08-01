@@ -211,6 +211,9 @@ func TestControlPlaneChartWiresPostgresRedisAndMigrations(t *testing.T) {
 		`value: "/var/lib/envpilot/migrations/postgres"`,
 		"--appendonly",
 		"volumeClaimTemplates:",
+		"runAsUser: 70",
+		"runAsGroup: 70",
+		"fsGroup: 70",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered chart does not contain %q:\n%s", expected, rendered)

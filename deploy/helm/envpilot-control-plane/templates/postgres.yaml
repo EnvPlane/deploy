@@ -43,9 +43,12 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
-        fsGroup: 999
+        # The official postgres:16-alpine image uses the non-root `postgres`
+        # account (UID/GID 70). Running it as 999 makes its PGDATA directory
+        # inaccessible after the entrypoint has initialized it as postgres.
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
         seccompProfile:
           type: RuntimeDefault
       {{- with .Values.nodeSelector }}
@@ -70,8 +73,8 @@ spec:
               drop:
                 - ALL
             runAsNonRoot: true
-            runAsUser: 999
-            runAsGroup: 999
+            runAsUser: 70
+            runAsGroup: 70
           ports:
             - name: postgres
               containerPort: 5432
