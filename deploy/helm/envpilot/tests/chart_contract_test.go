@@ -503,6 +503,27 @@ func TestUmbrellaContractMatrixCoversProfilesAndPolicies(t *testing.T) {
 	}
 }
 
+func TestPublishedArtifactE2EContract(t *testing.T) {
+	script, err := os.ReadFile("../../../../scripts/published-artifact-e2e.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(script)
+	for _, expected := range []string{
+		"helm upgrade --install", "--values", "api/v1/health", "api/v1/projects/", "api/v1/environments",
+		"helm upgrade", "helm rollback", "helm uninstall", "ENVPILOT_E2E_EXISTING_RESOURCES",
+	} {
+		if !strings.Contains(contents, expected) {
+			t.Fatalf("published artifact E2E missing %q", expected)
+		}
+	}
+	for _, forbidden := range []string{"minikube start", "kind create cluster", "kubeadm"} {
+		if strings.Contains(contents, forbidden) {
+			t.Fatalf("published artifact E2E must not provision clusters: %q", forbidden)
+		}
+	}
+}
+
 func TestAllComponentRenderMeetsRestrictedPodSecurityBaseline(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "agent.enabled=true",

@@ -58,3 +58,14 @@ JSON-schema validation, template policy checks and kubeconform for Kubernetes
 1.26, 1.29 and 1.32 across minimal, all-enabled, external database, Ingress,
 Gateway API, private registry and existing-secret profiles. It is intentionally
 cluster-free and does not provision minikube.
+
+## Published-artifact product E2E
+
+`scripts/published-artifact-e2e.sh` accepts an already provisioned Kubernetes
+context plus published N-1/N chart references and a values file. It performs
+one initial `helm upgrade --install`, verifies API and UI health, same-cluster
+Agent/Runner readiness, project/environment creation and terminal Runner
+execution, then exercises upgrade, rollback and uninstall ownership. Port
+forwarding is test-harness-only; the chart has no cluster-provider or minikube
+special cases. Existing dependency resources can be listed with
+`ENVPILOT_E2E_EXISTING_RESOURCES` and must survive uninstall.
