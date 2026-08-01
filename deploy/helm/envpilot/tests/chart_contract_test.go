@@ -143,6 +143,7 @@ func TestChildChartsShareExplicitImageContract(t *testing.T) {
 		args = append(args,
 			"--set", component+".image.repository=registry.example.internal/envpilot/"+strings.TrimPrefix(component, "envpilot-"),
 			"--set", component+".image.tag=build-20260731",
+			"--set", component+".image.digest=",
 			"--set", component+".image.pullPolicy=Always",
 			"--set", component+".image.sourceRevision=abcdef123456",
 			"--set", component+".image.release=2026.07.31",
@@ -213,7 +214,14 @@ func TestChildChartsRejectImplicitLatestAndSharedTagOverride(t *testing.T) {
 			{value: "latest", message: "image.tag must not be latest"},
 			{value: "", message: "image.tag is required when image.digest is not set"},
 		} {
-			args := []string{"template", "envpilot", "..", "--set", component + ".image.tag=" + invalid.value}
+			// Some child charts intentionally ship a digest default. Clear it here so
+			// this assertion exercises the tag-validation branch rather than digest
+			// precedence.
+			args := []string{
+				"template", "envpilot", "..",
+				"--set", component + ".image.tag=" + invalid.value,
+				"--set", component + ".image.digest=",
+			}
 			if component == "envpilot-agent" {
 				args = append(args, "--set", "agent.enabled=true")
 			}
