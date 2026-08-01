@@ -409,6 +409,19 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 	}
 }
 
+func TestPlatformReconcilerPrerequisitesRunBeforeTheGateJob(t *testing.T) {
+	rendered := renderUmbrella(t, "--set", "platformDependencyReconciler.enabled=true")
+	for _, expected := range []string{
+		"name: envpilot-platform-dependency-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-30\"",
+		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-20\"",
+		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"10\"",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("platform reconciler lifecycle ordering missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestManagedIngressProviderRendersPinnedSmokeContract(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "platformDependencies.ingress.mode=managed",
