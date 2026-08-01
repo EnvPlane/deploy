@@ -36,6 +36,21 @@ func renderUmbrella(t *testing.T, values ...string) string {
 	return string(output)
 }
 
+func umbrellaChartVersion(t *testing.T) string {
+	t.Helper()
+	chart, err := os.ReadFile("../Chart.yaml")
+	if err != nil {
+		t.Fatalf("read Chart.yaml: %v", err)
+	}
+	for _, line := range strings.Split(string(chart), "\n") {
+		if version, found := strings.CutPrefix(line, "version: "); found && strings.TrimSpace(version) != "" {
+			return strings.TrimSpace(version)
+		}
+	}
+	t.Fatal("umbrella Chart.yaml has no version")
+	return ""
+}
+
 func TestUmbrellaUsesDirectCanonicalDependencies(t *testing.T) {
 	chart, err := os.ReadFile("../Chart.yaml")
 	if err != nil {
@@ -811,7 +826,7 @@ func TestUmbrellaPackageVendorsDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("package umbrella: %v\n%s", err, output)
 	}
-	archive := filepath.Join(temporary, "envpilot-0.3.6.tgz")
+	archive := filepath.Join(temporary, "envpilot-"+umbrellaChartVersion(t)+".tgz")
 	cmd = exec.Command("tar", "-tzf", archive)
 	output, err = cmd.CombinedOutput()
 	if err != nil {
