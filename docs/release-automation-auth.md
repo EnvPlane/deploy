@@ -30,7 +30,7 @@ values file, artifact, log or workflow output:
 
 | Secret | Where stored |
 |---|---|
-| `ENVPILOT_AUTOMATION_APP_ID` | `frontend`, `control-plane`, `agent`, `runner` and `deploy` repositories |
+| `ENVPILOT_AUTOMATION_APP_CLIENT_ID` | `frontend`, `control-plane`, `agent`, `runner` and `deploy` repositories |
 | `ENVPILOT_AUTOMATION_APP_PRIVATE_KEY` | The same five repositories |
 
 Component workflows mint two short-lived tokens from this same App: a

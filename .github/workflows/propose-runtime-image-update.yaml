@@ -102,12 +102,12 @@ jobs:
       - id: auth_method
         name: Select deploy PR authentication
         env:
-          APP_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_ID }}
+          CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
           APP_PRIVATE_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
           FALLBACK_PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
-          if [[ -n "$APP_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+          if [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
             echo "method=app" >> "$GITHUB_OUTPUT"
           elif [[ -n "$FALLBACK_PAT" ]]; then
             echo "method=pat" >> "$GITHUB_OUTPUT"
@@ -118,9 +118,9 @@ jobs:
           fi
       - id: deploy_pr_app
         if: steps.auth_method.outputs.method == 'app'
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_ID }}
+          client-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
           private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
           owner: envpilot
           repositories: deploy
