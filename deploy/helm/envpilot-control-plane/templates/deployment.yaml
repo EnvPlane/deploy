@@ -92,15 +92,15 @@ spec:
               done
         {{- end }}
       {{- end }}
-      {{- if $platformDependencyStatusEnabled }}
-      envFrom:
-        - configMapRef:
-            name: {{ printf "%s-platform-dependency-status" .Release.Name | quote }}
-      {{- end }}
       containers:
         - name: api
           image: {{ include "envpilot-control-plane.image" . | quote }}
           imagePullPolicy: {{ include "envpilot-control-plane.imagePullPolicy" . }}
+          {{- if $platformDependencyStatusEnabled }}
+          envFrom:
+            - configMapRef:
+                name: {{ printf "%s-platform-dependency-status" .Release.Name | quote }}
+          {{- end }}
           {{- with .Values.command }}
           command:
             {{- toYaml . | nindent 12 }}

@@ -119,6 +119,12 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 			t.Fatalf("Agent/Runner must remain opt-in by default; found %q", disabled)
 		}
 	}
+	if !strings.Contains(rendered, "          envFrom:\n            - configMapRef:\n                name: \"envpilot-platform-dependency-status\"") {
+		t.Fatalf("platform dependency status must be injected into the API container:\n%s", rendered)
+	}
+	if strings.Contains(rendered, "      envFrom:\n        - configMapRef:") {
+		t.Fatalf("platform dependency status must not be rendered at PodSpec scope:\n%s", rendered)
+	}
 }
 
 func TestChildChartsShareExplicitImageContract(t *testing.T) {
