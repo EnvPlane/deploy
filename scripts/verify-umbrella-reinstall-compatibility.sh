@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+chart_archive="${1:-}"
+[[ -f "$chart_archive" ]] || { echo "chart archive is required" >&2; exit 2; }
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+tar -xOf "$chart_archive" "*/compatibility/release.json" > "$tmp/manifest.json"
+jq -e '.schemaVersion == 1 and (.images|length == 4) and (.childCharts|length == 4) and all(.images[]; .digest|test("^sha256:[0-9a-f]{64}$"))' "$tmp/manifest.json" >/dev/null
+helm template reinstall-a "$chart_archive" > "$tmp/a.yaml"
+helm upgrade --install reinstall-a "$chart_archive" --dry-run=client --debug >/dev/null 2>&1
+test "$(sha256sum "$tmp/manifest.json" | awk '{print $1}')" = "$(tar -xOf "$chart_archive" "*/compatibility/release.json" | sha256sum | awk '{print $1}')" || {
+  echo "reinstall did not resolve the same compatibility manifest" >&2
+  exit 1
+}
+echo "umbrella reinstall compatibility verification passed"

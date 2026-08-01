@@ -1,59 +1,106 @@
-name: Publish EnvPilot umbrella release
+name: Publish atomic EnvPilot umbrella release
 
 on:
-  push:
-    tags:
-      - "envpilot-v*"
   workflow_dispatch:
     inputs:
       version:
-        description: Immutable release version, for example 0.1.5
+        description: New umbrella SemVer
+        required: true
+        type: string
+      previous_version:
+        description: Existing umbrella version to reinstall and verify
         required: true
         type: string
 
 permissions:
-  contents: read
+  contents: write
   packages: write
+  id-token: write
+
+concurrency:
+  group: envpilot-umbrella-release
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  release:
+    if: github.repository == 'envpilot/deploy' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: azure/setup-helm@v4
-      - id: release
-        name: Resolve release version
-        shell: bash
+      - uses: sigstore/cosign-installer@v3
+      - id: version
+        name: Validate and bump release version in the build workspace
+        env:
+          VERSION: ${{ inputs.version }}
+          PREVIOUS: ${{ inputs.previous_version }}
         run: |
           set -euo pipefail
-          version="${{ inputs.version }}"
-          if [[ -z "$version" ]]; then
-            version="${GITHUB_REF_NAME#envpilot-v}"
-          fi
-          [[ -f "release/${version}.yaml" ]]
-          [[ "$(awk -F'"' '/^version:/{print $2; exit}' "release/${version}.yaml")" == "$version" ]]
-          [[ "$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot/Chart.yaml)" == "$version" ]]
-          [[ "$(awk '/^appVersion:/{gsub(/\"/, "", $2); print $2; exit}' deploy/helm/envpilot/Chart.yaml)" == "$version" ]]
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid release SemVer" >&2; exit 1; }
+          [[ "$PREVIOUS" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "invalid previous SemVer" >&2; exit 1; }
+          test "$(printf '%s\n' "$PREVIOUS" "$VERSION" | sort -V | tail -1)" = "$VERSION"
+          current="$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot/Chart.yaml)"
+          test "$VERSION" != "$current"
+          sed -i.bak -E "0,/^version: .*/s//version: $VERSION/; 0,/^appVersion: .*/s//appVersion: \"$VERSION\"/" deploy/helm/envpilot/Chart.yaml
+          rm -f deploy/helm/envpilot/Chart.yaml.bak
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
       - name: Verify canonical chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
-      - name: Validate umbrella chart contract
+      - name: Generate immutable compatibility manifest
         run: |
-          go test ./deploy/helm/envpilot/tests
+          ./scripts/generate-umbrella-compatibility-manifest.sh \
+            --version '${{ steps.version.outputs.version }}' \
+            --source-revision '${{ github.sha }}' \
+            --output deploy/helm/envpilot/compatibility/release.json
+      - name: Build dependencies and validate chart
+        run: |
+          set -euo pipefail
+          mkdir -p deploy/helm/envpilot/compatibility dist
           helm dependency build --skip-refresh deploy/helm/envpilot
+          go test ./deploy/helm/envpilot/tests
           helm lint deploy/helm/envpilot
-          helm package deploy/helm/envpilot --destination dist
+          helm template envpilot deploy/helm/envpilot >/dev/null
       - name: Authenticate to GHCR
-        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
-      - name: Publish OCI umbrella chart
-        run: helm push dist/envpilot-${{ steps.release.outputs.version }}.tgz oci://ghcr.io/${{ github.repository_owner }}
-      - name: Record artifact digests
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Reject an existing umbrella OCI version
+        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envpilot/envpilot --version '${{ steps.version.outputs.version }}'
+      - name: Package umbrella chart
+        run: helm package deploy/helm/envpilot --destination dist --version '${{ steps.version.outputs.version }}' --app-version '${{ steps.version.outputs.version }}'
+      - name: Publish umbrella OCI chart
+        id: push
         run: |
-          {
-            echo "## EnvPilot ${{ steps.release.outputs.version }}"
-            echo
-            echo "- chart: \`oci://ghcr.io/${{ github.repository_owner }}/envpilot:${{ steps.release.outputs.version }}\`"
-            echo "- release contract: \`release/${{ steps.release.outputs.version }}.yaml\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          output="$(helm push "dist/envpilot-${{ steps.version.outputs.version }}.tgz" oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+          digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Sign and attest published chart
+        env:
+          CHART_REF: ghcr.io/envpilot/envpilot@${{ steps.push.outputs.digest }}
+          MANIFEST: deploy/helm/envpilot/compatibility/release.json
+        run: |
+          cosign sign --yes "$CHART_REF"
+          cosign attest --yes --predicate "$MANIFEST" --type https://envpilot.dev/compatibility/v1 "$CHART_REF"
+      - name: Verify previous-version reinstall resolves its exact compatibility set
+        env:
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+        run: |
+          set -euo pipefail
+          helm pull "oci://ghcr.io/envpilot/envpilot" --version "$PREVIOUS" --destination /tmp
+          ./scripts/verify-umbrella-reinstall-compatibility.sh "/tmp/envpilot-${PREVIOUS}.tgz"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          gh release create "envpilot-v$VERSION" \
+            "dist/envpilot-$VERSION.tgz" \
+            deploy/helm/envpilot/compatibility/release.json \
+            --repo envpilot/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
+            --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"
