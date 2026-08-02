@@ -57,13 +57,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{- define "envpilot-runner.controlPlaneEndpoint" -}}
-{{- $mode := default "sameCluster" .Values.controlPlane.endpointMode -}}
+{{- $controlPlane := default (dict) .Values.controlPlane -}}
+{{- $mode := default "sameCluster" (get $controlPlane "endpointMode") -}}
 {{- if eq $mode "remote" -}}
-{{- required "controlPlane.url is required when controlPlane.endpointMode=remote" .Values.controlPlane.url -}}
+{{- required "controlPlane.url is required when controlPlane.endpointMode=remote" (get $controlPlane "url") -}}
 {{- else if eq $mode "sameCluster" -}}
-{{- $serviceName := default "envpilot-control-plane" .Values.controlPlane.serviceName -}}
-{{- $namespace := default .Release.Namespace .Values.controlPlane.namespace -}}
-{{- $port := default 8080 .Values.controlPlane.port -}}
+{{- $serviceName := default "envpilot-control-plane" (get $controlPlane "serviceName") -}}
+{{- $namespace := default .Release.Namespace (get $controlPlane "namespace") -}}
+{{- $port := default 8080 (get $controlPlane "port") -}}
 {{- printf "http://%s.%s.svc:%v" $serviceName $namespace $port -}}
 {{- else -}}
 {{- fail "controlPlane.endpointMode must be sameCluster or remote" -}}

@@ -119,6 +119,8 @@ func TestRunnerChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	}
 	// Releases created before the TLS block was added must remain upgradeable
 	// with --reuse-values. A remote endpoint does not require a private CA.
+	// Deliberately set the historical value to nil: the template must not use a
+	// dotted lookup that dereferences the missing map.
 	remoteWithoutTLS := renderRunnerChart(t,
 		"--set", "controlPlane.endpointMode=remote",
 		"--set", "controlPlane.url=https://api.remote.example",
@@ -127,6 +129,14 @@ func TestRunnerChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	if !strings.Contains(remoteWithoutTLS, `value: "https://api.remote.example"`) ||
 		strings.Contains(remoteWithoutTLS, "ENVPILOT_CONTROL_PLANE_CA_FILE") {
 		t.Fatalf("remote Runner endpoint without legacy TLS values was not rendered safely:\n%s", remoteWithoutTLS)
+	}
+	deployment, err := os.ReadFile("../templates/deployment.yaml")
+	if err != nil {
+		t.Fatalf("read deployment template: %v", err)
+	}
+	if !strings.Contains(string(deployment), `get $controlPlane "tls"`) ||
+		strings.Contains(string(deployment), ".Values.controlPlane.tls") {
+		t.Fatal("deployment template must safely access an optional legacy controlPlane.tls map")
 	}
 	cmd := exec.Command("helm", "template", "envpilot-runner", "..", "--set", "controlPlane.endpointMode=remote")
 	cmd.Dir = "."

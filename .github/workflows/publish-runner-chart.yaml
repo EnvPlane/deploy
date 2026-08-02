@@ -9,17 +9,28 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: azure/setup-helm@v4
+      - uses: sigstore/cosign-installer@v3
       - id: chart
         run: echo "version=$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot-runner/Chart.yaml)" >> "$GITHUB_OUTPUT"
       - name: Verify canonical Helm chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
+      - name: Lint and render the canonical Runner chart
+        run: |
+          set -euo pipefail
+          go test ./deploy/helm/envpilot-runner/tests
+          helm lint deploy/helm/envpilot-runner
+          helm template envpilot-runner deploy/helm/envpilot-runner >/dev/null
       - name: Package chart
         run: helm package deploy/helm/envpilot-runner --destination dist
       - name: Authenticate to GHCR
@@ -36,6 +47,28 @@ jobs:
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Authenticate cosign to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Sign and attest the published Runner chart
+        env:
+          CHART_REF: ghcr.io/envpilot/envpilot-runner@${{ steps.push.outputs.digest }}
+        run: |
+          cosign sign --yes "$CHART_REF"
+          cosign attest --yes --predicate deploy/helm/envpilot-runner/Chart.yaml --type https://envpilot.dev/chart/v1 "$CHART_REF"
+      - name: Create isolated Kubernetes test cluster
+        uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: runner-chart-upgrade
+      - name: Test published legacy remote upgrade
+        env:
+          ENVPILOT_RUNNER_UPGRADE_CONTEXT: kind-runner-chart-upgrade
+          ENVPILOT_RUNNER_UPGRADE_CHART: oci://ghcr.io/envpilot/envpilot-runner
+          ENVPILOT_RUNNER_UPGRADE_VERSION: ${{ steps.chart.outputs.version }}
+        run: ./scripts/test-published-runner-legacy-upgrade.sh
       - id: dispatch_auth
         env:
           CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}

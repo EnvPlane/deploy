@@ -36,6 +36,29 @@ namespace. A later planned maintenance release may move an existing runner to
 new resource names, but that requires creating a new auth PVC and is not part of
 this compatibility migration.
 
+### Legacy remote values without `controlPlane.tls`
+
+Some Runner releases saved remote connection values before the optional
+`controlPlane.tls` block existed. Upgrade those releases with `--reuse-values`;
+the canonical chart treats the missing block as system trust and renders no CA
+volume. Keep the remote endpoint explicit and stable:
+
+```sh
+helm upgrade <release> oci://ghcr.io/envpilot/envpilot-runner \
+  --version 0.3.4 \
+  --namespace <target-namespace> \
+  --reuse-values \
+  --set controlPlane.endpointMode=remote \
+  --set controlPlane.url=https://api.envpilot.example.com
+```
+
+For a private CA, additionally set `controlPlane.tls.caSecret` and
+`controlPlane.tls.caKey`; the Secret must already exist in the target namespace.
+`localhost`, `host.minikube.internal`, Kubernetes Service DNS from another
+cluster, and a developer `kubectl port-forward` are not supported remote
+endpoints. The target Runner pod must be able to reach the configured URL after
+the installer process exits.
+
 ## Control-plane frontend migration
 
 `envpilot-control-plane` 0.2.0 consumes the canonical frontend chart as a local

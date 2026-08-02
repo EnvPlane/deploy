@@ -4,7 +4,10 @@
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartEnabled := eq (include "envpilot-runner.usesFirstStartRegistration" .) "true" -}}
 {{- $controlPlaneEndpoint := include "envpilot-runner.controlPlaneEndpoint" . -}}
-{{- $controlPlaneTLS := default (dict) .Values.controlPlane.tls -}}
+{{- /* A legacy release can have controlPlane without the later tls map. Use
+      get rather than dotted lookup so --reuse-values never dereferences it. */ -}}
+{{- $controlPlane := default (dict) .Values.controlPlane -}}
+{{- $controlPlaneTLS := default (dict) (get $controlPlane "tls") -}}
 {{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-runner.imageMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -52,7 +55,7 @@ spec:
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
             - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
-              value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
+              value: {{ default "sameCluster" (get $controlPlane "endpointMode") | quote }}
             {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
@@ -92,7 +95,7 @@ spec:
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
             - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
-              value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
+              value: {{ default "sameCluster" (get $controlPlane "endpointMode") | quote }}
             {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
