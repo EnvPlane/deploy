@@ -4,6 +4,7 @@
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartEnabled := eq (include "envpilot-runner.usesFirstStartRegistration" .) "true" -}}
 {{- $controlPlaneEndpoint := include "envpilot-runner.controlPlaneEndpoint" . -}}
+{{- $controlPlaneTLS := default (dict) .Values.controlPlane.tls -}}
 {{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-runner.imageMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -50,14 +51,14 @@ spec:
           env:
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
-            {{- if .Values.controlPlane.tls.caSecret }}
+            {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
-              value: {{ printf "%s/%s" (.Values.controlPlane.tls.mountPath | trimSuffix "/") .Values.controlPlane.tls.caKey | quote }}
+              value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
             {{- end }}
-          {{- if .Values.controlPlane.tls.caSecret }}
+          {{- if $controlPlaneTLS.caSecret }}
           volumeMounts:
             - name: control-plane-ca
-              mountPath: {{ .Values.controlPlane.tls.mountPath | quote }}
+              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
               readOnly: true
           {{- end }}
       {{- end }}
@@ -88,9 +89,9 @@ spec:
               value: /tmp/.local/share
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
-            {{- if .Values.controlPlane.tls.caSecret }}
+            {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
-              value: {{ printf "%s/%s" (.Values.controlPlane.tls.mountPath | trimSuffix "/") .Values.controlPlane.tls.caKey | quote }}
+              value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
             {{- end }}
             - name: ENVPILOT_CLUSTER_ID
               value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else }}{{ default .Release.Name .Values.project.clusterId | quote }}{{ end }}
@@ -140,9 +141,9 @@ spec:
           volumeMounts:
             - name: runner-work
               mountPath: /tmp
-          {{- if .Values.controlPlane.tls.caSecret }}
+          {{- if $controlPlaneTLS.caSecret }}
             - name: control-plane-ca
-              mountPath: {{ .Values.controlPlane.tls.mountPath | quote }}
+              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
               readOnly: true
           {{- end }}
           {{- if .Values.controlPlane.authPersistence.enabled }}
@@ -178,13 +179,13 @@ spec:
       volumes:
         - name: runner-work
           emptyDir: {}
-      {{- if .Values.controlPlane.tls.caSecret }}
+      {{- if $controlPlaneTLS.caSecret }}
         - name: control-plane-ca
           secret:
-            secretName: {{ .Values.controlPlane.tls.caSecret | quote }}
+            secretName: {{ $controlPlaneTLS.caSecret | quote }}
             items:
-              - key: {{ .Values.controlPlane.tls.caKey | quote }}
-                path: {{ .Values.controlPlane.tls.caKey | quote }}
+              - key: {{ $controlPlaneTLS.caKey | quote }}
+                path: {{ $controlPlaneTLS.caKey | quote }}
       {{- end }}
       {{- if .Values.controlPlane.authPersistence.enabled }}
         - name: {{ .Values.controlPlane.authPersistence.volumeName }}

@@ -116,6 +116,17 @@ func TestRunnerChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 		!strings.Contains(remote, `secretName: "remote-control-plane-ca"`) {
 		t.Fatalf("remote Runner endpoint override was not rendered:\n%s", remote)
 	}
+	// Releases created before the TLS block was added must remain upgradeable
+	// with --reuse-values. A remote endpoint does not require a private CA.
+	remoteWithoutTLS := renderRunnerChart(t,
+		"--set", "controlPlane.endpointMode=remote",
+		"--set", "controlPlane.url=https://api.remote.example",
+		"--set-json", "controlPlane.tls=null",
+	)
+	if !strings.Contains(remoteWithoutTLS, `value: "https://api.remote.example"`) ||
+		strings.Contains(remoteWithoutTLS, "ENVPILOT_CONTROL_PLANE_CA_FILE") {
+		t.Fatalf("remote Runner endpoint without legacy TLS values was not rendered safely:\n%s", remoteWithoutTLS)
+	}
 	cmd := exec.Command("helm", "template", "envpilot-runner", "..", "--set", "controlPlane.endpointMode=remote")
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
