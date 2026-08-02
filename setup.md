@@ -191,43 +191,34 @@ Expected secure behavior:
 
 Agent auth token persistence should be enabled for restart-safe deployments.
 
-### Local minikube: install an agent in a second profile
+### Remote cluster: install an Agent or Runner
 
-`envpilot.local` is a host-only ingress name. It must not be used as an agent
-control-plane URL from a different minikube profile. The local deployment
-instead publishes a chart archive to the Helm client and exposes the API at
-`host.minikube.internal:18080` for target-cluster pods.
+`envpilot.local`, `localhost`, `host.minikube.internal`, and Kubernetes Service
+DNS are not remote-cluster endpoints. They are rejected for
+`targetClusterMode=remote`: a developer port-forward is not an installation
+contract.
 
-After `scripts/minikube-up.sh` has deployed the control-plane profile, start a
-second profile and prepare the local gateway:
+Expose the control plane through a stable endpoint reachable from target pods,
+then set it on the control-plane chart. For private TLS, the referenced CA
+Secret/key must already exist in every target Agent/Runner namespace:
 
-```sh
-minikube start -p envpilot-agent-e2e
-./scripts/minikube-agent-access.sh start envpilot-agent-e2e
-kubectl config use-context envpilot-agent-e2e
+```yaml
+controlPlane:
+  remoteControlPlane:
+    url: https://api.envpilot.example.com
+    caSecret: envpilot-remote-ca # optional when system trust is sufficient
+    caKey: ca.crt
+    clusterID: control-cluster
 ```
 
-Then generate the commands in the wizard and run them unchanged, in order:
+The generated remote instruction runs a pod-context `/api/v1/health` preflight
+before Helm. It mounts the optional CA and sets `controlPlane.endpointMode=remote`.
+Run the sensitive bootstrap Secret command once and then the generated Helm
+command unchanged. A stale remote status names the configured endpoint and asks
+the operator to re-run this preflight; EnvPilot never creates tunnels.
 
-1. The connectivity preflight must return successfully from the target cluster.
-2. Run the sensitive bootstrap Secret command once.
-3. Run the Helm command. It repeats the preflight before installing.
-
-The helper transfers `envpilot/api:local`, `envpilot/agent:local`, and
-`envpilot/runner:local` to the target profile, serves the packaged
-`envpilot-agent` chart on `127.0.0.1:18081` for Helm, and keeps the API
-port-forward alive. Stop it only after the agent reports `connected`:
-
-```sh
-./scripts/minikube-agent-access.sh stop
-```
-
-To execute the exact command copied from the wizard as a repeatable smoke test:
-
-```sh
-ENVPILOT_AGENT_HELM_COMMAND='kubectl run ... && helm upgrade ...' \
-  ./scripts/minikube-agent-e2e.sh envpilot-agent-e2e
-```
+`scripts/minikube-agent-e2e.sh` is a test-only wrapper for an already
+provisioned context and rejects host-local generated commands.
 
 For non-local installations set these control-plane environment variables to a
 published OCI chart and an address reachable from agent pods:
@@ -302,12 +293,19 @@ The script performs a repository readability/write-permission preflight before
 installing the Agent or Runner and prints only safe field/code/message
 diagnostics. Override `ENVPILOT_E2E_APP_REPOSITORY_URL`,
 `ENVPILOT_E2E_GITOPS_REPOSITORY_URL`, their branch variables, and
-`ENVPILOT_E2E_SCM_PROVIDER` for another accessible pair of repositories. The
-target runner resolves the local chart through
-`http://host.minikube.internal:18082`; keep the script running until it
-finishes. No external chart registry is required because the script packages
-the committed `envpilot-e2e-workload` chart and transfers the locally built
-Agent/Runner images into the target profile.
+`ENVPILOT_E2E_SCM_PROVIDER` for another accessible pair of repositories. This
+test-only two-context script requires `ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL`
+and `ENVPILOT_E2E_CHART_REF` up front. The first is the same stable endpoint
+configured on the control plane for remote bootstrap; the second is an OCI or
+HTTPS chart reference resolvable by the target Runner pod. Optional
+`ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_SECRET` and
+`ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_KEY` mount a private CA in both target
+workloads. It also requires immutable `sha-*` Agent/Runner image tags and the
+published Agent/Runner chart versions; `ENVPILOT_E2E_CONTROL_CONTEXT` and
+`ENVPILOT_E2E_TARGET_CONTEXT` select already provisioned Kubernetes contexts.
+The script does not start a port-forward, HTTP chart server, tunnel, or
+cluster; after it exits, it verifies fresh Agent and Runner heartbeats via the
+normal environment lifecycle.
 
 When preparing the bootstrap session, the fixture stores its base namespace in
 `selectedBaseNamespaces` (the resource-scan API contract). Do not use the

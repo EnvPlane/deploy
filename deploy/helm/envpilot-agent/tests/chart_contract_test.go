@@ -137,6 +137,7 @@ func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 		"--set", "controlPlane.tls.caSecret=remote-control-plane-ca",
 	)
 	if !strings.Contains(remote, `value: "https://api.remote.example"`) ||
+		!strings.Contains(remote, `value: "remote"`) ||
 		!strings.Contains(remote, "ENVPILOT_CONTROL_PLANE_CA_FILE") ||
 		!strings.Contains(remote, `secretName: "remote-control-plane-ca"`) {
 		t.Fatalf("remote Agent endpoint override was not rendered:\n%s", remote)
@@ -145,7 +146,18 @@ func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(output), "controlPlane.url is required") {
-		t.Fatalf("remote Agent endpoint without URL must fail, err=%v output=%s", err, output)
+		 t.Fatalf("remote Agent endpoint without URL must fail, err=%v output=%s", err, output)
+	}
+	// Older releases may be upgraded with --reuse-values and do not have the
+	// nested tls map. The endpoint remains valid when it uses system trust.
+	remoteWithoutTLS := renderAgentChart(t,
+		"--set", "controlPlane.endpointMode=remote",
+		"--set", "controlPlane.url=https://api.remote.example",
+		"--set-json", "controlPlane.tls=null",
+	)
+	if !strings.Contains(remoteWithoutTLS, `value: "https://api.remote.example"`) ||
+		!strings.Contains(remoteWithoutTLS, `value: "remote"`) {
+		t.Fatalf("remote Agent endpoint without legacy TLS values was not rendered safely:\n%s", remoteWithoutTLS)
 	}
 }
 

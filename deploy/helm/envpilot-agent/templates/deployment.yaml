@@ -3,6 +3,7 @@
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartEnabled := eq (include "envpilot-agent.usesFirstStartRegistration" .) "true" -}}
 {{- $controlPlaneEndpoint := include "envpilot-agent.controlPlaneEndpoint" . -}}
+{{- $controlPlaneTLS := default (dict) .Values.controlPlane.tls -}}
 {{- $discoveryScope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $watchNamespaces := .Values.watch.namespaces -}}
 {{- if eq $discoveryScope "namespace" -}}
@@ -53,14 +54,16 @@ spec:
           env:
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
-            {{- if .Values.controlPlane.tls.caSecret }}
+            - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
+              value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
+            {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
-              value: {{ printf "%s/%s" (.Values.controlPlane.tls.mountPath | trimSuffix "/") .Values.controlPlane.tls.caKey | quote }}
+              value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
             {{- end }}
-          {{- if .Values.controlPlane.tls.caSecret }}
+          {{- if $controlPlaneTLS.caSecret }}
           volumeMounts:
             - name: control-plane-ca
-              mountPath: {{ .Values.controlPlane.tls.mountPath | quote }}
+              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
               readOnly: true
           {{- end }}
       {{- end }}
@@ -79,9 +82,11 @@ spec:
           env:
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
-            {{- if .Values.controlPlane.tls.caSecret }}
+            - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
+              value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
+            {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
-              value: {{ printf "%s/%s" (.Values.controlPlane.tls.mountPath | trimSuffix "/") .Values.controlPlane.tls.caKey | quote }}
+              value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
             {{- end }}
             - name: ENVPILOT_CLUSTER_ID
               value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else }}{{ default .Release.Name .Values.cluster.id | quote }}{{ end }}
@@ -145,15 +150,15 @@ spec:
           volumeMounts:
             - name: {{ .Values.agent.authPersistence.volumeName | quote }}
               mountPath: {{ .Values.agent.authPersistence.mountPath | quote }}
-            {{- if .Values.controlPlane.tls.caSecret }}
+            {{- if $controlPlaneTLS.caSecret }}
             - name: control-plane-ca
-              mountPath: {{ .Values.controlPlane.tls.mountPath | quote }}
+              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
               readOnly: true
             {{- end }}
-          {{- else if .Values.controlPlane.tls.caSecret }}
+          {{- else if $controlPlaneTLS.caSecret }}
           volumeMounts:
             - name: control-plane-ca
-              mountPath: {{ .Values.controlPlane.tls.mountPath | quote }}
+              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
               readOnly: true
           {{- end }}
       {{- if .Values.agent.authPersistence.enabled }}
@@ -170,13 +175,13 @@ spec:
             {{- toYaml .Values.agent.authPersistence.emptyDir | nindent 12 }}
           {{- end }}
       {{- end }}
-      {{- if .Values.controlPlane.tls.caSecret }}
+      {{- if $controlPlaneTLS.caSecret }}
         - name: control-plane-ca
           secret:
-            secretName: {{ .Values.controlPlane.tls.caSecret | quote }}
+            secretName: {{ $controlPlaneTLS.caSecret | quote }}
             items:
-              - key: {{ .Values.controlPlane.tls.caKey | quote }}
-                path: {{ .Values.controlPlane.tls.caKey | quote }}
+              - key: {{ $controlPlaneTLS.caKey | quote }}
+                path: {{ $controlPlaneTLS.caKey | quote }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

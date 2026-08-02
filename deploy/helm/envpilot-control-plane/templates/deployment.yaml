@@ -11,6 +11,7 @@
 {{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
 {{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
 {{- $agentBootstrapChart := default (dict) $agentBootstrap.chart -}}
+{{- $remoteControlPlane := default (dict) .Values.remoteControlPlane -}}
 {{- $legacyAgentBootstrapEndpoint := default "" (get .Values.env "ENVPILOT_AGENT_CONTROL_PLANE_URL") -}}
 {{- $legacyAgentBootstrapRepository := default "" (get .Values.env "ENVPILOT_AGENT_IMAGE_REPOSITORY") -}}
 {{- $legacyAgentBootstrapTag := default "" (get .Values.env "ENVPILOT_AGENT_IMAGE_TAG") -}}
@@ -142,6 +143,20 @@ spec:
               value: {{ $agentBootstrapChartRef | quote }}
             - name: ENVPILOT_AGENT_HELM_CHART_VERSION
               value: {{ $agentBootstrapChartVersion | quote }}
+            {{- if $remoteControlPlane.clusterID }}
+            - name: ENVPILOT_CONTROL_PLANE_CLUSTER_ID
+              value: {{ $remoteControlPlane.clusterID | quote }}
+            {{- end }}
+            {{- if $remoteControlPlane.url }}
+            - name: ENVPILOT_REMOTE_CONTROL_PLANE_URL
+              value: {{ $remoteControlPlane.url | quote }}
+            {{- end }}
+            {{- if $remoteControlPlane.caSecret }}
+            - name: ENVPILOT_REMOTE_CONTROL_PLANE_CA_SECRET
+              value: {{ $remoteControlPlane.caSecret | quote }}
+            - name: ENVPILOT_REMOTE_CONTROL_PLANE_CA_KEY
+              value: {{ $remoteControlPlane.caKey | quote }}
+            {{- end }}
             {{- if eq $postgresMode "internal" }}
             - name: ENVPILOT_POSTGRES_PASSWORD
               valueFrom:

@@ -87,6 +87,16 @@ agentBootstrap:
     ref: ""
     version: ""
 
+# Remote Agent/Runner bootstrap is opt-in. The URL must be stable and reachable
+# from target pods; it must not be a local tunnel or this chart's Service DNS.
+# A private HTTPS endpoint may name a CA Secret/key that already exists in each
+# target namespace. The control plane stores only those references.
+remoteControlPlane:
+  url: ""
+  caSecret: ""
+  caKey: ca.crt
+  clusterID: ""
+
 dependencyWait:
   enabled: true
 

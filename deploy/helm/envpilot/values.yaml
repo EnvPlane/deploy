@@ -186,6 +186,14 @@ envpilot-control-plane:
     chart:
       ref: "oci://ghcr.io/envpilot/envpilot-agent"
       version: "0.2.1"
+  remoteControlPlane:
+    # Required only when Agent/Runner are installed in another cluster. Use a
+    # stable target-pod-reachable HTTP(S) endpoint, never a tunnel or Service
+    # DNS. For private TLS, the CA Secret/key must exist in target namespaces.
+    url: ""
+    caSecret: ""
+    caKey: ca.crt
+    clusterID: ""
   # internal creates in-release StatefulSets. external references a Secret
   # containing complete connection URLs. disabled leaves the corresponding
   # application variable unset for an externally injected configuration.

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Provision and exercise one disposable, deploy-ready EnvPilot project across
-# two local minikube profiles. It uses only public control-plane APIs and the
-# real Agent/Runner Helm charts; it never seeds bootstrap-session storage or
-# writes credentials to the repository.
+# two already provisioned Kubernetes contexts. It uses only public control-plane
+# APIs and real Agent/Runner Helm charts; it never creates a tunnel, port-forward
+# or Kubernetes cluster, seeds bootstrap-session storage, or writes credentials
+# to the repository.
 #
 # The project, Agent and Runner remain after a successful run so the fixture is
 # reusable. The feature environment and Helm release are removed by default.
@@ -11,8 +12,10 @@ set -euo pipefail
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_ROOT="${ENVPILOT_WORKSPACE_ROOT:-$(cd "$DEPLOY_ROOT/.." && pwd)}"
 API_URL="${ENVPILOT_E2E_API_URL:-http://127.0.0.1:18080}"
-CONTROL_PROFILE="${ENVPILOT_CONTROL_MINIKUBE_PROFILE:-envpilot}"
-TARGET_PROFILE="${ENVPILOT_E2E_TARGET_MINIKUBE_PROFILE:-bethunder-local}"
+# Context variables retain the old names as fallbacks only. The harness neither
+# creates nor probes a minikube profile and works against any two kube-contexts.
+CONTROL_PROFILE="${ENVPILOT_E2E_CONTROL_CONTEXT:-${ENVPILOT_CONTROL_MINIKUBE_PROFILE:-envpilot}}"
+TARGET_PROFILE="${ENVPILOT_E2E_TARGET_CONTEXT:-${ENVPILOT_E2E_TARGET_MINIKUBE_PROFILE:-bethunder-local}}"
 CLUSTER_ID="${ENVPILOT_E2E_CLUSTER_ID:-$TARGET_PROFILE}"
 
 PROJECT_ID="${ENVPILOT_E2E_PROJECT_ID:-envpilot-e2e-fixture}"
@@ -26,9 +29,21 @@ RUNNER_NAMESPACE="${ENVPILOT_E2E_RUNNER_NAMESPACE:-envpilot}"
 AGENT_ID="${ENVPILOT_E2E_AGENT_ID:-envpilot-e2e-agent}"
 AGENT_RELEASE="${ENVPILOT_E2E_AGENT_RELEASE:-envpilot-e2e-agent}"
 RUNNER_RELEASE="${ENVPILOT_E2E_RUNNER_RELEASE:-envpilot-e2e-runner}"
-CHART_PORT="${ENVPILOT_E2E_CHART_PORT:-18082}"
-AGENT_CHART_PORT="${ENVPILOT_E2E_AGENT_CHART_PORT:-18083}"
-CHART_ARCHIVE_NAME=""
+REMOTE_CONTROL_PLANE_URL="${ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL:-}"
+REMOTE_CONTROL_PLANE_CA_SECRET="${ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_SECRET:-}"
+REMOTE_CONTROL_PLANE_CA_KEY="${ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_KEY:-ca.crt}"
+# The chart must be resolvable by a Runner pod. A host-served archive is not a
+# stable remote-cluster contract; use an OCI or HTTPS artifact instead.
+E2E_CHART_REF="${ENVPILOT_E2E_CHART_REF:-}"
+AGENT_CHART_REF="${ENVPILOT_E2E_AGENT_CHART_REF:-oci://ghcr.io/envpilot/envpilot-agent}"
+AGENT_CHART_VERSION="${ENVPILOT_E2E_AGENT_CHART_VERSION:-}"
+RUNNER_CHART_REF="${ENVPILOT_E2E_RUNNER_CHART_REF:-oci://ghcr.io/envpilot/envpilot-runner}"
+RUNNER_CHART_VERSION="${ENVPILOT_E2E_RUNNER_CHART_VERSION:-}"
+AGENT_IMAGE_REPOSITORY="${ENVPILOT_E2E_AGENT_IMAGE_REPOSITORY:-ghcr.io/envpilot/agent}"
+AGENT_IMAGE_TAG="${ENVPILOT_E2E_AGENT_IMAGE_TAG:-}"
+RUNNER_IMAGE_REPOSITORY="${ENVPILOT_E2E_RUNNER_IMAGE_REPOSITORY:-ghcr.io/envpilot/runner}"
+RUNNER_IMAGE_TAG="${ENVPILOT_E2E_RUNNER_IMAGE_TAG:-}"
+IMAGE_PULL_POLICY="${ENVPILOT_E2E_IMAGE_PULL_POLICY:-IfNotPresent}"
 SCM_PROVIDER="${ENVPILOT_E2E_SCM_PROVIDER:-gitlab}"
 # These are the canonical repositories reachable by the local E2E GitLab
 # credential. The old bh/... aliases return 404 for that credential. Keep both
@@ -42,7 +57,7 @@ SCM_TOKEN_FILE="${ENVPILOT_E2E_SCM_TOKEN_FILE:-}"
 USE_UI="${ENVPILOT_E2E_USE_UI:-false}"
 UI_BASE_URL="${ENVPILOT_E2E_UI_BASE_URL:-}"
 KEEP_ENVIRONMENT=false
-KEEP_AGENT_ACCESS="${ENVPILOT_E2E_KEEP_AGENT_ACCESS:-true}"
+HEARTBEAT_STABILITY_WAIT_SECONDS="${ENVPILOT_E2E_HEARTBEAT_STABILITY_WAIT_SECONDS:-35}"
 
 for arg in "$@"; do
   case "$arg" in
@@ -54,41 +69,7 @@ done
 log() { printf '\n==> %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-port_available() {
-  python3 - "$1" <<'PY'
-import socket
-import sys
-
-port = int(sys.argv[1])
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-    sock.bind(("127.0.0.1", port))
-except OSError:
-    raise SystemExit(1)
-finally:
-    sock.close()
-PY
-}
-
-select_fixture_chart_port() {
-  if port_available "$CHART_PORT"; then
-    return
-  fi
-  if [[ -n "${ENVPILOT_E2E_CHART_PORT:-}" ]]; then
-    die "requested fixture chart port $CHART_PORT is already in use; choose a free ENVPILOT_E2E_CHART_PORT"
-  fi
-  local candidate
-  for candidate in $(seq $((CHART_PORT + 1)) $((CHART_PORT + 20))); do
-    if port_available "$candidate"; then
-      log "Fixture chart port $CHART_PORT is already in use; using $candidate instead"
-      CHART_PORT="$candidate"
-      return
-    fi
-  done
-  die "no free local fixture chart port found after $CHART_PORT"
-}
-
-for bin in awk curl helm jq kubectl minikube python3 sed; do
+for bin in awk curl helm jq kubectl sed tr; do
   command -v "$bin" >/dev/null 2>&1 || die "'$bin' is required"
 done
 if [[ -z "$SCM_TOKEN" && -n "$SCM_TOKEN_FILE" ]]; then
@@ -104,28 +85,30 @@ if [[ -z "$SCM_TOKEN" && -n "$SCM_TOKEN_FILE" ]]; then
 fi
 [[ -n "$SCM_TOKEN" ]] || die "set ENVPILOT_E2E_SCM_TOKEN or ENVPILOT_E2E_SCM_TOKEN_FILE for the normal SCM validation path"
 [[ "$SCM_PROVIDER" == "github" || "$SCM_PROVIDER" == "gitlab" ]] || die "ENVPILOT_E2E_SCM_PROVIDER must be github or gitlab"
-
-CHART_DIR="$DEPLOY_ROOT/deploy/helm/envpilot-e2e-workload"
-AGENT_CHART="$DEPLOY_ROOT/deploy/helm/envpilot-agent"
-RUNNER_CHART="$DEPLOY_ROOT/deploy/helm/envpilot-runner"
-[[ -d "$CHART_DIR" && -d "$AGENT_CHART" && -d "$RUNNER_CHART" ]] || die "required Helm chart is missing"
-
-temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/envpilot-e2e.XXXXXX")"
-chart_server_pid=""
+[[ -n "$REMOTE_CONTROL_PLANE_URL" ]] || die "set ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL to a stable HTTP(S) endpoint reachable from target pods"
+[[ "$REMOTE_CONTROL_PLANE_URL" =~ ^https?:// ]] || die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL must use http:// or https://"
+remote_control_plane_host="${REMOTE_CONTROL_PLANE_URL#*://}"
+remote_control_plane_host="${remote_control_plane_host%%/*}"
+remote_control_plane_host="${remote_control_plane_host%%:*}"
+remote_control_plane_host="$(printf '%s' "$remote_control_plane_host" | tr '[:upper:]' '[:lower:]')"
+case "$remote_control_plane_host" in
+  localhost|127.0.0.1|::1|envpilot.local|host.minikube.internal|*.svc|*.svc.*)
+    die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL must be target-pod-reachable, not host-local or Kubernetes Service DNS"
+    ;;
+esac
+if [[ -n "$REMOTE_CONTROL_PLANE_CA_SECRET" && -z "$REMOTE_CONTROL_PLANE_CA_KEY" ]]; then
+  die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_SECRET requires ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_KEY"
+fi
+[[ -n "$E2E_CHART_REF" ]] || die "set ENVPILOT_E2E_CHART_REF to an OCI or HTTPS chart reference reachable from the target Runner pod"
+[[ "$E2E_CHART_REF" == oci://* || "$E2E_CHART_REF" == https://* ]] || die "ENVPILOT_E2E_CHART_REF must be oci:// or https://; host-local HTTP chart servers are unsupported"
+[[ -n "$AGENT_CHART_VERSION" && -n "$RUNNER_CHART_VERSION" ]] || die "set immutable ENVPILOT_E2E_AGENT_CHART_VERSION and ENVPILOT_E2E_RUNNER_CHART_VERSION"
+[[ -n "$AGENT_IMAGE_TAG" && -n "$RUNNER_IMAGE_TAG" ]] || die "set immutable ENVPILOT_E2E_AGENT_IMAGE_TAG and ENVPILOT_E2E_RUNNER_IMAGE_TAG"
+[[ "$AGENT_IMAGE_TAG" == sha-* && "$RUNNER_IMAGE_TAG" == sha-* ]] || die "E2E Agent/Runner image tags must be immutable full-commit sha-* tags"
 
 cleanup() {
   local status=$?
-  if [[ -n "$chart_server_pid" ]] && kill -0 "$chart_server_pid" >/dev/null 2>&1; then
-    kill "$chart_server_pid" >/dev/null 2>&1 || true
-  fi
-  rm -rf "$temp_dir"
   if [[ "$KEEP_ENVIRONMENT" != true && $status -eq 0 ]]; then
     cleanup_environment || true
-  fi
-  if [[ $status -ne 0 || "$KEEP_AGENT_ACCESS" != true ]]; then
-    "$DEPLOY_ROOT/scripts/minikube-agent-access.sh" stop >/dev/null 2>&1 || true
-  else
-    log "Keeping the local Agent/Runner gateway running for the reusable fixture. Stop it with: $DEPLOY_ROOT/scripts/minikube-agent-access.sh stop"
   fi
   exit "$status"
 }
@@ -215,12 +198,16 @@ install_agent() {
   kubectl --context "$TARGET_PROFILE" create namespace "$AGENT_NAMESPACE" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
   kubectl --context "$TARGET_PROFILE" -n "$AGENT_NAMESPACE" create secret generic envpilot-e2e-agent-bootstrap \
     --from-literal=registration-token="$token" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
-  helm upgrade --install "$AGENT_RELEASE" "$AGENT_CHART" \
+  local -a remote_args=(--set-string "controlPlane.endpointMode=remote" --set-string "controlPlane.url=$REMOTE_CONTROL_PLANE_URL")
+  if [[ -n "$REMOTE_CONTROL_PLANE_CA_SECRET" ]]; then
+    remote_args+=(--set-string "controlPlane.tls.caSecret=$REMOTE_CONTROL_PLANE_CA_SECRET" --set-string "controlPlane.tls.caKey=$REMOTE_CONTROL_PLANE_CA_KEY")
+  fi
+  helm upgrade --install "$AGENT_RELEASE" "$AGENT_CHART_REF" --version "$AGENT_CHART_VERSION" \
     --kube-context "$TARGET_PROFILE" --namespace "$AGENT_NAMESPACE" \
     --set replicaCount=1 \
     --set-string fullnameOverride="$AGENT_ID" \
-    --set-string image.repository=envpilot/agent --set-string image.tag=local --set image.pullPolicy=Never \
-    --set-string controlPlane.url="http://host.minikube.internal:18080" \
+    --set-string image.repository="$AGENT_IMAGE_REPOSITORY" --set-string image.tag="$AGENT_IMAGE_TAG" --set-string image.pullPolicy="$IMAGE_PULL_POLICY" \
+    "${remote_args[@]}" \
     --set-string controlPlane.existingSecret=envpilot-e2e-agent-bootstrap \
     --set-string cluster.id="$CLUSTER_ID" --set-string bootstrap.projectId="$PROJECT_ID" --set-string agent.id="$AGENT_ID" \
     --set-string "watch.namespaces[0]=$BASE_NAMESPACE" \
@@ -257,47 +244,26 @@ install_runner() {
   kubectl --context "$TARGET_PROFILE" create namespace "$FEATURE_NAMESPACE" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
   kubectl --context "$TARGET_PROFILE" -n "$RUNNER_NAMESPACE" create secret generic envpilot-e2e-runner-bootstrap \
     --from-literal=token="$token" --from-literal=project-config-token="$config" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
-  helm upgrade --install "$RUNNER_RELEASE" "$RUNNER_CHART" \
+  local -a remote_args=(--set-string "controlPlane.endpointMode=remote" --set-string "controlPlane.url=$REMOTE_CONTROL_PLANE_URL")
+  if [[ -n "$REMOTE_CONTROL_PLANE_CA_SECRET" ]]; then
+    remote_args+=(--set-string "controlPlane.tls.caSecret=$REMOTE_CONTROL_PLANE_CA_SECRET" --set-string "controlPlane.tls.caKey=$REMOTE_CONTROL_PLANE_CA_KEY")
+  fi
+  helm upgrade --install "$RUNNER_RELEASE" "$RUNNER_CHART_REF" --version "$RUNNER_CHART_VERSION" \
     --kube-context "$TARGET_PROFILE" --namespace "$RUNNER_NAMESPACE" \
     --set replicaCount=1 \
     --set-string fullnameOverride="$RUNNER_RELEASE" \
-    --set-string image.repository=envpilot/runner --set-string image.tag=local --set image.pullPolicy=Never \
-    --set-string controlPlane.url="http://host.minikube.internal:18080" \
+    --set-string image.repository="$RUNNER_IMAGE_REPOSITORY" --set-string image.tag="$RUNNER_IMAGE_TAG" --set-string image.pullPolicy="$IMAGE_PULL_POLICY" \
+    "${remote_args[@]}" \
     --set-string controlPlane.existingSecret=envpilot-e2e-runner-bootstrap \
     --set-string project.id="$PROJECT_ID" --set-string project.clusterId="$CLUSTER_ID" \
     --set-string project.runnerId="$runner_id" --set-string project.namespace="$RUNNER_NAMESPACE" \
-    --set-string project.deploymentMode=helm --set-string project.configUrl="http://host.minikube.internal:18080/api/v1/projects/$PROJECT_ID/runner-config" \
+    --set-string project.deploymentMode=helm --set-string project.configUrl="$REMOTE_CONTROL_PLANE_URL/api/v1/projects/$PROJECT_ID/runner-config" \
     --set-string rbac.featureEnvWriter.mode=preconfiguredNamespaces \
     --set-string "rbac.featureEnvWriter.namespaces[0]=$FEATURE_NAMESPACE" \
     --set controlPlane.authPersistence.createClaim=false >/dev/null
   kubectl --context "$TARGET_PROFILE" -n "$RUNNER_NAMESPACE" rollout restart "deployment/$RUNNER_RELEASE" >/dev/null
   kubectl --context "$TARGET_PROFILE" -n "$RUNNER_NAMESPACE" rollout status "deployment/$RUNNER_RELEASE" --timeout=180s
   wait_for "Runner registration" 90 "[[ \$(api_get /api/projects/$PROJECT_ID/bootstrap-session/runner-status | jq -r .status) == online ]]" >/dev/null
-}
-
-start_chart_server() {
-  log "Packaging the target-runner-resolvable fixture chart"
-  select_fixture_chart_port
-  helm package "$CHART_DIR" --destination "$temp_dir" >/dev/null
-  local archive
-  archive="$(find "$temp_dir" -maxdepth 1 -name 'envpilot-e2e-workload-*.tgz' -print -quit)"
-  [[ -n "$archive" ]] || die "failed to package E2E chart"
-  CHART_ARCHIVE_NAME="$(basename "$archive")"
-  nohup python3 -m http.server "$CHART_PORT" --bind 0.0.0.0 --directory "$temp_dir" >"$temp_dir/chart-server.log" 2>&1 &
-  chart_server_pid="$!"
-  for _ in $(seq 1 30); do
-    if ! kill -0 "$chart_server_pid" >/dev/null 2>&1; then
-      cat "$temp_dir/chart-server.log" >&2 || true
-      die "fixture chart server exited before becoming reachable"
-    fi
-    if curl -fsS --max-time 2 "http://127.0.0.1:$CHART_PORT/$CHART_ARCHIVE_NAME" -o /dev/null 2>/dev/null; then
-      E2E_CHART_REF="http://host.minikube.internal:$CHART_PORT/$CHART_ARCHIVE_NAME"
-      return 0
-    fi
-    sleep 1
-  done
-  cat "$temp_dir/chart-server.log" >&2 || true
-  die "fixture chart server did not become reachable"
 }
 
 complete_bootstrap() {
@@ -346,6 +312,16 @@ assert_deploy_ready() {
   log "Fixture project is deploy-ready: $PROJECT_ID"
 }
 
+assert_remote_heartbeats_remain_fresh() {
+  log "Verifying remote Agent/Runner heartbeats remain healthy without a local gateway"
+  sleep "$HEARTBEAT_STABILITY_WAIT_SECONDS"
+  local agent_status runner_status
+  agent_status="$(api_get "/api/projects/$PROJECT_ID/bootstrap-session/agent-status" | jq -r '.status')"
+  runner_status="$(api_get "/api/projects/$PROJECT_ID/bootstrap-session/runner-status" | jq -r '.status')"
+  [[ "$agent_status" == connected || "$agent_status" == online ]] || die "Agent became $agent_status after the stability interval; remote endpoint=$REMOTE_CONTROL_PLANE_URL"
+  [[ "$runner_status" == connected || "$runner_status" == online ]] || die "Runner became $runner_status after the stability interval; remote endpoint=$REMOTE_CONTROL_PLANE_URL"
+}
+
 create_environment_through_ui() {
   [[ -n "$UI_BASE_URL" ]] || die "set ENVPILOT_E2E_UI_BASE_URL when ENVPILOT_E2E_USE_UI=true"
   log "Creating the environment through the browser UI"
@@ -386,11 +362,10 @@ create_and_verify_environment() {
   log "Environment is Ready; release $release exists only in $TARGET_PROFILE/$namespace"
 }
 
-log "Preparing two-minikube API gateway and local images"
-ENVPILOT_AGENT_CHART_PORT="$AGENT_CHART_PORT" "$DEPLOY_ROOT/scripts/minikube-agent-access.sh" start "$TARGET_PROFILE"
+log "Verifying two-cluster control-plane and target contexts"
 curl --fail --silent --show-error "$API_URL/api/v1/health" >/dev/null
-minikube -p "$CONTROL_PROFILE" status >/dev/null
-minikube -p "$TARGET_PROFILE" status >/dev/null
+kubectl --context "$CONTROL_PROFILE" cluster-info >/dev/null
+kubectl --context "$TARGET_PROFILE" cluster-info >/dev/null
 
 kubectl --context "$TARGET_PROFILE" apply -f "$DEPLOY_ROOT/e2e/base-workload.yaml" >/dev/null
 kubectl --context "$TARGET_PROFILE" -n "$BASE_NAMESPACE" rollout status deployment/e2e-base-workload --timeout=180s
@@ -398,9 +373,9 @@ ensure_project_and_session
 validate_scm
 install_agent
 install_runner
-start_chart_server
 complete_bootstrap
 assert_deploy_ready
+assert_remote_heartbeats_remain_fresh
 create_and_verify_environment
 
-log "E2E passed. The project, healthy base namespace, Agent and Runner remain reusable."
+log "E2E passed. Agent/Runner use the stable remote endpoint $REMOTE_CONTROL_PLANE_URL; no local gateway remains to keep alive."

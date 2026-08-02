@@ -51,6 +51,8 @@ spec:
           env:
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
+            - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
+              value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
             {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
@@ -89,6 +91,8 @@ spec:
               value: /tmp/.local/share
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
+            - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
+              value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
             {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}

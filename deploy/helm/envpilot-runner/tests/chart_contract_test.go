@@ -112,6 +112,7 @@ func TestRunnerChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 		"--set", "controlPlane.tls.caSecret=remote-control-plane-ca",
 	)
 	if !strings.Contains(remote, `value: "https://api.remote.example"`) ||
+		!strings.Contains(remote, `value: "remote"`) ||
 		!strings.Contains(remote, "ENVPILOT_CONTROL_PLANE_CA_FILE") ||
 		!strings.Contains(remote, `secretName: "remote-control-plane-ca"`) {
 		t.Fatalf("remote Runner endpoint override was not rendered:\n%s", remote)
