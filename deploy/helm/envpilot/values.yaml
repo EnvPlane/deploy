@@ -50,6 +50,11 @@ global:
     # chart preflight and bootstrap compilation. It never affects user projects.
     e2eFixture:
       enabled: false
+      # Test-only self-healing of a stale fixture Agent/Runner identity. This
+      # does not apply to user projects and uses only the existing Secret-held
+      # bootstrap claims; no credential is copied into session data.
+      recovery:
+        enabled: false
       baseNamespace: envpilot-e2e-base
       featureNamespace: envpilot-e2e-feature
       chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload
@@ -185,7 +190,7 @@ envpilot-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envpilot/envpilot-agent"
-      version: "0.2.1"
+      version: "0.2.2"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
     # stable target-pod-reachable HTTP(S) endpoint, never a tunnel or Service

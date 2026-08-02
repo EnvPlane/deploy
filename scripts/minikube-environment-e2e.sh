@@ -212,7 +212,6 @@ install_agent() {
     --set-string cluster.id="$CLUSTER_ID" --set-string bootstrap.projectId="$PROJECT_ID" --set-string agent.id="$AGENT_ID" \
     --set-string "watch.namespaces[0]=$BASE_NAMESPACE" \
     --set agent.authPersistence.createClaim=false --set installValidation.enabled=false >/dev/null
-  kubectl --context "$TARGET_PROFILE" -n "$AGENT_NAMESPACE" rollout restart "deployment/$AGENT_ID" >/dev/null
   kubectl --context "$TARGET_PROFILE" -n "$AGENT_NAMESPACE" rollout status "deployment/$AGENT_ID" --timeout=180s
   wait_for "Agent connection" 90 "[[ \$(api_get /api/projects/$PROJECT_ID/bootstrap-session/agent-status | jq -r .status) == connected ]]" >/dev/null
 }
@@ -261,7 +260,6 @@ install_runner() {
     --set-string rbac.featureEnvWriter.mode=preconfiguredNamespaces \
     --set-string "rbac.featureEnvWriter.namespaces[0]=$FEATURE_NAMESPACE" \
     --set controlPlane.authPersistence.createClaim=false >/dev/null
-  kubectl --context "$TARGET_PROFILE" -n "$RUNNER_NAMESPACE" rollout restart "deployment/$RUNNER_RELEASE" >/dev/null
   kubectl --context "$TARGET_PROFILE" -n "$RUNNER_NAMESPACE" rollout status "deployment/$RUNNER_RELEASE" --timeout=180s
   wait_for "Runner registration" 90 "[[ \$(api_get /api/projects/$PROJECT_ID/bootstrap-session/runner-status | jq -r .status) == online ]]" >/dev/null
 }
@@ -376,6 +374,10 @@ install_runner
 complete_bootstrap
 assert_deploy_ready
 assert_remote_heartbeats_remain_fresh
+# The supported reconciler must be safe to invoke repeatedly after the remote
+# runtime has registered; a ready fixture requires no secret edits or rollout.
+complete_bootstrap
+assert_deploy_ready
 create_and_verify_environment
 
 log "E2E passed. Agent/Runner use the stable remote endpoint $REMOTE_CONTROL_PLANE_URL; no local gateway remains to keep alive."

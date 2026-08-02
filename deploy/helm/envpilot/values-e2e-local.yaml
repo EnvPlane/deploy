@@ -27,6 +27,8 @@ global:
         deploymentMode: helm
     e2eFixture:
       enabled: true
+      recovery:
+        enabled: true
       baseNamespace: envpilot-e2e-base
       featureNamespace: envpilot-e2e-feature
       chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload

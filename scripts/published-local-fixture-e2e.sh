@@ -61,6 +61,25 @@ project="$(curl -fsS "$API_URL/api/v1/projects/$PROJECT_ID")"
   exit 1
 }
 
+# A second identical release invocation is the repeat-run portion of the
+# fixture contract. The reconciler must preserve consumed credentials and the
+# compiled session rather than require a new Secret or a manual restart.
+helm upgrade --install "$RELEASE" "$ENVPILOT_E2E_UMBRELLA_REF" \
+  --version "$ENVPILOT_E2E_UMBRELLA_VERSION" \
+  --kube-context "$ENVPILOT_E2E_CONTEXT" \
+  --namespace "$NAMESPACE" \
+  --values "$VALUES_FILE" --wait --timeout 15m
+for _ in $(seq 1 120); do
+  project="$(curl -fsS "$API_URL/api/v1/projects/$PROJECT_ID" 2>/dev/null || true)"
+  if [[ "$(jq -r '.deployment_readiness.ready // false' <<<"$project")" == "true" ]]; then break; fi
+  sleep 2
+done
+[[ "$(jq -r '.deployment_readiness.ready // false' <<<"$project")" == "true" ]] || {
+  jq '.deployment_readiness' <<<"$project" >&2
+  echo "fixture project lost deploy-readiness after idempotent repeat run" >&2
+  exit 1
+}
+
 cd "$WORKSPACE_ROOT/frontend"
 ENVPILOT_E2E_REAL_CLUSTER=1 \
 ENVPILOT_E2E_RUN_LIFECYCLE=1 \

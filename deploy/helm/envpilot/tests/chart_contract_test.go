@@ -156,6 +156,8 @@ func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
 		`name: "envpilot-e2e-feature"`,
 		"name: e2e-base-workload",
 		"name: ENVPILOT_SAME_CLUSTER_FIXTURE_ENABLED",
+		"name: ENVPILOT_SAME_CLUSTER_FIXTURE_RECOVERY_ENABLED",
+		`value: "true"`,
 		`value: "oci://ghcr.io/envpilot/envpilot-e2e-workload"`,
 		`value: "envpilot-e2e-base"`,
 		`value: "envpilot-e2e-feature"`,
@@ -168,6 +170,16 @@ func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
 	}
 	if strings.Contains(rendered, "ENVPILOT_SAME_CLUSTER_FIXTURE_ENABLED\n              value: \"false\"") {
 		t.Fatalf("E2E fixture profile did not enable control-plane reconciliation:\n%s", rendered)
+	}
+}
+
+func TestUmbrellaFixtureRecoveryIsExplicitlyOptIn(t *testing.T) {
+	rendered := renderUmbrella(t, "--values", "../values-e2e-local.yaml", "--set", "global.envpilot.e2eFixture.recovery.enabled=false")
+	if !strings.Contains(rendered, "name: ENVPILOT_SAME_CLUSTER_FIXTURE_RECOVERY_ENABLED\n              value: \"false\"") {
+		t.Fatalf("fixture recovery must be disabled unless explicitly opted in:\n%s", rendered)
+	}
+	if strings.Contains(rendered, "runnerRegistrationToken") || strings.Contains(rendered, "agentRegistrationToken") {
+		t.Fatalf("fixture render must not embed raw bootstrap credentials:\n%s", rendered)
 	}
 }
 

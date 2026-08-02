@@ -7,6 +7,7 @@
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPilot "e2eFixture") -}}
+{{- $e2eFixtureRecovery := default (dict) (get $e2eFixture "recovery") -}}
 {{- $firstStartSecret := "" -}}
 {{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
 {{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
@@ -230,6 +231,8 @@ spec:
             {{- if $e2eFixture.enabled }}
             - name: ENVPILOT_SAME_CLUSTER_FIXTURE_ENABLED
               value: "true"
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_RECOVERY_ENABLED
+              value: {{ default false $e2eFixtureRecovery.enabled | quote }}
             - name: ENVPILOT_SAME_CLUSTER_FIXTURE_BASE_NAMESPACE
               value: {{ $e2eFixture.baseNamespace | quote }}
             - name: ENVPILOT_SAME_CLUSTER_FIXTURE_FEATURE_NAMESPACE
