@@ -313,11 +313,11 @@ envpilot-runner:
   fullnameOverride: envpilot-runner
   image:
     repository: ghcr.io/envpilot/runner
-    tag: "sha-6de88952436869bb1283b242338940863af401ea"
-    digest: "sha256:84498300bf09898232fdfcfe6cf99b428daa933df40c83769b35b72d434ed0e4"
+    tag: "sha-0105ebecf28a25310f529690a1c77acf4cf04a53"
+    digest: "sha256:101b754b9c925a5b035bd815917759aeefb5882171928f82b06dc3f100f266ed"
     pullPolicy: IfNotPresent
-    sourceRevision: "6de88952436869bb1283b242338940863af401ea"
-    release: "sha-6de88952436869bb1283b242338940863af401ea"
+    sourceRevision: "0105ebecf28a25310f529690a1c77acf4cf04a53"
+    release: "sha-0105ebecf28a25310f529690a1c77acf4cf04a53"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
