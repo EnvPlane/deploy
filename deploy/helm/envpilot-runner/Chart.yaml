@@ -2,7 +2,7 @@ apiVersion: v2
 name: envpilot-runner
 description: EnvPilot runner that compiles and applies feature environments for a single project.
 type: application
-version: 0.3.4
+version: 0.3.5
 appVersion: "0.1.4"
 keywords:
   - envpilot

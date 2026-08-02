@@ -53,12 +53,29 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Generate chart attestation predicate
+        id: predicate
+        env:
+          VERSION: ${{ steps.chart.outputs.version }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          predicate="dist/envpilot-runner-${VERSION}.attestation.json"
+          jq -n \
+            --arg chart "envpilot-runner" \
+            --arg version "$VERSION" \
+            --arg digest "$DIGEST" \
+            --arg sourceRevision "$GITHUB_SHA" \
+            '{schemaVersion: 1, artifactType: "helm-chart", chart: $chart, version: $version, digest: $digest, sourceRevision: $sourceRevision}' > "$predicate"
+          jq -e '(.schemaVersion == 1) and (.artifactType == "helm-chart") and (.chart == "envpilot-runner") and (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and (.digest | test("^sha256:[0-9a-f]{64}$")) and (.sourceRevision | test("^[0-9a-f]{40}$"))' "$predicate" >/dev/null
+          echo "path=$predicate" >> "$GITHUB_OUTPUT"
       - name: Sign and attest the published Runner chart
         env:
           CHART_REF: ghcr.io/envpilot/envpilot-runner@${{ steps.push.outputs.digest }}
+          PREDICATE: ${{ steps.predicate.outputs.path }}
         run: |
           cosign sign --yes "$CHART_REF"
-          cosign attest --yes --predicate deploy/helm/envpilot-runner/Chart.yaml --type https://envpilot.dev/chart/v1 "$CHART_REF"
+          cosign attest --yes --predicate "$PREDICATE" --type https://envpilot.dev/chart/v1 "$CHART_REF"
       - name: Create isolated Kubernetes test cluster
         uses: helm/kind-action@v1.12.0
         with:
