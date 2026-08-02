@@ -148,11 +148,11 @@ envpilot-control-plane:
   fullnameOverride: envpilot-control-plane
   image:
     repository: ghcr.io/envpilot/api
-    tag: "sha-835881da112316b433affad45942e04df6858cc5"
-    digest: "sha256:975dd45ca685dbec86d73a3197c9a6959ff7d049664e69accca3157ce9891d8a"
+    tag: "sha-f77c3d73814f07bd39875921511a306176c74682"
+    digest: "sha256:290b1af1b48cac9d8077c55f18d7c814059609cfbdf8b072114516eac921d693"
     pullPolicy: IfNotPresent
-    sourceRevision: "835881da112316b433affad45942e04df6858cc5"
-    release: "sha-835881da112316b433affad45942e04df6858cc5"
+    sourceRevision: "f77c3d73814f07bd39875921511a306176c74682"
+    release: "sha-f77c3d73814f07bd39875921511a306176c74682"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -313,11 +313,11 @@ envpilot-runner:
   fullnameOverride: envpilot-runner
   image:
     repository: ghcr.io/envpilot/runner
-    tag: "sha-6de88952436869bb1283b242338940863af401ea"
-    digest: "sha256:84498300bf09898232fdfcfe6cf99b428daa933df40c83769b35b72d434ed0e4"
+    tag: "sha-0105ebecf28a25310f529690a1c77acf4cf04a53"
+    digest: "sha256:101b754b9c925a5b035bd815917759aeefb5882171928f82b06dc3f100f266ed"
     pullPolicy: IfNotPresent
-    sourceRevision: "6de88952436869bb1283b242338940863af401ea"
-    release: "sha-6de88952436869bb1283b242338940863af401ea"
+    sourceRevision: "0105ebecf28a25310f529690a1c77acf4cf04a53"
+    release: "sha-0105ebecf28a25310f529690a1c77acf4cf04a53"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
