@@ -15,7 +15,7 @@ remote_url="${ENVPILOT_RUNNER_UPGRADE_REMOTE_URL:-https://control-plane.example.
 deployment="${release}-envpilot-runner"
 
 cleanup() {
-  helm uninstall "$release" --kube-context "$ENVPILOT_RUNNER_UPGRADE_CONTEXT" --namespace "$namespace" --wait >/dev/null 2>&1 || true
+  helm uninstall "$release" --kube-context "$ENVPILOT_RUNNER_UPGRADE_CONTEXT" --namespace "$namespace" --wait --timeout 1m >/dev/null 2>&1 || true
   kubectl --context "$ENVPILOT_RUNNER_UPGRADE_CONTEXT" delete namespace "$namespace" --wait=false >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -24,12 +24,14 @@ kubectl --context "$ENVPILOT_RUNNER_UPGRADE_CONTEXT" get --raw=/version >/dev/nu
 
 # Deliberately omit every controlPlane.tls key. replicaCount=0 avoids requiring
 # a reachable demonstration endpoint while Helm still creates and upgrades the
-# real release resources.
+# real release resources. Disable the auth PVC only in this disposable test so
+# a generic Kind cluster does not need a dynamic storage provisioner.
 helm upgrade --install "$release" "$ENVPILOT_RUNNER_UPGRADE_CHART" \
   --version "$ENVPILOT_RUNNER_UPGRADE_VERSION" \
   --kube-context "$ENVPILOT_RUNNER_UPGRADE_CONTEXT" \
   --namespace "$namespace" --create-namespace --wait --timeout 2m \
   --set replicaCount=0 \
+  --set controlPlane.authPersistence.createClaim=false \
   --set controlPlane.endpointMode=remote \
   --set controlPlane.url="$remote_url"
 

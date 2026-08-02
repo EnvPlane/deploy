@@ -10,6 +10,6 @@ dependencies:
   version: 0.2.2
 - name: envpilot-runner
   repository: file://../envpilot-runner
-  version: 0.3.5
-digest: sha256:0f9d525c3f93925407c851da472fee053d5df72735cae413973f0a1c1fa0c5a1
-generated: "2026-08-02T22:03:57.871491+02:00"
+  version: 0.3.6
+digest: sha256:2ec3bcae939b298b6ecae52ee1b22d30897823fb1538b223adc09e87fb6db370
+generated: "2026-08-02T22:08:39.073016+02:00"
