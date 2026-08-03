@@ -120,10 +120,13 @@ func main() {
 }
 func run() error {
 	var cfg config
-	if err := json.Unmarshal([]byte(os.Getenv("ENVPILOT_RECONCILE_CONFIG_JSON")), &cfg); err != nil {
-		// The chart normally supplies the ConfigMap through the API; accepting an
-		// env value also makes the binary straightforward to exercise in tests.
-		return fmt.Errorf("decode dependency config: %w", err)
+	actionName := os.Getenv("ENVPILOT_RECONCILE_ACTION")
+	if actionName != "ensure-namespaces" {
+		if err := json.Unmarshal([]byte(os.Getenv("ENVPILOT_RECONCILE_CONFIG_JSON")), &cfg); err != nil {
+			// The chart normally supplies the ConfigMap through the API; accepting an
+			// env value also makes the binary straightforward to exercise in tests.
+			return fmt.Errorf("decode dependency config: %w", err)
+		}
 	}
 	restCfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -137,10 +140,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if os.Getenv("ENVPILOT_RECONCILE_ACTION") == "cleanup" {
+	if actionName == "cleanup" {
 		return cleanup(cfg, restCfg)
 	}
-	if os.Getenv("ENVPILOT_RECONCILE_ACTION") == "ensure-namespaces" {
+	if actionName == "ensure-namespaces" {
 		return ensureNamespaces(core, os.Getenv("ENVPILOT_RECONCILE_PROVIDER_NAMESPACES"))
 	}
 	var reconcileErrors []string
