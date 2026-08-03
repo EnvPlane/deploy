@@ -81,7 +81,41 @@ roleRef:
 {{- end }}
 {{- end }}
 {{- $globalEnvPilot := default (dict) (get (default (dict) .Values.global) "envpilot") -}}
+{{- $platformDependencyStatus := default (dict) (get $globalEnvPilot "platformDependencyStatus") -}}
 {{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
+{{- if (default false $platformDependencyStatus.enabled) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-platform-dependency-status-reader
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envpilot-control-plane.labels" . | nindent 4 }}
+rules:
+  # Watch is constrained by the client to this exact ConfigMap name. No write,
+  # Secret, or broad ConfigMap list permission is granted.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ default (printf "%s-platform-dependency-reconciler-status" .Release.Name) (get $platformDependencyStatus "statusConfigMapName") | quote }}]
+    verbs: ["get", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-platform-dependency-status-reader
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envpilot-control-plane.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envpilot-control-plane.fullname" . }}-platform-dependency-status-reader
+{{- end }}
 {{- if or .Values.rbac.remoteClusterReconciler.enabled (default false $remoteClusterReconciler.enabled) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1

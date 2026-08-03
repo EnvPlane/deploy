@@ -80,6 +80,18 @@ type result struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
+// statusSnapshot is the reconciler-to-control-plane wire contract. Generation
+// advances on every successful write so readers can reject old watch events;
+// observedAt makes an otherwise valid historical result visibly stale.
+type statusSnapshot struct {
+	SchemaVersion int               `json:"schemaVersion"`
+	Generation    int64             `json:"generation"`
+	ObservedAt    string            `json:"observedAt"`
+	Dependencies  map[string]result `json:"dependencies"`
+}
+
+const statusSnapshotSchemaVersion = 1
+
 var (
 	ctx        = context.Background()
 	statusData = map[string]result{}
@@ -729,10 +741,26 @@ func cleanup(cfg config, restCfg *rest.Config) error {
 	return nil
 }
 func persistStatus(client kubernetes.Interface, statuses map[string]result) error {
-	b, _ := json.Marshal(statuses)
 	ns := os.Getenv("ENVPILOT_RECONCILE_NAMESPACE")
 	name := os.Getenv("ENVPILOT_RECONCILE_STATUS_CONFIG_MAP")
 	cm, err := client.CoreV1().ConfigMaps(ns).Get(ctx, name, metav1.GetOptions{})
+	generation := int64(1)
+	if err == nil && cm.Data != nil {
+		var previous statusSnapshot
+		if raw := strings.TrimSpace(cm.Data["status.json"]); raw != "" && json.Unmarshal([]byte(raw), &previous) == nil && previous.SchemaVersion == statusSnapshotSchemaVersion && previous.Generation > 0 {
+			generation = previous.Generation + 1
+		}
+	}
+	snapshot := statusSnapshot{
+		SchemaVersion: statusSnapshotSchemaVersion,
+		Generation:    generation,
+		ObservedAt:    time.Now().UTC().Format(time.RFC3339),
+		Dependencies:  statuses,
+	}
+	b, marshalErr := json.Marshal(snapshot)
+	if marshalErr != nil {
+		return fmt.Errorf("marshal platform dependency status: %w", marshalErr)
+	}
 	if err != nil {
 		cm = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}, Data: map[string]string{"status.json": string(b)}}
 		_, err = client.CoreV1().ConfigMaps(ns).Create(ctx, cm, metav1.CreateOptions{})

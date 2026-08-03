@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -30,6 +31,34 @@ func TestDetectCompatibleExistingCapabilities(t *testing.T) {
 	}
 	if ok, ref, err := detect("storage", capability{}, client); err != nil || !ok || ref != "standard" {
 		t.Fatalf("storage detection = %v %q %v", ok, ref, err)
+	}
+}
+
+func TestPersistStatusWritesGenerationAwareSnapshot(t *testing.T) {
+	t.Setenv("ENVPILOT_RECONCILE_NAMESPACE", "envpilot")
+	t.Setenv("ENVPILOT_RECONCILE_STATUS_CONFIG_MAP", "envpilot-platform-dependency-reconciler-status")
+	client := kfake.NewSimpleClientset()
+	statuses := map[string]result{
+		"ingress": {Mode: "auto", Provider: "nginx", Ownership: "external", State: "detected", UpdatedAt: "2026-08-03T00:00:00Z"},
+		"dns":     {Mode: "disabled", Ownership: "external", State: "disabled"},
+		"storage": {Mode: "disabled", Ownership: "external", State: "disabled"},
+	}
+	if err := persistStatus(client, statuses); err != nil {
+		t.Fatalf("persist first status: %v", err)
+	}
+	if err := persistStatus(client, statuses); err != nil {
+		t.Fatalf("persist second status: %v", err)
+	}
+	cm, err := client.CoreV1().ConfigMaps("envpilot").Get(ctx, "envpilot-platform-dependency-reconciler-status", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("get status ConfigMap: %v", err)
+	}
+	var snapshot statusSnapshot
+	if err := json.Unmarshal([]byte(cm.Data["status.json"]), &snapshot); err != nil {
+		t.Fatalf("decode snapshot: %v", err)
+	}
+	if snapshot.SchemaVersion != statusSnapshotSchemaVersion || snapshot.Generation != 2 || snapshot.ObservedAt == "" || snapshot.Dependencies["ingress"].State != "detected" {
+		t.Fatalf("snapshot = %#v", snapshot)
 	}
 }
 

@@ -42,6 +42,12 @@ global:
     # or installation of controllers, DNS, StorageClasses or tunnels.
     platformDependencyStatus:
       enabled: true
+      # Defaults to <release>-platform-dependency-reconciler-status when empty.
+      statusConfigMapName: ""
+      # The control plane watches the reconciler-owned ConfigMap and overlays
+      # observed capability state on this declarative contract. A missing map
+      # keeps the declared state; an old observation becomes explicitly stale.
+      staleAfterSeconds: 300
     # Remote clusters are configured through the API/UI and Secret references.
     # This flag only enables the management-cluster reconciler globally; it
     # contains no target-cluster endpoint or credential material.

@@ -337,7 +337,11 @@
             "platformDependencyStatus": {
               "type": "object",
               "additionalProperties": false,
-              "properties": { "enabled": { "type": "boolean" } }
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "statusConfigMapName": { "type": "string" },
+                "staleAfterSeconds": { "type": "integer", "minimum": 1 }
+              }
             },
             "remoteClusterReconciler": {
               "type": "object",

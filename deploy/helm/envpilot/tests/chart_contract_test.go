@@ -541,6 +541,29 @@ func TestPlatformDependencyStatusContractIsRenderedForControlPlane(t *testing.T)
 	}
 }
 
+func TestControlPlaneWatchesScopedReconcilerStatus(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "access.mode=ingress",
+		"--set", "access.ingress.className=nginx",
+		"--set", "access.ingress.host=envpilot.example.test",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
+	for _, expected := range []string{
+		"name: envpilot-control-plane-platform-dependency-status-reader",
+		"resources: [\"configmaps\"]",
+		"verbs: [\"get\", \"watch\"]",
+		"name: ENVPILOT_PLATFORM_DEPENDENCY_STATUS_CONFIG_MAP",
+		"value: \"envpilot-platform-dependency-reconciler-status\"",
+		"name: ENVPILOT_PLATFORM_DEPENDENCY_STATUS_STALE_AFTER_SECONDS",
+		"value: \"300\"",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("control-plane reconciler status watcher missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "platformDependencyReconciler.enabled=true",

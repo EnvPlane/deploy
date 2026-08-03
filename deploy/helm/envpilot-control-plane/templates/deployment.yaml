@@ -4,6 +4,8 @@
 {{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
 {{- $platformDependencyStatus := default (dict) (get $globalEnvPilot "platformDependencyStatus") -}}
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
+{{- $platformDependencyStatusConfigMap := default (printf "%s-platform-dependency-reconciler-status" .Release.Name) (get $platformDependencyStatus "statusConfigMapName") -}}
+{{- $platformDependencyStatusStaleAfter := default 300 (get $platformDependencyStatus "staleAfterSeconds") -}}
 {{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
 {{- $remoteClusterReconcilerEnabled := default false $remoteClusterReconciler.enabled -}}
 {{- $remoteCompatibilityConfigMap := default (printf "%s-remote-cluster-compatibility" .Release.Name) .Values.remoteClusterReconciler.compatibilityConfigMapName -}}
@@ -135,6 +137,16 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           env:
+            {{- if $platformDependencyStatusEnabled }}
+            # The declared contract comes from envFrom above. This separate,
+            # read-only ConfigMap watch supplies observed reconciler state.
+            - name: ENVPILOT_PLATFORM_DEPENDENCY_STATUS_CONFIG_MAP
+              value: {{ $platformDependencyStatusConfigMap | quote }}
+            - name: ENVPILOT_PLATFORM_DEPENDENCY_STATUS_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: ENVPILOT_PLATFORM_DEPENDENCY_STATUS_STALE_AFTER_SECONDS
+              value: {{ $platformDependencyStatusStaleAfter | quote }}
+            {{- end }}
             # Bootstrap Agent instructions must use a pod-reachable endpoint,
             # never the browser ingress host. A remote target cluster sets the
             # explicit agentBootstrap.controlPlaneURL override.
