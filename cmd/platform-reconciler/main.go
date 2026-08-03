@@ -16,6 +16,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -139,6 +140,9 @@ func run() error {
 	if os.Getenv("ENVPILOT_RECONCILE_ACTION") == "cleanup" {
 		return cleanup(cfg, restCfg)
 	}
+	if os.Getenv("ENVPILOT_RECONCILE_ACTION") == "ensure-namespaces" {
+		return ensureNamespaces(core, os.Getenv("ENVPILOT_RECONCILE_PROVIDER_NAMESPACES"))
+	}
 	var reconcileErrors []string
 	for name, dep := range map[string]capability{"ingress": cfg.Ingress, "dns": cfg.DNS, "storage": cfg.Storage} {
 		res, e := reconcile(name, dep, client, restCfg)
@@ -164,6 +168,31 @@ func run() error {
 		return fmt.Errorf("bundled PostgreSQL/Redis require a ready storage dependency: %s", statusData["storage"].Message)
 	}
 	return persistStatus(core, statusData)
+}
+
+func ensureNamespaces(client kubernetes.Interface, raw string) error {
+	seen := map[string]struct{}{}
+	for _, namespace := range strings.Split(raw, ",") {
+		namespace = strings.TrimSpace(namespace)
+		if namespace == "" {
+			continue
+		}
+		if _, ok := seen[namespace]; ok {
+			continue
+		}
+		seen[namespace] = struct{}{}
+		_, err := client.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+		if err == nil {
+			continue
+		}
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("check provider namespace %s: %w", namespace, err)
+		}
+		if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace, Labels: map[string]string{"app.kubernetes.io/managed-by": "envpilot"}}}, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("create provider namespace %s: %w", namespace, err)
+		}
+	}
+	return nil
 }
 
 func reconcile(name string, dep capability, client dynamic.Interface, restCfg *rest.Config) (result, error) {

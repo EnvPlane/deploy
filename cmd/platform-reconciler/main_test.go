@@ -4,10 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
+	kfake "k8s.io/client-go/kubernetes/fake"
 )
 
 func TestDetectCompatibleExistingCapabilities(t *testing.T) {
@@ -83,5 +85,18 @@ func TestCleanupSkipsExternallyOwnedProvider(t *testing.T) {
 	err := cleanup(config{Ingress: capability{Mode: "managed", Ownership: "external", Managed: managedConfig{CleanupPolicy: "delete", ReleaseName: "external"}}}, nil)
 	if err != nil {
 		t.Fatalf("cleanup touched an externally owned provider: %v", err)
+	}
+}
+
+func TestEnsureNamespacesIsIdempotent(t *testing.T) {
+	client := kfake.NewSimpleClientset()
+	if err := ensureNamespaces(client, "ingress-nginx, ingress-nginx"); err != nil {
+		t.Fatalf("ensure provider namespace: %v", err)
+	}
+	if err := ensureNamespaces(client, "ingress-nginx"); err != nil {
+		t.Fatalf("repeat ensure provider namespace: %v", err)
+	}
+	if _, err := client.CoreV1().Namespaces().Get(ctx, "ingress-nginx", metav1.GetOptions{}); err != nil {
+		t.Fatalf("provider namespace missing: %v", err)
 	}
 }
