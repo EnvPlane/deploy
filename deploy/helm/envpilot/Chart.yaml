@@ -14,10 +14,10 @@ dependencies:
     repository: file://../envpilot-frontend
     condition: frontend.enabled
   - name: envpilot-agent
-    version: 0.2.4
+    version: 0.2.5
     repository: file://../envpilot-agent
     condition: agent.enabled
   - name: envpilot-runner
-    version: 0.3.9
+    version: 0.3.10
     repository: file://../envpilot-runner
     condition: runner.enabled

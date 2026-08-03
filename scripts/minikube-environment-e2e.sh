@@ -85,8 +85,9 @@ if [[ -z "$SCM_TOKEN" && -n "$SCM_TOKEN_FILE" ]]; then
 fi
 [[ -n "$SCM_TOKEN" ]] || die "set ENVPILOT_E2E_SCM_TOKEN or ENVPILOT_E2E_SCM_TOKEN_FILE for the normal SCM validation path"
 [[ "$SCM_PROVIDER" == "github" || "$SCM_PROVIDER" == "gitlab" ]] || die "ENVPILOT_E2E_SCM_PROVIDER must be github or gitlab"
-[[ -n "$REMOTE_CONTROL_PLANE_URL" ]] || die "set ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL to a stable HTTP(S) endpoint reachable from target pods"
-[[ "$REMOTE_CONTROL_PLANE_URL" =~ ^https?:// ]] || die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL must use http:// or https://"
+[[ -n "$REMOTE_CONTROL_PLANE_URL" ]] || die "set ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL to a stable HTTPS endpoint reachable from target pods"
+[[ "$REMOTE_CONTROL_PLANE_URL" =~ ^https://[^/?#]+ ]] || die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL must use a stable https:// endpoint"
+[[ "$REMOTE_CONTROL_PLANE_URL" != *"@"* && "$REMOTE_CONTROL_PLANE_URL" != *"?"* && "$REMOTE_CONTROL_PLANE_URL" != *"#"* ]] || die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL must not include credentials, query parameters, or fragments"
 remote_control_plane_host="${REMOTE_CONTROL_PLANE_URL#*://}"
 remote_control_plane_host="${remote_control_plane_host%%/*}"
 remote_control_plane_host="${remote_control_plane_host%%:*}"
@@ -360,6 +361,15 @@ create_and_verify_environment() {
   log "Environment is Ready; release $release exists only in $TARGET_PROFILE/$namespace"
 }
 
+# The individual Helm invocations in install_agent/install_runner have already
+# returned before this runs. A Ready Environment below can only occur after the
+# target Runner performs an authenticated command poll and reports its result;
+# it therefore proves the endpoint does not depend on a developer port-forward.
+verify_remote_runtime_after_installer_exit() {
+  assert_remote_heartbeats_remain_fresh
+  create_and_verify_environment
+}
+
 log "Verifying two-cluster control-plane and target contexts"
 curl --fail --silent --show-error "$API_URL/api/v1/health" >/dev/null
 kubectl --context "$CONTROL_PROFILE" cluster-info >/dev/null
@@ -373,11 +383,10 @@ install_agent
 install_runner
 complete_bootstrap
 assert_deploy_ready
-assert_remote_heartbeats_remain_fresh
 # The supported reconciler must be safe to invoke repeatedly after the remote
 # runtime has registered; a ready fixture requires no secret edits or rollout.
 complete_bootstrap
 assert_deploy_ready
-create_and_verify_environment
+verify_remote_runtime_after_installer_exit
 
 log "E2E passed. Agent/Runner use the stable remote endpoint $REMOTE_CONTROL_PLANE_URL; no local gateway remains to keep alive."

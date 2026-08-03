@@ -144,6 +144,12 @@ func TestRunnerChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	if err == nil || !strings.Contains(string(output), "controlPlane.url is required") {
 		t.Fatalf("remote Runner endpoint without URL must fail, err=%v output=%s", err, output)
 	}
+	cmd = exec.Command("helm", "template", "envpilot-runner", "..", "--set", "controlPlane.endpointMode=remote", "--set", "controlPlane.url=http://api.remote.example")
+	cmd.Dir = "."
+	output, err = cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "stable https") {
+		t.Fatalf("remote Runner HTTP endpoint must fail, err=%v output=%s", err, output)
+	}
 }
 
 func TestRunnerChartManagedRemoteUsesProjectScopedWriterRBAC(t *testing.T) {

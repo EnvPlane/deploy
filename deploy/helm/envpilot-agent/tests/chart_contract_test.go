@@ -148,6 +148,12 @@ func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	if err == nil || !strings.Contains(string(output), "controlPlane.url is required") {
 		 t.Fatalf("remote Agent endpoint without URL must fail, err=%v output=%s", err, output)
 	}
+	cmd = exec.Command("helm", "template", "envpilot-agent", "..", "--set", "controlPlane.endpointMode=remote", "--set", "controlPlane.url=http://api.remote.example")
+	cmd.Dir = "."
+	output, err = cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "stable https") {
+		t.Fatalf("remote Agent HTTP endpoint must fail, err=%v output=%s", err, output)
+	}
 	// Older releases may be upgraded with --reuse-values and do not have the
 	// nested tls map. The endpoint remains valid when it uses system trust.
 	remoteWithoutTLS := renderAgentChart(t,

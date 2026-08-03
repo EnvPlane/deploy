@@ -41,6 +41,7 @@ app_branch="${ENVPILOT_E2E_APP_DEFAULT_BRANCH:-main}"
 gitops_branch="${ENVPILOT_E2E_GITOPS_DEFAULT_BRANCH:-main}"
 scm_token_file="${ENVPILOT_E2E_SCM_TOKEN_FILE:-}"
 feature_ref="${ENVPILOT_E2E_FEATURE_REF:-201}"
+runtime_stability_wait_seconds="${ENVPILOT_E2E_REMOTE_RUNTIME_STABILITY_WAIT_SECONDS:-35}"
 
 for bin in curl helm jq kubectl; do command -v "$bin" >/dev/null || { echo "missing $bin" >&2; exit 2; }; done
 [[ "$credential_mode" == "existing" || "$credential_mode" == "submit" ]] || { echo "ENVPILOT_E2E_REMOTE_CREDENTIAL_MODE must be existing or submit" >&2; exit 2; }
@@ -96,6 +97,19 @@ done
 project_payload="$(jq '. + {cluster_id:$cluster,authorized_cluster_ids:[$cluster]}' --arg cluster "$cluster_id" <<<"$project_payload")"
 api -X PUT --data "$project_payload" "$api_url/api/v1/projects/$project_id" >/dev/null
 api -X POST --data '{}' "$api_url/api/projects/$project_id/bootstrap-session" >/dev/null
+
+# Reconciliation/Helm installation has returned before this point. Require two
+# independent fresh status observations before dispatching an Environment: the
+# later create result proves authenticated Runner command polling continues
+# without a test-client port-forward or installer process in the target cluster.
+assert_remote_runtime_after_installer_exit() {
+  wait_json "/api/projects/$project_id/bootstrap-session/agent-status" '(.status == "connected" or .status == "online") and ((.effectiveStatus // .status) == "connected" or (.effectiveStatus // .status) == "online")' >/dev/null
+  wait_json "/api/projects/$project_id/bootstrap-session/runner-status" '(.status == "connected" or .status == "online")' >/dev/null
+  sleep "$runtime_stability_wait_seconds"
+  wait_json "/api/projects/$project_id/bootstrap-session/agent-status" '(.status == "connected" or .status == "online") and ((.effectiveStatus // .status) == "connected" or (.effectiveStatus // .status) == "online")' >/dev/null
+  wait_json "/api/projects/$project_id/bootstrap-session/runner-status" '(.status == "connected" or .status == "online")' >/dev/null
+}
+assert_remote_runtime_after_installer_exit
 scm_token="$(awk '/^(glpat-|ghp_|github_pat_)/{print; exit}' "${ENVPILOT_E2E_SCM_TOKEN_FILE:-/dev/null}")"
 [[ -n "$scm_token" ]] || { echo "set ENVPILOT_E2E_SCM_TOKEN_FILE for bootstrap validation" >&2; exit 2; }
 scm_payload="$(jq -n --arg provider "$scm_provider" --arg app "$app_repo" --arg gitops "$gitops_repo" --arg branch "$app_branch" --arg gitops_branch "$gitops_branch" --arg token "$scm_token" '{provider:$provider,appRepoUrl:$app,gitopsRepoUrl:$gitops,appDefaultBranch:$branch,gitopsDefaultBranch:$gitops_branch,authMethod:"oauth",oauthToken:$token}')"

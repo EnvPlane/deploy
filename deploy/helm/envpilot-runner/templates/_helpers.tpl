@@ -60,7 +60,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- $controlPlane := default (dict) .Values.controlPlane -}}
 {{- $mode := default "sameCluster" (get $controlPlane "endpointMode") -}}
 {{- if eq $mode "remote" -}}
-{{- required "controlPlane.url is required when controlPlane.endpointMode=remote" (get $controlPlane "url") -}}
+{{- $url := required "controlPlane.url is required when controlPlane.endpointMode=remote" (get $controlPlane "url") -}}
+{{- $urlLower := lower $url -}}
+{{- if not (regexMatch "^https://[^/?#]+(/[^?#]*)?$" $url) }}{{ fail "controlPlane.url must be an explicit stable https:// endpoint when controlPlane.endpointMode=remote" }}{{ end -}}
+{{- if or (contains "@" $url) (contains "?" $url) (contains "#" $url) }}{{ fail "controlPlane.url must not include credentials, query parameters, or fragments" }}{{ end -}}
+{{- if regexMatch "^https://(localhost|127\\.[0-9.]+|\\[::1\\]|host\\.minikube\\.internal|envpilot\\.local)([:/]|$)" $urlLower }}{{ fail "controlPlane.endpointMode=remote rejects host-local and port-forward controlPlane.url values" }}{{ end -}}
+{{- if or (contains ".svc/" $urlLower) (contains ".svc:" $urlLower) (contains ".svc." $urlLower) (hasSuffix ".svc" $urlLower) }}{{ fail "controlPlane.endpointMode=remote rejects Kubernetes Service DNS controlPlane.url values; use a target-pod-reachable external HTTPS endpoint" }}{{ end -}}
+{{- $tls := default (dict) (get $controlPlane "tls") -}}
+{{- if and (get $tls "caSecret") (not (get $tls "caKey")) }}{{ fail "controlPlane.tls.caKey is required when controlPlane.tls.caSecret is set" }}{{ end -}}
+{{- $url -}}
 {{- else if eq $mode "sameCluster" -}}
 {{- $serviceName := default "envpilot-control-plane" (get $controlPlane "serviceName") -}}
 {{- $namespace := default .Release.Namespace (get $controlPlane "namespace") -}}

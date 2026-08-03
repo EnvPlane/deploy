@@ -241,10 +241,10 @@ envpilot-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envpilot/envpilot-agent"
-      version: "0.2.4"
+      version: "0.2.5"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
-    # stable target-pod-reachable HTTP(S) endpoint, never a tunnel or Service
+    # stable target-pod-reachable HTTPS endpoint, never a tunnel or Service
     # DNS. For private TLS, the CA Secret/key must exist in target namespaces.
     url: ""
     caSecret: ""

@@ -15,8 +15,10 @@ grep -Fq 'ENVPILOT_E2E_RUNNER_CHART_VERSION' "$script"
 grep -Fq 'ENVPILOT_E2E_AGENT_IMAGE_TAG' "$script"
 grep -Fq 'ENVPILOT_E2E_RUNNER_IMAGE_TAG' "$script"
 grep -Fq 'assert_remote_heartbeats_remain_fresh' "$script"
+grep -Fq 'verify_remote_runtime_after_installer_exit' "$script"
 grep -Fq 'complete_bootstrap' "$script"
 grep -Fq 'assert_deploy_ready' "$script"
+grep -Fq 'stable https:// endpoint' "$script"
 
 if grep -Fq 'minikube-agent-access.sh" start' "$script" || grep -Fq 'host.minikube.internal:' "$script" || grep -Fq 'minikube -p' "$script" || grep -Fq 'image.tag=local' "$script" || grep -Fq 'rollout restart' "$script"; then
 	echo "remote E2E script must not start a local gateway, special-case minikube, use local artifacts, or require a manual rollout restart" >&2
