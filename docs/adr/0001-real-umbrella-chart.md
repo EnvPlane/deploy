@@ -1,7 +1,7 @@
-# ADR-0001: Real Helm umbrella chart with managed platform dependencies
+# ADR-0001: Real Helm umbrella chart with managed platform and remote-cluster dependencies
 
-**Status:** Proposed  
-**Date:** 2026-07-31  
+**Status:** Proposed
+**Date:** 2026-08-03
 **Deciders:** EnvPilot maintainers  
 **Repositories:** `deploy`, `control-plane`, `agent`, `runner`, `frontend`
 
@@ -24,6 +24,14 @@ This implementation has material operational drawbacks:
   flow;
 - it is difficult to produce one immutable release contract for API, frontend,
   Agent, Runner and their charts.
+
+Remote target clusters currently require a user to run the published Agent and
+Runner OCI charts manually. That makes the management UI unable to converge a
+project's execution target, leaves bootstrap identities orphaned after failed
+installs, and encourages unsupported endpoints such as an active local
+port-forward or `host.minikube.internal`. A management-cluster Helm release
+cannot directly own resources in another Kubernetes API server, but leaving
+remote workload lifecycle outside the product is not an acceptable contract.
 
 EnvPilot must support a provider-neutral installation in a pre-existing
 Kubernetes cluster through exactly one command:
@@ -69,6 +77,10 @@ helm upgrade --install envpilot
                  +-- platform dependency reconciler Job (optional exception)
                       +-- detect existing ingress/DNS/storage
                       +-- install only explicitly configured missing providers
+                 |
+                 +-- Remote Cluster Reconciler (bounded exception)
+                      +-- read API/database desired state
+                      +-- manage only remote Agent/Runner Helm releases
 ```
 
 The installer image, post-install installer Job, nested core Helm releases,
@@ -154,22 +166,97 @@ The control plane exchanges registration material for component-specific runtime
 credentials and persists only the safe resulting auth state. It idempotently
 reconciles its installation and cluster identity on startup.
 
-One Helm release cannot deploy workloads into a different Kubernetes API server.
-Remote Agent/Runner are therefore intentionally separate published child-chart
-installs. They use the existing project/cluster-scoped registration and
-rotate/reissue flow; they are not represented as a dependency of the
-same-cluster umbrella release.
+One Helm release cannot render or own workloads in a different Kubernetes API
+server. Remote Agent/Runner are therefore not umbrella dependencies and are not
+configured through umbrella chart values. They are, however, product-managed
+through an API/UI desired-state flow and the bounded reconciler defined below.
 
 ```text
 same cluster
   umbrella -> API + frontend + Agent + Runner
 
 remote target cluster
-  published envpilot-agent/envpilot-runner child chart
-      -> HTTPS registration -> control-plane in management cluster
+  UI/API RemoteCluster desired state -- Secret reference only --> database
+                     |
+                     v
+       Remote Cluster Reconciler in management cluster
+          | Kubernetes client + Helm Go SDK
+          v
+  remote API server -> Agent/Runner releases -> HTTPS control-plane endpoint
 ```
 
-### 5. Secrets are references, never release inputs by default
+### 5. Remote Cluster Reconciler is the only cross-cluster release exception
+
+The management-cluster control plane hosts a bounded Remote Cluster Reconciler.
+It reads `RemoteCluster` and project-scoped Agent/Runner desired state from the
+control-plane API/database, obtains remote Kubernetes access only from an
+operator-provisioned referenced Secret, and uses Kubernetes clients plus the
+Helm Go SDK to reconcile **only** the canonical `envpilot-agent` and
+`envpilot-runner` releases in that remote cluster. It never shells out to
+`helm` or `kubectl`.
+
+Remote cluster configuration is created and changed through authenticated UI/API
+resources, not `values.yaml`. Its API representation contains safe metadata
+only: immutable cluster ID, display name, remote release namespace, an
+`existingSecretRef` identifying management-cluster Secret name/key(s), optional
+CA Secret reference, and a target-pod-reachable HTTPS control-plane endpoint.
+The API never returns Secret data, bearer tokens, kubeconfig bytes, client keys,
+or generated bootstrap tokens. Secret material is read by the reconciler under
+least-privilege RBAC and is redacted from logs, events, audit payloads and
+status responses.
+
+The reconciler validates before it creates or upgrades a release:
+
+1. the remote API endpoint, credentials and CA reference produce an authenticated
+   remote Kubernetes client;
+2. the configured control-plane URL is explicit HTTPS and passes a health/TLS
+   preflight from the remote Agent/Runner Pod context;
+3. the endpoint is not loopback, a port-forward address, `host.minikube.internal`,
+   `envpilot.local`, or a Kubernetes Service DNS name that belongs to another
+   cluster; and
+4. the selected immutable Agent/Runner chart and image compatibility set is
+   available before reconciliation begins.
+
+Same-cluster Service DNS is generated only for chart-managed same-cluster
+Agent/Runner. A remote cluster must use a stable endpoint reachable by its own
+Pods. The product never creates a tunnel, port-forward, Kubernetes cluster,
+node pool, cloud account, DNS zone or cloud identity to satisfy this preflight.
+
+Each managed remote release has labels and annotations containing the EnvPilot
+management installation UID, remote-cluster ID, component, project identity and
+desired-state generation. Reconciliation uses a database-backed per
+`remoteCluster/component/project` lease with a bounded TTL and attempt ID.
+Only the lease holder may call the remote API or Helm Go SDK; expired leases are
+reported as retryable `degraded` state and may be safely reclaimed. The remote
+Agent/Runner registration handshake remains project/cluster scoped, one-time
+and rotation-capable. A newly issued credential invalidates its predecessor;
+neither raw credential is persisted in desired state or returned after the
+explicit one-time installation handoff.
+
+Remote release lifecycle is deliberately narrow:
+
+| Operation | Reconciler behaviour |
+|---|---|
+| Create/update | Validate desired state and preflight, then `upgrade --install` the canonical remote Agent or Runner with pinned chart/image references. |
+| Retry/rotate | Keep the same release identity; rotate/reissue only via an authenticated, audited API action and reconcile a new Secret without exposing its value. |
+| Rollback | Reconcile the prior immutable component compatibility set only after API/database compatibility validation; do not roll back feature environments. |
+| Disable/uninstall | Remove only releases carrying the matching management ownership UID; revoke project-scoped credentials and retain safe audit/status history. |
+| Lost access | Mark the remote cluster `degraded` with timestamp and recovery reason; do not fall back to the control-plane kubeconfig or another cluster. |
+
+The reconciler has no authority to create user clusters, modify shared ingress,
+DNS, StorageClasses, namespaces outside its owned Agent/Runner releases, or
+operate feature-environment Helm releases. The target Runner remains the only
+execution path for create/status/recreate/delete of an Environment.
+
+Manual OCI installs migrate through an explicit audited import flow. The UI/API
+first verifies the remote endpoint, release name, chart provenance, ownership
+labels and project/cluster identity. Only a matching canonical release may be
+adopted by recording an imported managed baseline; ambiguous or foreign releases
+remain external and require an operator-directed replacement. The reconciler
+never silently adopts a release or deletes a manually managed release during
+migration.
+
+### 6. Secrets are references, never release inputs by default
 
 Values contain Secret names and keys, not raw registry, SCM, DNS, cloud or
 runtime tokens. Charts support `existingSecret` and image pull Secret references.
@@ -181,13 +268,13 @@ An explicit unsafe local-development escape hatch, if retained, is disabled by
 default and must be rejected by production policy tests. No normal release
 documentation contains a credential literal.
 
-### 6. Upgrade, rollback and uninstall follow declared ownership
+### 7. Upgrade, rollback and uninstall follow declared ownership
 
-| Operation | Core EnvPilot components | Existing platform capability | Managed platform capability |
-|---|---|---|---|
-| Upgrade | Helm upgrades child charts atomically after compatibility validation. | Observe only. | Reconcile only the provider/version declared in values. |
-| Rollback | Helm restores the earlier immutable umbrella compatibility set. | No change. | Do not automatically downgrade a shared provider; report version skew and require an explicit platform action. |
-| Uninstall | Delete resources owned by the umbrella release, subject to PVC retention policy. | Never delete or adopt. | Preserve by default; delete only with explicit `cleanupManaged=true` and matching installation ownership UID. |
+| Operation | Core EnvPilot components | Existing platform capability | Managed platform capability | Remote Agent/Runner |
+|---|---|---|---|---|
+| Upgrade | Helm upgrades child charts atomically after compatibility validation. | Observe only. | Reconcile only the provider/version declared in values. | Reconciler applies the matching immutable remote component set under its lease. |
+| Rollback | Helm restores the earlier immutable umbrella compatibility set. | No change. | Do not automatically downgrade a shared provider; report version skew and require an explicit platform action. | Reconcile an API-approved prior remote compatibility set; preserve Runner-owned feature releases. |
+| Uninstall | Delete resources owned by the umbrella release, subject to PVC retention policy. | Never delete or adopt. | Preserve by default; delete only with explicit `cleanupManaged=true` and matching installation ownership UID. | Delete only matching reconciler-owned Agent/Runner releases, revoke their identities and never delete a remote cluster or shared dependency. |
 
 The release manifest pins all component images by digest and child charts by
 immutable version. API database migrations must remain backward compatible for
@@ -259,6 +346,22 @@ fresh supported cluster a multi-step/manual deployment.
 installation dependencies. It is disproportionate for the initial product
 scope.
 
+### Option E: Keep remote Agent/Runner installation entirely manual
+
+| Dimension | Assessment |
+|---|---|
+| Complexity | Low initially, high operationally |
+| Security | Medium: credentials and command drift become operator responsibilities |
+| Lifecycle | Poor: no API/UI convergence or bounded recovery |
+| Portability | Medium: every cluster needs undocumented local knowledge |
+
+**Pros:** Does not require remote Kubernetes client handling in the control
+plane.
+
+**Cons:** Fails the product-managed multi-cluster setup requirement, cannot
+reliably recover stale identities, and encourages unsupported port-forward and
+local DNS endpoint workarounds.
+
 ## Consequences
 
 - `helm upgrade --install` becomes the only supported same-cluster application
@@ -271,8 +374,14 @@ scope.
 - A provider-aware capability contract becomes part of the public values API.
 - The platform reconciler needs elevated but tightly scoped permissions and
   comprehensive tests for upgrades, collisions and cleanup.
-- Remote cluster execution remains a deliberate separate release workflow;
-  claiming one umbrella release can install into multiple clusters is incorrect.
+- The umbrella remains exactly one management-cluster Helm release; remote
+  Agent/Runner lifecycle is converged through an API/UI desired-state reconciler
+  rather than through values or cross-cluster Helm ownership.
+- Management-cluster credentials for remote API access are a sensitive external
+  prerequisite and require secret-reference, audit and rotation controls.
+- Remote endpoint reachability becomes a precondition for project readiness;
+  unsupported local or foreign-cluster endpoint patterns fail early with an
+  actionable diagnostic.
 - Image and child chart publishing must produce an atomic compatibility manifest
   before an umbrella release is published.
 
@@ -290,6 +399,15 @@ scope.
   orphaned `IngressClass` is not sufficient.
 - Managed dependency cleanup is opt-in and ownership-UID guarded.
 - Every provider adapter has render, integration and published-artifact tests.
+- Remote Kubernetes credentials, CA bundles and bootstrap tokens are accepted
+  only through Secret references; no raw secret may enter values, API responses,
+  audit records, reconcile status or logs.
+- The Remote Cluster Reconciler may manage only labelled canonical Agent/Runner
+  releases and must use per-target leases, attempt IDs and bounded timeouts.
+- A remote target endpoint must be pod-reachable HTTPS. Port-forwards,
+  `host.minikube.internal`, loopback and foreign Service DNS are rejected.
+- Remote reconciliation may not use the control-plane kubeconfig as an
+  Environment execution fallback.
 
 ## Action items
 
@@ -301,4 +419,6 @@ scope.
    component and child-chart release propagation.
 4. [ ] Complete `EP-TEST-01`, `EP-TEST-02` and `EP-DOC-01` before deprecating
    the current installer Job and clean-install scripts.
-
+5. [ ] Add `EP-REMOTE-01` through `EP-REMOTE-07` for API/UI remote-cluster
+   desired state, Secret references, endpoint preflight, reconciler leases,
+   managed-release migration, lifecycle recovery and two-cluster E2E coverage.
