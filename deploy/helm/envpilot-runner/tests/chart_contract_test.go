@@ -227,6 +227,27 @@ func TestRunnerChartManagedRemoteUsesProjectScopedWriterRBAC(t *testing.T) {
 	}
 }
 
+func TestRunnerChartManagedRemoteWithoutConcreteFeatureNamespaceDoesNotGrantWriterRBAC(t *testing.T) {
+	rendered := renderRunnerChart(t,
+		"--set", "managedRemote.enabled=true",
+		"--set", "managedRemote.remoteClusterId=target-cluster-a",
+		"--set", "managedRemote.projectId=project-a",
+		"--set", "managedRemote.authRevision=bootstrap-r2",
+		"--set", "managedRemote.compatibilityPin=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"--set", "managedRemote.generation=2",
+		"--set", "controlPlane.endpointMode=remote",
+		"--set", "controlPlane.url=https://control.example.test",
+		"--set", "controlPlane.existingSecret=project-a-runner-bootstrap",
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.namespace=project-a-system",
+		"--set", "rbac.featureEnvWriter.enabled=false",
+		"--set", "rbac.featureEnvWriter.mode=preconfiguredNamespaces",
+	)
+	if strings.Contains(rendered, "feature-env-writer") || strings.Contains(rendered, "resources:\n      - secrets") {
+		t.Fatalf("a remote Runner with no concrete feature namespace must not receive broad Helm Secret RBAC:\n%s", rendered)
+	}
+}
+
 func TestRunnerChartUsesPersistentImage(t *testing.T) {
 	values, err := os.ReadFile("../values.yaml")
 	if err != nil {

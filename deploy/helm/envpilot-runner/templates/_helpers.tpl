@@ -125,9 +125,14 @@ envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 {{- if not .Values.rbac.create }}{{ fail "managedRemote.enabled requires rbac.create=true so target namespace RBAC can be reconciled" }}{{ end -}}
 {{- if ne (default "cluster" .Values.rbac.discovery.scope) "namespace" }}{{ fail "managedRemote.enabled requires rbac.discovery.scope=namespace" }}{{ end -}}
 {{- if not (default "" .Values.rbac.discovery.namespace) }}{{ fail "managedRemote.enabled requires rbac.discovery.namespace" }}{{ end -}}
-{{- if not $targetNamespaces }}{{ fail "managedRemote.enabled requires managedRemote.targetNamespaces" }}{{ end -}}
-{{- if not (has $writerMode (list "preconfiguredNamespaces" "generatedFeatureNamespaces")) }}{{ fail "managedRemote.enabled requires a namespace-scoped featureEnvWriter mode" }}{{ end -}}
-{{- if eq $writerMode "preconfiguredNamespaces" }}{{- if ne (join "," $targetNamespaces) (join "," $writerNamespaces) }}{{ fail "managedRemote.targetNamespaces must exactly match rbac.featureEnvWriter.namespaces" }}{{ end }}{{- else if ne (join "," $targetNamespaces) (join "," $generatedNamespaces) }}{{ fail "managedRemote.targetNamespaces must exactly match rbac.featureEnvWriter.generatedNamespaces" }}{{- end -}}
+{{- $writerEnabled := default false (get $writer "enabled") -}}
+{{- if not $targetNamespaces -}}
+  {{- if $writerEnabled }}{{ fail "managedRemote with no targetNamespaces must disable featureEnvWriter rather than broadening RBAC" }}{{ end -}}
+{{- else -}}
+  {{- if not $writerEnabled }}{{ fail "managedRemote targetNamespaces require featureEnvWriter.enabled=true" }}{{ end -}}
+  {{- if not (has $writerMode (list "preconfiguredNamespaces" "generatedFeatureNamespaces")) }}{{ fail "managedRemote.enabled requires a namespace-scoped featureEnvWriter mode" }}{{ end -}}
+  {{- if eq $writerMode "preconfiguredNamespaces" }}{{- if ne (join "," $targetNamespaces) (join "," $writerNamespaces) }}{{ fail "managedRemote.targetNamespaces must exactly match rbac.featureEnvWriter.namespaces" }}{{ end }}{{- else if ne (join "," $targetNamespaces) (join "," $generatedNamespaces) }}{{ fail "managedRemote.targetNamespaces must exactly match rbac.featureEnvWriter.generatedNamespaces" }}{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 
