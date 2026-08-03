@@ -12,6 +12,8 @@ bash -n "$resolver"
 for required in \
   "branches: [main]" \
   "resolve-latest-published-artifacts.sh" \
+  "oras-project/setup-oras@v1" \
+  "oras login ghcr.io" \
   "helm dependency build" \
   "helm package" \
   "helm push" \

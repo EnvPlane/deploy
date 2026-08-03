@@ -31,6 +31,7 @@ command -v gh >/dev/null || { echo "gh is required" >&2; exit 1; }
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
+command -v oras >/dev/null || { echo "oras is required for OCI chart tag discovery" >&2; exit 1; }
 
 package_versions() {
   local package="$1" endpoint response
@@ -74,10 +75,14 @@ image_json() {
 }
 
 latest_chart_version() {
-  local package="$1" version
-  version="$(package_versions "$package" \
-    | jq -r '(.metadata.container.tags // [])[] | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' \
-    | sort -Vu | tail -n1)"
+  local package="$1" version tags
+  # Helm OCI charts are not exposed consistently by GitHub's package-versions
+  # REST API. Discover their immutable SemVer tags from the registry itself.
+  tags="$(oras repo tags "ghcr.io/$owner/$package")"
+  version="$(printf '%s\n' "$tags" \
+    | sed 's/^v//' \
+    | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+$' \
+    | sort -Vu | tail -n1 || true)"
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
     echo "no stable SemVer chart published for $package" >&2
     exit 1
