@@ -223,6 +223,13 @@ capabilities. It does not silently install a platform provider. `auto` and
 require explicit pinned provider configuration; otherwise select `existing` or
 `disabled` and provision the platform outside EnvPilot.
 
+The reconciler is disabled by default when no dependency mode is enabled. To
+turn it on, set `platformDependencyReconciler.enabled=true` and provide either
+the shared `global.envpilot.registry.mode=existing` Secret or explicit
+`platformDependencyReconciler.imagePullSecrets`. Its pre-install/pre-upgrade
+job is bounded; cleanup is opt-in, bounded by `cleanupDeadlineSeconds`, and
+deletes failed hook Jobs so a missing image cannot leave a stale Job behind.
+
 The umbrella renders the declared mode, provider, reference and state into a
 non-secret ConfigMap and the control plane exposes it as
 `GET /api/v1/capabilities.platformDependencies`. This is configuration status,

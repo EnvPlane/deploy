@@ -544,7 +544,11 @@ func TestPlatformDependencyStatusContractIsRenderedForControlPlane(t *testing.T)
 func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "platformDependencyReconciler.enabled=true",
-		"--set", "platformDependencies.ingress.mode=disabled",
+		"--set", "platformDependencies.ingress.mode=existing",
+		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+		"--set", "platformDependencyReconciler.cleanupManagedOnUninstall=true",
 	)
 	for _, expected := range []string{
 		"\"helm.sh/hook\": pre-install,pre-upgrade",
@@ -564,7 +568,13 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 }
 
 func TestPlatformReconcilerCanCreateItsStatusConfigMap(t *testing.T) {
-	rendered := renderUmbrella(t, "--set", "platformDependencyReconciler.enabled=true")
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "platformDependencies.ingress.mode=existing",
+		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
 	if !strings.Contains(rendered, "resources: [\"configmaps\"]\n    # Kubernetes cannot match resourceNames") ||
 		!strings.Contains(rendered, "verbs: [\"create\"]\n  - apiGroups: [\"\"]\n    resources: [\"configmaps\"]\n    resourceNames:") {
 		t.Fatalf("platform reconciler must allow unscoped ConfigMap create and name-scoped mutations:\n%s", rendered)
@@ -575,6 +585,8 @@ func TestPlatformReconcilerSupportsPrivateRegistryPullSecrets(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "platformDependencyReconciler.enabled=true",
 		"--set", "platformDependencyReconciler.imagePullSecrets[0].name=ghcr-envpilot",
+		"--set", "platformDependencies.ingress.mode=existing",
+		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
 	)
 	for _, expected := range []string{
 		"name: envpilot-platform-reconciler",
@@ -587,7 +599,13 @@ func TestPlatformReconcilerSupportsPrivateRegistryPullSecrets(t *testing.T) {
 }
 
 func TestPlatformReconcilerPrerequisitesRunBeforeTheGateJob(t *testing.T) {
-	rendered := renderUmbrella(t, "--set", "platformDependencyReconciler.enabled=true")
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "platformDependencies.ingress.mode=existing",
+		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
 	for _, expected := range []string{
 		"name: envpilot-platform-dependency-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-30\"",
 		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-20\"",
@@ -599,8 +617,59 @@ func TestPlatformReconcilerPrerequisitesRunBeforeTheGateJob(t *testing.T) {
 	}
 }
 
+func TestPlatformReconcilerIsOptInWhenNoProvidersAreConfigured(t *testing.T) {
+	rendered := renderUmbrella(t, "--set", "platformDependencyReconciler.enabled=true")
+	for _, forbidden := range []string{
+		"platform-reconciler/templates/platform-dependency-reconciler-job.yaml",
+		"platform-dependency-reconciler-cleanup",
+		"platform-reconciler-discovery",
+	} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("reconciler must not render without an enabled provider %q:\n%s", forbidden, rendered)
+		}
+	}
+}
+
+func TestPlatformReconcilerRequiresRegistryCredentialsBeforeHooks(t *testing.T) {
+	cmd := exec.Command("helm", "template", "envpilot", "..",
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "platformDependencies.ingress.mode=existing",
+		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
+	)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "platformDependencyReconciler requires") {
+		t.Fatalf("reconciler must fail with an actionable registry requirement, err=%v output=%s", err, output)
+	}
+}
+
+func TestPlatformReconcilerCleanupIsBoundedAndFailureSafe(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "platformDependencyReconciler.cleanupManagedOnUninstall=true",
+		"--set", "platformDependencies.ingress.mode=existing",
+		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
+	for _, expected := range []string{
+		"\"helm.sh/hook\": pre-delete",
+		"\"helm.sh/hook-delete-policy\": before-hook-creation,hook-succeeded,hook-failed",
+		"activeDeadlineSeconds: 120",
+		"ttlSecondsAfterFinished: 30",
+		"backoffLimit: 4",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("bounded cleanup contract missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestManagedIngressProviderRendersPinnedSmokeContract(t *testing.T) {
 	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
 		"--set", "platformDependencies.ingress.mode=managed",
 		"--set", "platformDependencies.ingress.provider=nginx",
 		"--set", "platformDependencies.ingress.ownership=envpilot",
@@ -621,6 +690,9 @@ func TestManagedIngressProviderRendersPinnedSmokeContract(t *testing.T) {
 
 func TestManagedExternalDNSRendersScopedContract(t *testing.T) {
 	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
 		"--set", "platformDependencies.dns.mode=managed",
 		"--set", "platformDependencies.dns.provider=external-dns",
 		"--set", "platformDependencies.dns.ownership=envpilot",
@@ -641,6 +713,9 @@ func TestManagedExternalDNSRendersScopedContract(t *testing.T) {
 
 func TestManagedLocalPathStorageRendersSmokeContract(t *testing.T) {
 	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
 		"--set", "platformDependencies.storage.mode=managed",
 		"--set", "platformDependencies.storage.provider=local-path-provisioner",
 		"--set", "platformDependencies.storage.ownership=envpilot",
@@ -654,6 +729,9 @@ func TestManagedLocalPathStorageRendersSmokeContract(t *testing.T) {
 		}
 	}
 	gated := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
 		"--set", "platformDependencies.storage.mode=existing",
 		"--set", "platformDependencies.storage.existingClassName=standard",
 		"--set", "platformDependencies.storage.provider=local-path-provisioner",

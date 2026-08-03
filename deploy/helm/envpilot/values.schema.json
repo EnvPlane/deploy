@@ -319,7 +319,9 @@
         },
         "backoffLimit": { "type": "integer", "minimum": 0 },
         "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
-        "cleanupManagedOnUninstall": { "type": "boolean" }
+        "cleanupManagedOnUninstall": { "type": "boolean" },
+        "cleanupDeadlineSeconds": { "type": "integer", "minimum": 1 },
+        "cleanupTTLSeconds": { "type": "integer", "minimum": 1 }
       }
     }
   },

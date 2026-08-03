@@ -1,4 +1,4 @@
-{{- if and .Values.platformDependencyReconciler.enabled .Values.platformDependencyReconciler.cleanupManagedOnUninstall }}
+{{- if and (eq (include "envpilot.platformReconcilerEnabled" .) "true") .Values.platformDependencyReconciler.cleanupManagedOnUninstall }}
 {{- $r := .Values.platformDependencyReconciler -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
 {{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
@@ -11,9 +11,11 @@ metadata:
   annotations:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-weight": "10"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
 spec:
   backoffLimit: {{ default 4 $r.backoffLimit }}
+  activeDeadlineSeconds: {{ default 120 $r.cleanupDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ default 30 $r.cleanupTTLSeconds }}
   template:
     spec:
       {{- $registryPullSecrets := include "envpilot.registryImagePullSecrets" . }}
@@ -24,9 +26,14 @@ spec:
       {{- end }}
       serviceAccountName: {{ $sa }}
       restartPolicy: Never
+      activeDeadlineSeconds: {{ default 120 $r.cleanupDeadlineSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
       containers:
         - name: reconciler
           image: {{ $image | quote }}
+          imagePullPolicy: {{ default "IfNotPresent" $r.image.pullPolicy }}
           env:
             - name: ENVPILOT_RECONCILE_ACTION
               value: cleanup

@@ -35,6 +35,29 @@ Only Secret names are rendered; the Secret data is managed by the operator.
 {{- if gt (len $result) 0 }}{{ toYaml $result }}{{- end }}
 {{- end -}}
 
+{{/*
+The reconciler is opt-in. Merely installing the umbrella chart must not pull a
+private optional image when no external platform provider is configured.
+*/}}
+{{- define "envpilot.platformReconcilerEnabled" -}}
+{{- $requested := default false .Values.platformDependencyReconciler.enabled -}}
+{{- if not $requested -}}false{{- else -}}
+  {{- $configured := false -}}
+  {{- range $name := list "ingress" "dns" "storage" -}}
+    {{- $dependency := index $.Values.platformDependencies $name -}}
+    {{- if ne (default "disabled" $dependency.mode) "disabled" }}{{- $configured = true -}}{{- end -}}
+  {{- end -}}
+  {{- if not $configured -}}false{{- else -}}
+    {{- $registry := default (dict) (get (default (dict) (get (default (dict) $.Values.global) "envpilot")) "registry") -}}
+    {{- $explicitPullSecrets := default (list) $.Values.platformDependencyReconciler.imagePullSecrets -}}
+    {{- if and (ne (default "disabled" $registry.mode) "existing") (eq (len $explicitPullSecrets) 0) -}}
+      {{- fail "platformDependencyReconciler requires global.envpilot.registry.mode=existing with existingSecret, or platformDependencyReconciler.imagePullSecrets" -}}
+    {{- end -}}
+    true
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Resolve a declared platform dependency state without probing or changing the cluster. */}}
 {{- define "envpilot.platformDependencyState" -}}
 {{- $dependency := . -}}

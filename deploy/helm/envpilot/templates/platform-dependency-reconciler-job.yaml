@@ -1,4 +1,4 @@
-{{- if .Values.platformDependencyReconciler.enabled }}
+{{- if eq (include "envpilot.platformReconcilerEnabled" .) "true" }}
 {{- $r := .Values.platformDependencyReconciler -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
 {{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}

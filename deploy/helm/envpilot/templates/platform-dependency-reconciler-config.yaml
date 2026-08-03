@@ -1,4 +1,4 @@
-{{- if .Values.platformDependencyReconciler.enabled }}
+{{- if eq (include "envpilot.platformReconcilerEnabled" .) "true" }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
