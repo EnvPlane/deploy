@@ -48,10 +48,17 @@ package_versions() {
 }
 
 latest_image_tag() {
-  local package="$1" tag
-  tag="$(package_versions "$package" \
-    | jq -r 'select((.metadata.container.tags // []) | any(test("^sha-[0-9a-f]{40}$"))) | .created_at + "\t" + ((.metadata.container.tags // [])[] | select(test("^sha-[0-9a-f]{40}$")))' \
-    | sort -r | head -n1 | cut -f2-)"
+  local package="$1" tag="" versions
+  if versions="$(package_versions "$package" 2>/dev/null)"; then
+    tag="$(jq -r 'select((.metadata.container.tags // []) | any(test("^sha-[0-9a-f]{40}$"))) | .created_at + "\t" + ((.metadata.container.tags // [])[] | select(test("^sha-[0-9a-f]{40}$")))' <<<"$versions" \
+      | sort -r | head -n1 | cut -f2-)"
+  fi
+  # The platform reconciler is built from this deploy commit by the preceding
+  # publication workflow. GitHub's user-package API may hide that package from
+  # GITHUB_TOKEN, so use only the exact workflow SHA as a verified fallback.
+  if [[ -z "$tag" && "$package" == platform-reconciler && "${GITHUB_SHA:-}" =~ ^[0-9a-f]{40}$ ]]; then
+    tag="sha-$GITHUB_SHA"
+  fi
   [[ "$tag" =~ ^sha-[0-9a-f]{40}$ ]] || {
     echo "no immutable sha-* image published for $package" >&2
     exit 1
