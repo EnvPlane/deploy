@@ -35,6 +35,13 @@ managedRemote:
   projectId: ""
   authRevision: ""
   authRotation: ""
+  # SHA-256 of the signed umbrella compatibility manifest selected by the
+  # management reconciler. It makes upgrades/rollback generation-aware.
+  compatibilityPin: ""
+  generation: 0
+  # Only an explicit audited RemoteCluster migration may take over a matching
+  # legacy release; normal reconciliation always rejects unmanaged releases.
+  allowLegacyMigration: false
   # Exact project feature namespaces where this Runner may create/status/
   # recreate/delete Helm releases. No wildcard or cluster-wide writer is
   # available in managed remote mode.

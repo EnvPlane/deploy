@@ -5,6 +5,7 @@ metadata:
   name: {{ default (printf "%s-auth" (include "envpilot-agent.fullname" .)) .Values.agent.authPersistence.claimName }}
   labels:
     {{- include "envpilot-agent.labels" . | nindent 4 }}
+    {{- include "envpilot-agent.managedRemoteMetadata" . | nindent 4 }}
 spec:
   accessModes:
     {{- toYaml .Values.agent.authPersistence.accessModes | nindent 4 }}

@@ -84,6 +84,9 @@ envpilot.io/remote-cluster-id: {{ get $managedRemote "remoteClusterId" | quote }
 envpilot.io/project-id: {{ get $managedRemote "projectId" | quote }}
 envpilot.io/auth-revision: {{ get $managedRemote "authRevision" | quote }}
 envpilot.io/auth-rotation: {{ default "" (get $managedRemote "authRotation") | quote }}
+envpilot.io/compatibility-pin: {{ default "" (get $managedRemote "compatibilityPin") | quote }}
+envpilot.io/generation: {{ default 0 (get $managedRemote "generation") | quote }}
+envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyMigration") | quote }}
 {{- end }}
 {{- end -}}
 
@@ -109,6 +112,8 @@ envpilot.io/auth-rotation: {{ default "" (get $managedRemote "authRotation") | q
 {{- if not (get $managedRemote "remoteClusterId") }}{{ fail "managedRemote.enabled requires managedRemote.remoteClusterId" }}{{ end -}}
 {{- if not (get $managedRemote "projectId") }}{{ fail "managedRemote.enabled requires managedRemote.projectId" }}{{ end -}}
 {{- if not (get $managedRemote "authRevision") }}{{ fail "managedRemote.enabled requires managedRemote.authRevision" }}{{ end -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" (default "" (get $managedRemote "compatibilityPin"))) }}{{ fail "managedRemote.enabled requires an immutable managedRemote.compatibilityPin" }}{{ end -}}
+{{- if lt (int (default 0 (get $managedRemote "generation"))) 1 }}{{ fail "managedRemote.enabled requires managedRemote.generation greater than zero" }}{{ end -}}
 {{- if not .Values.rbac.create }}{{ fail "managedRemote.enabled requires rbac.create=true so target namespace RBAC can be reconciled" }}{{ end -}}
 {{- if ne (default "cluster" .Values.rbac.discovery.scope) "namespace" }}{{ fail "managedRemote.enabled requires rbac.discovery.scope=namespace" }}{{ end -}}
 {{- if not (default "" .Values.rbac.discovery.namespace) }}{{ fail "managedRemote.enabled requires rbac.discovery.namespace" }}{{ end -}}

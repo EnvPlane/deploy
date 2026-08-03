@@ -29,6 +29,13 @@ managedRemote:
   # restart the pod. These are fingerprints/revisions, never token values.
   authRevision: ""
   authRotation: ""
+  # SHA-256 of the signed umbrella compatibility manifest selected by the
+  # management reconciler. It makes upgrades/rollback generation-aware.
+  compatibilityPin: ""
+  generation: 0
+  # Only an explicit audited RemoteCluster migration may take over a matching
+  # legacy release; normal reconciliation always rejects unmanaged releases.
+  allowLegacyMigration: false
   # Exact base namespaces the project is permitted to discover. Managed remote
   # mode renders Roles only in these namespaces and never a ClusterRole.
   targetNamespaces: []
