@@ -653,6 +653,8 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 		upgrade := action.NewUpgrade(&conf)
 		upgrade.Namespace = m.Namespace
 		upgrade.Wait = true
+		upgrade.WaitForJobs = true
+		upgrade.Timeout = 10 * time.Minute
 		_, err = upgrade.Run(m.ReleaseName, ch, values)
 		return err
 	}
@@ -665,6 +667,8 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 	// workloads through this reconciler.
 	install.CreateNamespace = true
 	install.Wait = true
+	install.WaitForJobs = true
+	install.Timeout = 10 * time.Minute
 	if _, err = install.Run(ch, values); err == nil {
 		return nil
 	}
