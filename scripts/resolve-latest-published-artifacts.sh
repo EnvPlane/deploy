@@ -33,9 +33,17 @@ command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
 
 package_versions() {
-  local package="$1"
-  gh api --paginate --slurp "/orgs/$owner/packages/container/$package/versions?per_page=100" \
-    | jq -c 'add[]'
+  local package="$1" endpoint response
+  for endpoint in \
+    "/users/$owner/packages/container/$package/versions?per_page=100" \
+    "/orgs/$owner/packages/container/$package/versions?per_page=100"; do
+    if response="$(gh api --paginate --slurp "$endpoint" 2>/dev/null)"; then
+      jq -c 'add[]' <<< "$response"
+      return 0
+    fi
+  done
+  echo "cannot read published container package versions for $owner/$package" >&2
+  return 1
 }
 
 latest_image_tag() {
