@@ -22,6 +22,11 @@ for required in \
   grep -Fq "$required" "$workflow" || { echo "workflow missing: $required" >&2; exit 1; }
 done
 
+grep -Fq "canonical source version" "$resolver" || {
+  echo "resolver must have a verified source-version fallback for private package listings" >&2
+  exit 1
+}
+
 for required in \
   "ghcr.io/envpilot/api" \
   "ghcr.io/envpilot/frontend" \

@@ -78,11 +78,32 @@ latest_chart_version() {
   local package="$1" version tags
   # Helm OCI charts are not exposed consistently by GitHub's package-versions
   # REST API. Discover their immutable SemVer tags from the registry itself.
-  tags="$(oras repo tags "ghcr.io/$owner/$package")"
-  version="$(printf '%s\n' "$tags" \
-    | sed 's/^v//' \
-    | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+$' \
-    | sort -Vu | tail -n1 || true)"
+  if tags="$(oras repo tags "ghcr.io/$owner/$package" 2>/dev/null)"; then
+    version="$(printf '%s\n' "$tags" \
+      | sed 's/^v//' \
+      | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+$' \
+      | sort -Vu | tail -n1 || true)"
+  else
+    version=""
+  fi
+  # A repository-owned OCI package may deny GITHUB_TOKEN registry listing even
+  # when the artifact is public. Use the canonical source version in that case
+  # and verify it with `helm show chart` below; a missing publication still
+  # fails the release rather than silently selecting a mutable ref.
+  if [[ -z "$version" ]]; then
+    local source
+    case "$package" in
+      envpilot) source="deploy/helm/envpilot/Chart.yaml" ;;
+      envpilot-control-plane) source="deploy/helm/envpilot-control-plane/Chart.yaml" ;;
+      envpilot-frontend) source="deploy/helm/envpilot-frontend/Chart.yaml" ;;
+      envpilot-agent) source="deploy/helm/envpilot-agent/Chart.yaml" ;;
+      envpilot-runner) source="deploy/helm/envpilot-runner/Chart.yaml" ;;
+      *) source="" ;;
+    esac
+    if [[ -n "$source" && -f "$source" ]]; then
+      version="$(awk '/^version:/{print $2; exit}' "$source")"
+    fi
+  fi
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
     echo "no stable SemVer chart published for $package" >&2
     exit 1
