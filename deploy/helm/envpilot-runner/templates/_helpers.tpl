@@ -71,6 +71,53 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{- define "envpilot-runner.managedRemoteEnabled" -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if (get $managedRemote "enabled") }}true{{ else }}false{{ end -}}
+{{- end -}}
+
+{{- define "envpilot-runner.managedRemoteMetadata" -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if (get $managedRemote "enabled") }}
+envpilot.io/managed-remote: "true"
+envpilot.io/remote-cluster-id: {{ get $managedRemote "remoteClusterId" | quote }}
+envpilot.io/project-id: {{ get $managedRemote "projectId" | quote }}
+envpilot.io/auth-revision: {{ get $managedRemote "authRevision" | quote }}
+envpilot.io/auth-rotation: {{ default "" (get $managedRemote "authRotation") | quote }}
+{{- end }}
+{{- end -}}
+
+{{- define "envpilot-runner.validateManagedRemote" -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if (get $managedRemote "enabled") -}}
+{{- $controlPlane := default (dict) .Values.controlPlane -}}
+{{- $url := default "" (get $controlPlane "url") -}}
+{{- $endpointMode := default "sameCluster" (get $controlPlane "endpointMode") -}}
+{{- $targetNamespaces := default (list) (get $managedRemote "targetNamespaces") -}}
+{{- $writer := default (dict) .Values.rbac.featureEnvWriter -}}
+{{- $writerMode := default "releaseNamespace" (get $writer "mode") -}}
+{{- $writerNamespaces := default (list) (get $writer "namespaces") -}}
+{{- $generatedNamespaces := default (list) (get $writer "generatedNamespaces") -}}
+{{- if ne $endpointMode "remote" }}{{ fail "managedRemote.enabled requires controlPlane.endpointMode=remote" }}{{ end -}}
+{{- if not $url }}{{ fail "managedRemote.enabled requires an explicit controlPlane.url" }}{{ end -}}
+{{- if not (regexMatch "^https://" $url) }}{{ fail "managedRemote.enabled requires an https:// controlPlane.url" }}{{ end -}}
+{{- $urlLower := lower $url -}}
+{{- if regexMatch "^https://(localhost|127\\.[0-9.]+|\\[::1\\]|host\\.minikube\\.internal)([:/]|$)" $urlLower }}{{ fail "managedRemote.enabled rejects host-local controlPlane.url values" }}{{ end -}}
+{{- if or (contains ".svc/" $urlLower) (contains ".svc:" $urlLower) (contains ".svc." $urlLower) (hasSuffix ".svc" $urlLower) }}{{ fail "managedRemote.enabled rejects Kubernetes Service DNS controlPlane.url values; use a target-pod-reachable external HTTPS endpoint" }}{{ end -}}
+{{- if not (get $controlPlane "existingSecret") }}{{ fail "managedRemote.enabled requires controlPlane.existingSecret" }}{{ end -}}
+{{- if or (get $controlPlane "token") (get $controlPlane "configToken") (get $controlPlane "allowUnsafePlaintextTokens") }}{{ fail "managedRemote.enabled requires Secret-referenced bootstrap auth and rejects plaintext tokens" }}{{ end -}}
+{{- if not (get $managedRemote "remoteClusterId") }}{{ fail "managedRemote.enabled requires managedRemote.remoteClusterId" }}{{ end -}}
+{{- if not (get $managedRemote "projectId") }}{{ fail "managedRemote.enabled requires managedRemote.projectId" }}{{ end -}}
+{{- if not (get $managedRemote "authRevision") }}{{ fail "managedRemote.enabled requires managedRemote.authRevision" }}{{ end -}}
+{{- if not .Values.rbac.create }}{{ fail "managedRemote.enabled requires rbac.create=true so target namespace RBAC can be reconciled" }}{{ end -}}
+{{- if ne (default "cluster" .Values.rbac.discovery.scope) "namespace" }}{{ fail "managedRemote.enabled requires rbac.discovery.scope=namespace" }}{{ end -}}
+{{- if not (default "" .Values.rbac.discovery.namespace) }}{{ fail "managedRemote.enabled requires rbac.discovery.namespace" }}{{ end -}}
+{{- if not $targetNamespaces }}{{ fail "managedRemote.enabled requires managedRemote.targetNamespaces" }}{{ end -}}
+{{- if not (has $writerMode (list "preconfiguredNamespaces" "generatedFeatureNamespaces")) }}{{ fail "managedRemote.enabled requires a namespace-scoped featureEnvWriter mode" }}{{ end -}}
+{{- if eq $writerMode "preconfiguredNamespaces" }}{{- if ne (join "," $targetNamespaces) (join "," $writerNamespaces) }}{{ fail "managedRemote.targetNamespaces must exactly match rbac.featureEnvWriter.namespaces" }}{{ end }}{{- else if ne (join "," $targetNamespaces) (join "," $generatedNamespaces) }}{{ fail "managedRemote.targetNamespaces must exactly match rbac.featureEnvWriter.generatedNamespaces" }}{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "envpilot-runner.usesFirstStartRegistration" -}}
 {{- $global := default (dict) .Values.global -}}
 {{- $envpilot := default (dict) (get $global "envpilot") -}}

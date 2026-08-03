@@ -25,6 +25,21 @@ fullnameOverride: ""
 # migrating from the retired oci://ghcr.io/envpilot/envpilot-runner-chart name.
 legacyChartName: ""
 
+# managedRemote is populated only by the management-cluster Remote Cluster
+# Reconciler. It is deliberately opt-in so existing standalone and same-cluster
+# releases keep their current contract. Auth values are safe revisions only;
+# the actual one-time registration/config credentials stay in existingSecret.
+managedRemote:
+  enabled: false
+  remoteClusterId: ""
+  projectId: ""
+  authRevision: ""
+  authRotation: ""
+  # Exact project feature namespaces where this Runner may create/status/
+  # recreate/delete Helm releases. No wildcard or cluster-wide writer is
+  # available in managed remote mode.
+  targetNamespaces: []
+
 controlPlane:
   # sameCluster derives a Service DNS endpoint from this release. remote
   # requires an explicit URL reachable from the target Runner pod.

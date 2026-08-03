@@ -207,7 +207,7 @@ envpilot-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envpilot/envpilot-agent"
-      version: "0.2.2"
+      version: "0.2.3"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
     # stable target-pod-reachable HTTP(S) endpoint, never a tunnel or Service
@@ -318,6 +318,15 @@ envpilot-agent:
     id: ""
   bootstrap:
     projectId: ""
+  # Management-cluster reconciliation can opt into the strict remote contract.
+  # Keep this disabled for the regular same-cluster child release.
+  managedRemote:
+    enabled: false
+    remoteClusterId: ""
+    projectId: ""
+    authRevision: ""
+    authRotation: ""
+    targetNamespaces: []
   agent:
     id: ""
     authPersistence:
@@ -367,3 +376,12 @@ envpilot-runner:
     runnerId: ""
     deploymentMode: helm
     configUrl: ""
+  # The Remote Cluster Reconciler provides this only for a project-scoped
+  # remote Runner. It never receives raw bootstrap credentials through values.
+  managedRemote:
+    enabled: false
+    remoteClusterId: ""
+    projectId: ""
+    authRevision: ""
+    authRotation: ""
+    targetNamespaces: []

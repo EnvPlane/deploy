@@ -457,6 +457,18 @@
               "type": "object",
               "additionalProperties": true,
               "properties": { "authPersistence": { "$ref": "#/definitions/persistence" } }
+            },
+            "managedRemote": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "remoteClusterId": { "type": "string" },
+                "projectId": { "type": "string" },
+                "authRevision": { "type": "string" },
+                "authRotation": { "type": "string" },
+                "targetNamespaces": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+              }
             }
           }
         }
@@ -485,6 +497,18 @@
               "properties": {
                 "existingSecret": { "type": "string" },
                 "configKey": { "type": "string" }
+              }
+            },
+            "managedRemote": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "remoteClusterId": { "type": "string" },
+                "projectId": { "type": "string" },
+                "authRevision": { "type": "string" },
+                "authRotation": { "type": "string" },
+                "targetNamespaces": { "type": "array", "items": { "type": "string", "minLength": 1 } }
               }
             }
           }

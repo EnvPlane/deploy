@@ -9,3 +9,18 @@ Control plane:
 
 The agent uses a read-only ClusterRole to observe EnvPilot namespaces, FluxCD Kustomizations,
 HelmReleases, workload readiness, ingress state, and Kubernetes events.
+
+Controller-managed remote installation:
+  Set managedRemote.enabled=true only when the management-cluster Remote Cluster
+  Reconciler supplies the project identity, Secret reference, auth revision,
+  exact target namespaces and a pod-reachable HTTPS endpoint. The chart rejects
+  localhost, host.minikube.internal and Kubernetes Service DNS in this mode.
+
+Migration from fixed-name Agent releases:
+  Older releases used the fixed envpilot-agent resource name. Preserve its
+  Deployment, RBAC and auth PVC with:
+
+    helm upgrade {{ .Release.Name }} oci://ghcr.io/envpilot/envpilot-agent \
+      --namespace {{ .Release.Namespace }} --reuse-values \
+      --set fullnameOverride=envpilot-agent \
+      --set legacyChartName=envpilot-agent

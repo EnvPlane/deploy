@@ -161,6 +161,70 @@ func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	}
 }
 
+func TestAgentChartManagedRemoteUsesOnlyExplicitProjectScopedContract(t *testing.T) {
+	rendered := renderAgentChart(t,
+		"--set", "managedRemote.enabled=true",
+		"--set", "managedRemote.remoteClusterId=target-cluster-a",
+		"--set", "managedRemote.projectId=project-a",
+		"--set", "managedRemote.authRevision=bootstrap-r2",
+		"--set", "managedRemote.authRotation=rotation-20260803",
+		"--set", "managedRemote.targetNamespaces[0]=project-a-base",
+		"--set", "managedRemote.targetNamespaces[1]=project-a-services",
+		"--set", "controlPlane.endpointMode=remote",
+		"--set", "controlPlane.url=https://control.example.test",
+		"--set", "controlPlane.tls.caSecret=control-plane-ca",
+		"--set", "controlPlane.existingSecret=project-a-agent-bootstrap",
+		"--set", "rbac.discovery.scope=namespace",
+	)
+	for _, expected := range []string{
+		`envpilot.io/managed-remote: "true"`,
+		"envpilot.io/auth-revision: bootstrap-r2",
+		`value: "https://control.example.test"`,
+		`namespace: "project-a-base"`,
+		`namespace: "project-a-services"`,
+		`value: "project-a-base,project-a-services"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("managed remote render missing %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{"kind: ClusterRole", "kind: ClusterRoleBinding", "host.minikube.internal"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("managed remote render must not contain %q:\n%s", forbidden, rendered)
+		}
+	}
+
+	base := []string{
+		"template", "envpilot-agent", "..",
+		"--set", "managedRemote.enabled=true",
+		"--set", "managedRemote.remoteClusterId=target-cluster-a",
+		"--set", "managedRemote.projectId=project-a",
+		"--set", "managedRemote.authRevision=bootstrap-r2",
+		"--set", "managedRemote.targetNamespaces[0]=project-a-base",
+		"--set", "controlPlane.endpointMode=remote",
+		"--set", "controlPlane.existingSecret=project-a-agent-bootstrap",
+		"--set", "rbac.discovery.scope=namespace",
+	}
+	for _, invalid := range []struct {
+		name string
+		url  string
+		want string
+	}{
+		{name: "host local", url: "https://host.minikube.internal:18080", want: "rejects host-local"},
+		{name: "foreign service", url: "https://envpilot-control-plane.envpilot.svc.cluster.local:8080", want: "rejects Kubernetes Service DNS"},
+	} {
+		t.Run(invalid.name, func(t *testing.T) {
+			args := append(append([]string{}, base...), "--set", "controlPlane.url="+invalid.url)
+			cmd := exec.Command("helm", args...)
+			cmd.Dir = "."
+			output, err := cmd.CombinedOutput()
+			if err == nil || !strings.Contains(string(output), invalid.want) {
+				t.Fatalf("managed remote %s URL must fail, err=%v output=%s", invalid.name, err, output)
+			}
+		})
+	}
+}
+
 func TestAgentChartGrantsEveryCapabilityScannerRead(t *testing.T) {
 	rbac, err := os.ReadFile("../templates/rbac.yaml")
 	if err != nil {
@@ -407,9 +471,40 @@ func TestAgentChartRendersDefaultAuthPersistencePVC(t *testing.T) {
 	}
 }
 
+func TestAgentChartUsesReleaseAwareResourcesAndSupportsLegacyName(t *testing.T) {
+	releaseA := renderAgentChartWithRelease(t, "agent-a", "--set", "controlPlane.existingSecret=agent-a-bootstrap")
+	releaseB := renderAgentChartWithRelease(t, "agent-b", "--set", "controlPlane.existingSecret=agent-b-bootstrap")
+	for _, expected := range []string{"agent-a-envpilot-agent", "agent-a-envpilot-agent-auth"} {
+		if !strings.Contains(releaseA, expected) || strings.Contains(releaseB, expected) {
+			t.Fatalf("agent release resources must remain release-aware (%q):\nA=%s\nB=%s", expected, releaseA, releaseB)
+		}
+	}
+	for _, expected := range []string{"agent-b-envpilot-agent", "agent-b-envpilot-agent-auth"} {
+		if !strings.Contains(releaseB, expected) || strings.Contains(releaseA, expected) {
+			t.Fatalf("agent release resources must remain release-aware (%q):\nA=%s\nB=%s", expected, releaseA, releaseB)
+		}
+	}
+
+	legacy := renderAgentChartWithRelease(t, "legacy-agent",
+		"--set", "fullnameOverride=envpilot-agent",
+		"--set", "legacyChartName=envpilot-agent",
+		"--set", "controlPlane.existingSecret=legacy-bootstrap",
+	)
+	for _, expected := range []string{"name: envpilot-agent", "name: envpilot-agent-auth"} {
+		if !strings.Contains(legacy, expected) {
+			t.Fatalf("legacy agent migration must preserve %q:\n%s", expected, legacy)
+		}
+	}
+}
+
 func renderAgentChart(t *testing.T, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("helm", append([]string{"template", "envpilot-agent", ".."}, args...)...)
+	return renderAgentChartWithRelease(t, "envpilot-agent", args...)
+}
+
+func renderAgentChartWithRelease(t *testing.T, releaseName string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("helm", append([]string{"template", releaseName, ".."}, args...)...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
 	if err != nil {

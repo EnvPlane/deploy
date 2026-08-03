@@ -6,10 +6,15 @@
 {{- $controlPlaneTLS := default (dict) .Values.controlPlane.tls -}}
 {{- $discoveryScope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $watchNamespaces := .Values.watch.namespaces -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- $managedRemoteEnabled := eq (include "envpilot-agent.managedRemoteEnabled" .) "true" -}}
 {{- if eq $discoveryScope "namespace" -}}
 {{- $watchNamespaces = .Values.rbac.discovery.namespaces -}}
 {{- end -}}
-{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-agent.imageMetadata" . | fromYaml) -}}
+{{- if $managedRemoteEnabled -}}
+{{- $watchNamespaces = get $managedRemote "targetNamespaces" -}}
+{{- end -}}
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-agent.imageMetadata" . | fromYaml) (include "envpilot-agent.managedRemoteMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -89,9 +94,9 @@ spec:
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
             {{- end }}
             - name: ENVPILOT_CLUSTER_ID
-              value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else }}{{ default .Release.Name .Values.cluster.id | quote }}{{ end }}
+              value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "remoteClusterId" | quote }}{{ else }}{{ default .Release.Name .Values.cluster.id | quote }}{{ end }}
             - name: ENVPILOT_BOOTSTRAP_PROJECT_ID
-              value: {{ if $firstStartEnabled }}{{ $firstStart.project.id | quote }}{{ else }}{{ .Values.bootstrap.projectId | quote }}{{ end }}
+              value: {{ if $firstStartEnabled }}{{ $firstStart.project.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "projectId" | quote }}{{ else }}{{ .Values.bootstrap.projectId | quote }}{{ end }}
             - name: ENVPILOT_AGENT_ID
               value: {{ if $firstStartEnabled }}{{ $firstStart.agent.id | quote }}{{ else }}{{ default (include "envpilot-agent.fullname" .) .Values.agent.id | quote }}{{ end }}
             - name: ENVPILOT_AGENT_VERSION

@@ -1,12 +1,17 @@
 {{- define "envpilot-agent.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- default (default .Chart.Name .Values.nameOverride) .Values.legacyChartName | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
 {{- define "envpilot-agent.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
 {{- else -}}
-{{- include "envpilot-agent.name" . -}}
+{{- $name := include "envpilot-agent.name" . -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 
@@ -65,6 +70,46 @@ app.kubernetes.io/component: cluster-agent
 {{- printf "http://%s.%s.svc:%v" $serviceName $namespace $port -}}
 {{- else -}}
 {{- fail "controlPlane.endpointMode must be sameCluster or remote" -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "envpilot-agent.managedRemoteEnabled" -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if (get $managedRemote "enabled") }}true{{ else }}false{{ end -}}
+{{- end -}}
+
+{{- define "envpilot-agent.managedRemoteMetadata" -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if (get $managedRemote "enabled") }}
+envpilot.io/managed-remote: "true"
+envpilot.io/remote-cluster-id: {{ get $managedRemote "remoteClusterId" | quote }}
+envpilot.io/project-id: {{ get $managedRemote "projectId" | quote }}
+envpilot.io/auth-revision: {{ get $managedRemote "authRevision" | quote }}
+envpilot.io/auth-rotation: {{ default "" (get $managedRemote "authRotation") | quote }}
+{{- end }}
+{{- end -}}
+
+{{- define "envpilot-agent.validateManagedRemote" -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if (get $managedRemote "enabled") -}}
+{{- $controlPlane := default (dict) .Values.controlPlane -}}
+{{- $url := default "" (get $controlPlane "url") -}}
+{{- $endpointMode := default "sameCluster" (get $controlPlane "endpointMode") -}}
+{{- $targetNamespaces := default (list) (get $managedRemote "targetNamespaces") -}}
+{{- if ne $endpointMode "remote" }}{{ fail "managedRemote.enabled requires controlPlane.endpointMode=remote" }}{{ end -}}
+{{- if not $url }}{{ fail "managedRemote.enabled requires an explicit controlPlane.url" }}{{ end -}}
+{{- if not (regexMatch "^https://" $url) }}{{ fail "managedRemote.enabled requires an https:// controlPlane.url" }}{{ end -}}
+{{- $urlLower := lower $url -}}
+{{- if regexMatch "^https://(localhost|127\\.[0-9.]+|\\[::1\\]|host\\.minikube\\.internal)([:/]|$)" $urlLower }}{{ fail "managedRemote.enabled rejects host-local controlPlane.url values" }}{{ end -}}
+{{- if or (contains ".svc/" $urlLower) (contains ".svc:" $urlLower) (contains ".svc." $urlLower) (hasSuffix ".svc" $urlLower) }}{{ fail "managedRemote.enabled rejects Kubernetes Service DNS controlPlane.url values; use a target-pod-reachable external HTTPS endpoint" }}{{ end -}}
+{{- if not (get $controlPlane "existingSecret") }}{{ fail "managedRemote.enabled requires controlPlane.existingSecret" }}{{ end -}}
+{{- if or (get $controlPlane "token") (get $controlPlane "allowUnsafePlaintextTokens") }}{{ fail "managedRemote.enabled requires Secret-referenced bootstrap auth and rejects plaintext tokens" }}{{ end -}}
+{{- if not (get $managedRemote "remoteClusterId") }}{{ fail "managedRemote.enabled requires managedRemote.remoteClusterId" }}{{ end -}}
+{{- if not (get $managedRemote "projectId") }}{{ fail "managedRemote.enabled requires managedRemote.projectId" }}{{ end -}}
+{{- if not (get $managedRemote "authRevision") }}{{ fail "managedRemote.enabled requires managedRemote.authRevision" }}{{ end -}}
+{{- if ne (default "cluster" .Values.rbac.discovery.scope) "namespace" }}{{ fail "managedRemote.enabled requires rbac.discovery.scope=namespace" }}{{ end -}}
+{{- if not $targetNamespaces }}{{ fail "managedRemote.enabled requires managedRemote.targetNamespaces" }}{{ end -}}
+{{- if not .Values.rbac.create }}{{ fail "managedRemote.enabled requires rbac.create=true so target namespace RBAC can be reconciled" }}{{ end -}}
 {{- end -}}
 {{- end -}}
 

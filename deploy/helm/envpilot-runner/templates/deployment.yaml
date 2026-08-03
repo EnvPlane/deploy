@@ -10,7 +10,9 @@
 {{- $controlPlaneTLS := default (dict) (get $controlPlane "tls") -}}
 {{- $featureEnvWriter := default (dict) .Values.rbac.featureEnvWriter -}}
 {{- $featureEnvWriterMode := default "releaseNamespace" $featureEnvWriter.mode -}}
-{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-runner.imageMetadata" . | fromYaml) -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- $managedRemoteEnabled := eq (include "envpilot-runner.managedRemoteEnabled" .) "true" -}}
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-runner.imageMetadata" . | fromYaml) (include "envpilot-runner.managedRemoteMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -103,9 +105,9 @@ spec:
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
             {{- end }}
             - name: ENVPILOT_CLUSTER_ID
-              value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else }}{{ default .Release.Name .Values.project.clusterId | quote }}{{ end }}
+              value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "remoteClusterId" | quote }}{{ else }}{{ default .Release.Name .Values.project.clusterId | quote }}{{ end }}
             - name: ENVPILOT_PROJECT_ID
-              value: {{ if $firstStartEnabled }}{{ $firstStart.project.id | quote }}{{ else }}{{ .Values.project.id | quote }}{{ end }}
+              value: {{ if $firstStartEnabled }}{{ $firstStart.project.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "projectId" | quote }}{{ else }}{{ .Values.project.id | quote }}{{ end }}
             - name: ENVPILOT_RUNNER_ID
               value: {{ if $firstStartEnabled }}{{ $firstStart.runner.id | quote }}{{ else }}{{ default (include "envpilot-runner.fullname" .) .Values.project.runnerId | quote }}{{ end }}
             - name: ENVPILOT_RUNNER_NAMESPACE

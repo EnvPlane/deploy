@@ -146,6 +146,77 @@ func TestRunnerChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	}
 }
 
+func TestRunnerChartManagedRemoteUsesProjectScopedWriterRBAC(t *testing.T) {
+	rendered := renderRunnerChart(t,
+		"--set", "managedRemote.enabled=true",
+		"--set", "managedRemote.remoteClusterId=target-cluster-a",
+		"--set", "managedRemote.projectId=project-a",
+		"--set", "managedRemote.authRevision=bootstrap-r2",
+		"--set", "managedRemote.authRotation=rotation-20260803",
+		"--set", "managedRemote.targetNamespaces[0]=project-a-pr-1",
+		"--set", "managedRemote.targetNamespaces[1]=project-a-pr-2",
+		"--set", "controlPlane.endpointMode=remote",
+		"--set", "controlPlane.url=https://control.example.test",
+		"--set", "controlPlane.tls.caSecret=control-plane-ca",
+		"--set", "controlPlane.existingSecret=project-a-runner-bootstrap",
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.namespace=project-a-system",
+		"--set", "rbac.featureEnvWriter.mode=preconfiguredNamespaces",
+		"--set", "rbac.featureEnvWriter.namespaces[0]=project-a-pr-1",
+		"--set", "rbac.featureEnvWriter.namespaces[1]=project-a-pr-2",
+	)
+	for _, expected := range []string{
+		`envpilot.io/managed-remote: "true"`,
+		"envpilot.io/auth-revision: bootstrap-r2",
+		`value: "https://control.example.test"`,
+		"namespace: project-a-pr-1",
+		"namespace: project-a-pr-2",
+		"resources:\n      - secrets",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("managed remote runner render missing %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{"kind: ClusterRole", "kind: ClusterRoleBinding", "host.minikube.internal"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("managed remote runner render must not contain %q:\n%s", forbidden, rendered)
+		}
+	}
+
+	base := []string{
+		"template", "envpilot-runner", "..",
+		"--set", "managedRemote.enabled=true",
+		"--set", "managedRemote.remoteClusterId=target-cluster-a",
+		"--set", "managedRemote.projectId=project-a",
+		"--set", "managedRemote.authRevision=bootstrap-r2",
+		"--set", "managedRemote.targetNamespaces[0]=project-a-pr-1",
+		"--set", "controlPlane.endpointMode=remote",
+		"--set", "controlPlane.existingSecret=project-a-runner-bootstrap",
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.namespace=project-a-system",
+		"--set", "rbac.featureEnvWriter.mode=preconfiguredNamespaces",
+		"--set", "rbac.featureEnvWriter.namespaces[0]=project-a-pr-1",
+	}
+	for _, invalid := range []struct {
+		name string
+		url  string
+		want string
+	}{
+		{name: "host local", url: "https://host.minikube.internal:18080", want: "rejects host-local"},
+		{name: "foreign service", url: "https://envpilot-control-plane.envpilot.svc.cluster.local:8080", want: "rejects Kubernetes Service DNS"},
+	} {
+		t.Run(invalid.name, func(t *testing.T) {
+			args := append(append([]string{}, base...), "--set", "controlPlane.url="+invalid.url)
+			cmd := exec.Command("helm", args...)
+			cmd.Dir = "."
+			output, err := cmd.CombinedOutput()
+			if err == nil || !strings.Contains(string(output), invalid.want) {
+				t.Fatalf("managed remote %s URL must fail, err=%v output=%s", invalid.name, err, output)
+			}
+		})
+	}
+}
+
 func TestRunnerChartUsesPersistentImage(t *testing.T) {
 	values, err := os.ReadFile("../values.yaml")
 	if err != nil {

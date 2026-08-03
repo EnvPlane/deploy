@@ -10,7 +10,28 @@ image:
 
 imagePullSecrets: []
 nameOverride: ""
+# New installations derive resource names from the Helm release. Existing
+# releases which used the fixed envpilot-agent name can keep it during upgrade
+# with fullnameOverride and legacyChartName; see NOTES.txt.
 fullnameOverride: ""
+legacyChartName: ""
+
+# managedRemote is set only by the management-cluster Remote Cluster
+# Reconciler. It keeps a remote installation project-scoped, forces an
+# explicit pod-reachable HTTPS control-plane endpoint and makes auth rotation
+# visible to the Deployment without ever placing credentials in values.
+# Standalone and same-cluster installations leave this disabled.
+managedRemote:
+  enabled: false
+  remoteClusterId: ""
+  projectId: ""
+  # Bump either safe value after the referenced bootstrap Secret is rotated to
+  # restart the pod. These are fingerprints/revisions, never token values.
+  authRevision: ""
+  authRotation: ""
+  # Exact base namespaces the project is permitted to discover. Managed remote
+  # mode renders Roles only in these namespaces and never a ClusterRole.
+  targetNamespaces: []
 
 command: []
 args:

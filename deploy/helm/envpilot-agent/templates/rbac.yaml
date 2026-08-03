@@ -41,6 +41,11 @@
 {{- $serviceAccountName := include "envpilot-agent.serviceAccountName" . -}}
 {{- $scope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $namespaces := .Values.rbac.discovery.namespaces -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if eq (include "envpilot-agent.managedRemoteEnabled" .) "true" -}}
+{{- $scope = "namespace" -}}
+{{- $namespaces = get $managedRemote "targetNamespaces" -}}
+{{- end -}}
 {{- if and (eq $scope "namespace") (not $namespaces) -}}
 {{- fail "rbac.discovery.namespaces must contain at least one namespace when rbac.discovery.scope=namespace" -}}
 {{- end -}}
