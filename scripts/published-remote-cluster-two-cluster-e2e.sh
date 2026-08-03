@@ -126,6 +126,10 @@ api -X PUT --data "$broken" "$api_url/api/v1/remote-clusters/$cluster_id" >/dev/
 api -X POST "$api_url/api/v1/remote-clusters/$cluster_id/repair" >/dev/null
 wait_json "/api/v1/remote-clusters/$cluster_id" '.status.phase == "degraded" or .status.phase == "blocked"' >/dev/null
 api -X PUT --data "$(cat "$tmp/remote.json")" "$api_url/api/v1/remote-clusters/$cluster_id" >/dev/null
+# Rotate the management-cluster credential Secret through the authenticated API
+# without printing its content, then rotate the one-time Agent/Runner identity.
+credential_rotation="$(jq --rawfile credential "$credential_file" '{credential:$credential}')"
+api -X POST --data "$credential_rotation" "$api_url/api/v1/remote-clusters/$cluster_id/credentials/rotate" >/dev/null
 api -X POST "$api_url/api/v1/remote-clusters/$cluster_id/rotate" >/dev/null
 api -X POST "$api_url/api/v1/remote-clusters/$cluster_id/repair" >/dev/null
 wait_json "/api/v1/remote-clusters/$cluster_id" '.status.phase == "healthy" and .status.observed_generation == .status.desired_generation' >/dev/null
