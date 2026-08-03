@@ -1,7 +1,7 @@
 dependencies:
 - name: envpilot-control-plane
   repository: file://../envpilot-control-plane
-  version: 0.3.9
+  version: 0.3.10
 - name: envpilot-frontend
   repository: file://../envpilot-frontend
   version: 0.2.0
@@ -11,5 +11,5 @@ dependencies:
 - name: envpilot-runner
   repository: file://../envpilot-runner
   version: 0.3.7
-digest: sha256:994fdbab86f78c6d4a6500c2626585037079c9450995523fe7ada8dcd950b9c3
-generated: "2026-08-03T13:00:44.261804+02:00"
+digest: sha256:350d0adab30eaedb372bc12f5eae5373ccec000b6f64842b0d50eadfbe6ce65f
+generated: "2026-08-03T13:25:29.05231+02:00"

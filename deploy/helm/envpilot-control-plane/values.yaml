@@ -196,6 +196,11 @@ rbac:
   remoteClusterCredentials:
     enabled: false
     namespaces: []
+  remoteClusterReconciler:
+    enabled: false
+
+remoteClusterReconciler:
+  compatibilityConfigMapName: ""
 
 podAnnotations: {}
 podLabels: {}

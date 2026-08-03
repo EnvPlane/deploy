@@ -6,6 +6,7 @@
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
 {{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
 {{- $remoteClusterReconcilerEnabled := default false $remoteClusterReconciler.enabled -}}
+{{- $remoteCompatibilityConfigMap := default (printf "%s-remote-cluster-compatibility" .Release.Name) .Values.remoteClusterReconciler.compatibilityConfigMapName -}}
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPilot "e2eFixture") -}}
@@ -152,6 +153,18 @@ spec:
               value: {{ .Values.runnerCommand.maxAttempts | quote }}
             - name: ENVPILOT_REMOTE_CLUSTER_RECONCILER_ENABLED
               value: {{ $remoteClusterReconcilerEnabled | quote }}
+            {{- if $remoteClusterReconcilerEnabled }}
+            - name: HOME
+              value: /tmp/envpilot-home
+            - name: XDG_CACHE_HOME
+              value: /tmp/envpilot-home/cache
+            - name: XDG_CONFIG_HOME
+              value: /tmp/envpilot-home/config
+            {{- end }}
+            {{- if and $remoteClusterReconcilerEnabled $remoteCompatibilityConfigMap }}
+            - name: ENVPILOT_REMOTE_CLUSTER_COMPATIBILITY_MANIFEST
+              value: /etc/envpilot/compatibility/release.json
+            {{- end }}
             {{- if $remoteControlPlane.clusterID }}
             - name: ENVPILOT_CONTROL_PLANE_CLUSTER_ID
               value: {{ $remoteControlPlane.clusterID | quote }}
@@ -272,6 +285,15 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/envpilot/data
+          {{- if and $remoteClusterReconcilerEnabled $remoteCompatibilityConfigMap }}
+            - name: remote-cluster-compatibility
+              mountPath: /etc/envpilot/compatibility
+              readOnly: true
+          {{- end }}
+          {{- if $remoteClusterReconcilerEnabled }}
+            - name: remote-cluster-helm-cache
+              mountPath: /tmp/envpilot-home
+          {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
@@ -304,6 +326,15 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+      {{- if and $remoteClusterReconcilerEnabled $remoteCompatibilityConfigMap }}
+        - name: remote-cluster-compatibility
+          configMap:
+            name: {{ $remoteCompatibilityConfigMap | quote }}
+      {{- end }}
+      {{- if $remoteClusterReconcilerEnabled }}
+        - name: remote-cluster-helm-cache
+          emptyDir: {}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

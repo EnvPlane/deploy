@@ -80,4 +80,34 @@ roleRef:
   name: {{ include "envpilot-control-plane.fullname" $ }}-remote-cluster-credentials
 {{- end }}
 {{- end }}
+{{- $globalEnvPilot := default (dict) (get (default (dict) .Values.global) "envpilot") -}}
+{{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
+{{- if or .Values.rbac.remoteClusterReconciler.enabled (default false $remoteClusterReconciler.enabled) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-remote-cluster-reconciler
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envpilot-control-plane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-remote-cluster-reconciler
+  namespace: {{ .Release.Namespace | quote }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envpilot-control-plane.fullname" . }}-remote-cluster-reconciler
+{{- end }}
 {{- end }}

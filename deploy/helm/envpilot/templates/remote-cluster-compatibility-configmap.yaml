@@ -1,0 +1,18 @@
+{{- $remote := default (dict) (get (default (dict) (get .Values.global "envpilot")) "remoteClusterReconciler") -}}
+{{- if and (default false $remote.enabled) (not (.Files.Get "compatibility/release.json")) }}
+{{- fail "remoteClusterReconciler requires the signed compatibility/release.json included by a published umbrella chart" }}
+{{- end }}
+{{- if and (default false $remote.enabled) (.Files.Get "compatibility/release.json") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-remote-cluster-compatibility
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    envpilot.io/purpose: remote-cluster-compatibility
+immutable: true
+data:
+  release.json: |
+{{ .Files.Get "compatibility/release.json" | indent 4 }}
+{{- end }}
