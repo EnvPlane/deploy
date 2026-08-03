@@ -6,6 +6,11 @@ access:
   ingress:
     host: envpilot.example.invalid
     className: nginx
+global:
+  envpilot:
+    registry:
+      mode: existing
+      existingSecret: envpilot-registry
 platformDependencies:
   # Leave ingress disabled here so the access profile can auto-detect nginx
   # and install the pinned provider only when the class is absent.
