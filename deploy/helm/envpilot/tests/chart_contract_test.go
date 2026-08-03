@@ -716,6 +716,7 @@ func TestIngressAccessProfileAutomaticallyReconcilesMissingNginxController(t *te
 func TestIngressAccessProfileGrantsOnlyScopedProviderInstallerPermissions(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "access.mode=ingress",
+		"--set", "access.ingress.host=envpilot.example.test",
 		"--set", "access.ingress.className=nginx",
 		"--set", "global.envpilot.registry.mode=existing",
 		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
