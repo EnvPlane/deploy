@@ -144,6 +144,10 @@ spec:
               value: {{ $agentBootstrapChartRef | quote }}
             - name: ENVPILOT_AGENT_HELM_CHART_VERSION
               value: {{ $agentBootstrapChartVersion | quote }}
+            - name: ENVPILOT_RUNNER_COMMAND_LEASE_SECONDS
+              value: {{ .Values.runnerCommand.leaseSeconds | quote }}
+            - name: ENVPILOT_RUNNER_COMMAND_MAX_ATTEMPTS
+              value: {{ .Values.runnerCommand.maxAttempts | quote }}
             {{- if $remoteControlPlane.clusterID }}
             - name: ENVPILOT_CONTROL_PLANE_CLUSTER_ID
               value: {{ $remoteControlPlane.clusterID | quote }}
