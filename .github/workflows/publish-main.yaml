@@ -39,6 +39,8 @@ jobs:
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Verify remote-cluster credential RBAC contract
         run: ./scripts/tests/remote-cluster-credential-contract.sh
+      - name: Verify published remote-cluster lifecycle contract
+        run: ./scripts/tests/published-remote-cluster-lifecycle-contract.sh
       - name: Lint and package charts
         shell: bash
         run: |

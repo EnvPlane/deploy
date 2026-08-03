@@ -2,8 +2,7 @@
 set -euo pipefail
 
 # Published-artifact lifecycle E2E for API-managed remote clusters. Both
-# Kubernetes clusters must already be provisioned. This harness never creates
-# a cluster, opens a tunnel, or receives raw kubeconfig/bootstrap credentials.
+# Kubernetes clusters must already be provisioned. This harness never creates a cluster, opens a tunnel, or receives raw kubeconfig/bootstrap credentials.
 : "${ENVPILOT_REMOTE_E2E_API_URL:?set management control-plane API URL}"
 : "${ENVPILOT_REMOTE_E2E_CLUSTER_ID:?set the RemoteCluster ID}"
 : "${ENVPILOT_REMOTE_E2E_REMOTE_CONTEXT:?set the target cluster kube context}"
