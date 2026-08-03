@@ -135,7 +135,30 @@ chart_json() {
     '{repository:$repository,version:$version}'
 }
 
-previous_umbrella="$(latest_chart_version "envpilot")"
+latest_published_umbrella() {
+  local candidate="$1" major minor patch next found=false
+  IFS=. read -r major minor patch <<< "$candidate"
+  for _ in $(seq 1 50); do
+    candidate="$major.$minor.$patch"
+    if helm show chart "oci://ghcr.io/$owner/envpilot:$candidate" >/dev/null 2>&1; then
+      found=true
+      break
+    fi
+    patch=$((patch + 1))
+  done
+  [[ "$found" == true ]] || { echo "no published umbrella chart found near $1" >&2; exit 1; }
+  for _ in $(seq 1 50); do
+    next="$major.$minor.$((patch + 1))"
+    if helm show chart "oci://ghcr.io/$owner/envpilot:$next" >/dev/null 2>&1; then
+      patch=$((patch + 1))
+    else
+      break
+    fi
+  done
+  printf '%s.%s.%s' "$major" "$minor" "$patch"
+}
+
+previous_umbrella="$(latest_published_umbrella "$(latest_chart_version "envpilot")")"
 images="$(jq -cn \
   --argjson api "$(image_json api ghcr.io/envpilot/api)" \
   --argjson frontend "$(image_json frontend ghcr.io/envpilot/frontend)" \

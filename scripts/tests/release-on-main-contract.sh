@@ -37,6 +37,11 @@ grep -Fq '.charts[$component].version' "$workflow" || {
   exit 1
 }
 
+grep -Fq 'latest_published_umbrella' "$resolver" || {
+  echo "resolver must verify the predecessor umbrella exists in OCI" >&2
+  exit 1
+}
+
 for required in \
   "ghcr.io/envpilot/api" \
   "ghcr.io/envpilot/frontend" \
