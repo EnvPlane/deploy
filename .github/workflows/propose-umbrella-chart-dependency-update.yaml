@@ -44,19 +44,19 @@ jobs:
       - uses: azure/setup-helm@v4
       - uses: oras-project/setup-oras@v1
       - name: Authenticate to GHCR
-        run: echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
       - name: Verify published OCI chart and digest
         env:
           REPOSITORY: ${{ steps.payload.outputs.repository }}
           VERSION: ${{ steps.payload.outputs.version }}
           DIGEST: ${{ steps.payload.outputs.digest }}
-          GITHUB_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
         run: |
           set -euo pipefail
           helm show chart "$REPOSITORY:$VERSION" >/dev/null
-          oras login ghcr.io --username "$GITHUB_ACTOR" --password "$GITHUB_TOKEN"
+          oras login ghcr.io --username "$GITHUB_ACTOR" --password "$GHCR_TOKEN"
           descriptor="$(oras manifest fetch --descriptor "$REPOSITORY:$VERSION")"
           jq -e --arg digest "$DIGEST" '.digest == $digest' <<<"$descriptor" >/dev/null || {
             echo "published chart tag does not resolve to the supplied digest" >&2

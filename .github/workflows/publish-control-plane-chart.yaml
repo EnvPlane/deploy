@@ -21,6 +21,8 @@ jobs:
         run: echo "version=$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot-control-plane/Chart.yaml)" >> "$GITHUB_OUTPUT"
       - name: Verify canonical Helm chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
+      - name: Build chart dependencies
+        run: helm dependency build --skip-refresh deploy/helm/envpilot-control-plane
       - name: Verify remote-cluster credential RBAC contract
         run: ./scripts/tests/remote-cluster-credential-contract.sh
       - name: Package chart
