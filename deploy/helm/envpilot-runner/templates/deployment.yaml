@@ -8,6 +8,8 @@
       get rather than dotted lookup so --reuse-values never dereferences it. */ -}}
 {{- $controlPlane := default (dict) .Values.controlPlane -}}
 {{- $controlPlaneTLS := default (dict) (get $controlPlane "tls") -}}
+{{- $featureEnvWriter := default (dict) .Values.rbac.featureEnvWriter -}}
+{{- $featureEnvWriterMode := default "releaseNamespace" $featureEnvWriter.mode -}}
 {{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envpilot-runner.imageMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -110,6 +112,19 @@ spec:
               value: {{ if $firstStartEnabled }}{{ default .Release.Namespace $firstStart.runner.namespace | quote }}{{ else }}{{ .Values.project.namespace | quote }}{{ end }}
             - name: ENVPILOT_RUNNER_DEPLOYMENT_MODE
               value: {{ if $firstStartEnabled }}{{ $firstStart.runner.deploymentMode | quote }}{{ else }}{{ .Values.project.deploymentMode | quote }}{{ end }}
+            # Keep the runtime admission check aligned with the exact
+            # namespace-scoped Roles rendered below. This is metadata only;
+            # the runner never receives a wildcard or a credential here.
+            - name: ENVPILOT_FEATURE_ENV_WRITER_MODE
+              value: {{ $featureEnvWriterMode | quote }}
+            - name: ENVPILOT_FEATURE_ENV_WRITER_NAMESPACES
+              {{- if eq $featureEnvWriterMode "releaseNamespace" }}
+              value: {{ default .Release.Namespace $featureEnvWriter.namespace | quote }}
+              {{- else if eq $featureEnvWriterMode "preconfiguredNamespaces" }}
+              value: {{ join "," $featureEnvWriter.namespaces | quote }}
+              {{- else }}
+              value: {{ join "," $featureEnvWriter.generatedNamespaces | quote }}
+              {{- end }}
             - name: ENVPILOT_PROJECT_CONFIG_URL
               value: {{ .Values.project.configUrl | quote }}
             {{- if or $firstStartEnabled .Values.controlPlane.existingSecret (and .Values.controlPlane.configToken .Values.controlPlane.allowUnsafePlaintextTokens) }}

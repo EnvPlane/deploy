@@ -343,6 +343,12 @@ func TestRunnerChartGeneratedFeatureNamespaceWriterRendersPerNamespace(t *testin
 	if binding := findResourceDoc(docs, "RoleBinding", "envpilot-runner-feature-env-writer", "envpilot-pr-201"); binding == "" {
 		t.Fatalf("generated feature namespace writer RoleBinding not found:\n%s", rendered)
 	}
+	deployment := findResourceDoc(docs, "Deployment", "envpilot-runner", "")
+	for _, expected := range []string{"ENVPILOT_FEATURE_ENV_WRITER_MODE", "generatedFeatureNamespaces", "ENVPILOT_FEATURE_ENV_WRITER_NAMESPACES", "envpilot-pr-201"} {
+		if !strings.Contains(deployment, expected) {
+			t.Fatalf("runner deployment must report its rendered target namespace RBAC contract (%q):\n%s", expected, deployment)
+		}
+	}
 }
 
 func TestRunnerChartNamespaceScopedDiscoveryUsesRoleBinding(t *testing.T) {
