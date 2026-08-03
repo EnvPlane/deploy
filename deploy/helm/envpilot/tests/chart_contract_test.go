@@ -557,9 +557,6 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 		"resources: [\"storageclasses\"]",
 		"app.kubernetes.io/component: platform-reconciler",
 		"ENVPILOT_RECONCILE_CONFIG_JSON",
-		"name: envpilot-platform-reconciler-namespaces",
-		"ENVPILOT_RECONCILE_PROVIDER_NAMESPACES",
-		"\"helm.sh/hook-weight\": \"-30\"",
 		"name: HOME\n              value: /tmp/envpilot-home",
 		"name: XDG_CACHE_HOME\n              value: /tmp/envpilot-home/.cache",
 		"mountPath: /tmp",
@@ -734,6 +731,9 @@ func TestIngressAccessProfileGrantsOnlyScopedProviderInstallerPermissions(t *tes
 		"name: envpilot-platform-reconciler-ingress-installer",
 		"namespace: ingress-nginx",
 		"resources: [\"configmaps\", \"endpoints\", \"events\", \"pods\", \"secrets\", \"serviceaccounts\", \"services\"]",
+		"name: envpilot-platform-reconciler-namespaces",
+		"ENVPILOT_RECONCILE_PROVIDER_NAMESPACES",
+		"\"helm.sh/hook-weight\": \"-30\"",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("nginx provider installer permissions missing %q:\n%s", expected, rendered)
