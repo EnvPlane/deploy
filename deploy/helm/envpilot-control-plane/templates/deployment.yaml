@@ -239,6 +239,8 @@ spec:
               value: {{ $e2eFixture.featureNamespace | quote }}
             - name: ENVPILOT_SAME_CLUSTER_FIXTURE_CHART_REF
               value: {{ $e2eFixture.chartRef | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_FIXTURE_CHART_VERSION
+              value: {{ $e2eFixture.chartVersion | quote }}
             - name: ENVPILOT_SAME_CLUSTER_FIXTURE_APP_REPOSITORY_URL
               value: {{ $e2eFixture.appRepositoryURL | quote }}
             - name: ENVPILOT_SAME_CLUSTER_FIXTURE_GITOPS_REPOSITORY_URL

@@ -181,6 +181,9 @@ func TestUmbrellaFixtureRecoveryIsExplicitlyOptIn(t *testing.T) {
 	if strings.Contains(rendered, "runnerRegistrationToken") || strings.Contains(rendered, "agentRegistrationToken") {
 		t.Fatalf("fixture render must not embed raw bootstrap credentials:\n%s", rendered)
 	}
+	if !strings.Contains(rendered, "name: ENVPILOT_SAME_CLUSTER_FIXTURE_CHART_VERSION\n              value: \"0.1.0\"") {
+		t.Fatalf("fixture must pass the immutable OCI chart version to control-plane:\n%s", rendered)
+	}
 }
 
 func TestUmbrellaRejectsFixtureWithoutChartManagedRuntime(t *testing.T) {

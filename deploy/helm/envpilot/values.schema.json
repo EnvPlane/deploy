@@ -234,6 +234,7 @@
         "baseNamespace": { "type": "string" },
         "featureNamespace": { "type": "string" },
         "chartRef": { "type": "string" },
+        "chartVersion": { "type": "string" },
         "appRepositoryURL": { "type": "string" },
         "gitopsRepositoryURL": { "type": "string" },
         "scmProvider": { "type": "string", "enum": ["github", "gitlab"] },
@@ -244,11 +245,12 @@
         {
           "if": { "properties": { "enabled": { "const": true } } },
           "then": {
-            "required": ["baseNamespace", "featureNamespace", "chartRef", "appRepositoryURL", "gitopsRepositoryURL"],
+            "required": ["baseNamespace", "featureNamespace", "chartRef", "chartVersion", "appRepositoryURL", "gitopsRepositoryURL"],
             "properties": {
               "baseNamespace": { "minLength": 1 },
               "featureNamespace": { "minLength": 1 },
               "chartRef": { "minLength": 1 },
+              "chartVersion": { "minLength": 1 },
               "appRepositoryURL": { "minLength": 1 },
               "gitopsRepositoryURL": { "minLength": 1 }
             }

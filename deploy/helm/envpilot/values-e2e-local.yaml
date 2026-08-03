@@ -32,6 +32,7 @@ global:
       baseNamespace: envpilot-e2e-base
       featureNamespace: envpilot-e2e-feature
       chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload
+      chartVersion: "0.1.0"
       appRepositoryURL: https://github.com/envpilot/envpilot-e2e-workload
       gitopsRepositoryURL: https://github.com/envpilot/deploy
       scmProvider: github
