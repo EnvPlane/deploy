@@ -27,6 +27,11 @@ grep -Fq "canonical source version" "$resolver" || {
   exit 1
 }
 
+grep -Fq 'controlPlane:control-plane' "$workflow" || {
+  echo "workflow must map report controlPlane to the control-plane values component" >&2
+  exit 1
+}
+
 for required in \
   "ghcr.io/envpilot/api" \
   "ghcr.io/envpilot/frontend" \

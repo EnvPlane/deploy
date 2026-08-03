@@ -60,11 +60,13 @@ jobs:
           REPORT: ${{ steps.artifacts.outputs.report }}
         run: |
           set -euo pipefail
-          for component in control-plane frontend agent runner; do
-            repository="$(jq -er --arg component "$component" '.images[$component].repository' "$REPORT")"
-            tag="$(jq -er --arg component "$component" '.images[$component].tag' "$REPORT")"
-            digest="$(jq -er --arg component "$component" '.images[$component].digest' "$REPORT")"
-            revision="$(jq -er --arg component "$component" '.images[$component].sourceRevision' "$REPORT")"
+          for mapping in controlPlane:control-plane frontend:frontend agent:agent runner:runner; do
+            report_component="${mapping%%:*}"
+            component="${mapping##*:}"
+            repository="$(jq -er --arg component "$report_component" '.images[$component].repository' "$REPORT")"
+            tag="$(jq -er --arg component "$report_component" '.images[$component].tag' "$REPORT")"
+            digest="$(jq -er --arg component "$report_component" '.images[$component].digest' "$REPORT")"
+            revision="$(jq -er --arg component "$report_component" '.images[$component].sourceRevision' "$REPORT")"
             ./scripts/update-runtime-image-values.sh \
               --component "$component" --repository "$repository" --tag "$tag" \
               --digest "$digest" --source-revision "$revision"
