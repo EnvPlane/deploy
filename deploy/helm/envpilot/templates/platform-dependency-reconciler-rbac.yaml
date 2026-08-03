@@ -50,13 +50,31 @@ rules:
     verbs: ["get", "list", "watch"]
   {{- range $name := list "ingress" "dns" "storage" }}
   {{- $dependency := index $dependencies $name -}}
-  {{- if and (eq (default "disabled" $dependency.mode) "managed") $dependency.managed.rbacRules }}
+  {{- if and (or (eq (default "disabled" $dependency.mode) "auto") (eq (default "disabled" $dependency.mode) "managed")) $dependency.managed.rbacRules }}
   {{- range $rule := $dependency.managed.rbacRules }}
   - apiGroups: {{ toJson (default (list) $rule.apiGroups) }}
     resources: {{ toJson (default (list) $rule.resources) }}
     verbs: {{ toJson (default (list) $rule.verbs) }}
   {{- end }}
   {{- end }}
+  {{- end }}
+  {{- $ingress := index $dependencies "ingress" -}}
+  {{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") }}
+  # The reconciler installs only the pinned ingress-nginx provider. These
+  # cluster-scoped permissions are limited to the provider's RBAC/admission
+  # objects and discovery resources; they are not a cluster-admin wildcard.
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "create"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -123,4 +141,69 @@ subjects:
   - kind: ServiceAccount
     name: {{ $sa }}
     namespace: {{ .Release.Namespace }}
+{{- $ingress := index $dependencies "ingress" -}}
+{{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") }}
+---
+# The provider namespace is chart-owned only when it does not already exist.
+# `lookup` avoids adopting or rewriting a namespace supplied by the cluster
+# operator; the keep policy also prevents uninstall from deleting it.
+{{- if not (lookup "v1" "Namespace" "" (required "ingress namespace is required for nginx provider" $ingress.namespace)) }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ required "ingress namespace is required for nginx provider" $ingress.namespace }}
+  annotations:
+    "helm.sh/resource-policy": keep
+{{- end }}
+---
+# Helm creates these namespaced resources while installing ingress-nginx. The
+# Role is deliberately limited to the configured provider namespace and is
+# bound to the reconciler ServiceAccount from the EnvPilot namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-platform-reconciler-ingress-installer
+  namespace: {{ required "ingress namespace is required for nginx provider" $ingress.namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "endpoints", "events", "pods", "secrets", "serviceaccounts", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-platform-reconciler-ingress-installer
+  namespace: {{ required "ingress namespace is required for nginx provider" $ingress.namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-platform-reconciler-ingress-installer
+subjects:
+  - kind: ServiceAccount
+    name: {{ $sa }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
 {{- end }}

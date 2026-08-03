@@ -713,6 +713,30 @@ func TestIngressAccessProfileAutomaticallyReconcilesMissingNginxController(t *te
 	}
 }
 
+func TestIngressAccessProfileGrantsOnlyScopedProviderInstallerPermissions(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "access.mode=ingress",
+		"--set", "access.ingress.className=nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
+	for _, expected := range []string{
+		"resources: [\"namespaces\"]\n    verbs: [\"get\", \"create\"]",
+		"resources: [\"clusterroles\", \"clusterrolebindings\"]",
+		"resources: [\"validatingwebhookconfigurations\"]",
+		"name: envpilot-platform-reconciler-ingress-installer",
+		"namespace: ingress-nginx",
+		"resources: [\"configmaps\", \"endpoints\", \"events\", \"pods\", \"secrets\", \"serviceaccounts\", \"services\"]",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("nginx provider installer permissions missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "resources: [\"*\"]") || strings.Contains(rendered, "verbs: [\"*\"]") {
+		t.Fatal("nginx provider installer must not render wildcard RBAC")
+	}
+}
+
 func TestIngressAccessProfileDoesNotAutoInstallNonNginxClass(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "access.mode=ingress",
