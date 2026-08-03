@@ -169,6 +169,13 @@ platformDependencyReconciler:
 
 envpilot-control-plane:
   fullnameOverride: envpilot-control-plane
+  # Keep the API startup dependency explicit at the umbrella boundary. The
+  # child chart renders a least-privilege initContainer which waits for the
+  # internal PostgreSQL/Redis readiness probes before starting migrations.
+  # Helm still creates StatefulSets and Deployments in one release; this flag
+  # prevents the API from racing the database during a cold install.
+  dependencyWait:
+    enabled: true
   image:
     repository: ghcr.io/envpilot/api
     tag: "sha-f26074348aea348cafc0694b3bd931bd196c2803"
