@@ -139,6 +139,7 @@ func run() error {
 	if os.Getenv("ENVPILOT_RECONCILE_ACTION") == "cleanup" {
 		return cleanup(cfg, restCfg)
 	}
+	var reconcileErrors []string
 	for name, dep := range map[string]capability{"ingress": cfg.Ingress, "dns": cfg.DNS, "storage": cfg.Storage} {
 		res, e := reconcile(name, dep, client, restCfg)
 		if e != nil {
@@ -146,8 +147,15 @@ func run() error {
 				res.State = "degraded"
 			}
 			res.Message = e.Error()
+			reconcileErrors = append(reconcileErrors, fmt.Sprintf("%s: %s", name, e.Error()))
 		}
 		statusData[name] = res
+	}
+	if len(reconcileErrors) > 0 {
+		if err := persistStatus(core, statusData); err != nil {
+			return err
+		}
+		return fmt.Errorf("platform dependency reconciliation failed: %s", strings.Join(reconcileErrors, "; "))
 	}
 	if os.Getenv("ENVPILOT_RECONCILE_GATE_STORAGE") == "true" && statusData["storage"].State != "detected" && statusData["storage"].State != "managed" {
 		if err := persistStatus(core, statusData); err != nil {
