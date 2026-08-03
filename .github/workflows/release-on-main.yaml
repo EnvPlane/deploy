@@ -83,10 +83,12 @@ jobs:
           REPORT: ${{ steps.artifacts.outputs.report }}
         run: |
           set -euo pipefail
-          for component in control-plane frontend agent runner; do
+          for mapping in controlPlane:control-plane frontend:frontend agent:agent runner:runner; do
+            report_component="${mapping%%:*}"
+            component="${mapping##*:}"
             ./scripts/update-umbrella-chart-dependency.sh \
               --component "$component" \
-              --version "$(jq -er --arg component "$component" '.charts[$component].version' "$REPORT")"
+              --version "$(jq -er --arg component "$report_component" '.charts[$component].version' "$REPORT")"
           done
           # Source directories remain the canonical development sources. The
           # published release resolves the exact selected OCI archives so its

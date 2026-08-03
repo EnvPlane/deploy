@@ -32,6 +32,11 @@ grep -Fq 'controlPlane:control-plane' "$workflow" || {
   exit 1
 }
 
+grep -Fq '.charts[$component].version' "$workflow" || {
+  echo "workflow must read child chart versions from the compatibility report" >&2
+  exit 1
+}
+
 for required in \
   "ghcr.io/envpilot/api" \
   "ghcr.io/envpilot/frontend" \
