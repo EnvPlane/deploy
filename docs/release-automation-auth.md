@@ -20,7 +20,7 @@ permissions:
 |---|---|---|
 | Metadata | Read-only | Required by every installation token. |
 | Contents | Read and write | Read the canonical deploy source, dispatch events and update the serialised automation branches. |
-| Pull requests | Read and write | Create and auto-merge the values and dependency update PRs. |
+| Pull requests | Read and write | Create and request auto-merge for values and dependency update PRs; repository policy may leave them open for a normal protected merge. |
 | Packages | Read-only | Verify immutable GHCR manifests from the runtime repositories before creating a values PR. |
 
 No webhook, organization administration, Actions, secrets, workflows, issues or

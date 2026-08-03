@@ -30,9 +30,11 @@ All component events use one concurrency group and one refreshable branch,
 `automation/runtime-image-pins`. This makes simultaneous publications a
 serialized read/modify/test transaction instead of competing branches that can
 silently lose a pin. The receiver does not dispatch another image event, so
-its auto-merged PR cannot create a workflow loop. Replaying the same
+its auto-merge request cannot create a workflow loop. Replaying the same
 publication is safe because the updater converges on the same values and
-refreshes the existing PR. Chart lint, dependency build
-and template rendering run before the PR is created; auto-merge is requested
-only after those checks succeed and normal repository branch protection remains
-the final merge gate.
+refreshes the existing PR. Chart lint, dependency build and template rendering
+run before the PR is created; auto-merge is requested only after those checks
+succeed and normal repository branch protection remains the final merge gate.
+If repository auto-merge is disabled, the workflow emits a warning and leaves
+the tested PR open instead of treating the repository setting as a failed
+artifact update.
