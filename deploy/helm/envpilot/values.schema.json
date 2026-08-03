@@ -304,6 +304,11 @@
               "additionalProperties": false,
               "properties": { "enabled": { "type": "boolean" } }
             },
+            "remoteClusterReconciler": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": { "enabled": { "type": "boolean" } }
+            },
             "firstStartRegistration": { "$ref": "#/definitions/firstStartRegistration" },
             "e2eFixture": { "$ref": "#/definitions/e2eFixture" }
           }

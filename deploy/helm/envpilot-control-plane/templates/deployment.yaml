@@ -4,6 +4,8 @@
 {{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
 {{- $platformDependencyStatus := default (dict) (get $globalEnvPilot "platformDependencyStatus") -}}
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
+{{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
+{{- $remoteClusterReconcilerEnabled := default false $remoteClusterReconciler.enabled -}}
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPilot "e2eFixture") -}}
@@ -148,6 +150,8 @@ spec:
               value: {{ .Values.runnerCommand.leaseSeconds | quote }}
             - name: ENVPILOT_RUNNER_COMMAND_MAX_ATTEMPTS
               value: {{ .Values.runnerCommand.maxAttempts | quote }}
+            - name: ENVPILOT_REMOTE_CLUSTER_RECONCILER_ENABLED
+              value: {{ $remoteClusterReconcilerEnabled | quote }}
             {{- if $remoteControlPlane.clusterID }}
             - name: ENVPILOT_CONTROL_PLANE_CLUSTER_ID
               value: {{ $remoteControlPlane.clusterID | quote }}

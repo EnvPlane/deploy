@@ -25,6 +25,11 @@ global:
     # or installation of controllers, DNS, StorageClasses or tunnels.
     platformDependencyStatus:
       enabled: true
+    # Remote clusters are configured through the API/UI and Secret references.
+    # This flag only enables the management-cluster reconciler globally; it
+    # contains no target-cluster endpoint or credential material.
+    remoteClusterReconciler:
+      enabled: false
     firstStartRegistration:
       mode: disabled # disabled | managed | existing
       secretName: envpilot-first-start-registration
