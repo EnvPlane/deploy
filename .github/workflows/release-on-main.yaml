@@ -113,8 +113,11 @@ jobs:
           base="$(printf '%s\n' "$current" "$previous" | sort -V | tail -n1)"
           IFS=. read -r major minor patch <<< "$base"
           version="$major.$minor.$((patch + 1))"
-          ./scripts/check-oci-chart-version-available.sh \
-            --repository oci://ghcr.io/envpilot/envpilot --version "$version"
+          while ! ./scripts/check-oci-chart-version-available.sh \
+            --repository oci://ghcr.io/envpilot/envpilot --version "$version"; do
+            patch=$((patch + 1))
+            version="$major.$minor.$patch"
+          done
           sed -i.bak -E "0,/^version: .*/s//version: $version/; 0,/^appVersion: .*/s//appVersion: \"$version\"/" deploy/helm/envpilot/Chart.yaml
           rm -f deploy/helm/envpilot/Chart.yaml.bak
           echo "version=$version" >> "$GITHUB_OUTPUT"
