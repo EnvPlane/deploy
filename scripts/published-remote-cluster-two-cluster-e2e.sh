@@ -30,6 +30,8 @@ credential_key="${ENVPILOT_E2E_REMOTE_CREDENTIAL_KEY:-kubeconfig}"
 credential_file="${ENVPILOT_E2E_REMOTE_CREDENTIAL_FILE:-}"
 api_port="${ENVPILOT_E2E_API_PORT:-18080}"
 ui_port="${ENVPILOT_E2E_UI_PORT:-13000}"
+control_plane_service="${ENVPILOT_E2E_CONTROL_PLANE_SERVICE:-envpilot-control-plane}"
+frontend_service="${ENVPILOT_E2E_FRONTEND_SERVICE:-envpilot-frontend}"
 api_url="${ENVPILOT_E2E_API_URL:-http://127.0.0.1:${api_port}}"
 ui_url="${ENVPILOT_E2E_UI_URL:-http://127.0.0.1:${ui_port}}"
 scm_provider="${ENVPILOT_E2E_SCM_PROVIDER:-gitlab}"
@@ -59,8 +61,8 @@ helm upgrade --install "$release" "$ENVPILOT_E2E_UMBRELLA_REF" --version "$ENVPI
   --kube-context "$ENVPILOT_E2E_MANAGEMENT_CONTEXT" --namespace "$namespace" --create-namespace --values "$ENVPILOT_E2E_VALUES_FILE" --wait --timeout 15m
 
 # Test-client only: do not confuse this port-forward with the remote endpoint.
-kubectl --context "$ENVPILOT_E2E_MANAGEMENT_CONTEXT" -n "$namespace" port-forward "svc/${release}-envpilot-control-plane" "${api_port}:8080" >"$tmp/api.log" 2>&1 & pids+=("$!")
-kubectl --context "$ENVPILOT_E2E_MANAGEMENT_CONTEXT" -n "$namespace" port-forward "svc/${release}-envpilot-frontend" "${ui_port}:3000" >"$tmp/ui.log" 2>&1 & pids+=("$!")
+kubectl --context "$ENVPILOT_E2E_MANAGEMENT_CONTEXT" -n "$namespace" port-forward "svc/$control_plane_service" "${api_port}:8080" >"$tmp/api.log" 2>&1 & pids+=("$!")
+kubectl --context "$ENVPILOT_E2E_MANAGEMENT_CONTEXT" -n "$namespace" port-forward "svc/$frontend_service" "${ui_port}:3000" >"$tmp/ui.log" 2>&1 & pids+=("$!")
 for _ in $(seq 1 60); do curl -fsS "$api_url/api/v1/health" >/dev/null 2>&1 && break; sleep 2; done
 curl -fsS "$api_url/api/v1/health" >/dev/null
 
