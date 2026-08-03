@@ -42,4 +42,42 @@ roleRef:
   name: {{ include "envpilot-control-plane.fullname" $ }}-secret-reader
 {{- end }}
 {{- end }}
+{{- $credentialNamespaces := .Values.rbac.remoteClusterCredentials.namespaces -}}
+{{- if not $credentialNamespaces -}}
+{{- $credentialNamespaces = list .Release.Namespace -}}
+{{- end -}}
+{{- if .Values.rbac.remoteClusterCredentials.enabled -}}
+{{- range $namespace := $credentialNamespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" $ }}-remote-cluster-credentials
+  namespace: {{ $namespace | quote }}
+  labels:
+    {{- include "envpilot-control-plane.labels" $ | nindent 4 }}
+rules:
+  # The RemoteCluster API uses named Secret references only. No list/watch,
+  # ConfigMap, or cluster-wide permission is needed to rotate an upload.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" $ }}-remote-cluster-credentials
+  namespace: {{ $namespace | quote }}
+  labels:
+    {{- include "envpilot-control-plane.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envpilot-control-plane.fullname" $ }}-remote-cluster-credentials
+{{- end }}
+{{- end }}
 {{- end }}

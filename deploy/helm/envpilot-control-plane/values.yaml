@@ -190,6 +190,12 @@ rbac:
   secretReader:
     enabled: true
     namespaces: []
+  # Management-cluster Secret access used exclusively by the RemoteCluster API.
+  # It can create/update only explicitly referenced credential Secrets; no
+  # ConfigMap or cluster-wide secret permission is granted.
+  remoteClusterCredentials:
+    enabled: false
+    namespaces: []
 
 podAnnotations: {}
 podLabels: {}

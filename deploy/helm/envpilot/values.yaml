@@ -167,6 +167,13 @@ envpilot-control-plane:
   affinity: {}
   podSecurityContext: {}
   securityContext: {}
+  rbac:
+    # Enable only when RemoteCluster credential upload/rotation is required.
+    # The chart then grants namespaced Secret get/create/update/patch, never a
+    # ClusterRole or ConfigMap write. Add non-release namespaces explicitly.
+    remoteClusterCredentials:
+      enabled: false
+      namespaces: []
   service:
     type: ClusterIP
     port: 8080
