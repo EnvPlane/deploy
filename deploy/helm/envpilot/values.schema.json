@@ -467,6 +467,9 @@
                 "projectId": { "type": "string" },
                 "authRevision": { "type": "string" },
                 "authRotation": { "type": "string" },
+                "compatibilityPin": { "type": "string", "pattern": "^$|^sha256:[a-f0-9]{64}$" },
+                "generation": { "type": "integer", "minimum": 0 },
+                "allowLegacyMigration": { "type": "boolean" },
                 "targetNamespaces": { "type": "array", "items": { "type": "string", "minLength": 1 } }
               }
             }
@@ -508,6 +511,9 @@
                 "projectId": { "type": "string" },
                 "authRevision": { "type": "string" },
                 "authRotation": { "type": "string" },
+                "compatibilityPin": { "type": "string", "pattern": "^$|^sha256:[a-f0-9]{64}$" },
+                "generation": { "type": "integer", "minimum": 0 },
+                "allowLegacyMigration": { "type": "boolean" },
                 "targetNamespaces": { "type": "array", "items": { "type": "string", "minLength": 1 } }
               }
             }

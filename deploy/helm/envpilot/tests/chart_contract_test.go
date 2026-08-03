@@ -691,7 +691,7 @@ func TestInstallationDocsQuickStartSmoke(t *testing.T) {
 	contents := string(docs)
 	for _, expected := range []string{
 		"helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot",
-		"--version 0.3.6", "--namespace envpilot", "--values values.yaml",
+		"--version <published-umbrella-version>", "--namespace envpilot", "--values values.yaml",
 		"auto", "managed", "existing", "disabled", "Kubernetes 1.26",
 		"Private registry", "minikube-", "not required",
 	} {

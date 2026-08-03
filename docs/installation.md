@@ -31,7 +31,7 @@ Create `values.yaml` from one of the examples below, then run exactly:
 
 ```sh
 helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version 0.3.6 \
+  --version <published-umbrella-version> \
   --namespace envpilot \
   --create-namespace \
   --values values.yaml \
@@ -56,8 +56,9 @@ global:
 `managed` retains chart-generated registration material across upgrades.
 `existing` consumes an operator-created Secret named by
 `global.envpilot.firstStartRegistration.existingSecret`. Plaintext tokens must
-never be put in values. Remote execution targets use the explicit control-plane
-registration/rotation workflow and are outside this same-cluster release.
+never be put in values. Remote execution targets are configured after this
+install through the authenticated UI/API RemoteCluster flow, not values or
+manual child-chart commands. See [API-managed remote clusters](remote-clusters.md).
 
 ## Platform dependency modes
 

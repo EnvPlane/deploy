@@ -41,6 +41,8 @@ jobs:
         run: ./scripts/tests/remote-cluster-credential-contract.sh
       - name: Verify published remote-cluster lifecycle contract
         run: ./scripts/tests/published-remote-cluster-lifecycle-contract.sh
+      - name: Verify published two-cluster RemoteCluster contract
+        run: ./scripts/tests/published-remote-cluster-two-cluster-contract.sh
       - name: Lint and package charts
         shell: bash
         run: |

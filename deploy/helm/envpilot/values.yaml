@@ -326,6 +326,9 @@ envpilot-agent:
     projectId: ""
     authRevision: ""
     authRotation: ""
+    compatibilityPin: ""
+    generation: 0
+    allowLegacyMigration: false
     targetNamespaces: []
   agent:
     id: ""
@@ -384,4 +387,7 @@ envpilot-runner:
     projectId: ""
     authRevision: ""
     authRotation: ""
+    compatibilityPin: ""
+    generation: 0
+    allowLegacyMigration: false
     targetNamespaces: []
