@@ -42,6 +42,17 @@ spec:
           image: {{ $image | quote }}
           imagePullPolicy: {{ default "IfNotPresent" $r.image.pullPolicy }}
           env:
+            # Helm's SDK writes repository/cache state during provider
+            # installation. The reconciler root filesystem is read-only, so
+            # keep all transient state on an isolated writable volume.
+            - name: HOME
+              value: /tmp/envpilot-home
+            - name: XDG_CACHE_HOME
+              value: /tmp/envpilot-home/.cache
+            - name: XDG_CONFIG_HOME
+              value: /tmp/envpilot-home/.config
+            - name: XDG_DATA_HOME
+              value: /tmp/envpilot-home/.local/share
             - name: ENVPILOT_RECONCILE_ACTION
               value: reconcile
             - name: ENVPILOT_RECONCILE_NAMESPACE
@@ -69,4 +80,10 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ALL] }
             readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: reconciler-tmp
+              mountPath: /tmp
+      volumes:
+        - name: reconciler-tmp
+          emptyDir: {}
 {{- end }}

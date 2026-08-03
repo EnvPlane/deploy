@@ -557,6 +557,9 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 		"resources: [\"storageclasses\"]",
 		"app.kubernetes.io/component: platform-reconciler",
 		"ENVPILOT_RECONCILE_CONFIG_JSON",
+		"name: HOME\n              value: /tmp/envpilot-home",
+		"name: XDG_CACHE_HOME\n              value: /tmp/envpilot-home/.cache",
+		"mountPath: /tmp",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("platform reconciler contract missing %q:\n%s", expected, rendered)
