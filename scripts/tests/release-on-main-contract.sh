@@ -10,8 +10,12 @@ resolver="$root/scripts/resolve-latest-published-artifacts.sh"
 bash -n "$resolver"
 
 for required in \
-  "branches: [main]" \
-  "resolve-latest-published-artifacts.sh" \
+  "workflow_run:" \
+  "Publish deploy image and charts (main)" \
+  "workflow_run.conclusion" \
+  "actions/download-artifact@v4" \
+  "envpilot-compatible-artifacts" \
+  "artifact_run_id" \
   "oras-project/setup-oras@v1" \
   "oras login ghcr.io" \
   "helm dependency build" \
@@ -22,10 +26,35 @@ for required in \
   grep -Fq "$required" "$workflow" || { echo "workflow missing: $required" >&2; exit 1; }
 done
 
+if grep -Eq '^  push:' "$workflow"; then
+  echo "umbrella release must not run directly on push" >&2
+  exit 1
+fi
+
 grep -Fq "canonical source version" "$resolver" || {
   echo "resolver must have a verified source-version fallback for private package listings" >&2
   exit 1
 }
+
+grep -Fq 'sourceRevision:$sourceRevision' "$resolver" || {
+  echo "artifact resolver must bind the report to the source revision" >&2
+  exit 1
+}
+
+grep -Fq 'Select the artifact source revision' "$workflow" || {
+  echo "release must checkout the artifact workflow source revision" >&2
+  exit 1
+}
+
+grep -Fq 'Verify confirmed immutable artifacts' "$workflow" || {
+  echo "release must validate the downloaded compatibility manifest" >&2
+  exit 1
+}
+
+if grep -Fq 'Resolve latest published immutable artifacts' "$workflow"; then
+  echo "release must consume the confirmed artifact manifest, not resolve independently" >&2
+  exit 1
+fi
 
 grep -Fq 'controlPlane:control-plane' "$workflow" || {
   echo "workflow must map report controlPlane to the control-plane values component" >&2

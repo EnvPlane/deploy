@@ -8,6 +8,7 @@ on:
       - 'release/**'
       - 'go.mod'
       - 'go.sum'
+      - 'scripts/resolve-latest-published-artifacts.sh'
       - '.github/workflows/publish-main.yaml'
   workflow_dispatch:
 
@@ -31,8 +32,13 @@ jobs:
       - name: Test deploy tooling
         run: go test ./...
       - uses: azure/setup-helm@v4
+      - uses: oras-project/setup-oras@v1
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Authenticate ORAS to GHCR
+        run: echo "$GHCR_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Verify canonical Helm chart sources
@@ -63,3 +69,25 @@ jobs:
           for package in dist/*.tgz; do
             helm push "$package" oci://ghcr.io/${{ github.repository_owner }}
           done
+      - name: Resolve and verify the published compatibility set
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ./scripts/resolve-latest-published-artifacts.sh \
+            --output "$RUNNER_TEMP/latest-artifacts.json"
+          jq -e \
+            '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
+             (.images | length == 5) and (.charts | length == 4) and
+             all(.images[]; (.tag | test("^sha-[0-9a-f]{40}$")) and
+               (.digest | test("^sha256:[0-9a-f]{64}$"))) and
+             all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")))' \
+            "$RUNNER_TEMP/latest-artifacts.json" >/dev/null
+      - name: Upload confirmed compatibility manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: envpilot-compatible-artifacts
+          path: ${{ runner.temp }}/latest-artifacts.json
+          if-no-files-found: error
+          retention-days: 14

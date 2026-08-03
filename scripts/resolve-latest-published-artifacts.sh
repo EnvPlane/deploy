@@ -180,8 +180,9 @@ charts="$(jq -cn \
 
 mkdir -p "$(dirname "$output")"
 jq -n --arg previousUmbrellaVersion "$previous_umbrella" \
+  --arg sourceRevision "${GITHUB_SHA:-}" \
   --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --argjson images "$images" --argjson charts "$charts" \
-  '{schemaVersion:1,generatedAt:$generatedAt,previousUmbrellaVersion:$previousUmbrellaVersion,images:$images,charts:$charts}' \
+  '{schemaVersion:1,generatedAt:$generatedAt,sourceRevision:$sourceRevision,previousUmbrellaVersion:$previousUmbrellaVersion,images:$images,charts:$charts}' \
   > "$output"
 echo "resolved latest published artifacts: $output"

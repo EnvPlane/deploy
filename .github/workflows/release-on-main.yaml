@@ -1,11 +1,18 @@
 name: Publish latest compatible EnvPilot umbrella release
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["Publish deploy image and charts (main)"]
+    types: [completed]
   workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: "Successful Publish deploy image and charts run to consume"
+        required: true
+        type: string
 
 permissions:
+  actions: read
   contents: write
   packages: write
   id-token: write
@@ -17,12 +24,39 @@ concurrency:
 
 jobs:
   release:
-    if: github.repository == 'envpilot/deploy' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    if: >-
+      github.repository == 'envpilot/deploy' &&
+      ((github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: Download confirmed compatibility manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: envpilot-compatible-artifacts
+          path: ${{ runner.temp }}/confirmed-artifacts
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.artifact_run_id }}
+      - name: Select the artifact source revision
+        id: source
+        env:
+          REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
+        run: |
+          set -euo pipefail
+          test -s "$REPORT"
+          jq -e \
+            '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
+             (.images | length == 5) and (.charts | length == 4)' \
+            "$REPORT" >/dev/null
+          source_revision="$(jq -er '.sourceRevision' "$REPORT")"
+          git fetch --no-tags origin "$source_revision"
+          git checkout --detach "$source_revision"
+          echo "report=$REPORT" >> "$GITHUB_OUTPUT"
+          echo "revision=$source_revision" >> "$GITHUB_OUTPUT"
       - uses: azure/setup-helm@v4
       - uses: oras-project/setup-oras@v1
       - uses: sigstore/cosign-installer@v3
@@ -45,16 +79,20 @@ jobs:
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Verify automatic release workflow contract
         run: ./scripts/tests/release-on-main-contract.sh
-      - name: Resolve latest published immutable artifacts
+      - name: Verify confirmed immutable artifacts
         id: artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
         run: |
           set -euo pipefail
-          ./scripts/resolve-latest-published-artifacts.sh \
-            --output "$RUNNER_TEMP/latest-artifacts.json"
-          test -s "$RUNNER_TEMP/latest-artifacts.json"
+          report="${{ steps.source.outputs.report }}"
+          test -s "$report"
+          jq -e \
+            '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
+             (.images | length == 5) and (.charts | length == 4) and
+             all(.images[]; (.tag | test("^sha-[0-9a-f]{40}$")) and
+               (.digest | test("^sha256:[0-9a-f]{64}$"))) and
+             all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")))' \
+            "$report" >/dev/null
+          cp "$report" "$RUNNER_TEMP/latest-artifacts.json"
           echo "report=$RUNNER_TEMP/latest-artifacts.json" >> "$GITHUB_OUTPUT"
       - name: Apply latest image pins in the ephemeral release workspace
         env:
@@ -129,7 +167,7 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/generate-umbrella-compatibility-manifest.sh \
-            --version "$VERSION" --source-revision "${GITHUB_SHA}" \
+            --version "$VERSION" --source-revision "${{ steps.source.outputs.revision }}" \
             --output deploy/helm/envpilot/compatibility/release.json
           jq -e --arg version "$VERSION" \
             '.umbrella.version == $version and (.images | length == 5) and (.childCharts | length == 4)' \
