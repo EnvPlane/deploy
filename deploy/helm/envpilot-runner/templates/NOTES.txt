@@ -19,8 +19,9 @@ Auth persistence:
     controlPlane.authPersistence.runnerAuthTokenKey
 
   On restart the runner should load ENVPILOT_RUNNER_AUTH_TOKEN from that Secret
-  and skip bootstrap registration. Rotate by creating a new deployment
-  instruction/token set and updating the persisted Secret.
+  and skip bootstrap registration. For a controller-managed remote Runner,
+  rotate/reissue through Remote Clusters API/UI; do not edit bootstrap tokens
+  or generate a replacement OCI command manually.
 
 Controller-managed remote installation:
   Set managedRemote.enabled=true only through the management-cluster Remote
@@ -28,6 +29,13 @@ Controller-managed remote installation:
   an existing bootstrap Secret, safe auth revision/rotation values, and exact
   project feature namespaces. The chart rejects localhost,
   host.minikube.internal and Kubernetes Service DNS in this mode.
+
+Remote Environment lifecycle:
+  Helm create/status/recreate/delete and audited force-clean operations are
+  dispatched only by the fresh managed Runner. Force clean remains label-owned:
+  it may remove a dedicated namespace only when envpilot.io/managed=true and
+  its project/environment labels match. Missing releases or namespaces are
+  idempotent success; the control plane never uses its kubeconfig for cleanup.
 
 Migration from the retired envpilot-runner-chart OCI chart:
   Older releases used the fixed resource name and immutable selector
