@@ -34,11 +34,12 @@ command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
 command -v oras >/dev/null || { echo "oras is required for OCI chart tag discovery" >&2; exit 1; }
 
 package_versions() {
-  local package="$1" endpoint response
+  local package="$1" endpoint response api_token
+  api_token="${GHCR_TOKEN:-${GH_TOKEN:-}}"
   for endpoint in \
     "/users/$owner/packages/container/$package/versions?per_page=100" \
     "/orgs/$owner/packages/container/$package/versions?per_page=100"; do
-    if response="$(gh api --paginate --slurp "$endpoint" 2>/dev/null)"; then
+    if response="$(GH_TOKEN="$api_token" gh api --paginate --slurp "$endpoint" 2>/dev/null)"; then
       jq -c 'add[]' <<< "$response"
       return 0
     fi

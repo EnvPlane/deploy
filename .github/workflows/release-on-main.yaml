@@ -49,6 +49,7 @@ jobs:
         id: artifacts
         env:
           GH_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
         run: |
           set -euo pipefail
           ./scripts/resolve-latest-published-artifacts.sh \
