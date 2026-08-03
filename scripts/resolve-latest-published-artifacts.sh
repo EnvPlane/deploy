@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Resolve the newest published, immutable EnvPilot artifacts from GHCR.
+# This is intentionally read-only: the release workflow consumes the JSON
+# report and updates only its ephemeral build workspace.
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+usage: resolve-latest-published-artifacts.sh --output <file> [--owner <owner>]
+
+Requires GH_TOKEN/GITHUB_TOKEN with packages:read, Docker login for image
+inspection, and Helm registry login for chart validation.
+EOF
+  exit 2
+}
+
+owner="envpilot"
+output=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --owner) owner="${2:-}"; shift 2 ;;
+    --output) output="${2:-}"; shift 2 ;;
+    -h|--help) usage ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+[[ "$owner" =~ ^[A-Za-z0-9-]+$ ]] || { echo "invalid owner" >&2; exit 2; }
+[[ -n "$output" ]] || { echo "--output is required" >&2; exit 2; }
+command -v gh >/dev/null || { echo "gh is required" >&2; exit 1; }
+command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
+command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
+command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
+
+package_versions() {
+  local package="$1"
+  gh api --paginate --slurp "/orgs/$owner/packages/container/$package/versions?per_page=100" \
+    | jq -c 'add[]'
+}
+
+latest_image_tag() {
+  local package="$1" tag
+  tag="$(package_versions "$package" \
+    | jq -r 'select((.metadata.container.tags // []) | any(test("^sha-[0-9a-f]{40}$"))) | .created_at + "\t" + ((.metadata.container.tags // [])[] | select(test("^sha-[0-9a-f]{40}$")))' \
+    | sort -r | head -n1 | cut -f2-)"
+  [[ "$tag" =~ ^sha-[0-9a-f]{40}$ ]] || {
+    echo "no immutable sha-* image published for $package" >&2
+    exit 1
+  }
+  printf '%s' "$tag"
+}
+
+image_json() {
+  local package="$1" repository="$2" tag digest revision
+  tag="$(latest_image_tag "$package")"
+  revision="${tag#sha-}"
+  digest="$(docker buildx imagetools inspect "$repository:$tag" \
+    | awk '/^Digest:[[:space:]]+sha256:[0-9a-f]{64}$/ {print $2; exit}')"
+  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+    echo "could not resolve manifest digest for $repository:$tag" >&2
+    exit 1
+  }
+  jq -cn --arg repository "$repository" --arg tag "$tag" \
+    --arg digest "$digest" --arg sourceRevision "$revision" \
+    '{repository:$repository,tag:$tag,digest:$digest,sourceRevision:$sourceRevision}'
+}
+
+latest_chart_version() {
+  local package="$1" version
+  version="$(package_versions "$package" \
+    | jq -r '(.metadata.container.tags // [])[] | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' \
+    | sort -Vu | tail -n1)"
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+    echo "no stable SemVer chart published for $package" >&2
+    exit 1
+  }
+  printf '%s' "$version"
+}
+
+chart_json() {
+  local name="$1" package="$2" repository="$3" version chart
+  version="$(latest_chart_version "$package")"
+  chart="$(helm show chart "$repository:$version")"
+  grep -Fxq "name: $name" <<<"$chart" || {
+    echo "OCI chart $repository:$version has an unexpected name" >&2
+    exit 1
+  }
+  grep -Fxq "version: $version" <<<"$chart" || {
+    echo "OCI chart $repository:$version has an unexpected version" >&2
+    exit 1
+  }
+  jq -cn --arg repository "$repository" --arg version "$version" \
+    '{repository:$repository,version:$version}'
+}
+
+previous_umbrella="$(latest_chart_version "envpilot")"
+images="$(jq -cn \
+  --argjson api "$(image_json api ghcr.io/envpilot/api)" \
+  --argjson frontend "$(image_json frontend ghcr.io/envpilot/frontend)" \
+  --argjson agent "$(image_json agent ghcr.io/envpilot/agent)" \
+  --argjson runner "$(image_json runner ghcr.io/envpilot/runner)" \
+  --argjson platformReconciler "$(image_json platform-reconciler ghcr.io/envpilot/platform-reconciler)" \
+  '{controlPlane:$api,frontend:$frontend,agent:$agent,runner:$runner,platformReconciler:$platformReconciler}')"
+charts="$(jq -cn \
+  --argjson controlPlane "$(chart_json envpilot-control-plane envpilot-control-plane oci://ghcr.io/envpilot/envpilot-control-plane)" \
+  --argjson frontend "$(chart_json envpilot-frontend envpilot-frontend oci://ghcr.io/envpilot/envpilot-frontend)" \
+  --argjson agent "$(chart_json envpilot-agent envpilot-agent oci://ghcr.io/envpilot/envpilot-agent)" \
+  --argjson runner "$(chart_json envpilot-runner envpilot-runner oci://ghcr.io/envpilot/envpilot-runner)" \
+  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner}')"
+
+mkdir -p "$(dirname "$output")"
+jq -n --arg previousUmbrellaVersion "$previous_umbrella" \
+  --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --argjson images "$images" --argjson charts "$charts" \
+  '{schemaVersion:1,generatedAt:$generatedAt,previousUmbrellaVersion:$previousUmbrellaVersion,images:$images,charts:$charts}' \
+  > "$output"
+echo "resolved latest published artifacts: $output"

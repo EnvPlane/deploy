@@ -1,0 +1,190 @@
+name: Publish latest compatible EnvPilot umbrella release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: envpilot-umbrella-main-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'envpilot/deploy' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@v4
+      - uses: sigstore/cosign-installer@v3
+      - uses: docker/setup-buildx-action@v4
+      - name: Authenticate to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Authenticate Helm to GHCR
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Verify canonical chart sources
+        run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
+      - name: Verify automatic release workflow contract
+        run: ./scripts/tests/release-on-main-contract.sh
+      - name: Resolve latest published immutable artifacts
+        id: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ./scripts/resolve-latest-published-artifacts.sh \
+            --output "$RUNNER_TEMP/latest-artifacts.json"
+          test -s "$RUNNER_TEMP/latest-artifacts.json"
+          echo "report=$RUNNER_TEMP/latest-artifacts.json" >> "$GITHUB_OUTPUT"
+      - name: Apply latest image pins in the ephemeral release workspace
+        env:
+          REPORT: ${{ steps.artifacts.outputs.report }}
+        run: |
+          set -euo pipefail
+          for component in control-plane frontend agent runner; do
+            repository="$(jq -er --arg component "$component" '.images[$component].repository' "$REPORT")"
+            tag="$(jq -er --arg component "$component" '.images[$component].tag' "$REPORT")"
+            digest="$(jq -er --arg component "$component" '.images[$component].digest' "$REPORT")"
+            revision="$(jq -er --arg component "$component" '.images[$component].sourceRevision' "$REPORT")"
+            ./scripts/update-runtime-image-values.sh \
+              --component "$component" --repository "$repository" --tag "$tag" \
+              --digest "$digest" --source-revision "$revision"
+          done
+          ./scripts/update-runtime-image-values.sh \
+            --component platform-reconciler \
+            --repository "$(jq -er '.images.platformReconciler.repository' "$REPORT")" \
+            --tag "$(jq -er '.images.platformReconciler.tag' "$REPORT")" \
+            --digest "$(jq -er '.images.platformReconciler.digest' "$REPORT")" \
+            --source-revision "$(jq -er '.images.platformReconciler.sourceRevision' "$REPORT")"
+      - name: Select latest child chart versions and use OCI dependencies
+        env:
+          REPORT: ${{ steps.artifacts.outputs.report }}
+        run: |
+          set -euo pipefail
+          for component in control-plane frontend agent runner; do
+            ./scripts/update-umbrella-chart-dependency.sh \
+              --component "$component" \
+              --version "$(jq -er --arg component "$component" '.charts[$component].version' "$REPORT")"
+          done
+          # Source directories remain the canonical development sources. The
+          # published release resolves the exact selected OCI archives so its
+          # vendored dependencies cannot drift from the compatibility report.
+          sed -i.bak \
+            -e 's#repository: file://../envpilot-control-plane#repository: oci://ghcr.io/envpilot#' \
+            -e 's#repository: file://../envpilot-frontend#repository: oci://ghcr.io/envpilot#' \
+            -e 's#repository: file://../envpilot-agent#repository: oci://ghcr.io/envpilot#' \
+            -e 's#repository: file://../envpilot-runner#repository: oci://ghcr.io/envpilot#' \
+            deploy/helm/envpilot/Chart.yaml
+          rm -f deploy/helm/envpilot/Chart.yaml.bak
+          rm -f deploy/helm/envpilot/Chart.lock deploy/helm/envpilot/charts/*.tgz
+          helm dependency build --skip-refresh deploy/helm/envpilot
+      - name: Bump umbrella patch version in the build workspace
+        id: version
+        env:
+          REPORT: ${{ steps.artifacts.outputs.report }}
+        run: |
+          set -euo pipefail
+          current="$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot/Chart.yaml)"
+          previous="$(jq -er '.previousUmbrellaVersion' "$REPORT")"
+          base="$(printf '%s\n' "$current" "$previous" | sort -V | tail -n1)"
+          IFS=. read -r major minor patch <<< "$base"
+          version="$major.$minor.$((patch + 1))"
+          ./scripts/check-oci-chart-version-available.sh \
+            --repository oci://ghcr.io/envpilot/envpilot --version "$version"
+          sed -i.bak -E "0,/^version: .*/s//version: $version/; 0,/^appVersion: .*/s//appVersion: \"$version\"/" deploy/helm/envpilot/Chart.yaml
+          rm -f deploy/helm/envpilot/Chart.yaml.bak
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+      - name: Generate immutable compatibility manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REPORT: ${{ steps.artifacts.outputs.report }}
+        run: |
+          set -euo pipefail
+          ./scripts/generate-umbrella-compatibility-manifest.sh \
+            --version "$VERSION" --source-revision "${GITHUB_SHA}" \
+            --output deploy/helm/envpilot/compatibility/release.json
+          jq -e --arg version "$VERSION" \
+            '.umbrella.version == $version and (.images | length == 5) and (.childCharts | length == 4)' \
+            deploy/helm/envpilot/compatibility/release.json >/dev/null
+      - name: Validate and package the complete umbrella
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          go test ./deploy/helm/envpilot/tests
+          helm lint deploy/helm/envpilot
+          helm template envpilot deploy/helm/envpilot >/dev/null
+          mkdir -p dist
+          helm package deploy/helm/envpilot --destination dist --version "$VERSION" --app-version "$VERSION"
+      - name: Generate JSON attestation predicate
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          jq -n --arg version "$VERSION" \
+            --arg sourceRevision "$GITHUB_SHA" \
+            --slurpfile compatibility deploy/helm/envpilot/compatibility/release.json \
+            '{schemaVersion:1,releaseVersion:$version,sourceRevision:$sourceRevision,compatibility:$compatibility[0]}' \
+            > "$RUNNER_TEMP/compatibility-predicate.json"
+          jq -e 'has("schemaVersion") and has("compatibility")' "$RUNNER_TEMP/compatibility-predicate.json" >/dev/null
+      - name: Publish umbrella OCI chart
+        id: push
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          output="$(helm push "dist/envpilot-$VERSION.tgz" oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+          digest="$(awk '/^Digest:/{print $2; exit}' <<< "$output")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "umbrella push did not return an immutable digest" >&2; exit 1; }
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Sign and attest the published umbrella
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          ref="ghcr.io/envpilot/envpilot@$DIGEST"
+          cosign sign --yes "$ref"
+          cosign attest --yes --predicate "$RUNNER_TEMP/compatibility-predicate.json" \
+            --type https://envpilot.dev/compatibility/v1 "$ref"
+      - name: Verify predecessor compatibility set
+        env:
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+        run: |
+          set -euo pipefail
+          helm pull "oci://ghcr.io/envpilot/envpilot" --version "$PREVIOUS" --destination "$RUNNER_TEMP"
+          ./scripts/verify-umbrella-reinstall-compatibility.sh \
+            "$RUNNER_TEMP/envpilot-$PREVIOUS.tgz"
+      - name: Publish GitHub Release and machine-readable metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          jq -n --arg version "$VERSION" --arg digest "$DIGEST" \
+            --arg chart "oci://ghcr.io/envpilot/envpilot:$VERSION" \
+            --slurpfile compatibility deploy/helm/envpilot/compatibility/release.json \
+            '{schemaVersion:1,chart:$chart,version:$version,digest:$digest,compatibility:$compatibility[0]}' \
+            > "dist/envpilot-$VERSION-release.json"
+          gh release create "envpilot-v$VERSION" \
+            "dist/envpilot-$VERSION.tgz" \
+            deploy/helm/envpilot/compatibility/release.json \
+            "dist/envpilot-$VERSION-release.json" \
+            --repo envpilot/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
+            --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"
