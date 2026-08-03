@@ -1,5 +1,6 @@
 {{- if eq (include "envpilot.platformReconcilerEnabled" .) "true" }}
 {{- $r := .Values.platformDependencyReconciler -}}
+{{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
 {{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
 {{- if $r.image.digest }}{{ $image = printf "%s@%s" $r.image.repository $r.image.digest }}{{ end }}
@@ -58,7 +59,7 @@ spec:
               value: {{ printf "%s-platform-dependency-reconciler-status" .Release.Name | quote }}
             - name: ENVPILOT_RECONCILE_CLEANUP
               value: {{ default true $r.cleanupManagedOnUninstall | quote }}
-            {{- $storage := .Values.platformDependencies.storage -}}
+            {{- $storage := $dependencies.storage -}}
             {{- $controlPlane := index .Values "envpilot-control-plane" -}}
             {{- if and (ne (default "disabled" $storage.mode) "disabled") (or $controlPlane.postgres.enabled $controlPlane.redis.enabled) }}
             - name: ENVPILOT_RECONCILE_GATE_STORAGE

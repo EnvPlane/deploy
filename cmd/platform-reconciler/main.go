@@ -99,8 +99,8 @@ type storageProvider struct {
 }
 
 var ingressProviders = map[string]ingressProvider{
-	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "oci://ghcr.io/ingress-nginx/ingress-nginx"},
-	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "oci://ghcr.io/ingress-nginx/ingress-nginx"},
+	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz"},
+	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz"},
 }
 
 var dnsProviders = map[string]dnsProvider{
@@ -659,7 +659,11 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 	install := action.NewInstall(&conf)
 	install.ReleaseName = m.ReleaseName
 	install.Namespace = m.Namespace
-	install.CreateNamespace = false
+	// Managed platform providers may live in a dedicated namespace (for
+	// example ingress-nginx). Creating that namespace is part of the provider
+	// installation contract; EnvPilot never creates namespaces for its core
+	// workloads through this reconciler.
+	install.CreateNamespace = true
 	install.Wait = true
 	if _, err = install.Run(ch, values); err == nil {
 		return nil

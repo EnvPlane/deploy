@@ -1,4 +1,4 @@
-{{- $dependencies := .Values.platformDependencies -}}
+{{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
 {{- $ingress := $dependencies.ingress -}}
 {{- $dns := $dependencies.dns -}}
 {{- $storage := $dependencies.storage -}}

@@ -673,7 +673,7 @@ func TestManagedIngressProviderRendersPinnedSmokeContract(t *testing.T) {
 		"--set", "platformDependencies.ingress.mode=managed",
 		"--set", "platformDependencies.ingress.provider=nginx",
 		"--set", "platformDependencies.ingress.ownership=envpilot",
-		"--set", "platformDependencies.ingress.managed.chartRef=oci://ghcr.io/ingress-nginx/ingress-nginx",
+		"--set", "platformDependencies.ingress.managed.chartRef=https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz",
 		"--set", "platformDependencies.ingress.managed.version=4.11.0",
 		"--set", "platformDependencies.ingress.managed.releaseName=envpilot-ingress-nginx",
 		"--set", "platformDependencies.ingress.managed.smoke.serviceName=envpilot-frontend",
@@ -685,6 +685,42 @@ func TestManagedIngressProviderRendersPinnedSmokeContract(t *testing.T) {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("managed ingress contract missing %q:\n%s", expected, rendered)
 		}
+	}
+}
+
+func TestIngressAccessProfileAutomaticallyReconcilesMissingNginxController(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "access.mode=ingress",
+		"--set", "access.ingress.host=envpilot.example.test",
+		"--set", "access.ingress.className=nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
+	for _, expected := range []string{
+		"kind: Ingress",
+		"ingressClassName: \"nginx\"",
+		"kind: Job",
+		"name: envpilot-platform-reconciler",
+		"ENVPILOT_RECONCILE_CONFIG_JSON",
+		"mode\\\":\\\"auto\\\"",
+		"provider\\\":\\\"nginx\\\"",
+		"helm-chart-4.11.0/ingress-nginx-4.11.0.tgz",
+		"releaseName\\\":\\\"envpilot-ingress-nginx\\\"",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("ingress access profile missing automatic controller reconciliation %q:\n%s", expected, rendered)
+		}
+	}
+}
+
+func TestIngressAccessProfileDoesNotAutoInstallNonNginxClass(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "access.mode=ingress",
+		"--set", "access.ingress.host=envpilot.example.test",
+		"--set", "access.ingress.className=alb",
+	)
+	if strings.Contains(rendered, "platform-reconciler-discovery") || strings.Contains(rendered, "kind: Job\nmetadata:\n  name: envpilot-platform-reconciler") {
+		t.Fatalf("non-nginx ingress class must not implicitly install a provider:\n%s", rendered)
 	}
 }
 

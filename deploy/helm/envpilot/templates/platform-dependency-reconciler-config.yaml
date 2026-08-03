@@ -1,4 +1,5 @@
 {{- if eq (include "envpilot.platformReconcilerEnabled" .) "true" }}
+{{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,5 +14,5 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: platform-reconciler
 data:
-  dependencies.json: {{ .Values.platformDependencies | toJson | quote }}
+  dependencies.json: {{ $dependencies | toJson | quote }}
 {{- end }}

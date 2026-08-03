@@ -36,15 +36,53 @@ Only Secret names are rendered; the Secret data is managed by the operator.
 {{- end -}}
 
 {{/*
+Return the platform dependency contract after applying the explicit public
+access profile. `access.mode=ingress` with className=nginx is a complete,
+opt-in request for ingress-nginx: detect and reuse a healthy existing class,
+or let the reconciler install the pinned provider. Other controller classes
+must declare their provider explicitly under platformDependencies.ingress.
+*/}}
+{{- define "envpilot.effectivePlatformDependencies" -}}
+{{- $dependencies := deepCopy (default (dict) .Values.platformDependencies) -}}
+{{- $ingress := deepCopy (default (dict) (get $dependencies "ingress")) -}}
+{{- $access := default (dict) .Values.access -}}
+{{- $accessIngress := default (dict) (get $access "ingress") -}}
+{{- $accessMode := default "disabled" (get $access "mode") -}}
+{{- $className := default "" (get $accessIngress "className") -}}
+{{- $configuredMode := default "disabled" (get $ingress "mode") -}}
+{{- $autoAccess := and (eq $accessMode "ingress") (eq $configuredMode "disabled") (eq $className "nginx") -}}
+{{- if $autoAccess -}}
+  {{- $smoke := dict "serviceName" (default "envpilot-frontend" (get (default (dict) (get $access "services")) "frontendName")) "namespace" .Release.Namespace "port" 3000 "host" (default "" (get $accessIngress "host")) -}}
+  {{- $controllerValues := dict "controller" (dict "ingressClassResource" (dict "name" $className "enabled" true "default" false) "service" (dict "type" "LoadBalancer")) -}}
+  {{- $managed := dict "chartRef" "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz" "version" "4.11.0" "releaseName" (printf "%s-ingress-nginx" .Release.Name) "namespace" "ingress-nginx" "cleanupPolicy" "retain" "values" $controllerValues "smoke" $smoke -}}
+  {{- $_ := set $ingress "mode" "auto" -}}
+  {{- $_ := set $ingress "provider" "nginx" -}}
+  {{- $_ := set $ingress "existingClassName" $className -}}
+  {{- $_ := set $ingress "namespace" "ingress-nginx" -}}
+  {{- $_ := set $ingress "version" "4.11.0" -}}
+  {{- $_ := set $ingress "managed" $managed -}}
+  {{- $_ := set $dependencies "ingress" $ingress -}}
+{{- end -}}
+{{- toJson $dependencies -}}
+{{- end -}}
+
+{{/*
 The reconciler is opt-in. Merely installing the umbrella chart must not pull a
 private optional image when no external platform provider is configured.
 */}}
 {{- define "envpilot.platformReconcilerEnabled" -}}
 {{- $requested := default false .Values.platformDependencyReconciler.enabled -}}
+{{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
+{{- $access := default (dict) .Values.access -}}
+{{- $accessIngress := default (dict) (get $access "ingress") -}}
+{{- $autoAccess := and (eq (default "disabled" (get $access "mode")) "ingress") (eq (default "" (get $accessIngress "className")) "nginx") (eq (default "disabled" (get (default (dict) (get .Values.platformDependencies "ingress")) "mode")) "disabled") -}}
+{{- if and (not $requested) $autoAccess }}
+  {{- $requested = true -}}
+{{- end -}}
 {{- if not $requested -}}false{{- else -}}
   {{- $configured := false -}}
   {{- range $name := list "ingress" "dns" "storage" -}}
-    {{- $dependency := index $.Values.platformDependencies $name -}}
+    {{- $dependency := index $dependencies $name -}}
     {{- if ne (default "disabled" $dependency.mode) "disabled" }}{{- $configured = true -}}{{- end -}}
   {{- end -}}
   {{- if not $configured -}}false{{- else -}}

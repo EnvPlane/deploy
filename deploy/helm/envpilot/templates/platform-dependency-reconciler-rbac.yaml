@@ -1,5 +1,6 @@
 {{- if eq (include "envpilot.platformReconcilerEnabled" .) "true" }}
 {{- $r := .Values.platformDependencyReconciler -}}
+{{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
 apiVersion: v1
 kind: ServiceAccount
@@ -48,7 +49,7 @@ rules:
     resources: ["endpointslices"]
     verbs: ["get", "list", "watch"]
   {{- range $name := list "ingress" "dns" "storage" }}
-  {{- $dependency := index $.Values.platformDependencies $name -}}
+  {{- $dependency := index $dependencies $name -}}
   {{- if and (eq (default "disabled" $dependency.mode) "managed") $dependency.managed.rbacRules }}
   {{- range $rule := $dependency.managed.rbacRules }}
   - apiGroups: {{ toJson (default (list) $rule.apiGroups) }}

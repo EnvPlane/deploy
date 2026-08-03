@@ -1,6 +1,10 @@
 # Provider-neutral EnvPilot umbrella defaults. No ingress controller, DNS
 # provider, domain, StorageClass, cloud load balancer, or Kubernetes provider is
-# assumed. Configure environment-specific integration in a separate values file.
+# assumed until an access/dependency profile explicitly requests one. When
+# access.mode=ingress and access.ingress.className=nginx, the umbrella detects a
+# healthy existing ingress-nginx controller and otherwise reconciles the pinned
+# provider chart. Other controller classes require an explicit dependency
+# provider contract.
 
 # Conditional child-chart switches. Child configuration remains under the
 # canonical chart name so immutable selectors are not rewritten by aliases.
@@ -83,9 +87,9 @@ global:
       appDefaultBranch: main
       gitopsDefaultBranch: main
 
-# Public access is opt-in. "ingress" creates an Ingress against an existing
-# configured IngressClass; "gateway" creates an HTTPRoute against an existing
-# Gateway. Neither mode installs a provider.
+# Public access is opt-in. "ingress" creates an Ingress and, for className=nginx,
+# asks the platform reconciler to detect or install ingress-nginx. "gateway"
+# creates an HTTPRoute against an existing Gateway.
 access:
   mode: disabled # disabled | ingress | gateway
   services:
