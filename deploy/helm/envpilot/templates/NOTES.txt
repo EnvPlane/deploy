@@ -7,10 +7,12 @@ Job, nested Helm invocation, or cluster-wide installer RBAC is created.
 Frontend service:
   envpilot-frontend (or envpilot-frontend.fullnameOverride when configured)
 
-Same-cluster Agent and Runner are disabled by default. Enable either only after
-supplying its project-scoped registration Secret through envpilot-agent or
-envpilot-runner values. For a remote execution cluster, install the published
-envpilot-agent or envpilot-runner chart there instead.
+Same-cluster Agent and Runner are disabled by default. Enable them through the
+umbrella values only for the management cluster. Remote execution clusters are
+created and repaired through the authenticated Remote Clusters API/UI; the
+management-cluster reconciler installs only the signed compatible Agent/Runner
+releases. Do not paste OCI, Helm, Secret, or bootstrap-token commands from
+Bootstrap into a target cluster.
 
 Migration from the retired installer-Job release is documented in:
   https://github.com/envpilot/deploy/blob/main/deploy/helm/envpilot/README.md

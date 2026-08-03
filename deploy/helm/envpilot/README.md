@@ -16,6 +16,17 @@ runbook.
 
 For the values contract and migration details see [`VALUES.md`](VALUES.md).
 
+## Remote execution clusters
+
+The umbrella values enable the management-cluster Remote Cluster Reconciler;
+they never contain a target kubeconfig, target endpoint, or bootstrap token.
+Create and maintain remote targets in **Settings → Remote clusters**. The API
+accepts a one-time credential submission or an existing Secret reference and
+returns only a fingerprint and reconciliation status. Once a target is healthy,
+it becomes selectable for a Project. Bootstrap observes the reconciler and
+links to Retry, Rotate identity, or Repair; it does not generate manual Agent
+or Runner OCI/Helm commands.
+
 ## Migration from the installer Job chart
 
 Migration guidance for 0.1.x releases is retained in the historical chart
