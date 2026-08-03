@@ -138,13 +138,18 @@ chart_json() {
 latest_published_umbrella() {
   local candidate="$1" major minor patch next found=false
   IFS=. read -r major minor patch <<< "$candidate"
+  # The canonical source chart may already carry the next local SemVer while
+  # that version is not published yet. Walk backwards to the nearest existing
+  # immutable predecessor before scanning forward for the newest contiguous
+  # release. This keeps a release retry safe after a local chart bump.
   for _ in $(seq 1 50); do
     candidate="$major.$minor.$patch"
     if helm show chart "oci://ghcr.io/$owner/envpilot:$candidate" >/dev/null 2>&1; then
       found=true
       break
     fi
-    patch=$((patch + 1))
+    (( patch > 0 )) || break
+    patch=$((patch - 1))
   done
   [[ "$found" == true ]] || { echo "no published umbrella chart found near $1" >&2; exit 1; }
   for _ in $(seq 1 50); do
