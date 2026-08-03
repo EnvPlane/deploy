@@ -9,6 +9,8 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'scripts/resolve-latest-published-artifacts.sh'
+      - 'deploy/helm/envpilot/values.yaml'
+      - 'deploy/helm/envpilot/Chart.yaml'
       - '.github/workflows/publish-main.yaml'
   workflow_dispatch:
 
@@ -76,6 +78,8 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/resolve-latest-published-artifacts.sh \
+            --values-file deploy/helm/envpilot/values.yaml \
+            --chart-file deploy/helm/envpilot/Chart.yaml \
             --output "$RUNNER_TEMP/latest-artifacts.json"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and

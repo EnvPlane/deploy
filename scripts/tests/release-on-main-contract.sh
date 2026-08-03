@@ -3,6 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 workflow="$root/.github/workflows/release-on-main.yaml"
+artifact_workflow="$root/.github/workflows/publish-main.yaml"
 resolver="$root/scripts/resolve-latest-published-artifacts.sh"
 
 [[ -f "$workflow" ]] || { echo "main release workflow is missing" >&2; exit 1; }
@@ -31,8 +32,18 @@ if grep -Eq '^  push:' "$workflow"; then
   exit 1
 fi
 
-grep -Fq "canonical source version" "$resolver" || {
-  echo "resolver must have a verified source-version fallback for private package listings" >&2
+grep -Fq "pinned source tree" "$resolver" || {
+  echo "resolver must verify pinned source artifacts rather than selecting registry latest" >&2
+  exit 1
+}
+
+grep -Fq -- "--values-file" "$artifact_workflow" || {
+  echo "artifact workflow must resolve the image refs committed in values.yaml" >&2
+  exit 1
+}
+
+grep -Fq "waiting for" "$resolver" || {
+  echo "resolver must wait for a pinned artifact still being published" >&2
   exit 1
 }
 
@@ -71,13 +82,18 @@ grep -Fq 'latest_published_umbrella' "$resolver" || {
   exit 1
 }
 
+if grep -Fq 'latest_image_tag' "$resolver" || grep -Fq 'package_versions' "$resolver"; then
+  echo "resolver must not scan GHCR and select an unrelated latest image" >&2
+  exit 1
+fi
+
 for required in \
   "ghcr.io/envpilot/api" \
   "ghcr.io/envpilot/frontend" \
   "ghcr.io/envpilot/agent" \
   "ghcr.io/envpilot/runner" \
   "ghcr.io/envpilot/platform-reconciler"; do
-  grep -Fq "$required" "$resolver" || { echo "resolver missing: $required" >&2; exit 1; }
+  grep -Fq "$required" "$root/deploy/helm/envpilot/values.yaml" || { echo "pinned values missing: $required" >&2; exit 1; }
 done
 
 if grep -Eq ':[[:space:]]*(latest|main)([[:space:]"'"'"'@]|$)|tag:[[:space:]]*(latest|main)([[:space:]"'"'"'@]|$)' "$workflow"; then
