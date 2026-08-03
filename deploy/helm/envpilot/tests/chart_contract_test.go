@@ -611,7 +611,7 @@ func TestPlatformReconcilerPrerequisitesRunBeforeTheGateJob(t *testing.T) {
 	)
 	for _, expected := range []string{
 		"name: envpilot-platform-dependency-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-30\"",
-		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-20\"",
+		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-40\"",
 		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"10\"",
 	} {
 		if !strings.Contains(rendered, expected) {
