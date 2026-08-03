@@ -236,6 +236,37 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	}
 }
 
+func TestUmbrellaRegistrySecretPropagatesToEveryRuntimePod(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+		"--set", "agent.enabled=true",
+		"--set", "runner.enabled=true",
+	)
+	for _, expected := range []string{
+		"# Source: envpilot/templates/registry-preflight-job.yaml",
+		"# Source: envpilot/charts/envpilot-control-plane/templates/deployment.yaml",
+		"# Source: envpilot/charts/envpilot-frontend/templates/deployment.yaml",
+		"# Source: envpilot/charts/envpilot-agent/templates/deployment.yaml",
+		"# Source: envpilot/charts/envpilot-runner/templates/deployment.yaml",
+		"name: registry-credentials",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("private registry render missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "dockerconfigjson:") || strings.Contains(rendered, "registry-auth:") {
+		t.Fatalf("rendered chart must contain only registry Secret references, not credential data:\n%s", rendered)
+	}
+
+	cmd := exec.Command("helm", "template", "envpilot", "..", "--set", "global.envpilot.registry.mode=existing")
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err == nil || (!strings.Contains(string(output), "global.envpilot.registry.existingSecret is required") && !strings.Contains(string(output), "existingSecret")) {
+		t.Fatalf("missing registry Secret reference must fail early, err=%v output=%s", err, output)
+	}
+}
+
 func TestChildChartsShareExplicitImageContract(t *testing.T) {
 	components := []string{
 		"envpilot-control-plane",

@@ -35,9 +35,10 @@ spec:
         {{- toYaml $podAnnotations | nindent 8 }}
     spec:
       serviceAccountName: {{ include "envpilot-runner.serviceAccountName" . }}
-      {{- with .Values.imagePullSecrets }}
+      {{- $pullSecrets := include "envpilot-runner.imagePullSecrets" . }}
+      {{- if $pullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
+        {{ $pullSecrets | nindent 8 }}
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}

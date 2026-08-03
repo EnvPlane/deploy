@@ -20,6 +20,19 @@ runner:
 # runtime pods. It is never exposed through a bootstrap API response.
 global:
   envpilot:
+    # Runtime image registry contract. Set mode=existing and reference a
+    # Secret containing .dockerconfigjson for private images. The Secret name
+    # and pull references are safe metadata; credentials never enter values.
+    registry:
+      mode: disabled # disabled | existing
+      existingSecret: ""
+      imagePullSecrets: []
+      preflight:
+        enabled: true
+        image:
+          repository: busybox
+          tag: "1.36"
+          pullPolicy: IfNotPresent
     # Lets the umbrella pass declared platform dependency metadata to the API
     # capabilities endpoint. It is configuration-only and performs no probes
     # or installation of controllers, DNS, StorageClasses or tunnels.
@@ -207,7 +220,7 @@ envpilot-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envpilot/envpilot-agent"
-      version: "0.2.3"
+      version: "0.2.4"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
     # stable target-pod-reachable HTTP(S) endpoint, never a tunnel or Service

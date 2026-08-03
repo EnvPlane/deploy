@@ -54,6 +54,39 @@
         }
       }
     },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["disabled", "existing"] },
+        "existingSecret": { "type": "string" },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": { "name": { "type": "string", "minLength": 1 } }
+          }
+        },
+        "preflight": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "image": { "$ref": "#/definitions/image" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "existing" } } },
+          "then": {
+            "required": ["existingSecret"],
+            "properties": { "existingSecret": { "minLength": 1 } }
+          }
+        }
+      ]
+    },
     "persistence": {
       "type": "object",
       "additionalProperties": true,
@@ -309,6 +342,7 @@
               "additionalProperties": false,
               "properties": { "enabled": { "type": "boolean" } }
             },
+            "registry": { "$ref": "#/definitions/registry" },
             "firstStartRegistration": { "$ref": "#/definitions/firstStartRegistration" },
             "e2eFixture": { "$ref": "#/definitions/e2eFixture" }
           }

@@ -25,9 +25,11 @@ spec:
         app.kubernetes.io/name: envpilot
         app.kubernetes.io/component: platform-reconciler
     spec:
-      {{- with $r.imagePullSecrets }}
+      {{- $registryPullSecrets := include "envpilot.registryImagePullSecrets" . -}}
+      {{- if or $r.imagePullSecrets $registryPullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
+        {{- with $r.imagePullSecrets }}{{ toYaml . | nindent 8 }}{{- end }}
+        {{- if $registryPullSecrets }}{{ $registryPullSecrets | nindent 8 }}{{- end }}
       {{- end }}
       serviceAccountName: {{ $sa }}
       restartPolicy: Never

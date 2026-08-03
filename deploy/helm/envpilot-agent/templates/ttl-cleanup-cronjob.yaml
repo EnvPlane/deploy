@@ -37,9 +37,10 @@ spec:
         spec:
           serviceAccountName: {{ include "envpilot-agent.serviceAccountName" . }}
           restartPolicy: OnFailure
-          {{- with .Values.imagePullSecrets }}
+          {{- $pullSecrets := include "envpilot-agent.imagePullSecrets" . }}
+          {{- if $pullSecrets }}
           imagePullSecrets:
-            {{- toYaml . | nindent 12 }}
+            {{ $pullSecrets | nindent 12 }}
           {{- end }}
           securityContext:
             {{- toYaml .Values.podSecurityContext | nindent 12 }}

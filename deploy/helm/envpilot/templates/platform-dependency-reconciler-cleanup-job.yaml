@@ -16,6 +16,12 @@ spec:
   backoffLimit: {{ default 4 $r.backoffLimit }}
   template:
     spec:
+      {{- $registryPullSecrets := include "envpilot.registryImagePullSecrets" . }}
+      {{- if or $r.imagePullSecrets $registryPullSecrets }}
+      imagePullSecrets:
+        {{- with $r.imagePullSecrets }}{{ toYaml . | nindent 8 }}{{- end }}
+        {{- if $registryPullSecrets }}{{ $registryPullSecrets | nindent 8 }}{{- end }}
+      {{- end }}
       serviceAccountName: {{ $sa }}
       restartPolicy: Never
       containers:

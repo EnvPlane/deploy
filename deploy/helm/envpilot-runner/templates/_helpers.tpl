@@ -160,6 +160,23 @@ envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 {{- $policy -}}
 {{- end -}}
 
+{{- define "envpilot-runner.imagePullSecrets" -}}
+{{- $explicit := default (list) .Values.imagePullSecrets -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $registry := default (dict) (get $envpilot "registry") -}}
+{{- $shared := default (list) $registry.imagePullSecrets -}}
+{{- $existing := default "" $registry.existingSecret -}}
+{{- $seen := dict -}}
+{{- $result := list -}}
+{{- range $item := concat $explicit $shared }}
+  {{- $name := default "" $item.name -}}
+  {{- if and $name (not (hasKey $seen $name)) }}{{- $_ := set $seen $name true -}}{{- $result = append $result (dict "name" $name) -}}{{- end }}
+{{- end }}
+{{- if and $existing (not (hasKey $seen $existing)) }}{{- $result = append $result (dict "name" $existing) -}}{{- end }}
+{{- if gt (len $result) 0 }}{{ toYaml $result }}{{- end }}
+{{- end -}}
+
 {{- define "envpilot-runner.imageMetadata" -}}
 envpilot.io/image-reference: {{ include "envpilot-runner.image" . | quote }}
 envpilot.io/source-revision: {{ default "" .Values.image.sourceRevision | quote }}

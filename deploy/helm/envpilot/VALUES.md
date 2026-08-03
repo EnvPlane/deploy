@@ -33,6 +33,30 @@ cluster's default storage policy remains authoritative. Configure
 `existingClaim` or an existing Secret where the child chart supports it rather
 than embedding credentials in values.
 
+### Private runtime registry
+
+Use the shared registry contract when any pinned runtime or dependency image is
+private. The Secret must already exist in the release namespace and contain a
+standard `.dockerconfigjson`; the chart stores and renders only its name:
+
+```yaml
+global:
+  envpilot:
+    registry:
+      mode: existing
+      existingSecret: envpilot-registry
+      preflight:
+        enabled: true
+```
+
+The umbrella propagates this reference to every enabled child workload, Agent
+and Runner helper Job/CronJob, and the platform reconciler. A pre-install and
+pre-upgrade check mounts the referenced Secret and fails with its name if it is
+missing or empty, before dependent workloads are rolled out. The chart never
+creates a Secret from raw credentials and never logs registry data. Explicit
+per-component `imagePullSecrets` remain supported and are merged without
+duplicates.
+
 Agent and Runner remain disabled by default. Enable them only with an existing
 project-scoped registration Secret; values never need to contain a plaintext
 bootstrap token.

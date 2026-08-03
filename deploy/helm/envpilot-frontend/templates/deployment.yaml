@@ -20,9 +20,10 @@ spec:
       annotations:
         {{- toYaml $podAnnotations | nindent 8 }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- $pullSecrets := include "envpilot-frontend.imagePullSecrets" . }}
+      {{- if $pullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
+        {{ $pullSecrets | nindent 8 }}
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}

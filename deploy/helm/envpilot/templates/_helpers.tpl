@@ -10,6 +10,31 @@
 {{- end -}}
 {{- end -}}
 
+{{/*
+Return the de-duplicated image pull Secret list shared by every child chart.
+Only Secret names are rendered; the Secret data is managed by the operator.
+*/}}
+{{- define "envpilot.registryImagePullSecrets" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $registry := default (dict) (get $envpilot "registry") -}}
+{{- $items := default (list) $registry.imagePullSecrets -}}
+{{- $existing := default "" $registry.existingSecret -}}
+{{- $seen := dict -}}
+{{- $result := list -}}
+{{- range $item := $items }}
+  {{- $name := default "" $item.name -}}
+  {{- if and $name (not (hasKey $seen $name)) }}
+    {{- $_ := set $seen $name true -}}
+    {{- $result = append $result (dict "name" $name) -}}
+  {{- end }}
+{{- end }}
+{{- if and $existing (not (hasKey $seen $existing)) }}
+  {{- $result = append $result (dict "name" $existing) -}}
+{{- end }}
+{{- if gt (len $result) 0 }}{{ toYaml $result }}{{- end }}
+{{- end -}}
+
 {{/* Resolve a declared platform dependency state without probing or changing the cluster. */}}
 {{- define "envpilot.platformDependencyState" -}}
 {{- $dependency := . -}}

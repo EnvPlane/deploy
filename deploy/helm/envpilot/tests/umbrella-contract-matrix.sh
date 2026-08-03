@@ -7,6 +7,7 @@ CHART_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 KUBECONFORM_CACHE="${KUBECONFORM_CACHE:-$tmp/kubeconform-cache}"
+mkdir -p "$KUBECONFORM_CACHE"
 
 profiles=(minimal all-enabled external-databases ingress gateway private-registry existing-secrets)
 for profile in "${profiles[@]}"; do
@@ -16,7 +17,7 @@ for profile in "${profiles[@]}"; do
     external-databases) args+=(--set 'envpilot-control-plane.postgres.mode=external' --set 'envpilot-control-plane.postgres.external.existingSecret=postgres-connection' --set 'envpilot-control-plane.redis.mode=external' --set 'envpilot-control-plane.redis.external.existingSecret=redis-connection') ;;
     ingress) args+=(--set access.mode=ingress --set access.ingress.host=envpilot.example.test --set access.ingress.className=nginx) ;;
     gateway) args+=(--set access.mode=gateway --set access.gateway.name=shared-gateway --set 'access.gateway.hostnames[0]=envpilot.example.test') ;;
-    private-registry) args+=(--set 'envpilot-control-plane.image.repository=registry.example.test/envpilot/api' --set 'envpilot-control-plane.image.tag=0.1.0' --set 'envpilot-control-plane.imagePullSecrets[0].name=registry-credentials' --set 'envpilot-frontend.image.repository=registry.example.test/envpilot/frontend' --set 'envpilot-frontend.image.tag=0.1.0' --set 'envpilot-frontend.imagePullSecrets[0].name=registry-credentials') ;;
+    private-registry) args+=(--set 'global.envpilot.registry.mode=existing' --set 'global.envpilot.registry.existingSecret=registry-credentials' --set 'envpilot-control-plane.image.repository=registry.example.test/envpilot/api' --set 'envpilot-control-plane.image.tag=0.1.0' --set 'envpilot-frontend.image.repository=registry.example.test/envpilot/frontend' --set 'envpilot-frontend.image.tag=0.1.0') ;;
     existing-secrets) args+=(--set 'envpilot-control-plane.postgres.mode=external' --set 'envpilot-control-plane.postgres.external.existingSecret=postgres-connection' --set 'envpilot-control-plane.redis.mode=external' --set 'envpilot-control-plane.redis.external.existingSecret=redis-connection' --set 'envpilot-agent.controlPlane.existingSecret=agent-credentials' --set 'envpilot-runner.controlPlane.existingSecret=runner-credentials') ;;
   esac
   rendered="$tmp/$profile.yaml"

@@ -41,6 +41,11 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: postgres
     spec:
+      {{- $pullSecrets := include "envpilot-control-plane.imagePullSecrets" . }}
+      {{- if $pullSecrets }}
+      imagePullSecrets:
+        {{ $pullSecrets | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         # The official postgres:16-alpine image uses the non-root `postgres`
