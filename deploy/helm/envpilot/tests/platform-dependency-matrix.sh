@@ -62,7 +62,8 @@ for context in "${contexts[@]}"; do
         --namespace "$NAMESPACE" --create-namespace --values "$values" \
         --set platformDependencyReconciler.enabled=true --wait --timeout 10m
     fi
-    status="$(kubectl --context "$context" -n "$NAMESPACE" get configmap "${RELEASE}-platform-dependency-reconciler-status" -o jsonpath='{.data.status\.json}')"
+    revision="$(helm status "$RELEASE" --kube-context "$context" --namespace "$NAMESPACE" -o json | jq -r '.version')"
+    status="$(kubectl --context "$context" -n "$NAMESPACE" get configmap "${RELEASE}-platform-dependency-reconciler-status-r${revision}" -o jsonpath='{.data.status\.json}')"
     test -n "$status"
     printf '%s\n' "$status" | jq -e '
       type == "object" and

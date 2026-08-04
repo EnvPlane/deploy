@@ -1,12 +1,14 @@
 {{- $remote := default (dict) (get (default (dict) (get .Values.global "envpilot")) "remoteClusterReconciler") -}}
+{{- $controlPlane := default (dict) (index .Values "envpilot-control-plane") -}}
+{{- $controlPlaneRemote := default (dict) (get $controlPlane "remoteClusterReconciler") -}}
 {{- if and (default false $remote.enabled) (not (.Files.Get "compatibility/release.json")) }}
 {{- fail "remoteClusterReconciler requires the signed compatibility/release.json included by a published umbrella chart" }}
 {{- end }}
-{{- if and (default false $remote.enabled) (.Files.Get "compatibility/release.json") }}
+{{- if and (default false $remote.enabled) (.Files.Get "compatibility/release.json") (not (trim (default "" (get $controlPlaneRemote "compatibilityConfigMapName"))) ) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-remote-cluster-compatibility
+  name: {{ include "envpilot.remoteClusterCompatibilityConfigMapName" . }}
   labels:
     app.kubernetes.io/name: envpilot
     app.kubernetes.io/instance: {{ .Release.Name }}

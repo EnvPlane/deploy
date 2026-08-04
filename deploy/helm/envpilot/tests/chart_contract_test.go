@@ -554,7 +554,7 @@ func TestControlPlaneWatchesScopedReconcilerStatus(t *testing.T) {
 		"resources: [\"configmaps\"]",
 		"verbs: [\"get\", \"watch\"]",
 		"name: ENVPILOT_PLATFORM_DEPENDENCY_STATUS_CONFIG_MAP",
-		"value: \"envpilot-platform-dependency-reconciler-status\"",
+		"value: \"envpilot-platform-dependency-reconciler-status-r1\"",
 		"name: ENVPILOT_PLATFORM_DEPENDENCY_STATUS_STALE_AFTER_SECONDS",
 		"value: \"300\"",
 	} {
@@ -642,9 +642,9 @@ func TestPlatformReconcilerStatusConfigMapIsHelmOwnedAndWriteScoped(t *testing.T
 		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
 	)
 	for _, expected := range []string{
-		"name: envpilot-platform-dependency-reconciler-status",
+		"name: envpilot-platform-dependency-reconciler-status-r1",
 		"status.json: \"\"",
-		"resourceNames: [\"envpilot-platform-dependency-reconciler\", \"envpilot-platform-dependency-reconciler-status\"]",
+		"resourceNames: [\"envpilot-platform-dependency-reconciler\", \"envpilot-platform-dependency-reconciler-status-r1\"]",
 		"verbs: [\"get\", \"update\", \"patch\"]",
 	} {
 		if !strings.Contains(rendered, expected) {
@@ -653,6 +653,50 @@ func TestPlatformReconcilerStatusConfigMapIsHelmOwnedAndWriteScoped(t *testing.T
 	}
 	if strings.Contains(rendered, "verbs: [\"create\"]\n  - apiGroups: [\"\"]\n    resources: [\"configmaps\"]") {
 		t.Fatalf("platform reconciler must not retain broad ConfigMap create permission:\n%s", rendered)
+	}
+}
+
+func TestReleaseOwnedConfigMapsAreRevisionScopedForServerSideUpgrades(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "platformDependencies.ingress.mode=existing",
+		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
+	for _, expected := range []string{
+		"name: envpilot-platform-dependency-reconciler-status-r1",
+		"value: \"envpilot-platform-dependency-reconciler-status-r1\"",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("revision-scoped reconciler status contract missing %q:\\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "name: envpilot-platform-dependency-reconciler-status\\n") {
+		t.Fatalf("status ConfigMap must not retain an unversioned name:\\n%s", rendered)
+	}
+
+	compatibilityTemplate, err := os.ReadFile("../templates/remote-cluster-compatibility-configmap.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(compatibilityTemplate), "envpilot.remoteClusterCompatibilityConfigMapName") ||
+		strings.Contains(string(compatibilityTemplate), "name: {{ .Release.Name }}-remote-cluster-compatibility") {
+		t.Fatalf("immutable compatibility map must use the revision-scoped helper:\\n%s", compatibilityTemplate)
+	}
+
+	child := exec.Command("helm", "template", "envpilot", "../../envpilot-control-plane", "--namespace", "envpilot",
+		"--set", "global.envpilot.remoteClusterReconciler.enabled=true",
+		"--set", "rbac.remoteClusterReconciler.enabled=true")
+	child.Dir = "."
+	childRendered, err := child.CombinedOutput()
+	if err != nil {
+		t.Fatalf("render control-plane compatibility consumer: %v\\n%s", err, childRendered)
+	}
+	for _, expected := range []string{"name: \"envpilot-remote-cluster-compatibility-r1\""} {
+		if !strings.Contains(string(childRendered), expected) {
+			t.Fatalf("control-plane must consume revision-scoped compatibility map %q:\\n%s", expected, childRendered)
+		}
 	}
 }
 
@@ -969,6 +1013,33 @@ func TestPublishedArtifactE2EContract(t *testing.T) {
 	for _, forbidden := range []string{"minikube start", "kind create cluster", "kubeadm"} {
 		if strings.Contains(contents, forbidden) {
 			t.Fatalf("published artifact E2E must not provision clusters: %q", forbidden)
+		}
+	}
+}
+
+func TestPublishedConfigMapUpgradeE2ECoversNMinus1RollbackAndUninstall(t *testing.T) {
+	script, err := os.ReadFile("../../../../scripts/published-configmap-upgrade-e2e.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(script)
+	for _, expected := range []string{
+		"ENVPILOT_CONFIGMAP_E2E_CHART_N_MINUS_1",
+		"ENVPILOT_CONFIGMAP_E2E_CHART_N",
+		"--server-side=true",
+		"--field-manager=platform-reconciler",
+		"platform-dependency-reconciler-status-r",
+		"remote-cluster-compatibility-r",
+		"helm rollback",
+		"helm uninstall",
+	} {
+		if !strings.Contains(contents, expected) {
+			t.Fatalf("published ConfigMap upgrade E2E missing %q", expected)
+		}
+	}
+	for _, forbidden := range []string{"--force", "--force-conflicts", "kubectl delete configmap"} {
+		if strings.Contains(contents, forbidden) {
+			t.Fatalf("published ConfigMap upgrade E2E must not require %q", forbidden)
 		}
 	}
 }

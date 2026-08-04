@@ -1,5 +1,10 @@
 {{- if eq (include "envpilot.platformReconcilerEnabled" .) "true" }}
 {{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
+{{- $statusConfigMap := include "envpilot.platformReconcilerStatusConfigMapName" . -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $platformStatus := default (dict) (get $envpilot "platformDependencyStatus") -}}
+{{- $externalStatusConfigMap := trim (default "" (get $platformStatus "statusConfigMapName")) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,14 +17,15 @@ metadata:
     app.kubernetes.io/managed-by: Helm
 data:
   dependencies.json: {{ $dependencies | toJson | quote }}
+{{- if not $externalStatusConfigMap }}
 ---
-# This status map is deliberately release-owned. The reconciler only updates
-# its payload; Helm removes it with the rest of the support resources on
-# uninstall and never touches external provider or registry objects.
+# This map is release-owned and revision-scoped. The reconciler updates its
+# payload only after Helm has created it; later upgrades use a new map so Helm
+# never server-side-applies over controller-owned status.json.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-platform-dependency-reconciler-status
+  name: {{ $statusConfigMap }}
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: envpilot
@@ -28,4 +34,5 @@ metadata:
     app.kubernetes.io/managed-by: Helm
 data:
   status.json: ""
+{{- end }}
 {{- end }}

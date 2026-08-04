@@ -2,6 +2,7 @@
 {{- $r := .Values.platformDependencyReconciler -}}
 {{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
+{{- $statusConfigMap := include "envpilot.platformReconcilerStatusConfigMapName" . -}}
 {{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
 {{- if $r.image.digest }}{{ $image = printf "%s@%s" $r.image.repository $r.image.digest }}{{ end }}
 apiVersion: batch/v1
@@ -67,7 +68,7 @@ spec:
                   name: {{ printf "%s-platform-dependency-reconciler" .Release.Name }}
                   key: dependencies.json
             - name: ENVPILOT_RECONCILE_STATUS_CONFIG_MAP
-              value: {{ printf "%s-platform-dependency-reconciler-status" .Release.Name | quote }}
+              value: {{ $statusConfigMap | quote }}
             - name: ENVPILOT_RECONCILE_CLEANUP
               value: {{ default true $r.cleanupManagedOnUninstall | quote }}
             {{- $storage := $dependencies.storage -}}

@@ -98,6 +98,31 @@ envpilot.io/source-revision: {{ default "" .Values.image.sourceRevision | quote 
 envpilot.io/release: {{ default "" .Values.image.release | quote }}
 {{- end -}}
 
+{{/* Keep in lockstep with the umbrella's revision-scoped observed-status map.
+An explicit global name remains an external operator-owned override. */}}
+{{- define "envpilot-control-plane.platformDependencyStatusConfigMapName" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $status := default (dict) (get $envpilot "platformDependencyStatus") -}}
+{{- $override := trim (default "" (get $status "statusConfigMapName")) -}}
+{{- if $override -}}
+{{- $override -}}
+{{- else -}}
+{{- printf "%s-platform-dependency-reconciler-status-r%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
+{{/* The umbrella's immutable compatibility map is revision-scoped so an
+upgrade never mutates it in place. */}}
+{{- define "envpilot-control-plane.remoteClusterCompatibilityConfigMapName" -}}
+{{- $override := trim (default "" .Values.remoteClusterReconciler.compatibilityConfigMapName) -}}
+{{- if $override -}}
+{{- $override -}}
+{{- else -}}
+{{- printf "%s-remote-cluster-compatibility-r%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "envpilot-control-plane.postgresImage" -}}
 {{- if .Values.postgres.image.digest -}}
 {{- printf "%s@%s" .Values.postgres.image.repository .Values.postgres.image.digest -}}

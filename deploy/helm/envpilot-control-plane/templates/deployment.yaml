@@ -4,11 +4,11 @@
 {{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
 {{- $platformDependencyStatus := default (dict) (get $globalEnvPilot "platformDependencyStatus") -}}
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
-{{- $platformDependencyStatusConfigMap := default (printf "%s-platform-dependency-reconciler-status" .Release.Name) (get $platformDependencyStatus "statusConfigMapName") -}}
+{{- $platformDependencyStatusConfigMap := include "envpilot-control-plane.platformDependencyStatusConfigMapName" . -}}
 {{- $platformDependencyStatusStaleAfter := default 300 (get $platformDependencyStatus "staleAfterSeconds") -}}
 {{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
 {{- $remoteClusterReconcilerEnabled := default false $remoteClusterReconciler.enabled -}}
-{{- $remoteCompatibilityConfigMap := default (printf "%s-remote-cluster-compatibility" .Release.Name) .Values.remoteClusterReconciler.compatibilityConfigMapName -}}
+{{- $remoteCompatibilityConfigMap := include "envpilot-control-plane.remoteClusterCompatibilityConfigMapName" . -}}
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPilot "e2eFixture") -}}

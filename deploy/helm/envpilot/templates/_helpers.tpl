@@ -103,6 +103,43 @@ private optional image when no external platform provider is configured.
 {{- end -}}
 {{- end -}}
 
+{{/*
+The observed status payload is written by the platform reconciler after Helm
+has installed the release. Scope its ConfigMap to the Helm revision so the next
+server-side upgrade creates a fresh object instead of applying over a
+controller-owned data.status.json field. An explicit name is external and must
+be supplied/owned by the operator.
+*/}}
+{{- define "envpilot.platformReconcilerStatusConfigMapName" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $status := default (dict) (get $envpilot "platformDependencyStatus") -}}
+{{- $override := trim (default "" (get $status "statusConfigMapName")) -}}
+{{- if $override -}}
+{{- $override -}}
+{{- else -}}
+{{- printf "%s-platform-dependency-reconciler-status-r%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Compatibility manifests are intentionally immutable. Revision-scoped names
+make the mounted manifest an atomic release input: Helm creates the next map,
+switches the control-plane Pod template to it, and then removes the prior
+release-owned map. An explicit child-chart name remains an operator-owned
+override for advanced integrations.
+*/}}
+{{- define "envpilot.remoteClusterCompatibilityConfigMapName" -}}
+{{- $controlPlane := default (dict) (index .Values "envpilot-control-plane") -}}
+{{- $remote := default (dict) (get $controlPlane "remoteClusterReconciler") -}}
+{{- $override := trim (default "" (get $remote "compatibilityConfigMapName")) -}}
+{{- if $override -}}
+{{- $override -}}
+{{- else -}}
+{{- printf "%s-remote-cluster-compatibility-r%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Resolve a declared platform dependency state without probing or changing the cluster. */}}
 {{- define "envpilot.platformDependencyState" -}}
 {{- $dependency := . -}}

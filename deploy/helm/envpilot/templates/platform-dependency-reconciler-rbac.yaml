@@ -2,6 +2,7 @@
 {{- $r := .Values.platformDependencyReconciler -}}
 {{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
+{{- $statusConfigMap := include "envpilot.platformReconcilerStatusConfigMapName" . -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -135,9 +136,10 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
-    # Both maps are normal Helm-owned resources. Scope every reconciler
-    # mutation to them and do not grant a broad ConfigMap create/delete right.
-    resourceNames: ["{{ .Release.Name }}-platform-dependency-reconciler", "{{ .Release.Name }}-platform-dependency-reconciler-status"]
+    # The reconciler config and its revision-scoped (or operator-supplied)
+    # observed-status map are named explicitly. Do not grant broad ConfigMap
+    # create/delete permission.
+    resourceNames: ["{{ .Release.Name }}-platform-dependency-reconciler", "{{ $statusConfigMap }}"]
     verbs: ["get", "update", "patch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]

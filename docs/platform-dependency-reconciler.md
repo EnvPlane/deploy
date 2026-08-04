@@ -47,6 +47,22 @@ retry: Helm retains its release-owned support resources until pre-delete cleanup
 finishes, then removes them. Existing registry Secrets and detected/external
 providers are never adopted or deleted.
 
+The reconciler's observed-status ConfigMap is release-owned but
+**revision-scoped** by default (`<release>-platform-dependency-reconciler-status-r<revision>`).
+The post-upgrade Job writes only to that fresh object. This avoids a
+server-side-apply conflict with a previous Job's `status.json` field while
+keeping each observed status constrained by named RBAC and removed by Helm on
+upgrade/uninstall. An explicitly configured
+`global.envpilot.platformDependencyStatus.statusConfigMapName` is an
+operator-owned external map and is not created by the umbrella.
+
+The signed remote-cluster compatibility manifest follows the same lifecycle:
+each enabled remote reconciler revision gets a new immutable
+`<release>-remote-cluster-compatibility-r<revision>` ConfigMap. The control
+plane mounts that exact name, so Helm never attempts to mutate an immutable map
+in place. Rollback recreates the predecessor's immutable input rather than
+rewriting the newer one.
+
 Releases created before the support-resource ownership change may have
 hook-created ConfigMaps, ServiceAccounts or RBAC left behind. On the next
 install or upgrade the chart performs a bounded migration only when it detects
@@ -83,3 +99,9 @@ execution, then exercises upgrade, rollback and uninstall ownership. Port
 forwarding is test-harness-only; the chart has no cluster-provider or minikube
 special cases. Existing dependency resources can be listed with
 `ENVPILOT_E2E_EXISTING_RESOURCES` and must survive uninstall.
+
+`scripts/published-configmap-upgrade-e2e.sh` is the focused published N-1 to N
+regression. It runs a server-side Helm upgrade, simulates a reconciler-owned
+observed status field, verifies revision-scoped status and immutable
+compatibility ConfigMaps, then verifies rollback and uninstall without conflict
+overrides or manual ConfigMap deletion.

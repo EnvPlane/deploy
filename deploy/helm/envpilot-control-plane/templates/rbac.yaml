@@ -97,7 +97,7 @@ rules:
   # Secret, or broad ConfigMap list permission is granted.
   - apiGroups: [""]
     resources: ["configmaps"]
-    resourceNames: [{{ default (printf "%s-platform-dependency-reconciler-status" .Release.Name) (get $platformDependencyStatus "statusConfigMapName") | quote }}]
+    resourceNames: [{{ include "envpilot-control-plane.platformDependencyStatusConfigMapName" . | quote }}]
     verbs: ["get", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

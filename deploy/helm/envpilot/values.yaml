@@ -42,7 +42,10 @@ global:
     # or installation of controllers, DNS, StorageClasses or tunnels.
     platformDependencyStatus:
       enabled: true
-      # Defaults to <release>-platform-dependency-reconciler-status when empty.
+      # Defaults to a revision-scoped
+      # <release>-platform-dependency-reconciler-status-r<revision> when empty.
+      # Set an existing name only when an operator owns that observed-status
+      # ConfigMap; the umbrella will then not create it.
       statusConfigMapName: ""
       # The control plane watches the reconciler-owned ConfigMap and overlays
       # observed capability state on this declarative contract. A missing map

@@ -11,6 +11,7 @@ set -euo pipefail
 NAMESPACE="${PLATFORM_RECONCILER_LIFECYCLE_NAMESPACE:-envpilot-e2e-lifecycle}"
 RELEASE="${PLATFORM_RECONCILER_LIFECYCLE_RELEASE:-envpilot-lifecycle-e2e}"
 CHART="${PLATFORM_RECONCILER_LIFECYCLE_CHART:-./deploy/helm/envpilot}"
+STATUS_CONFIG_MAP=""
 
 helm_args=(
   --kube-context "$PLATFORM_RECONCILER_LIFECYCLE_CONTEXT"
@@ -36,9 +37,13 @@ test -n "$registry_uid"
 test -n "$ingress_uid"
 
 assert_owned_support_exists() {
+  local revision status_config_map
+  revision="$(helm status "$RELEASE" --kube-context "$PLATFORM_RECONCILER_LIFECYCLE_CONTEXT" --namespace "$NAMESPACE" -o json | jq -r '.version')"
+  status_config_map="${RELEASE}-platform-dependency-reconciler-status-r${revision}"
+  STATUS_CONFIG_MAP="$status_config_map"
   for object in \
     "configmap/$RELEASE-platform-dependency-reconciler" \
-    "configmap/$RELEASE-platform-dependency-reconciler-status" \
+    "configmap/$status_config_map" \
     "serviceaccount/$RELEASE-platform-reconciler" \
     "role/$RELEASE-platform-reconciler-status" \
     "rolebinding/$RELEASE-platform-reconciler-status"; do
@@ -52,9 +57,10 @@ assert_owned_support_exists() {
 }
 
 assert_owned_support_absent() {
+  test -n "$STATUS_CONFIG_MAP"
   for object in \
     "configmap/$RELEASE-platform-dependency-reconciler" \
-    "configmap/$RELEASE-platform-dependency-reconciler-status" \
+    "configmap/$STATUS_CONFIG_MAP" \
     "serviceaccount/$RELEASE-platform-reconciler" \
     "role/$RELEASE-platform-reconciler-status" \
     "rolebinding/$RELEASE-platform-reconciler-status"; do
