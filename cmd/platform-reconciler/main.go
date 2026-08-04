@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -752,7 +754,7 @@ func cleanup(cfg config, restCfg *rest.Config) error {
 			if err := conf.Init(&getter{cfg: restCfg, namespace: dep.Managed.Namespace}, dep.Managed.Namespace, "secret", log.Printf); err != nil {
 				return err
 			}
-			if _, err := action.NewUninstall(&conf).Run(dep.Managed.ReleaseName); err != nil {
+			if _, err := action.NewUninstall(&conf).Run(dep.Managed.ReleaseName); err != nil && !errors.Is(err, driver.ErrReleaseNotFound) {
 				return err
 			}
 		}

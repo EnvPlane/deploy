@@ -1,7 +1,8 @@
 # Platform dependency reconciler
 
-When `platformDependencyReconciler.enabled=true`, the umbrella renders a
-pre-install/pre-upgrade hook Job running `platform-reconciler`. The binary uses
+When `platformDependencyReconciler.enabled=true`, the umbrella renders normal,
+release-owned ConfigMaps, ServiceAccount and RBAC plus bounded
+post-install/post-upgrade hook Jobs running `platform-reconciler`. The binary uses
 client-go for capability discovery and the Helm Go SDK for configured provider
 charts; it never shells out to `helm` or `kubectl` and never installs EnvPilot
 core charts.
@@ -12,7 +13,9 @@ StorageClass. Provider installation permissions are supplied explicitly under
 references and versions must be pinned. Existing healthy capabilities are
 reported as `detected` and are never adopted or modified. Failed detection or
 provider operations are persisted as `missing`, `incompatible` or `degraded`
-status in the reconciler ConfigMap and cause the hook to retry/fail visibly.
+status in the reconciler ConfigMap and cause the bounded hook to retry/fail
+visibly. Hook Jobs delete themselves after success or failure; their support
+resources are ordinary Helm manifests and are removed on uninstall.
 
 Ingress providers are resolved through an extensible registry. The built-in
 `nginx` and `ingress-nginx` entries require controller
@@ -39,7 +42,18 @@ The pre-delete hook runs cleanup only for managed providers with
 are always retained. Re-running install/upgrade is idempotent: Helm SDK install
 is attempted first and an existing owned release is upgraded with the same
 pinned chart and values. The hook Job is recreated by Helm on each retry or
-upgrade and has a bounded deadline/backoff.
+upgrade and has a bounded deadline/backoff. Interrupted uninstalls are safe to
+retry: Helm retains its release-owned support resources until pre-delete cleanup
+finishes, then removes them. Existing registry Secrets and detected/external
+providers are never adopted or deleted.
+
+Releases created before the support-resource ownership change may have
+hook-created ConfigMaps, ServiceAccounts or RBAC left behind. On the next
+install or upgrade the chart performs a bounded migration only when it detects
+one of those named objects without the Helm ownership label. It removes that
+legacy support object before rendering its normal replacement. The migration
+never reads, deletes or adopts registry Secrets, IngressClasses, or detected
+external providers.
 
 ## Provisioned-cluster E2E matrix
 

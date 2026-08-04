@@ -564,7 +564,7 @@ func TestControlPlaneWatchesScopedReconcilerStatus(t *testing.T) {
 	}
 }
 
-func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testing.T) {
+func TestPlatformDependencyReconcilerSupportIsReleaseOwnedAndLeastPrivilege(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "platformDependencyReconciler.enabled=true",
 		"--set", "platformDependencies.ingress.mode=existing",
@@ -574,7 +574,7 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 		"--set", "platformDependencyReconciler.cleanupManagedOnUninstall=true",
 	)
 	for _, expected := range []string{
-		"\"helm.sh/hook\": pre-install,pre-upgrade",
+		"\"helm.sh/hook\": post-install,post-upgrade",
 		"\"helm.sh/hook\": pre-delete",
 		"resources: [\"ingressclasses\"]",
 		"resources: [\"storageclasses\"]",
@@ -584,6 +584,7 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 		"name: XDG_CACHE_HOME\n              value: /tmp/envpilot-home/.cache",
 		"mountPath: /tmp",
 		"\"helm.sh/hook-delete-policy\": before-hook-creation,hook-succeeded,hook-failed",
+		"app.kubernetes.io/managed-by: Helm",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("platform reconciler contract missing %q:\n%s", expected, rendered)
@@ -632,7 +633,7 @@ func TestNginxCleanInstallHooksAreActionAwareAndFailureSafe(t *testing.T) {
 	}
 }
 
-func TestPlatformReconcilerCanCreateItsStatusConfigMap(t *testing.T) {
+func TestPlatformReconcilerStatusConfigMapIsHelmOwnedAndWriteScoped(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "platformDependencyReconciler.enabled=true",
 		"--set", "platformDependencies.ingress.mode=existing",
@@ -640,9 +641,18 @@ func TestPlatformReconcilerCanCreateItsStatusConfigMap(t *testing.T) {
 		"--set", "global.envpilot.registry.mode=existing",
 		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
 	)
-	if !strings.Contains(rendered, "resources: [\"configmaps\"]\n    # Kubernetes cannot match resourceNames") ||
-		!strings.Contains(rendered, "verbs: [\"create\"]\n  - apiGroups: [\"\"]\n    resources: [\"configmaps\"]\n    resourceNames:") {
-		t.Fatalf("platform reconciler must allow unscoped ConfigMap create and name-scoped mutations:\n%s", rendered)
+	for _, expected := range []string{
+		"name: envpilot-platform-dependency-reconciler-status",
+		"status.json: \"\"",
+		"resourceNames: [\"envpilot-platform-dependency-reconciler\", \"envpilot-platform-dependency-reconciler-status\"]",
+		"verbs: [\"get\", \"update\", \"patch\"]",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("platform reconciler release-owned status contract missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "verbs: [\"create\"]\n  - apiGroups: [\"\"]\n    resources: [\"configmaps\"]") {
+		t.Fatalf("platform reconciler must not retain broad ConfigMap create permission:\n%s", rendered)
 	}
 }
 
@@ -665,16 +675,17 @@ func TestPlatformReconcilerSupportsPrivateRegistryPullSecrets(t *testing.T) {
 
 func TestPlatformReconcilerPrerequisitesRunBeforeTheGateJob(t *testing.T) {
 	rendered := renderUmbrella(t,
-		"--set", "platformDependencyReconciler.enabled=true",
-		"--set", "platformDependencies.ingress.mode=existing",
-		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
+		"--set", "access.mode=ingress",
+		"--set", "access.ingress.host=envpilot.example.test",
+		"--set", "access.ingress.className=nginx",
 		"--set", "global.envpilot.registry.mode=existing",
 		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
 	)
 	for _, expected := range []string{
-		"name: envpilot-platform-dependency-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-30\"",
-		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"-40\"",
-		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": pre-install,pre-upgrade\n    \"helm.sh/hook-weight\": \"10\"",
+		"name: envpilot-platform-dependency-reconciler\n  namespace: envpilot\n  labels:\n    app.kubernetes.io/name: envpilot",
+		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  labels:\n    app.kubernetes.io/name: envpilot",
+		"name: envpilot-platform-reconciler-namespaces\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": post-install,post-upgrade\n    \"helm.sh/hook-weight\": \"-30\"",
+		"name: envpilot-platform-reconciler\n  namespace: envpilot\n  annotations:\n    \"helm.sh/hook\": post-install,post-upgrade\n    \"helm.sh/hook-weight\": \"10\"",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("platform reconciler lifecycle ordering missing %q:\n%s", expected, rendered)
@@ -795,6 +806,7 @@ func TestIngressAccessProfileGrantsOnlyScopedProviderInstallerPermissions(t *tes
 		"resources: [\"configmaps\", \"endpoints\", \"events\", \"pods\", \"secrets\", \"serviceaccounts\", \"services\"]",
 		"name: envpilot-platform-reconciler-namespaces",
 		"ENVPILOT_RECONCILE_PROVIDER_NAMESPACES",
+		"\"helm.sh/hook\": post-install,post-upgrade",
 		"\"helm.sh/hook-weight\": \"-30\"",
 	} {
 		if !strings.Contains(rendered, expected) {
@@ -879,6 +891,46 @@ func TestPlatformDependencyE2EMatrixUsesUmbrellaAndOwnershipScenarios(t *testing
 	for _, expected := range []string{"helm upgrade --install", "empty existing mixed degraded", "helm uninstall", "platform-dependency-reconciler-status"} {
 		if !strings.Contains(contents, expected) {
 			t.Fatalf("platform E2E matrix missing %q", expected)
+		}
+	}
+}
+
+func TestPlatformReconcilerLifecycleE2ECoversUninstallAndCleanReinstall(t *testing.T) {
+	script, err := os.ReadFile("platform-reconciler-lifecycle.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(script)
+	for _, expected := range []string{
+		"helm upgrade --install", "helm uninstall", "assert_owned_support_absent",
+		"platform-dependency-reconciler-status", "PLATFORM_RECONCILER_LIFECYCLE_REGISTRY_SECRET",
+		"get ingressclass", "must not need manual deletion",
+	} {
+		if !strings.Contains(contents, expected) {
+			t.Fatalf("platform reconciler lifecycle E2E missing %q", expected)
+		}
+	}
+}
+
+func TestPlatformReconcilerLegacyMigrationOnlyTargetsSupportObjects(t *testing.T) {
+	template, err := os.ReadFile("../templates/platform-dependency-reconciler-legacy-migration.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(template)
+	for _, expected := range []string{
+		"lookup $item.apiVersion $item.kind", "pre-install,pre-upgrade",
+		"before-hook-creation,hook-succeeded,hook-failed",
+		"platform-dependency-reconciler-status", "platform-reconciler-discovery",
+		"platform-reconciler-status", "platform-reconciler-ingress-installer",
+	} {
+		if !strings.Contains(contents, expected) {
+			t.Fatalf("legacy migration contract missing %q", expected)
+		}
+	}
+	for _, forbidden := range []string{"registry Secret", "kind: Secret", "ingressclasses", "existingSecret"} {
+		if strings.Contains(contents, forbidden) {
+			t.Fatalf("legacy migration must not target external object %q", forbidden)
 		}
 	}
 }

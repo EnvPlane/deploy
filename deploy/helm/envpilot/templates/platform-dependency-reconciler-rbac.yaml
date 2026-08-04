@@ -7,25 +7,21 @@ kind: ServiceAccount
 metadata:
   name: {{ $sa }}
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-40"
-    "helm.sh/hook-delete-policy": before-hook-creation
   labels:
     app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ .Release.Name }}-platform-reconciler-discovery
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-40"
-    "helm.sh/hook-delete-policy": before-hook-creation
   labels:
     app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
 rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingressclasses"]
@@ -112,10 +108,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ .Release.Name }}-platform-reconciler-discovery
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -130,19 +127,16 @@ kind: Role
 metadata:
   name: {{ .Release.Name }}-platform-reconciler-status
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
-    # Kubernetes cannot match resourceNames on a create request because the
-    # object name is not part of its authorization attributes yet. Keep
-    # creation separate, and scope all reads/mutations to our two maps.
-    verbs: ["create"]
-  - apiGroups: [""]
-    resources: ["configmaps"]
+    # Both maps are normal Helm-owned resources. Scope every reconciler
+    # mutation to them and do not grant a broad ConfigMap create/delete right.
     resourceNames: ["{{ .Release.Name }}-platform-dependency-reconciler", "{{ .Release.Name }}-platform-dependency-reconciler-status"]
     verbs: ["get", "update", "patch"]
   - apiGroups: ["networking.k8s.io"]
@@ -160,10 +154,11 @@ kind: RoleBinding
 metadata:
   name: {{ .Release.Name }}-platform-reconciler-status
   namespace: {{ .Release.Namespace }}
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -184,9 +179,17 @@ metadata:
   name: {{ .Release.Name }}-platform-reconciler-ingress-installer
   namespace: {{ required "ingress namespace is required for nginx provider" $ingress.namespace }}
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
+    # The provider namespace may not exist until the preceding namespace Job
+    # completes. Keep this short-lived RBAC as a post-install hook; it is
+    # deleted after the reconciler completes and is never release residue.
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
 rules:
   - apiGroups: [""]
     resources: ["configmaps", "endpoints", "events", "pods", "secrets", "serviceaccounts", "services"]
@@ -213,9 +216,14 @@ metadata:
   name: {{ .Release.Name }}-platform-reconciler-ingress-installer
   namespace: {{ required "ingress namespace is required for nginx provider" $ingress.namespace }}
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+  labels:
+    app.kubernetes.io/name: envpilot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
