@@ -250,14 +250,16 @@ func TestUmbrellaInjectsReleaseCompatibleAgentChartContract(t *testing.T) {
 
 func TestUmbrellaDefinesPrivateOrPublicHTTPSRemoteControlPlaneContract(t *testing.T) {
 	rendered := renderUmbrella(t,
-		"--set", "global.envpilot.remoteControlPlane.endpoint=https://envpilot.platform.internal",
-		"--set", "global.envpilot.remoteControlPlane.tls.caSecretRef.name=envpilot-remote-ca",
-		"--set", "global.envpilot.remoteControlPlane.tls.caSecretRef.key=private-ca.crt",
+		"--set", "global.envpilot.managementEndpointProfile.bootstrap.endpoint=https://envpilot.platform.internal",
+		"--set", "global.envpilot.managementEndpointProfile.bootstrap.tls.serverName=envpilot.platform.internal",
+		"--set", "global.envpilot.managementEndpointProfile.bootstrap.tls.caSecretRef.name=envpilot-remote-ca",
+		"--set", "global.envpilot.managementEndpointProfile.bootstrap.tls.caSecretRef.key=private-ca.crt",
 	)
 	for _, expected := range []string{
-		"name: ENVPILOT_REMOTE_CONTROL_PLANE_URL",
+		"name: ENVPILOT_MANAGEMENT_ENDPOINT_BOOTSTRAP_URL",
 		`value: "https://envpilot.platform.internal"`,
-		"name: ENVPILOT_REMOTE_CONTROL_PLANE_CA_SECRET",
+		"name: ENVPILOT_MANAGEMENT_ENDPOINT_BOOTSTRAP_TLS_SERVER_NAME",
+		"name: ENVPILOT_MANAGEMENT_ENDPOINT_BOOTSTRAP_CA_SECRET",
 		`value: "envpilot-remote-ca"`,
 		`value: "private-ca.crt"`,
 	} {
@@ -286,6 +288,18 @@ func TestUmbrellaDefinesPrivateOrPublicHTTPSRemoteControlPlaneContract(t *testin
 		if name == "insecure-ingress" && !strings.Contains(string(output), "access.ingress.tls.enabled=true") {
 			t.Fatalf("Ingress TLS prerequisite rejection is not actionable:\n%s", output)
 		}
+	}
+
+	legacy := renderUmbrella(t, "--set", "global.envpilot.remoteControlPlane.endpoint=https://legacy.envpilot.example.test")
+	if !strings.Contains(legacy, `name: ENVPILOT_MANAGEMENT_ENDPOINT_BOOTSTRAP_URL`) || !strings.Contains(legacy, `value: "https://legacy.envpilot.example.test"`) {
+		t.Fatalf("legacy endpoint values must remain a one-time bootstrap source:\n%s", legacy)
+	}
+	cmd := exec.Command("helm", "template", "envpilot", "..",
+		"--set", "global.envpilot.remoteControlPlane.endpoint=https://legacy.envpilot.example.test",
+		"--set", "global.envpilot.managementEndpointProfile.bootstrap.endpoint=https://different.envpilot.example.test")
+	cmd.Dir = "."
+	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "conflict") {
+		t.Fatalf("conflicting legacy and bootstrap profile values must fail safely: %v\n%s", err, output)
 	}
 }
 

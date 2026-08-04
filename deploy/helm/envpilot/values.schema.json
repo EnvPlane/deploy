@@ -377,6 +377,32 @@
                 }
               }
             },
+            "managementEndpointProfile": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "bootstrap": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "endpoint": { "type": "string", "pattern": "^$|^https://[^/?#]+/?$" },
+                    "tls": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "serverName": { "type": "string" },
+                        "caSecretRef": {
+                          "anyOf": [
+                            { "$ref": "#/definitions/secretKeyReference" },
+                            { "type": "object", "additionalProperties": false, "properties": { "name": { "type": "string", "maxLength": 0 }, "key": { "type": "string" } } }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
             "registry": { "$ref": "#/definitions/registry" },
             "firstStartRegistration": { "$ref": "#/definitions/firstStartRegistration" },
             "e2eFixture": { "$ref": "#/definitions/e2eFixture" }
