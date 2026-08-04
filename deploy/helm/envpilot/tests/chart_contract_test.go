@@ -37,6 +37,39 @@ func renderUmbrella(t *testing.T, values ...string) string {
 	return string(output)
 }
 
+// Render one canonical child chart in an isolated chart tree. Published
+// umbrellas intentionally reject runtime image overrides that conflict with
+// their signed compatibility manifest, but the child charts must still support
+// the explicit repository/tag/digest contract for independent installation.
+// Copying the control-plane's frontend dependency alongside it keeps this test
+// self-contained and avoids writing generated archives into the source tree.
+func renderChildChart(t *testing.T, chartName string, values ...string) string {
+	t.Helper()
+	sourceRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolve canonical chart root: %v", err)
+	}
+	temporaryRoot := t.TempDir()
+	chartPath := filepath.Join(temporaryRoot, chartName)
+	copyChartTree(t, filepath.Join(sourceRoot, chartName), chartPath)
+	if chartName == "envpilot-control-plane" {
+		copyChartTree(t, filepath.Join(sourceRoot, "envpilot-frontend"), filepath.Join(temporaryRoot, "envpilot-frontend"))
+	}
+
+	dependencies := exec.Command("helm", "dependency", "build", "--skip-refresh", chartPath)
+	output, err := dependencies.CombinedOutput()
+	if err != nil {
+		t.Fatalf("build %s child dependencies: %v\n%s", chartName, err, output)
+	}
+	args := append([]string{"template", "envpilot", chartPath, "--namespace", "envpilot"}, values...)
+	cmd := exec.Command("helm", args...)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("render %s child chart: %v\n%s", chartName, err, output)
+	}
+	return string(output)
+}
+
 func copyChartTree(t *testing.T, source, destination string) {
 	t.Helper()
 	err := filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -384,24 +417,17 @@ func TestChildChartsShareExplicitImageContract(t *testing.T) {
 		"envpilot-runner",
 	}
 
-	args := []string{
-		"--set", "agent.enabled=true",
-		"--set", "runner.enabled=true",
-	}
-	for _, component := range components {
-		args = append(args,
-			"--set", component+".image.repository=registry.example.internal/envpilot/"+strings.TrimPrefix(component, "envpilot-"),
-			"--set", component+".image.tag=build-20260731",
-			"--set", component+".image.digest=",
-			"--set", component+".image.pullPolicy=Always",
-			"--set", component+".image.sourceRevision=abcdef123456",
-			"--set", component+".image.release=2026.07.31",
-			"--set", component+".imagePullSecrets[0].name=private-registry",
-		)
-	}
-	rendered := renderUmbrella(t, args...)
 	for _, component := range components {
 		imageName := strings.TrimPrefix(component, "envpilot-")
+		rendered := renderChildChart(t, component,
+			"--set", "image.repository=registry.example.internal/envpilot/"+imageName,
+			"--set", "image.tag=build-20260731",
+			"--set", "image.digest=",
+			"--set", "image.pullPolicy=Always",
+			"--set", "image.sourceRevision=abcdef123456",
+			"--set", "image.release=2026.07.31",
+			"--set", "imagePullSecrets[0].name=private-registry",
+		)
 		for _, expected := range []string{
 			`image: "registry.example.internal/envpilot/` + imageName + `:build-20260731"`,
 			"imagePullPolicy: Always",
@@ -412,30 +438,23 @@ func TestChildChartsShareExplicitImageContract(t *testing.T) {
 				t.Fatalf("%s tag/private-registry render missing %q:\n%s", component, expected, rendered)
 			}
 		}
-	}
-	if count := strings.Count(rendered, "name: private-registry"); count < len(components) {
-		t.Fatalf("private registry pull secret was not rendered for every child: count=%d\n%s", count, rendered)
+		if !strings.Contains(rendered, "name: private-registry") {
+			t.Fatalf("%s private registry pull secret was not rendered:\n%s", component, rendered)
+		}
 	}
 
 	const digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	digestArgs := []string{"--set", "agent.enabled=true", "--set", "runner.enabled=true"}
-	for _, component := range components {
-		digestArgs = append(digestArgs,
-			"--set", component+".image.repository=registry.example.internal/envpilot/"+strings.TrimPrefix(component, "envpilot-"),
-			"--set", component+".image.tag=must-not-be-rendered",
-			"--set", component+".image.digest="+digest,
-		)
-	}
-	digestRender := renderUmbrella(t, digestArgs...)
 	for _, component := range components {
 		imageName := strings.TrimPrefix(component, "envpilot-")
+		digestRender := renderChildChart(t, component,
+			"--set", "image.repository=registry.example.internal/envpilot/"+imageName,
+			"--set", "image.tag=must-not-be-rendered",
+			"--set", "image.digest="+digest,
+		)
 		expected := `image: "registry.example.internal/envpilot/` + imageName + `@` + digest + `"`
 		if !strings.Contains(digestRender, expected) {
 			t.Fatalf("%s digest render missing %q:\n%s", component, expected, digestRender)
 		}
-	}
-	for _, component := range components {
-		imageName := strings.TrimPrefix(component, "envpilot-")
 		forbidden := `image: "registry.example.internal/envpilot/` + imageName + `:must-not-be-rendered"`
 		if strings.Contains(digestRender, forbidden) {
 			t.Fatalf("%s rendered tag image while digest was configured:\n%s", component, digestRender)
@@ -794,7 +813,20 @@ func TestReleaseOwnedConfigMapsAreRevisionScopedForServerSideUpgrades(t *testing
 		t.Fatalf("immutable compatibility map must use the revision-scoped helper:\\n%s", compatibilityTemplate)
 	}
 
-	child := exec.Command("helm", "template", "envpilot", "../../envpilot-control-plane", "--namespace", "envpilot",
+	childRoot := t.TempDir()
+	childPath := filepath.Join(childRoot, "envpilot-control-plane")
+	canonicalRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	copyChartTree(t, filepath.Join(canonicalRoot, "envpilot-control-plane"), childPath)
+	copyChartTree(t, filepath.Join(canonicalRoot, "envpilot-frontend"), filepath.Join(childRoot, "envpilot-frontend"))
+	dependencies := exec.Command("helm", "dependency", "build", "--skip-refresh", childPath)
+	dependencyOutput, err := dependencies.CombinedOutput()
+	if err != nil {
+		t.Fatalf("build control-plane child dependencies: %v\n%s", err, dependencyOutput)
+	}
+	child := exec.Command("helm", "template", "envpilot", childPath, "--namespace", "envpilot",
 		"--set", "global.envpilot.remoteClusterReconciler.enabled=true",
 		"--set", "rbac.remoteClusterReconciler.enabled=true")
 	child.Dir = "."
@@ -1338,12 +1370,12 @@ func TestFirstStartRegistrationUsesOperatorSecretWithoutRenderingTokens(t *testi
 
 func TestExternalDataAndImageDigestRenderWithoutProviderAssumptions(t *testing.T) {
 	digest := "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	rendered := renderUmbrella(t,
-		"--set", "envpilot-control-plane.image.digest="+digest,
-		"--set", "envpilot-control-plane.postgres.mode=external",
-		"--set", "envpilot-control-plane.postgres.external.existingSecret=postgres-url",
-		"--set", "envpilot-control-plane.redis.mode=external",
-		"--set", "envpilot-control-plane.redis.external.existingSecret=redis-url",
+	rendered := renderChildChart(t, "envpilot-control-plane",
+		"--set", "image.digest="+digest,
+		"--set", "postgres.mode=external",
+		"--set", "postgres.external.existingSecret=postgres-url",
+		"--set", "redis.mode=external",
+		"--set", "redis.external.existingSecret=redis-url",
 	)
 	for _, expected := range []string{
 		"ghcr.io/envpilot/api@" + digest,
