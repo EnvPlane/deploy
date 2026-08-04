@@ -50,7 +50,10 @@ jobs:
           test -s "$REPORT"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
-             (.images | length == 5) and (.charts | length == 4)' \
+             (.images | length == 5) and (.charts | length == 4) and
+             all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
+               (.digest | test("^sha256:[0-9a-f]{64}$")) and
+               (.sourceRevision | test("^[0-9a-f]{40}$")))' \
             "$REPORT" >/dev/null
           source_revision="$(jq -er '.sourceRevision' "$REPORT")"
           git fetch --no-tags origin "$source_revision"
@@ -90,7 +93,9 @@ jobs:
              (.images | length == 5) and (.charts | length == 4) and
              all(.images[]; (.tag | test("^sha-[0-9a-f]{40}$")) and
                (.digest | test("^sha256:[0-9a-f]{64}$"))) and
-             all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")))' \
+             all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
+               (.digest | test("^sha256:[0-9a-f]{64}$")) and
+               (.sourceRevision | test("^[0-9a-f]{40}$")))' \
             "$report" >/dev/null
           cp "$report" "$RUNNER_TEMP/latest-artifacts.json"
           echo "report=$RUNNER_TEMP/latest-artifacts.json" >> "$GITHUB_OUTPUT"
@@ -168,9 +173,12 @@ jobs:
           set -euo pipefail
           ./scripts/generate-umbrella-compatibility-manifest.sh \
             --version "$VERSION" --source-revision "${{ steps.source.outputs.revision }}" \
+            --artifact-report "$REPORT" \
             --output deploy/helm/envpilot/compatibility/release.json
           jq -e --arg version "$VERSION" \
-            '.umbrella.version == $version and (.images | length == 5) and (.childCharts | length == 4)' \
+            '.umbrella.version == $version and (.images | length == 5) and (.childCharts | length == 4) and
+             all(.childCharts[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and
+               (.sourceRevision | test("^[0-9a-f]{40}$")))' \
             deploy/helm/envpilot/compatibility/release.json >/dev/null
       - name: Validate and package the complete umbrella
         env:

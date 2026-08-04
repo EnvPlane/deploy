@@ -5,10 +5,13 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 workflow="$root/.github/workflows/release-on-main.yaml"
 artifact_workflow="$root/.github/workflows/publish-main.yaml"
 resolver="$root/scripts/resolve-latest-published-artifacts.sh"
+child_publisher="$root/scripts/publish-selected-child-charts.sh"
 
 [[ -f "$workflow" ]] || { echo "main release workflow is missing" >&2; exit 1; }
 [[ -x "$resolver" ]] || { echo "artifact resolver is not executable" >&2; exit 1; }
+[[ -x "$child_publisher" ]] || { echo "selected child-chart publisher is not executable" >&2; exit 1; }
 bash -n "$resolver"
+bash -n "$child_publisher"
 
 for required in \
   "workflow_run:" \
@@ -42,8 +45,38 @@ grep -Fq -- "--values-file" "$artifact_workflow" || {
   exit 1
 }
 
+grep -Fq 'Publish selected stable child charts' "$artifact_workflow" || {
+  echo "artifact workflow must publish selected stable child charts before resolution" >&2
+  exit 1
+}
+
+grep -Fq 'publish-selected-child-charts.sh' "$artifact_workflow" || {
+  echo "artifact workflow must use the canonical child-chart publisher" >&2
+  exit 1
+}
+
+grep -Fq -- '--selected-child-charts' "$artifact_workflow" || {
+  echo "artifact workflow must pass the selected child-chart manifest to the resolver" >&2
+  exit 1
+}
+
+if grep -Fq -- '-main.${GITHUB_RUN_NUMBER}' "$artifact_workflow"; then
+  echo "artifact workflow must not substitute -main prereleases for stable child dependencies" >&2
+  exit 1
+fi
+
 grep -Fq "waiting for" "$resolver" || {
   echo "resolver must wait for a pinned artifact still being published" >&2
+  exit 1
+}
+
+grep -Fq 'run Publish selected stable child charts first' "$resolver" || {
+  echo "resolver must provide an actionable missing child-chart diagnostic" >&2
+  exit 1
+}
+
+grep -Fq 'published child chart digest does not match selected immutable artifact' "$resolver" || {
+  echo "resolver must verify selected child-chart digests" >&2
   exit 1
 }
 
@@ -74,6 +107,11 @@ grep -Fq 'controlPlane:control-plane' "$workflow" || {
 
 grep -Fq '.charts[$component].version' "$workflow" || {
   echo "workflow must read child chart versions from the compatibility report" >&2
+  exit 1
+}
+
+grep -Fq -- '--artifact-report "$REPORT"' "$workflow" || {
+  echo "release compatibility manifest must retain confirmed child-chart digests" >&2
   exit 1
 }
 

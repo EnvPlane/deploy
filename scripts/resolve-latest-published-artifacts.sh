@@ -11,7 +11,8 @@ set -euo pipefail
 usage() {
   cat >&2 <<'EOF'
 usage: resolve-latest-published-artifacts.sh --output <file> \
-  --values-file <path> --chart-file <path> [--owner <owner>]
+  --values-file <path> --chart-file <path> --selected-child-charts <file> \
+  [--owner <owner>]
 
 Requires Docker/Buildx and Helm registry authentication for artifact checks.
 ENVPILOT_ARTIFACT_WAIT_ATTEMPTS and ENVPILOT_ARTIFACT_WAIT_SECONDS tune the
@@ -24,12 +25,14 @@ owner="envpilot"
 output=""
 values_file=""
 chart_file=""
+selected_child_charts=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --owner) owner="${2:-}"; shift 2 ;;
     --output) output="${2:-}"; shift 2 ;;
     --values-file) values_file="${2:-}"; shift 2 ;;
     --chart-file) chart_file="${2:-}"; shift 2 ;;
+    --selected-child-charts) selected_child_charts="${2:-}"; shift 2 ;;
     -h|--help) usage ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -39,9 +42,14 @@ done
 [[ -n "$output" ]] || { echo "--output is required" >&2; exit 2; }
 [[ -f "$values_file" ]] || { echo "values file not found: $values_file" >&2; exit 2; }
 [[ -f "$chart_file" ]] || { echo "chart file not found: $chart_file" >&2; exit 2; }
+[[ -f "$selected_child_charts" ]] || {
+  echo "selected child-chart manifest is required; run Publish selected stable child charts first" >&2
+  exit 2
+}
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
 command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
+command -v oras >/dev/null || { echo "oras is required" >&2; exit 1; }
 
 wait_attempts="${ENVPILOT_ARTIFACT_WAIT_ATTEMPTS:-30}"
 wait_seconds="${ENVPILOT_ARTIFACT_WAIT_SECONDS:-20}"
@@ -112,18 +120,34 @@ chart_version() {
 }
 
 chart_json() {
-  local name="$1" package="$2" version
+  local name="$1" package="$2" version selected expected_digest expected_repository descriptor actual_digest chart attempt
   version="$(chart_version "$name")"
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
     echo "no pinned stable version for $name" >&2; exit 1;
   }
-  local attempt chart=""
+  selected="$(jq -cer --arg chart "$name" '.childCharts[] | select(.chart == $chart)' "$selected_child_charts")" || {
+    echo "selected child-chart manifest does not contain $name" >&2; exit 1;
+  }
+  expected_repository="oci://ghcr.io/$owner/$package"
+  expected_digest="$(jq -er '.digest' <<<"$selected")"
+  jq -e --arg version "$version" --arg repository "$expected_repository" --arg revision "$source_revision" \
+    '.version == $version and .repository == $repository and .sourceRevision == $revision and
+     (.digest | test("^sha256:[0-9a-f]{64}$"))' <<<"$selected" >/dev/null || {
+      echo "selected child-chart manifest does not match pinned $name:$version" >&2; exit 1;
+    }
   for ((attempt=1; attempt<=wait_attempts; attempt++)); do
-    if chart="$(helm show chart "oci://ghcr.io/$owner/$package:$version" 2>/dev/null)"; then
+    if chart="$(helm show chart "$expected_repository:$version" 2>/dev/null)" && \
+       descriptor="$(oras manifest fetch --descriptor "${expected_repository#oci://}:$version" 2>/dev/null)"; then
+      actual_digest="$(jq -er '.digest' <<<"$descriptor")"
       grep -Fxq "name: $name" <<<"$chart" || { echo "unexpected chart name for $name:$version" >&2; exit 1; }
       grep -Fxq "version: $version" <<<"$chart" || { echo "unexpected chart version for $name:$version" >&2; exit 1; }
-      jq -cn --arg repository "oci://ghcr.io/$owner/$package" --arg version "$version" \
-        '{repository:$repository,version:$version}'
+      [[ "$actual_digest" == "$expected_digest" ]] || {
+        echo "published child chart digest does not match selected immutable artifact: $expected_repository:$version" >&2
+        exit 1
+      }
+      jq -cn --arg repository "$expected_repository" --arg version "$version" \
+        --arg digest "$expected_digest" --arg sourceRevision "$source_revision" \
+        '{repository:$repository,version:$version,digest:$digest,sourceRevision:$sourceRevision}'
       return 0
     fi
     if (( attempt < wait_attempts )); then
@@ -131,7 +155,7 @@ chart_json() {
       sleep "$wait_seconds"
     fi
   done
-  echo "pinned chart is not published: $name:$version" >&2
+  echo "required child chart was not published before compatibility resolution: $name:$version; run Publish selected stable child charts" >&2
   return 1
 }
 
@@ -164,11 +188,15 @@ images="$(jq -cn \
   --argjson runner "$(image_json envpilot-runner runner)" \
   --argjson platformReconciler "$(image_json platformDependencyReconciler platform-reconciler)" \
   '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,platformReconciler:$platformReconciler}')"
+control_plane_chart="$(chart_json envpilot-control-plane envpilot-control-plane)"
+frontend_chart="$(chart_json envpilot-frontend envpilot-frontend)"
+agent_chart="$(chart_json envpilot-agent envpilot-agent)"
+runner_chart="$(chart_json envpilot-runner envpilot-runner)"
 charts="$(jq -cn \
-  --argjson controlPlane "$(chart_json envpilot-control-plane envpilot-control-plane)" \
-  --argjson frontend "$(chart_json envpilot-frontend envpilot-frontend)" \
-  --argjson agent "$(chart_json envpilot-agent envpilot-agent)" \
-  --argjson runner "$(chart_json envpilot-runner envpilot-runner)" \
+  --argjson controlPlane "$control_plane_chart" \
+  --argjson frontend "$frontend_chart" \
+  --argjson agent "$agent_chart" \
+  --argjson runner "$runner_chart" \
   '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner}')"
 
 mkdir -p "$(dirname "$output")"

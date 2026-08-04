@@ -8,15 +8,22 @@ on:
       - 'release/**'
       - 'go.mod'
       - 'go.sum'
+      - 'scripts/publish-selected-child-charts.sh'
       - 'scripts/resolve-latest-published-artifacts.sh'
+      - 'scripts/generate-umbrella-compatibility-manifest.sh'
+      - 'scripts/tests/test-publish-selected-child-charts.sh'
+      - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
+      - 'scripts/tests/release-on-main-contract.sh'
       - 'deploy/helm/envpilot/values.yaml'
       - 'deploy/helm/envpilot/Chart.yaml'
       - '.github/workflows/publish-main.yaml'
+      - '.github/workflows/release-on-main.yaml'
   workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 concurrency:
   group: publish-deploy-main
@@ -38,9 +45,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Test deploy tooling
-        run: go test ./...
+        run: |
+          go test ./...
+          ./scripts/tests/test-publish-selected-child-charts.sh
+          ./scripts/tests/test-generate-umbrella-compatibility-manifest.sh
       - uses: azure/setup-helm@v4
       - uses: oras-project/setup-oras@v1
+      - uses: sigstore/cosign-installer@v3
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
@@ -57,26 +68,28 @@ jobs:
         run: ./scripts/tests/published-remote-cluster-lifecycle-contract.sh
       - name: Verify published two-cluster RemoteCluster contract
         run: ./scripts/tests/published-remote-cluster-two-cluster-contract.sh
-      - name: Lint and package charts
+      - name: Lint canonical charts
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist
           for chart in deploy/helm/*; do
             [[ -f "$chart/Chart.yaml" ]] || continue
             helm dependency build --skip-refresh "$chart"
             helm lint "$chart"
-            base_version="$(awk -F': ' '$1 == "version" {print $2; exit}' "$chart/Chart.yaml")"
-            version="${base_version}-main.${GITHUB_RUN_NUMBER}"
-            helm package "$chart" --destination dist --version "$version" --app-version "$version"
           done
-      - name: Publish OCI charts
+      - name: Publish selected stable child charts
         shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          for package in dist/*.tgz; do
-            helm push "$package" oci://ghcr.io/${{ github.repository_owner }}
-          done
+          scripts/publish-selected-child-charts.sh \
+            --umbrella-chart deploy/helm/envpilot/Chart.yaml \
+            --charts-dir deploy/helm \
+            --dist dist \
+            --output "$RUNNER_TEMP/selected-child-charts.json" \
+            --owner '${{ github.repository_owner }}' \
+            --source-revision "$GITHUB_SHA"
       - name: Resolve and verify the published compatibility set
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,13 +99,16 @@ jobs:
           ./scripts/resolve-latest-published-artifacts.sh \
             --values-file deploy/helm/envpilot/values.yaml \
             --chart-file deploy/helm/envpilot/Chart.yaml \
+            --selected-child-charts "$RUNNER_TEMP/selected-child-charts.json" \
             --output "$RUNNER_TEMP/latest-artifacts.json"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
              (.images | length == 5) and (.charts | length == 4) and
              all(.images[]; (.tag | test("^sha-[0-9a-f]{40}$")) and
                (.digest | test("^sha256:[0-9a-f]{64}$"))) and
-             all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")))' \
+             all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
+               (.digest | test("^sha256:[0-9a-f]{64}$")) and
+               (.sourceRevision | test("^[0-9a-f]{40}$")))' \
             "$RUNNER_TEMP/latest-artifacts.json" >/dev/null
       - name: Upload confirmed compatibility manifest
         uses: actions/upload-artifact@v4
