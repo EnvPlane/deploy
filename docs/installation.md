@@ -146,27 +146,50 @@ envpilot-control-plane:
 ### Private registry
 
 ```yaml
-envpilot-control-plane:
-  image:
-    repository: registry.example.test/envpilot/api
-    tag: 0.1.0
-  imagePullSecrets: [{name: registry-credentials}]
-envpilot-frontend:
-  image:
-    repository: registry.example.test/envpilot/frontend
-    tag: 0.1.0
-  imagePullSecrets: [{name: registry-credentials}]
+global:
+  envpilot:
+    registry:
+      mode: existing
+      existingSecret: registry-credentials
 ```
 
-Use immutable digest references for production releases. Do not use `latest`.
+This grants every enabled runtime workload pull access without changing the
+release-selected images. Published umbrellas reject repository, tag or digest
+overrides that conflict with their signed compatibility manifest. Mirror the
+published immutable artifacts if required by your registry policy, then publish
+a corresponding signed umbrella release; do not use `latest`.
 
 ## Upgrades, rollback and uninstall
 
-Upgrade with the same umbrella command and a new pinned chart version. Helm
-owns the core release and its child resources; external detected capabilities
-are never adopted or deleted. Managed providers are removed only when their
-configured ownership and cleanup policy permit it. Back up database/PVC data
-before rollback or uninstall.
+Each published umbrella archive includes a signed compatibility manifest with
+the exact immutable runtime image refs it selects. Do **not** use Helm
+`--reuse-values` for umbrella upgrades: Helm would retain the old nested image
+maps and silently keep the preceding release's digest.
+
+Keep a durable operator values file (the same file used for installation) and
+upgrade with the provided wrapper, which uses `--reset-values` and layers that
+file over the new chart defaults:
+
+```sh
+scripts/upgrade-umbrella.sh \
+  --release envpilot \
+  --chart oci://ghcr.io/envpilot/envpilot \
+  --version <new-published-umbrella-version> \
+  --namespace envpilot \
+  --operator-values values.yaml
+```
+
+This preserves operator configuration while applying the artifact pins signed
+in the selected release. An explicit `envpilot-*.image` or
+`platformDependencyReconciler.image` override that conflicts with the selected
+manifest is rejected before Helm mutates the release; update it to the selected
+immutable ref or remove it from the operator file. Do not put credentials in
+the values file or generated release metadata.
+
+Helm owns the core release and its child resources; external detected
+capabilities are never adopted or deleted. Managed providers are removed only
+when their configured ownership and cleanup policy permit it. Back up
+database/PVC data before rollback or uninstall.
 
 The repository's `scripts/minikube-*.sh` and clean-install scripts are retained solely for
 automated test fixtures. They are not required for, or part of, the production

@@ -27,7 +27,7 @@ kubectl --context "$ENVPILOT_E2E_CONTEXT" -n "$NAMESPACE" get namespace "$NAMESP
 
 # Exactly one application install command, using only the values file.
 helm upgrade --install "$RELEASE" "$ENVPILOT_E2E_CHART_N_MINUS_1" \
-  --kube-context "$ENVPILOT_E2E_CONTEXT" --namespace "$NAMESPACE" --values "$ENVPILOT_E2E_VALUES_FILE" --wait --timeout 15m
+  --kube-context "$ENVPILOT_E2E_CONTEXT" --namespace "$NAMESPACE" --values "$ENVPILOT_E2E_VALUES_FILE" --reset-values --wait --timeout 15m
 
 kubectl --context "$ENVPILOT_E2E_CONTEXT" -n "$NAMESPACE" port-forward svc/envpilot-control-plane "${API_PORT}:8080" >/tmp/envpilot-published-api-pf.log 2>&1 & pf_pids+=("$!")
 kubectl --context "$ENVPILOT_E2E_CONTEXT" -n "$NAMESPACE" port-forward svc/envpilot-frontend "${UI_PORT}:3000" >/tmp/envpilot-published-ui-pf.log 2>&1 & pf_pids+=("$!")
@@ -52,7 +52,9 @@ for _ in $(seq 1 90); do
 done
 curl -fsS "$API_URL/api/v1/environments/$ENVIRONMENT_ID" | jq -e '(.status // "") | IN("ready", "succeeded", "completed")' >/dev/null
 
-helm upgrade "$RELEASE" "$ENVPILOT_E2E_CHART_N" --kube-context "$ENVPILOT_E2E_CONTEXT" --namespace "$NAMESPACE" --values "$ENVPILOT_E2E_VALUES_FILE" --wait --timeout 15m
+# Do not use --reuse-values here: it retains the prior nested image maps and
+# defeats the immutable pins selected by the N chart's compatibility manifest.
+helm upgrade "$RELEASE" "$ENVPILOT_E2E_CHART_N" --kube-context "$ENVPILOT_E2E_CONTEXT" --namespace "$NAMESPACE" --values "$ENVPILOT_E2E_VALUES_FILE" --reset-values --wait --timeout 15m
 curl -fsS "$API_URL/api/v1/health" >/dev/null
 helm rollback "$RELEASE" "$ROLLBACK_REVISION" --kube-context "$ENVPILOT_E2E_CONTEXT" --namespace "$NAMESPACE" --wait --timeout 15m
 curl -fsS "$API_URL/api/v1/health" >/dev/null

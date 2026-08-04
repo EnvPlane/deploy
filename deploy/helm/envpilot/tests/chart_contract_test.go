@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +35,73 @@ func renderUmbrella(t *testing.T, values ...string) string {
 		t.Fatalf("helm template failed: %v\n%s", err, output)
 	}
 	return string(output)
+}
+
+func copyChartTree(t *testing.T, source, destination string) {
+	t.Helper()
+	err := filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(destination, relative)
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, contents, info.Mode())
+	})
+	if err != nil {
+		t.Fatalf("copy chart tree: %v", err)
+	}
+}
+
+func renderPublishedUmbrella(t *testing.T, values ...string) (string, error) {
+	t.Helper()
+	buildDependencies(t)
+	sourceChart, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatalf("resolve source chart: %v", err)
+	}
+	temporaryChart := filepath.Join(t.TempDir(), "envpilot")
+	copyChartTree(t, sourceChart, temporaryChart)
+	manifestPath := filepath.Join(temporaryChart, "compatibility", "release.json")
+	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+		t.Fatalf("create compatibility directory: %v", err)
+	}
+	generator, err := filepath.Abs("../../../../scripts/generate-umbrella-compatibility-manifest.sh")
+	if err != nil {
+		t.Fatalf("resolve compatibility generator: %v", err)
+	}
+	cmd := exec.Command(generator,
+		"--version", umbrellaChartVersion(t),
+		"--source-revision", strings.Repeat("0", 40),
+		"--values-file", filepath.Join(sourceChart, "values.yaml"),
+		"--chart-file", filepath.Join(sourceChart, "Chart.yaml"),
+		"--output", manifestPath,
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generate test compatibility manifest: %v\n%s", err, output)
+	}
+
+	args := append([]string{"template", "envpilot", temporaryChart, "--namespace", "envpilot"}, values...)
+	cmd = exec.Command("helm", args...)
+	output, err = cmd.CombinedOutput()
+	return string(output), err
 }
 
 func umbrellaChartVersion(t *testing.T) string {
@@ -1004,7 +1072,7 @@ func TestPublishedArtifactE2EContract(t *testing.T) {
 	contents := string(script)
 	for _, expected := range []string{
 		"helm upgrade --install", "--values", "api/v1/health", "api/v1/projects/", "api/v1/environments",
-		"helm upgrade", "helm rollback", "helm uninstall", "ENVPILOT_E2E_EXISTING_RESOURCES",
+		"helm upgrade", "--reset-values", "helm rollback", "helm uninstall", "ENVPILOT_E2E_EXISTING_RESOURCES",
 	} {
 		if !strings.Contains(contents, expected) {
 			t.Fatalf("published artifact E2E missing %q", expected)
@@ -1013,6 +1081,71 @@ func TestPublishedArtifactE2EContract(t *testing.T) {
 	for _, forbidden := range []string{"minikube start", "kind create cluster", "kubeadm"} {
 		if strings.Contains(contents, forbidden) {
 			t.Fatalf("published artifact E2E must not provision clusters: %q", forbidden)
+		}
+	}
+}
+
+func TestPublishedUmbrellaRejectsStaleOrConflictingRuntimeImagePins(t *testing.T) {
+	rendered, err := renderPublishedUmbrella(t)
+	if err != nil {
+		t.Fatalf("published umbrella defaults must satisfy its compatibility manifest: %v\n%s", err, rendered)
+	}
+	if !strings.Contains(rendered, "name: envpilot-control-plane") {
+		t.Fatalf("published umbrella render unexpectedly omitted the control plane:\n%s", rendered)
+	}
+
+	output, err := renderPublishedUmbrella(t,
+		"--set", "envpilot-control-plane.image.digest=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	)
+	if err == nil {
+		t.Fatalf("published umbrella must reject a stale image pin:\n%s", output)
+	}
+	for _, expected := range []string{
+		"image override for control-plane conflicts",
+		"signed compatibility manifest",
+		"Do not use --reuse-values",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("image-pin rejection missing %q:\n%s", expected, output)
+		}
+	}
+}
+
+func TestUmbrellaUpgradeWrapperPreservesOperatorValuesWithoutReusingArtifactPins(t *testing.T) {
+	wrapper, err := os.ReadFile("../../../../scripts/upgrade-umbrella.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		"--operator-values", "--reset-values", "--version", "--timeout", "Do not echo values",
+		"compatibility manifest rejects a conflicting", "--reuse-values",
+	} {
+		if !strings.Contains(string(wrapper), expected) {
+			t.Fatalf("umbrella upgrade wrapper missing %q", expected)
+		}
+	}
+
+	template, err := os.ReadFile("../templates/compatibility-artifact-guard.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		"compatibility/release.json", "platform-reconciler", "signed compatibility manifest", "--reuse-values",
+	} {
+		if !strings.Contains(string(template), expected) {
+			t.Fatalf("artifact guard missing %q", expected)
+		}
+	}
+
+	docs, err := os.ReadFile("../../../../docs/installation.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		"scripts/upgrade-umbrella.sh", "--reset-values", "--reuse-values", "signed compatibility manifest",
+	} {
+		if !strings.Contains(string(docs), expected) {
+			t.Fatalf("installation upgrade documentation missing %q", expected)
 		}
 	}
 }
