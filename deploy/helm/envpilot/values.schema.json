@@ -21,6 +21,16 @@
         "release": { "type": "string" }
       }
     },
+    "secretKeyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "key"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "namespace": { "type": "string" },
+        "key": { "type": "string", "minLength": 1 }
+      }
+    },
     "resources": {
       "type": "object",
       "additionalProperties": true,
@@ -347,6 +357,25 @@
               "type": "object",
               "additionalProperties": false,
               "properties": { "enabled": { "type": "boolean" } }
+            },
+            "remoteControlPlane": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "endpoint": { "type": "string", "pattern": "^$|^https://[^/?#]+/?$" },
+                "tls": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "caSecretRef": {
+                      "anyOf": [
+                        { "$ref": "#/definitions/secretKeyReference" },
+                        { "type": "object", "additionalProperties": false, "properties": { "name": { "type": "string", "maxLength": 0 }, "key": { "type": "string" } } }
+                      ]
+                    }
+                  }
+                }
+              }
             },
             "registry": { "$ref": "#/definitions/registry" },
             "firstStartRegistration": { "$ref": "#/definitions/firstStartRegistration" },

@@ -17,7 +17,22 @@
 {{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
 {{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
 {{- $agentBootstrapChart := default (dict) $agentBootstrap.chart -}}
-{{- $remoteControlPlane := default (dict) .Values.remoteControlPlane -}}
+{{- $legacyRemoteControlPlane := default (dict) .Values.remoteControlPlane -}}
+{{- $globalRemoteControlPlane := default (dict) (get $globalEnvPilot "remoteControlPlane") -}}
+{{- $globalRemoteTLS := default (dict) (get $globalRemoteControlPlane "tls") -}}
+{{- $globalRemoteCARef := default (dict) (get $globalRemoteTLS "caSecretRef") -}}
+{{- $legacyRemoteCASecret := default "" (get $legacyRemoteControlPlane "caSecret") -}}
+{{- $remoteCASecret := default $legacyRemoteCASecret (get $globalRemoteCARef "name") -}}
+{{- $remoteCAKey := default "ca.crt" (get $legacyRemoteControlPlane "caKey") -}}
+{{- if and (not $legacyRemoteCASecret) $remoteCASecret -}}
+{{- $remoteCAKey = default "ca.crt" (get $globalRemoteCARef "key") -}}
+{{- end -}}
+{{- $remoteControlPlane := dict
+  "url" (default (get $legacyRemoteControlPlane "url") (get $globalRemoteControlPlane "endpoint"))
+  "caSecret" $remoteCASecret
+  "caKey" $remoteCAKey
+  "clusterID" (get $legacyRemoteControlPlane "clusterID")
+-}}
 {{- $legacyAgentBootstrapEndpoint := default "" (get .Values.env "ENVPILOT_AGENT_CONTROL_PLANE_URL") -}}
 {{- $legacyAgentBootstrapRepository := default "" (get .Values.env "ENVPILOT_AGENT_IMAGE_REPOSITORY") -}}
 {{- $legacyAgentBootstrapTag := default "" (get .Values.env "ENVPILOT_AGENT_IMAGE_TAG") -}}

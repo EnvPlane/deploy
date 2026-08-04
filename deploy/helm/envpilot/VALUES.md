@@ -102,10 +102,28 @@ browser ingress hostname. The generated preflight runs `agent-connectivity-check
 from the selected Agent image and does not consume the one-time registration
 credential.
 
-For a remote Agent cluster, set `agentBootstrap.controlPlaneURL` to an explicit
-endpoint reachable from target Agent pods. Do not use `localhost`,
-`envpilot.local`, or a host-only ingress address. The one-time registration
-token remains only in the separately displayed bootstrap Secret command.
+For API/UI-managed remote clusters, set the management umbrella’s explicit
+external endpoint instead of a child-chart bootstrap override:
+
+```yaml
+global:
+  envpilot:
+    remoteControlPlane:
+      endpoint: https://api.envpilot.example.test
+      tls:
+        # Optional private-CA reference. The named Secret/key must exist in
+        # each remote Agent/Runner namespace; values contain no CA bytes.
+        caSecretRef: {name: envpilot-remote-ca, key: ca.crt}
+```
+
+The endpoint must be target-pod-reachable HTTPS. `localhost`,
+`envpilot.local`, `host.minikube.internal`, port-forwards and Kubernetes
+Service DNS are rejected. When this endpoint is served by this chart’s
+Ingress, `access.ingress.tls.enabled=true` and its existing certificate
+`secretName` are required. Gateway/API LoadBalancer certificate attachment
+remains provider-owned. The one-time registration token remains only in the
+separate bootstrap Secret path; no raw credential, CA or server certificate is
+returned through the API.
 
 The matching Agent chart is declared by
 `envpilot-control-plane.agentBootstrap.chart.ref` and `.version`. The umbrella

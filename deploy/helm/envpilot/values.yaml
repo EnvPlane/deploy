@@ -56,6 +56,21 @@ global:
     # contains no target-cluster endpoint or credential material.
     remoteClusterReconciler:
       enabled: false
+    # Management-plane endpoint used by Agent and Runner workloads in remote
+    # clusters. It is intentionally an external, stable HTTPS endpoint: the
+    # release Service DNS is same-cluster-only, and browser/local tunnel hosts
+    # are never valid remote runtime endpoints. The TLS server certificate is
+    # owned by the configured ingress/Gateway provider; for Ingress its
+    # existing Secret reference is access.ingress.tls.secretName. For a private
+    # CA, caSecretRef identifies the CA bundle that the operator makes
+    # available in each remote Agent/Runner namespace. Only names/keys are
+    # rendered or returned by the API, never certificate or credential bytes.
+    remoteControlPlane:
+      endpoint: ""
+      tls:
+        caSecretRef:
+          name: ""
+          key: ca.crt
     firstStartRegistration:
       mode: disabled # disabled | managed | existing
       secretName: envpilot-first-start-registration

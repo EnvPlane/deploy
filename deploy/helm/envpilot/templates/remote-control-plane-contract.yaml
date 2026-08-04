@@ -1,0 +1,40 @@
+{{/*
+Validate the provider-neutral management endpoint contract before Helm writes
+any release resources. Remote target workloads cannot use browser hosts,
+port-forwards or Service DNS; a provider-owned ingress/Gateway/LB must expose
+this HTTPS endpoint instead.
+*/}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $remote := default (dict) (get $envpilot "remoteControlPlane") -}}
+{{- $endpoint := lower (trim (default "" (get $remote "endpoint"))) -}}
+{{- $tls := default (dict) (get $remote "tls") -}}
+{{- $caRef := default (dict) (get $tls "caSecretRef") -}}
+{{- if $endpoint -}}
+  {{- if not (regexMatch `^https://[^/?#@]+/?$` $endpoint) -}}
+    {{- fail "global.envpilot.remoteControlPlane.endpoint must be an external HTTPS URL without credentials, query, fragment, or path" -}}
+  {{- end -}}
+  {{- if regexMatch `(^https://)(localhost|127\.0\.0\.1|\[::1\]|host\.minikube\.internal|envpilot\.local)(:|/|$)|\.svc([.:/]|$)` $endpoint -}}
+    {{- fail "global.envpilot.remoteControlPlane.endpoint must be target-pod-reachable external HTTPS; localhost, host.minikube.internal, envpilot.local, and Kubernetes Service DNS are invalid for remote mode" -}}
+  {{- end -}}
+{{- end -}}
+{{- $caName := trim (default "" (get $caRef "name")) -}}
+{{- $caKey := trim (default "" (get $caRef "key")) -}}
+{{- if and $caName (not $caKey) -}}
+  {{- fail "global.envpilot.remoteControlPlane.tls.caSecretRef.key is required when caSecretRef.name is set" -}}
+{{- end -}}
+{{- if and (not $caName) $caKey (ne $caKey "ca.crt") -}}
+  {{- fail "global.envpilot.remoteControlPlane.tls.caSecretRef.name is required when a non-default CA key is set" -}}
+{{- end -}}
+{{- $access := default (dict) .Values.access -}}
+{{- $ingress := default (dict) (get $access "ingress") -}}
+{{- $ingressHost := lower (trim (default "" (get $ingress "host"))) -}}
+{{- $ingressTLS := default (dict) (get $ingress "tls") -}}
+{{- if and $endpoint (eq (default "disabled" (get $access "mode")) "ingress") (eq $endpoint (printf "https://%s" $ingressHost)) -}}
+  {{- if not (default false (get $ingressTLS "enabled")) -}}
+    {{- fail "access.ingress.tls.enabled=true and an existing access.ingress.tls.secretName are required when the remote control-plane endpoint uses this Ingress host" -}}
+  {{- end -}}
+  {{- if not (trim (default "" (get $ingressTLS "secretName"))) -}}
+    {{- fail "access.ingress.tls.secretName must reference the externally managed certificate Secret for the remote control-plane endpoint" -}}
+  {{- end -}}
+{{- end -}}

@@ -67,6 +67,17 @@ kubectl --context "$ENVPILOT_E2E_MANAGEMENT_CONTEXT" -n "$namespace" port-forwar
 for _ in $(seq 1 60); do curl -fsS "$api_url/api/v1/health" >/dev/null 2>&1 && break; sleep 2; done
 curl -fsS "$api_url/api/v1/health" >/dev/null
 
+# This comes from the published umbrella's provider-neutral values contract,
+# not merely from the browser form. It proves the management release advertises
+# a safe endpoint before the UI requests remote reconciliation.
+capabilities="$(api "$api_url/api/v1/capabilities")"
+jq -e --arg endpoint "$ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL" '
+  .remoteControlPlane.state == "ready" and .remoteControlPlane.endpoint == $endpoint
+' <<<"$capabilities" >/dev/null || {
+  echo "published management umbrella does not advertise a ready remote control-plane endpoint; configure global.envpilot.remoteControlPlane.endpoint and its TLS/CA references in ENVPILOT_E2E_VALUES_FILE" >&2
+  exit 1
+}
+
 # A project can be created without a target. Reusing its ID for RemoteCluster
 # avoids a circular dependency: the reconciler gets a real project-scoped
 # identity before the project is assigned the newly healthy target.

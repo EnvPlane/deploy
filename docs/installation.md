@@ -60,6 +60,45 @@ never be put in values. Remote execution targets are configured after this
 install through the authenticated UI/API RemoteCluster flow, not values or
 manual child-chart commands. See [API-managed remote clusters](remote-clusters.md).
 
+## Remote-cluster management endpoint
+
+Remote Agent and Runner pods must reach the management control plane through a
+stable external HTTPS endpoint. The same-cluster Kubernetes Service DNS name is
+never valid for a remote target. Configure only endpoint and Secret references
+in the umbrella values; the chart does not create a tunnel, issue a certificate
+or put certificate bytes in values:
+
+```yaml
+global:
+  envpilot:
+    remoteControlPlane:
+      endpoint: https://api.envpilot.example.test
+      tls:
+        # Optional: required only when target pods do not trust the endpoint's
+        # issuer through their system trust store.
+        caSecretRef:
+          name: envpilot-remote-ca
+          key: ca.crt
+access:
+  mode: ingress
+  ingress:
+    host: api.envpilot.example.test
+    className: nginx
+    tls:
+      enabled: true
+      # Existing provider-managed server certificate Secret. EnvPilot never
+      # reads or generates its contents.
+      secretName: envpilot-api-tls
+```
+
+For Gateway API or an external LoadBalancer, the platform owns server-certificate
+attachment; configure its public HTTPS endpoint above. If `caSecretRef` is set,
+the named CA Secret/key must already exist in the remote Agent and Runner
+namespace. The Remote Clusters UI reads this safe endpoint metadata, pre-fills
+the endpoint/CA reference and shows a prerequisite diagnostic when it is
+missing or invalid. It rejects `envpilot.local`, localhost,
+`host.minikube.internal`, port-forwards and foreign `.svc` addresses.
+
 ## Platform dependency modes
 
 Each of `platformDependencies.ingress`, `.dns` and `.storage` has one mode:

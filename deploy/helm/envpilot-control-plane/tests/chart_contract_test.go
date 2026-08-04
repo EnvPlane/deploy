@@ -120,6 +120,21 @@ func TestControlPlaneChartUsesServiceDNSForSameClusterAgentBootstrapAndAllowsRem
 	if !strings.Contains(remote, `value: "https://api.envpilot.example.com"`) {
 		t.Fatalf("remote Agent endpoint override was not rendered:\n%s", remote)
 	}
+	umbrellaRemote := renderControlPlaneChart(t,
+		"--namespace", "envpilot",
+		"--set", "global.envpilot.remoteControlPlane.endpoint=https://api.umbrella.example.com",
+		"--set", "global.envpilot.remoteControlPlane.tls.caSecretRef.name=umbrella-remote-ca",
+		"--set", "global.envpilot.remoteControlPlane.tls.caSecretRef.key=private-ca.crt",
+	)
+	for _, expected := range []string{
+		`value: "https://api.umbrella.example.com"`,
+		`value: "umbrella-remote-ca"`,
+		`value: "private-ca.crt"`,
+	} {
+		if !strings.Contains(umbrellaRemote, expected) {
+			t.Fatalf("umbrella remote endpoint contract was not rendered %q:\n%s", expected, umbrellaRemote)
+		}
+	}
 	legacyRemote := renderControlPlaneChart(t,
 		"--namespace", "envpilot",
 		"--set", "env.ENVPILOT_AGENT_CONTROL_PLANE_URL=https://legacy-api.envpilot.example.com",

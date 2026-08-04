@@ -215,6 +215,47 @@ func TestUmbrellaInjectsReleaseCompatibleAgentChartContract(t *testing.T) {
 	}
 }
 
+func TestUmbrellaDefinesExternalHTTPSRemoteControlPlaneContract(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "global.envpilot.remoteControlPlane.endpoint=https://api.envpilot.example.test",
+		"--set", "global.envpilot.remoteControlPlane.tls.caSecretRef.name=envpilot-remote-ca",
+		"--set", "global.envpilot.remoteControlPlane.tls.caSecretRef.key=private-ca.crt",
+	)
+	for _, expected := range []string{
+		"name: ENVPILOT_REMOTE_CONTROL_PLANE_URL",
+		`value: "https://api.envpilot.example.test"`,
+		"name: ENVPILOT_REMOTE_CONTROL_PLANE_CA_SECRET",
+		`value: "envpilot-remote-ca"`,
+		`value: "private-ca.crt"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("external remote endpoint render missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "BEGIN CERTIFICATE") {
+		t.Fatalf("remote endpoint render must reference CA Secrets, never include certificate data:\n%s", rendered)
+	}
+
+	buildDependencies(t)
+	for name, args := range map[string][]string{
+		"host-local": {"--set", "global.envpilot.remoteControlPlane.endpoint=https://envpilot.local"},
+		"insecure-ingress": {"--set", "access.mode=ingress", "--set", "access.ingress.host=api.envpilot.example.test", "--set", "global.envpilot.remoteControlPlane.endpoint=https://api.envpilot.example.test"},
+	} {
+		cmd := exec.Command("helm", append([]string{"template", "envpilot", ".."}, args...)...)
+		cmd.Dir = "."
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("%s remote endpoint contract must fail:\n%s", name, output)
+		}
+		if name == "host-local" && !strings.Contains(string(output), "target-pod-reachable external HTTPS") {
+			t.Fatalf("host-local endpoint rejection is not actionable:\n%s", output)
+		}
+		if name == "insecure-ingress" && !strings.Contains(string(output), "access.ingress.tls.enabled=true") {
+			t.Fatalf("Ingress TLS prerequisite rejection is not actionable:\n%s", output)
+		}
+	}
+}
+
 func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
 	rendered := renderUmbrella(t, "--values", "../values-e2e-local.yaml")
 	for _, expected := range []string{
