@@ -92,6 +92,11 @@ type statusSnapshot struct {
 
 const statusSnapshotSchemaVersion = 1
 
+const (
+	actionCleanup          = "cleanup"
+	actionEnsureNamespaces = "ensure-namespaces"
+)
+
 var (
 	ctx        = context.Background()
 	statusData = map[string]result{}
@@ -131,14 +136,10 @@ func main() {
 	}
 }
 func run() error {
-	var cfg config
 	actionName := os.Getenv("ENVPILOT_RECONCILE_ACTION")
-	if actionName != "ensure-namespaces" {
-		if err := json.Unmarshal([]byte(os.Getenv("ENVPILOT_RECONCILE_CONFIG_JSON")), &cfg); err != nil {
-			// The chart normally supplies the ConfigMap through the API; accepting an
-			// env value also makes the binary straightforward to exercise in tests.
-			return fmt.Errorf("decode dependency config: %w", err)
-		}
+	cfg, err := configForAction(actionName, os.Getenv("ENVPILOT_RECONCILE_CONFIG_JSON"))
+	if err != nil {
+		return err
 	}
 	restCfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -152,10 +153,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if actionName == "cleanup" {
+	if actionName == actionCleanup {
 		return cleanup(cfg, restCfg)
 	}
-	if actionName == "ensure-namespaces" {
+	if actionName == actionEnsureNamespaces {
 		return ensureNamespaces(core, os.Getenv("ENVPILOT_RECONCILE_PROVIDER_NAMESPACES"))
 	}
 	var reconcileErrors []string
@@ -183,6 +184,24 @@ func run() error {
 		return fmt.Errorf("bundled PostgreSQL/Redis require a ready storage dependency: %s", statusData["storage"].Message)
 	}
 	return persistStatus(core, statusData)
+}
+
+// configForAction keeps the Job-to-binary contract explicit. Namespace setup
+// deliberately runs before the ConfigMap hook and must therefore never parse
+// ENVPILOT_RECONCILE_CONFIG_JSON. All other actions require a complete config;
+// report only the missing contract, never the environment value itself.
+func configForAction(actionName, raw string) (config, error) {
+	if actionName == actionEnsureNamespaces {
+		return config{}, nil
+	}
+	if strings.TrimSpace(raw) == "" {
+		return config{}, fmt.Errorf("reconciliation config is required for action %q", actionName)
+	}
+	var cfg config
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		return config{}, fmt.Errorf("decode dependency config: %w", err)
+	}
+	return cfg, nil
 }
 
 func ensureNamespaces(client kubernetes.Interface, raw string) error {

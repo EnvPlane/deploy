@@ -583,6 +583,7 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 		"name: HOME\n              value: /tmp/envpilot-home",
 		"name: XDG_CACHE_HOME\n              value: /tmp/envpilot-home/.cache",
 		"mountPath: /tmp",
+		"\"helm.sh/hook-delete-policy\": before-hook-creation,hook-succeeded,hook-failed",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("platform reconciler contract missing %q:\n%s", expected, rendered)
@@ -590,6 +591,44 @@ func TestPlatformDependencyReconcilerIsHookedAndLeastPrivilegeByDefault(t *testi
 	}
 	if strings.Contains(rendered, "resources: [\"deployments\", \"pods\"]") || strings.Contains(rendered, "helm.sh/hook: post-install") {
 		t.Fatal("platform reconciler must not own EnvPilot core workloads")
+	}
+}
+
+func TestNginxCleanInstallHooksAreActionAwareAndFailureSafe(t *testing.T) {
+	existing := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "platformDependencies.ingress.mode=existing",
+		"--set", "platformDependencies.ingress.existingClassName=nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
+	if strings.Contains(existing, "platform-reconciler-namespaces") {
+		t.Fatalf("existing nginx must not render namespace setup hook:\n%s", existing)
+	}
+	if !strings.Contains(existing, "name: envpilot-platform-reconciler\n") ||
+		!strings.Contains(existing, "\"helm.sh/hook-delete-policy\": before-hook-creation,hook-succeeded,hook-failed") {
+		t.Fatalf("existing nginx must render a self-cleaning reconciler hook:\n%s", existing)
+	}
+
+	managed := renderUmbrella(t,
+		"--set", "access.mode=ingress",
+		"--set", "access.ingress.host=envpilot.example.test",
+		"--set", "access.ingress.className=nginx",
+		"--set", "global.envpilot.registry.mode=existing",
+		"--set", "global.envpilot.registry.existingSecret=registry-credentials",
+	)
+	for _, expected := range []string{
+		"name: envpilot-platform-reconciler-namespaces",
+		"name: ENVPILOT_RECONCILE_ACTION\n              value: ensure-namespaces",
+		"name: ENVPILOT_RECONCILE_PROVIDER_NAMESPACES",
+		"\"helm.sh/hook-delete-policy\": before-hook-creation,hook-succeeded,hook-failed",
+	} {
+		if !strings.Contains(managed, expected) {
+			t.Fatalf("managed nginx clean-install hook contract missing %q:\n%s", expected, managed)
+		}
+	}
+	if strings.Contains(managed, "ENVPILOT_RECONCILE_CONFIG_JSON\n              value:") {
+		t.Fatalf("namespace setup must not receive an inline dependency config:\n%s", managed)
 	}
 }
 

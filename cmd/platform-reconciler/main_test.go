@@ -129,3 +129,20 @@ func TestEnsureNamespacesIsIdempotent(t *testing.T) {
 		t.Fatalf("provider namespace missing: %v", err)
 	}
 }
+
+func TestEnsureNamespacesActionDoesNotRequireDependencyConfig(t *testing.T) {
+	cfg, err := configForAction(actionEnsureNamespaces, "{")
+	if err != nil {
+		t.Fatalf("namespace action must not decode dependency config: %v", err)
+	}
+	if cfg.Ingress.Mode != "" || cfg.DNS.Mode != "" || cfg.Storage.Mode != "" {
+		t.Fatalf("namespace action returned unexpected config: %#v", cfg)
+	}
+}
+
+func TestReconcileActionRequiresNonEmptyDependencyConfig(t *testing.T) {
+	_, err := configForAction("reconcile", " \t\n")
+	if err == nil || !strings.Contains(err.Error(), "reconciliation config is required") {
+		t.Fatalf("expected actionable missing-config error, got %v", err)
+	}
+}
