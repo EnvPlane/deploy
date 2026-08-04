@@ -6,6 +6,43 @@ NAMESPACE="${PLATFORM_E2E_NAMESPACE:-envpilot-e2e-platform}"
 RELEASE="${PLATFORM_E2E_RELEASE:-envpilot-platform-e2e}"
 CHART="${PLATFORM_E2E_CHART:-./deploy/helm/envpilot}"
 MATRIX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/platform-dependencies"
+API_PORT="${PLATFORM_E2E_API_PORT:-18080}"
+tmp="$(mktemp -d)"
+api_pf_pid=""
+
+cleanup() {
+  if [[ -n "$api_pf_pid" ]]; then
+    kill "$api_pf_pid" 2>/dev/null || true
+  fi
+  rm -rf "$tmp"
+}
+trap cleanup EXIT
+
+assert_capabilities_match_observed_status() {
+  local context="$1"
+  local expected_ingress_state="$2"
+  local pod capabilities
+  pod="$(kubectl --context "$context" -n "$NAMESPACE" get pods -l app.kubernetes.io/name=envpilot-control-plane -o jsonpath='{.items[0].metadata.name}')"
+  test -n "$pod"
+  kubectl --context "$context" -n "$NAMESPACE" port-forward "pod/$pod" "${API_PORT}:8080" >"$tmp/api-port-forward.log" 2>&1 &
+  api_pf_pid="$!"
+  for _ in $(seq 1 30); do
+    if capabilities="$(curl -fsS "http://127.0.0.1:${API_PORT}/api/v1/capabilities" 2>/dev/null)"; then
+      break
+    fi
+    sleep 1
+  done
+  test -n "${capabilities:-}"
+  printf '%s\n' "$capabilities" | jq -e --arg state "$expected_ingress_state" '
+    .platformDependencyStatus.state == "observed" and
+    .platformDependencies.ingress.state == $state and
+    .platformDependencies.ingress.generation >= 1 and
+    (.platformDependencyStatus.observedAt | type == "string")
+  ' >/dev/null
+  kill "$api_pf_pid" 2>/dev/null || true
+  wait "$api_pf_pid" 2>/dev/null || true
+  api_pf_pid=""
+}
 
 IFS=',' read -r -a contexts <<< "$PLATFORM_E2E_CONTEXT"
 for context in "${contexts[@]}"; do
@@ -15,23 +52,38 @@ for context in "${contexts[@]}"; do
     if [[ "$scenario" == degraded ]]; then
       set +e
       helm upgrade --install "$RELEASE" "$CHART" --kube-context "$context" \
-        --namespace "$NAMESPACE" --create-namespace --values "$values" --wait --timeout 10m
+        --namespace "$NAMESPACE" --create-namespace --values "$values" \
+        --set platformDependencyReconciler.enabled=true --wait --timeout 10m
       rc=$?
       set -e
       test "$rc" -ne 0
     else
       helm upgrade --install "$RELEASE" "$CHART" --kube-context "$context" \
-        --namespace "$NAMESPACE" --create-namespace --values "$values" --wait --timeout 10m
+        --namespace "$NAMESPACE" --create-namespace --values "$values" \
+        --set platformDependencyReconciler.enabled=true --wait --timeout 10m
     fi
     status="$(kubectl --context "$context" -n "$NAMESPACE" get configmap "${RELEASE}-platform-dependency-reconciler-status" -o jsonpath='{.data.status\.json}')"
     test -n "$status"
-    printf '%s\n' "$status" | jq -e 'type == "object" and has("ingress") and has("dns") and has("storage")' >/dev/null
+    printf '%s\n' "$status" | jq -e '
+      type == "object" and
+      .schemaVersion == 1 and
+      (.generation | type == "number") and
+      (.observedAt | type == "string") and
+      (.dependencies | type == "object") and
+      (.dependencies | has("ingress") and has("dns") and has("storage"))
+    ' >/dev/null
+
+    if [[ "$scenario" != degraded ]]; then
+      ingress_state="$(printf '%s\n' "$status" | jq -r '.dependencies.ingress.state')"
+      assert_capabilities_match_observed_status "$context" "$ingress_state"
+    fi
 
     # Reinstalling healthy scenarios must be idempotent. The degraded case is
     # expected to remain blocked with the same actionable diagnostic.
     if [[ "$scenario" != degraded ]]; then
       helm upgrade --install "$RELEASE" "$CHART" --kube-context "$context" \
-        --namespace "$NAMESPACE" --values "$values" --wait --timeout 10m >/dev/null
+        --namespace "$NAMESPACE" --values "$values" \
+        --set platformDependencyReconciler.enabled=true --wait --timeout 10m >/dev/null
     fi
 
     helm uninstall "$RELEASE" --kube-context "$context" --namespace "$NAMESPACE" --wait
