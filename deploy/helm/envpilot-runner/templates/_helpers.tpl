@@ -94,6 +94,7 @@ envpilot.io/auth-revision: {{ get $managedRemote "authRevision" | quote }}
 envpilot.io/auth-rotation: {{ default "" (get $managedRemote "authRotation") | quote }}
 envpilot.io/compatibility-pin: {{ default "" (get $managedRemote "compatibilityPin") | quote }}
 envpilot.io/generation: {{ default 0 (get $managedRemote "generation") | quote }}
+envpilot.io/trust-revision: {{ default "" (get $managedRemote "trustRevision") | quote }}
 envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyMigration") | quote }}
 {{- end }}
 {{- end -}}
