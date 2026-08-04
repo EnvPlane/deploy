@@ -248,21 +248,21 @@ func TestUmbrellaInjectsReleaseCompatibleAgentChartContract(t *testing.T) {
 	}
 }
 
-func TestUmbrellaDefinesExternalHTTPSRemoteControlPlaneContract(t *testing.T) {
+func TestUmbrellaDefinesPrivateOrPublicHTTPSRemoteControlPlaneContract(t *testing.T) {
 	rendered := renderUmbrella(t,
-		"--set", "global.envpilot.remoteControlPlane.endpoint=https://api.envpilot.example.test",
+		"--set", "global.envpilot.remoteControlPlane.endpoint=https://envpilot.platform.internal",
 		"--set", "global.envpilot.remoteControlPlane.tls.caSecretRef.name=envpilot-remote-ca",
 		"--set", "global.envpilot.remoteControlPlane.tls.caSecretRef.key=private-ca.crt",
 	)
 	for _, expected := range []string{
 		"name: ENVPILOT_REMOTE_CONTROL_PLANE_URL",
-		`value: "https://api.envpilot.example.test"`,
+		`value: "https://envpilot.platform.internal"`,
 		"name: ENVPILOT_REMOTE_CONTROL_PLANE_CA_SECRET",
 		`value: "envpilot-remote-ca"`,
 		`value: "private-ca.crt"`,
 	} {
 		if !strings.Contains(rendered, expected) {
-			t.Fatalf("external remote endpoint render missing %q:\n%s", expected, rendered)
+			t.Fatalf("private-or-public remote endpoint render missing %q:\n%s", expected, rendered)
 		}
 	}
 	if strings.Contains(rendered, "BEGIN CERTIFICATE") {
@@ -280,7 +280,7 @@ func TestUmbrellaDefinesExternalHTTPSRemoteControlPlaneContract(t *testing.T) {
 		if err == nil {
 			t.Fatalf("%s remote endpoint contract must fail:\n%s", name, output)
 		}
-		if name == "host-local" && !strings.Contains(string(output), "target-pod-reachable external HTTPS") {
+		if name == "host-local" && !strings.Contains(string(output), "target-pod-reachable private or public HTTPS") {
 			t.Fatalf("host-local endpoint rejection is not actionable:\n%s", output)
 		}
 		if name == "insecure-ingress" && !strings.Contains(string(output), "access.ingress.tls.enabled=true") {

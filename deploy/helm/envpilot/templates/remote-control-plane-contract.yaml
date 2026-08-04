@@ -1,8 +1,8 @@
 {{/*
 Validate the provider-neutral management endpoint contract before Helm writes
 any release resources. Remote target workloads cannot use browser hosts,
-port-forwards or Service DNS; a provider-owned ingress/Gateway/LB must expose
-this HTTPS endpoint instead.
+port-forwards or Service DNS; a provider-owned private or public
+ingress/Gateway/LB must expose this HTTPS endpoint instead.
 */}}
 {{- $global := default (dict) .Values.global -}}
 {{- $envpilot := default (dict) (get $global "envpilot") -}}
@@ -12,10 +12,10 @@ this HTTPS endpoint instead.
 {{- $caRef := default (dict) (get $tls "caSecretRef") -}}
 {{- if $endpoint -}}
   {{- if not (regexMatch `^https://[^/?#@]+/?$` $endpoint) -}}
-    {{- fail "global.envpilot.remoteControlPlane.endpoint must be an external HTTPS URL without credentials, query, fragment, or path" -}}
+    {{- fail "global.envpilot.remoteControlPlane.endpoint must be a stable private or public HTTPS URL without credentials, query, fragment, or path" -}}
   {{- end -}}
   {{- if regexMatch `(^https://)(localhost|127\.0\.0\.1|\[::1\]|host\.minikube\.internal|envpilot\.local)(:|/|$)|\.svc([.:/]|$)` $endpoint -}}
-    {{- fail "global.envpilot.remoteControlPlane.endpoint must be target-pod-reachable external HTTPS; localhost, host.minikube.internal, envpilot.local, and Kubernetes Service DNS are invalid for remote mode" -}}
+    {{- fail "global.envpilot.remoteControlPlane.endpoint must be a target-pod-reachable private or public HTTPS URL; localhost, host.minikube.internal, envpilot.local, and Kubernetes Service DNS are invalid for remote mode" -}}
   {{- end -}}
 {{- end -}}
 {{- $caName := trim (default "" (get $caRef "name")) -}}
@@ -35,6 +35,6 @@ this HTTPS endpoint instead.
     {{- fail "access.ingress.tls.enabled=true and an existing access.ingress.tls.secretName are required when the remote control-plane endpoint uses this Ingress host" -}}
   {{- end -}}
   {{- if not (trim (default "" (get $ingressTLS "secretName"))) -}}
-    {{- fail "access.ingress.tls.secretName must reference the externally managed certificate Secret for the remote control-plane endpoint" -}}
+    {{- fail "access.ingress.tls.secretName must reference the provider-managed certificate Secret for the remote control-plane endpoint" -}}
   {{- end -}}
 {{- end -}}

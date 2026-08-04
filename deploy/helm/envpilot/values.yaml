@@ -57,7 +57,7 @@ global:
     remoteClusterReconciler:
       enabled: false
     # Management-plane endpoint used by Agent and Runner workloads in remote
-    # clusters. It is intentionally an external, stable HTTPS endpoint: the
+    # clusters. It is intentionally a stable private or public HTTPS endpoint:
     # release Service DNS is same-cluster-only, and browser/local tunnel hosts
     # are never valid remote runtime endpoints. The TLS server certificate is
     # owned by the configured ingress/Gateway provider; for Ingress its

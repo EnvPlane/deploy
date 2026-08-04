@@ -63,7 +63,7 @@ manual child-chart commands. See [API-managed remote clusters](remote-clusters.m
 ## Remote-cluster management endpoint
 
 Remote Agent and Runner pods must reach the management control plane through a
-stable external HTTPS endpoint. The same-cluster Kubernetes Service DNS name is
+stable private or public HTTPS endpoint. The same-cluster Kubernetes Service DNS name is
 never valid for a remote target. Configure only endpoint and Secret references
 in the umbrella values; the chart does not create a tunnel, issue a certificate
 or put certificate bytes in values:

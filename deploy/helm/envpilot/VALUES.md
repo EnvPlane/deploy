@@ -103,7 +103,7 @@ from the selected Agent image and does not consume the one-time registration
 credential.
 
 For API/UI-managed remote clusters, set the management umbrella’s explicit
-external endpoint instead of a child-chart bootstrap override:
+stable private or public endpoint instead of a child-chart bootstrap override:
 
 ```yaml
 global:
@@ -116,7 +116,8 @@ global:
         caSecretRef: {name: envpilot-remote-ca, key: ca.crt}
 ```
 
-The endpoint must be target-pod-reachable HTTPS. `localhost`,
+The endpoint may be private or public DNS, but must be target-pod-reachable
+HTTPS. `localhost`,
 `envpilot.local`, `host.minikube.internal`, port-forwards and Kubernetes
 Service DNS are rejected. When this endpoint is served by this chart’s
 Ingress, `access.ingress.tls.enabled=true` and its existing certificate

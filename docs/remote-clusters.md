@@ -24,7 +24,7 @@ helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
   --namespace envpilot --create-namespace --values values.yaml --wait
 ```
 
-The management chart must expose a stable HTTPS endpoint that target Pods can reach. It must not be `localhost`, a port-forward address, `host.minikube.internal`, `envpilot.local`, or foreign Kubernetes Service DNS. Service DNS is valid only for same-cluster components.
+The management chart must expose a stable private or public HTTPS endpoint that target Pods can reach. It must not be `localhost`, a port-forward address, `host.minikube.internal`, `envpilot.local`, or foreign Kubernetes Service DNS. Service DNS is valid only for same-cluster components.
 
 The management values only enable the reconciler and grant it access to the
 explicit Secret namespace; they contain no target endpoint, kubeconfig, token,

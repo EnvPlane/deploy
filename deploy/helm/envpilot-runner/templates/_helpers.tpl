@@ -65,7 +65,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if not (regexMatch "^https://[^/?#]+(/[^?#]*)?$" $url) }}{{ fail "controlPlane.url must be an explicit stable https:// endpoint when controlPlane.endpointMode=remote" }}{{ end -}}
 {{- if or (contains "@" $url) (contains "?" $url) (contains "#" $url) }}{{ fail "controlPlane.url must not include credentials, query parameters, or fragments" }}{{ end -}}
 {{- if regexMatch "^https://(localhost|127\\.[0-9.]+|\\[::1\\]|host\\.minikube\\.internal|envpilot\\.local)([:/]|$)" $urlLower }}{{ fail "controlPlane.endpointMode=remote rejects host-local and port-forward controlPlane.url values" }}{{ end -}}
-{{- if or (contains ".svc/" $urlLower) (contains ".svc:" $urlLower) (contains ".svc." $urlLower) (hasSuffix ".svc" $urlLower) }}{{ fail "controlPlane.endpointMode=remote rejects Kubernetes Service DNS controlPlane.url values; use a target-pod-reachable external HTTPS endpoint" }}{{ end -}}
+{{- if or (contains ".svc/" $urlLower) (contains ".svc:" $urlLower) (contains ".svc." $urlLower) (hasSuffix ".svc" $urlLower) }}{{ fail "controlPlane.endpointMode=remote rejects Kubernetes Service DNS controlPlane.url values; use a target-pod-reachable private or public HTTPS endpoint" }}{{ end -}}
 {{- $tls := default (dict) (get $controlPlane "tls") -}}
 {{- if and (get $tls "caSecret") (not (get $tls "caKey")) }}{{ fail "controlPlane.tls.caKey is required when controlPlane.tls.caSecret is set" }}{{ end -}}
 {{- $url -}}
@@ -114,7 +114,7 @@ envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 {{- if not (regexMatch "^https://" $url) }}{{ fail "managedRemote.enabled requires an https:// controlPlane.url" }}{{ end -}}
 {{- $urlLower := lower $url -}}
 {{- if regexMatch "^https://(localhost|127\\.[0-9.]+|\\[::1\\]|host\\.minikube\\.internal)([:/]|$)" $urlLower }}{{ fail "managedRemote.enabled rejects host-local controlPlane.url values" }}{{ end -}}
-{{- if or (contains ".svc/" $urlLower) (contains ".svc:" $urlLower) (contains ".svc." $urlLower) (hasSuffix ".svc" $urlLower) }}{{ fail "managedRemote.enabled rejects Kubernetes Service DNS controlPlane.url values; use a target-pod-reachable external HTTPS endpoint" }}{{ end -}}
+{{- if or (contains ".svc/" $urlLower) (contains ".svc:" $urlLower) (contains ".svc." $urlLower) (hasSuffix ".svc" $urlLower) }}{{ fail "managedRemote.enabled rejects Kubernetes Service DNS controlPlane.url values; use a target-pod-reachable private or public HTTPS endpoint" }}{{ end -}}
 {{- if not (get $controlPlane "existingSecret") }}{{ fail "managedRemote.enabled requires controlPlane.existingSecret" }}{{ end -}}
 {{- if or (get $controlPlane "token") (get $controlPlane "configToken") (get $controlPlane "allowUnsafePlaintextTokens") }}{{ fail "managedRemote.enabled requires Secret-referenced bootstrap auth and rejects plaintext tokens" }}{{ end -}}
 {{- if not (get $managedRemote "remoteClusterId") }}{{ fail "managedRemote.enabled requires managedRemote.remoteClusterId" }}{{ end -}}
