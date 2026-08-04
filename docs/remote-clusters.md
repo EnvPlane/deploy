@@ -62,9 +62,55 @@ Deleting a remote target is controlled: the API returns `202`, the reconciler re
 
 `scripts/published-remote-cluster-two-cluster-e2e.sh` verifies published artifacts against two already provisioned contexts. It installs only the management umbrella, creates a project and RemoteCluster through the public API, and proves:
 
-1. reconciler-managed Agent/Runner installation and init-container endpoint preflight in the target cluster;
+1. an API-managed private HTTPS endpoint profile, private-CA Secret reference, reconciler-managed CA distribution, and Agent/Runner init-container endpoint preflight in the target cluster;
 2. fresh heartbeats, Bootstrap scan, Helm preflight and compile;
 3. Full Environment create/delete through the browser UI, with its Helm release present only in the target cluster;
-4. endpoint loss, degraded diagnostics, credential/identity rotation and idempotent repair.
+4. DNS endpoint loss, private-CA rotation, degraded diagnostics, and idempotent repair.
 
-CI may create disposable clusters for this harness, but neither the chart nor the product creates clusters, tunnels, local profiles, or manual OCI child releases. It accepts Secret references or a credential file and never prints credential contents.
+### Product contract versus private-network prerequisite
+
+EnvPilot owns the RemoteCluster record, target Agent/Runner releases, scoped
+trust Secret copy, target-pod probe, heartbeats, Bootstrap and Environment
+lifecycle. It does **not** own network reachability outside Kubernetes. Before
+running the published E2E, the platform operator must provide:
+
+- two already provisioned Kubernetes contexts;
+- a stable private or public HTTPS DNS name reachable from target Agent/Runner
+  Pods, with DNS, routing/firewall and a serving certificate already in place;
+- the current and rotated CA PEM files for that endpoint, plus a planned server
+  certificate rotation which chains to the rotated CA;
+- stable management API/UI URLs for the test client and a target Kubernetes API
+  credential Secret/file with least-privilege RemoteCluster access.
+
+The harness receives these as environment variables and stores CA/Kubernetes
+material only in Kubernetes Secrets. It never creates clusters, tunnels,
+port-forwards, DNS records, certificates or manual OCI child releases. A
+`does-not-resolve.invalid` profile update is used only to prove DNS diagnostics;
+the recovery path restores the API-managed profile and reconciles the existing
+managed releases.
+
+Example invocation (the exact endpoint and files are platform-owned):
+
+```sh
+ENVPILOT_E2E_MANAGEMENT_CONTEXT=management \
+ENVPILOT_E2E_TARGET_CONTEXT=target \
+ENVPILOT_E2E_UMBRELLA_REF=oci://ghcr.io/envpilot/envpilot \
+ENVPILOT_E2E_UMBRELLA_VERSION=<immutable-version> \
+ENVPILOT_E2E_VALUES_FILE=values.yaml \
+ENVPILOT_E2E_API_URL=https://api.envpilot.platform.internal \
+ENVPILOT_E2E_UI_URL=https://ui.envpilot.platform.internal \
+ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL=https://api.envpilot.platform.internal \
+ENVPILOT_E2E_REMOTE_CONTROL_PLANE_TLS_SERVER_NAME=api.envpilot.platform.internal \
+ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_FILE=/secure/path/current-ca.pem \
+ENVPILOT_E2E_REMOTE_CONTROL_PLANE_ROTATED_CA_FILE=/secure/path/rotated-ca.pem \
+ENVPILOT_E2E_REMOTE_KUBERNETES_ENDPOINT=https://kubernetes.target.internal \
+ENVPILOT_E2E_REMOTE_CREDENTIAL_FILE=/secure/path/target-kubeconfig \
+ENVPILOT_E2E_HELM_CHART_REF=oci://registry.example.test/charts/e2e \
+ENVPILOT_E2E_APP_REPOSITORY_URL=https://git.example.test/acme/app.git \
+ENVPILOT_E2E_GITOPS_REPOSITORY_URL=https://git.example.test/acme/gitops.git \
+ENVPILOT_E2E_SCM_TOKEN_FILE=/secure/path/scm-token \
+./scripts/published-remote-cluster-two-cluster-e2e.sh
+```
+
+CI may create disposable clusters for this harness, but neither the chart nor
+the product creates clusters or private-network infrastructure.
