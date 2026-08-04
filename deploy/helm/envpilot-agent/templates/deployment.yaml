@@ -66,6 +66,10 @@ spec:
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
             {{- end }}
+            {{ if $controlPlaneTLS.serverName }}
+            - name: ENVPILOT_CONTROL_PLANE_TLS_SERVER_NAME
+              value: {{ $controlPlaneTLS.serverName | quote }}
+            {{ end }}
           {{- if $controlPlaneTLS.caSecret }}
           volumeMounts:
             - name: control-plane-ca
@@ -94,6 +98,14 @@ spec:
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
             {{- end }}
+            {{ if $controlPlaneTLS.serverName }}
+            - name: ENVPILOT_CONTROL_PLANE_TLS_SERVER_NAME
+              value: {{ $controlPlaneTLS.serverName | quote }}
+            {{ end }}
+            {{ if $managedRemoteEnabled }}
+            - name: ENVPILOT_REMOTE_GENERATION
+              value: {{ get $managedRemote "generation" | quote }}
+            {{ end }}
             - name: ENVPILOT_CLUSTER_ID
               value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "remoteClusterId" | quote }}{{ else }}{{ default .Release.Name .Values.cluster.id | quote }}{{ end }}
             - name: ENVPILOT_BOOTSTRAP_PROJECT_ID
