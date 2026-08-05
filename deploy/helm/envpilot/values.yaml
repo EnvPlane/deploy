@@ -238,6 +238,8 @@ envpilot-control-plane:
       enabled: false
   remoteClusterReconciler:
     compatibilityConfigMapName: ""
+    leaderElection:
+      namespace: ""
   service:
     type: ClusterIP
     port: 8080

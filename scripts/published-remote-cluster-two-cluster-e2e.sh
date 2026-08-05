@@ -68,6 +68,22 @@ wait_json() { local path="$1" filter="$2"; for _ in $(seq 1 120); do body="$(api
 helm upgrade --install "$release" "$ENVPILOT_E2E_UMBRELLA_REF" --version "$ENVPILOT_E2E_UMBRELLA_VERSION" \
   --kube-context "$ENVPILOT_E2E_MANAGEMENT_CONTEXT" --namespace "$namespace" --create-namespace --values "$ENVPILOT_E2E_VALUES_FILE" --wait --timeout 15m
 
+# The control-plane Lease must be created in the same non-default management
+# namespace as this umbrella release. This catches a missing POD_NAMESPACE (or
+# an accidental default namespace fallback) before the RemoteCluster flow
+# reports a less useful reconciliation timeout.
+leader_lease="envpilot-remote-cluster-reconciler"
+leader_identity=""
+for _ in $(seq 1 60); do
+  leader_identity="$(kubectl --context "$ENVPILOT_E2E_MANAGEMENT_CONTEXT" -n "$namespace" get lease "$leader_lease" -o json 2>/dev/null | jq -r '.spec.holderIdentity // ""' || true)"
+  [[ -n "$leader_identity" ]] && break
+  sleep 2
+done
+[[ -n "$leader_identity" ]] || {
+  echo "remote cluster reconciler did not acquire Lease $namespace/$leader_lease; verify POD_NAMESPACE or remoteClusterReconciler.leaderElection.namespace and matching Role/RoleBinding" >&2
+  exit 1
+}
+
 # The E2E client uses a stable management API/UI address provided by the test
 # environment. It deliberately cannot make a port-forward look like a remote
 # endpoint contract.

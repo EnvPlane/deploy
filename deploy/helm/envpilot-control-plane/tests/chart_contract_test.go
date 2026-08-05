@@ -169,6 +169,48 @@ func TestControlPlaneChartUsesNamespaceScopedSecretReaderInsteadOfClusterAdmin(t
 	}
 }
 
+func TestControlPlaneChartUsesPodNamespaceForRemoteClusterLeaderElection(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--namespace", "management-system",
+		"--set", "global.envpilot.remoteClusterReconciler.enabled=true",
+		"--set", "rbac.remoteClusterReconciler.enabled=true",
+	)
+	for _, expected := range []string{
+		"name: POD_NAMESPACE\n              valueFrom:\n                fieldRef:\n                  fieldPath: metadata.namespace",
+		"name: envpilot-control-plane-remote-cluster-reconciler\n  namespace: \"management-system\"",
+		"resources: [\"leases\"]",
+		"verbs: [\"get\", \"create\", \"update\", \"patch\"]",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("non-default leader-election render missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "ENVPILOT_REMOTE_CLUSTER_RECONCILER_NAMESPACE") {
+		t.Fatalf("default leader-election contract must derive the namespace from POD_NAMESPACE:\n%s", rendered)
+	}
+}
+
+func TestControlPlaneChartRendersExplicitLeaderElectionNamespaceAndMatchingRBAC(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--namespace", "management-system",
+		"--set", "global.envpilot.remoteClusterReconciler.enabled=true",
+		"--set", "rbac.remoteClusterReconciler.enabled=true",
+		"--set", "remoteClusterReconciler.leaderElection.namespace=lease-system",
+	)
+	for _, expected := range []string{
+		"name: ENVPILOT_REMOTE_CLUSTER_RECONCILER_NAMESPACE\n              value: \"lease-system\"",
+		"name: envpilot-control-plane-remote-cluster-reconciler\n  namespace: \"lease-system\"",
+		"name: envpilot-control-plane\n    namespace: management-system",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("explicit leader-election render missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Count(rendered, "namespace: \"lease-system\"") < 2 {
+		t.Fatalf("explicit leader-election namespace must contain both Role and RoleBinding:\n%s", rendered)
+	}
+}
+
 func TestControlPlaneChartSupportsExistingServiceAccountAndExternalRBAC(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
 		"--set", "serviceAccount.create=false",

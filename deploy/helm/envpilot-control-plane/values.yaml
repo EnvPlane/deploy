@@ -200,6 +200,11 @@ rbac:
 
 remoteClusterReconciler:
   compatibilityConfigMapName: ""
+  # Empty uses POD_NAMESPACE from the Downward API. Set only when an operator
+  # intentionally keeps the leader-election Lease in another namespace; the
+  # chart creates the matching namespaced Role and RoleBinding there.
+  leaderElection:
+    namespace: ""
 
 podAnnotations: {}
 podLabels: {}

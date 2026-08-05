@@ -8,6 +8,9 @@
 {{- $platformDependencyStatusStaleAfter := default 300 (get $platformDependencyStatus "staleAfterSeconds") -}}
 {{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
 {{- $remoteClusterReconcilerEnabled := default false $remoteClusterReconciler.enabled -}}
+{{- $remoteClusterReconcilerConfig := default (dict) .Values.remoteClusterReconciler -}}
+{{- $leaderElection := default (dict) (get $remoteClusterReconcilerConfig "leaderElection") -}}
+{{- $leaderElectionNamespace := trim (default "" (get $leaderElection "namespace")) -}}
 {{- $remoteCompatibilityConfigMap := include "envpilot-control-plane.remoteClusterCompatibilityConfigMapName" . -}}
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
@@ -189,6 +192,18 @@ spec:
             - name: ENVPILOT_REMOTE_CLUSTER_RECONCILER_ENABLED
               value: {{ $remoteClusterReconcilerEnabled | quote }}
             {{- if $remoteClusterReconcilerEnabled }}
+            # Always derive the normal leader-election namespace from the Pod,
+            # not from a hard-coded default. This keeps the Lease and its
+            # namespaced Role aligned when the umbrella is installed outside
+            # the Kubernetes default namespace.
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- if $leaderElectionNamespace }}
+            - name: ENVPILOT_REMOTE_CLUSTER_RECONCILER_NAMESPACE
+              value: {{ $leaderElectionNamespace | quote }}
+            {{- end }}
             - name: HOME
               value: /tmp/envpilot-home
             - name: XDG_CACHE_HOME
