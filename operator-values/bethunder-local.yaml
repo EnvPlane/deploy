@@ -8,6 +8,19 @@ global:
       existingSecret: envpilot-ghcr
       imagePullSecrets:
         - name: envpilot-ghcr
+    firstStartRegistration:
+      mode: managed
+      cluster:
+        id: bethunder-local
+
+# Run the EnvPilot execution plane in the same minikube cluster as the control
+# plane. The managed first-start registration above supplies the one-time
+# credentials used by both workloads.
+agent:
+  enabled: true
+
+runner:
+  enabled: true
 
 access:
   mode: ingress
