@@ -51,8 +51,11 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 		}
 	}
 	rendered := renderRunnerChart(t)
-	if !strings.Contains(rendered, "- runner") {
-		t.Fatalf("rendered chart must start runner subcommand:\n%s", rendered)
+	if strings.Contains(rendered, "\n          args:\n            - runner\n") {
+		t.Fatalf("standalone runner image must start without the legacy runner subcommand:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "- runner-connectivity-check") {
+		t.Fatalf("runner chart must retain the standalone connectivity preflight:\n%s", rendered)
 	}
 	if !strings.Contains(rendered, "path: /livez") || !strings.Contains(rendered, "readinessProbe:\n            httpGet:\n              path: /health") {
 		t.Fatalf("runner chart must keep stale identities live while marking them unready:\n%s", rendered)
@@ -256,7 +259,7 @@ func TestRunnerChartUsesPersistentImage(t *testing.T) {
 	valuesText := string(values)
 	for _, expected := range []string{
 		"repository: ghcr.io/envpilot/runner",
-		`tag: "0.1.4"`,
+		`tag: "0.2.0"`,
 	} {
 		if !strings.Contains(valuesText, expected) {
 			t.Fatalf("values.yaml does not contain %q", expected)

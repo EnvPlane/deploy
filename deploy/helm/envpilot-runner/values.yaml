@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/envpilot/runner
   pullPolicy: IfNotPresent
-  tag: "0.1.4"
+  tag: "0.2.0"
   digest: ""
   sourceRevision: ""
   release: ""
@@ -11,8 +11,7 @@ image:
 imagePullSecrets: []
 
 command: []
-args:
-  - runner
+args: []
 
 nameOverride: ""
 # New releases use <release>-<chart> resource names. Existing releases from
