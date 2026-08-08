@@ -16,6 +16,7 @@ release instead.
   "frontend" "envpilot-frontend"
   "agent" "envpilot-agent"
   "runner" "envpilot-runner"
+  "webhook" "envpilot-webhook"
   "platform-reconciler" "platformDependencyReconciler"
 -}}
 {{- range $expected := (get $manifest "images") -}}

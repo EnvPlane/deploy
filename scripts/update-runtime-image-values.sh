@@ -7,7 +7,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage: update-runtime-image-values.sh \
-  --component <control-plane|frontend|agent|runner|platform-reconciler> \
+  --component <control-plane|frontend|agent|runner|webhook|platform-reconciler> \
   --repository <ghcr.io/envpilot/...> \
   --tag <sha-40-hex> \
   --digest <sha256:64-hex> \
@@ -53,6 +53,7 @@ case "$component" in
   frontend) section="envpilot-frontend"; expected_repository="ghcr.io/envpilot/frontend" ;;
   agent) section="envpilot-agent"; expected_repository="ghcr.io/envpilot/agent" ;;
   runner) section="envpilot-runner"; expected_repository="ghcr.io/envpilot/runner" ;;
+  webhook) section="envpilot-webhook"; expected_repository="ghcr.io/envpilot/webhook" ;;
   platform-reconciler) section="platformDependencyReconciler"; expected_repository="ghcr.io/envpilot/platform-reconciler" ;;
   *) die "unsupported component: $component" ;;
 esac
@@ -69,6 +70,7 @@ case "$component" in
   frontend) release_key="frontend" ;;
   agent) release_key="agent" ;;
   runner) release_key="runner" ;;
+  webhook) release_key="webhook" ;;
   platform-reconciler) release_key="platformReconciler" ;;
 esac
 

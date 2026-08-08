@@ -11,5 +11,8 @@ dependencies:
 - name: envpilot-runner
   repository: file://../envpilot-runner
   version: 0.4.0
-digest: sha256:095f86f341bf56413a064e1f838cbbdff96070cd2d2ae39167a9d85a0bf1c255
-generated: "2026-08-08T10:49:05.320023+02:00"
+- name: envpilot-webhook
+  repository: file://../envpilot-webhook
+  version: 0.1.0
+digest: sha256:0981c0b6b8ed48caa256bd4ada8ccc27acd99f5ea36cbc897f4fa005a92d264d
+generated: "2026-08-08T16:42:40.116033+02:00"

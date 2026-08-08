@@ -21,3 +21,7 @@ dependencies:
     version: 0.4.0
     repository: file://../envpilot-runner
     condition: runner.enabled
+  - name: envpilot-webhook
+    version: 0.1.0
+    repository: file://../envpilot-webhook
+    condition: webhook.enabled

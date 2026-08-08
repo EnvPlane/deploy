@@ -186,18 +186,21 @@ images="$(jq -cn \
   --argjson frontend "$(image_json envpilot-frontend frontend)" \
   --argjson agent "$(image_json envpilot-agent agent)" \
   --argjson runner "$(image_json envpilot-runner runner)" \
+  --argjson webhook "$(image_json envpilot-webhook webhook)" \
   --argjson platformReconciler "$(image_json platformDependencyReconciler platform-reconciler)" \
-  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,platformReconciler:$platformReconciler}')"
+  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook,platformReconciler:$platformReconciler}')"
 control_plane_chart="$(chart_json envpilot-control-plane envpilot-control-plane)"
 frontend_chart="$(chart_json envpilot-frontend envpilot-frontend)"
 agent_chart="$(chart_json envpilot-agent envpilot-agent)"
 runner_chart="$(chart_json envpilot-runner envpilot-runner)"
+webhook_chart="$(chart_json envpilot-webhook envpilot-webhook)"
 charts="$(jq -cn \
   --argjson controlPlane "$control_plane_chart" \
   --argjson frontend "$frontend_chart" \
   --argjson agent "$agent_chart" \
   --argjson runner "$runner_chart" \
-  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner}')"
+  --argjson webhook "$webhook_chart" \
+  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook}')"
 
 mkdir -p "$(dirname "$output")"
 jq -n --arg previousUmbrellaVersion "$previous_umbrella" \

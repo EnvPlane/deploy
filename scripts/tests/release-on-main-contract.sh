@@ -130,6 +130,7 @@ for required in \
   "ghcr.io/envpilot/frontend" \
   "ghcr.io/envpilot/agent" \
   "ghcr.io/envpilot/runner" \
+  "ghcr.io/envpilot/webhook" \
   "ghcr.io/envpilot/platform-reconciler"; do
   grep -Fq "$required" "$root/deploy/helm/envpilot/values.yaml" || { echo "pinned values missing: $required" >&2; exit 1; }
 done

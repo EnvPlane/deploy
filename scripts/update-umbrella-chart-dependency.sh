@@ -18,6 +18,7 @@ case "$component" in
   frontend) dependency="envpilot-frontend" ;;
   agent) dependency="envpilot-agent" ;;
   runner) dependency="envpilot-runner" ;;
+  webhook) dependency="envpilot-webhook" ;;
   *) echo "unsupported component: $component" >&2; exit 2 ;;
 esac
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "invalid chart version" >&2; exit 2; }

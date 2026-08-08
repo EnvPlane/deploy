@@ -164,10 +164,12 @@ func TestUmbrellaUsesDirectCanonicalDependencies(t *testing.T) {
 		"name: envpilot-frontend",
 		"name: envpilot-agent",
 		"name: envpilot-runner",
+		"name: envpilot-webhook",
 		"condition: controlPlane.enabled",
 		"condition: frontend.enabled",
 		"condition: agent.enabled",
 		"condition: runner.enabled",
+		"condition: webhook.enabled",
 	} {
 		if !strings.Contains(string(chart), expected) {
 			t.Fatalf("umbrella Chart.yaml missing %q:\n%s", expected, chart)
@@ -379,6 +381,7 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	for _, disabled := range []string{
 		"# Source: envpilot/charts/envpilot-agent/templates/deployment.yaml",
 		"# Source: envpilot/charts/envpilot-runner/templates/deployment.yaml",
+		"# Source: envpilot/charts/envpilot-webhook/templates/deployment.yaml",
 	} {
 		if strings.Contains(rendered, disabled) {
 			t.Fatalf("Agent/Runner must remain opt-in by default; found %q", disabled)
@@ -1217,7 +1220,7 @@ func TestUmbrellaUpgradeWrapperPreservesOperatorValuesWithoutReusingArtifactPins
 		t.Fatal(err)
 	}
 	for _, expected := range []string{
-		"compatibility/release.json", "platform-reconciler", "signed compatibility manifest", "--reuse-values",
+		"compatibility/release.json", "platform-reconciler", "webhook", "signed compatibility manifest", "--reuse-values",
 	} {
 		if !strings.Contains(string(template), expected) {
 			t.Fatalf("artifact guard missing %q", expected)
@@ -1291,6 +1294,7 @@ func TestAllComponentRenderMeetsRestrictedPodSecurityBaseline(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "agent.enabled=true",
 		"--set", "runner.enabled=true",
+		"--set", "webhook.enabled=true",
 		"--set", "global.envpilot.firstStartRegistration.mode=managed",
 		"--set", "global.envpilot.firstStartRegistration.cluster.id=management",
 	)
@@ -1512,6 +1516,7 @@ func TestUmbrellaPackageVendorsDependencies(t *testing.T) {
 		"envpilot/charts/envpilot-frontend/Chart.yaml",
 		"envpilot/charts/envpilot-agent/Chart.yaml",
 		"envpilot/charts/envpilot-runner/Chart.yaml",
+		"envpilot/charts/envpilot-webhook/Chart.yaml",
 	} {
 		if !strings.Contains(string(output), expected) {
 			t.Fatalf("packaged umbrella does not vendor %q:\n%s", expected, output)

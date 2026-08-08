@@ -414,6 +414,7 @@
     "frontend": { "$ref": "#/definitions/enabled" },
     "agent": { "$ref": "#/definitions/enabled" },
     "runner": { "$ref": "#/definitions/enabled" },
+    "webhook": { "$ref": "#/definitions/enabled" },
     "access": {
       "type": "object",
       "additionalProperties": false,
@@ -615,6 +616,7 @@
           }
         }
       ]
-    }
+    },
+    "envpilot-webhook": { "$ref": "#/definitions/component" }
   }
 }

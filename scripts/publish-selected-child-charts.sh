@@ -77,7 +77,8 @@ for mapping in \
   control-plane:envpilot-control-plane \
   frontend:envpilot-frontend \
   agent:envpilot-agent \
-  runner:envpilot-runner; do
+  runner:envpilot-runner \
+  webhook:envpilot-webhook; do
   component="${mapping%%:*}"
   chart="${mapping##*:}"
   selected_version="$(dependency_version "$chart")"
@@ -160,5 +161,5 @@ done
 printf '%s\n' "${entries[@]}" | jq -s \
   --arg sourceRevision "$source_revision" \
   '{schemaVersion:1,sourceRevision:$sourceRevision,childCharts:.}' > "$output"
-jq -e '(.childCharts | length == 4) and all(.childCharts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and (.digest | test("^sha256:[0-9a-f]{64}$")))' "$output" >/dev/null
+jq -e '(.childCharts | length == 5) and all(.childCharts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and (.digest | test("^sha256:[0-9a-f]{64}$")))' "$output" >/dev/null
 echo "confirmed canonical child charts: $output"

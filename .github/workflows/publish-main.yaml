@@ -103,7 +103,7 @@ jobs:
             --output "$RUNNER_TEMP/latest-artifacts.json"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
-             (.images | length == 5) and (.charts | length == 4) and
+             (.images | length == 6) and (.charts | length == 5) and
              all(.images[]; (.tag | test("^sha-[0-9a-f]{40}$")) and
                (.digest | test("^sha256:[0-9a-f]{64}$"))) and
              all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and

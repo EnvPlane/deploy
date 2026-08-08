@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-usage: check-canonical-chart-sources.sh --deploy <path> [--runner <path>] [--control-plane <path>] [--frontend <path>] [--agent <path>]
+usage: check-canonical-chart-sources.sh --deploy <path> [--runner <path>] [--control-plane <path>] [--frontend <path>] [--agent <path>] [--webhook <path>]
 EOF
   exit 2
 }
@@ -12,7 +12,7 @@ deploy_root=""
 declare_paths=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --deploy|--runner|--control-plane|--frontend|--agent)
+    --deploy|--runner|--control-plane|--frontend|--agent|--webhook)
       [[ $# -ge 2 ]] || usage
       declare_paths+=("${1#--}=$2")
       [[ "$1" == "--deploy" ]] && deploy_root="$2"
@@ -25,8 +25,8 @@ done
 [[ -n "$deploy_root" && -d "$deploy_root/deploy/helm" ]] || usage
 
 canonical_root="$deploy_root/deploy/helm"
-core_names=$'envpilot-control-plane\nenvpilot-frontend\nenvpilot-agent\nenvpilot-runner'
-expected_names=$'envpilot-control-plane\nenvpilot-frontend\nenvpilot-agent\nenvpilot-runner'
+core_names=$'envpilot-control-plane\nenvpilot-frontend\nenvpilot-agent\nenvpilot-runner\nenvpilot-webhook'
+expected_names=$'envpilot-control-plane\nenvpilot-frontend\nenvpilot-agent\nenvpilot-runner\nenvpilot-webhook'
 
 contains_line() {
   local values="$1"
