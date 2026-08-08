@@ -1,0 +1,26 @@
+# Operator configuration for the existing bethunder-local minikube profile.
+# The image-pull Secret contains credentials and is created in the cluster;
+# this file stores only its name.
+global:
+  envpilot:
+    registry:
+      mode: existing
+      existingSecret: envpilot-ghcr
+      imagePullSecrets:
+        - name: envpilot-ghcr
+
+access:
+  mode: ingress
+  ingress:
+    host: envpilot.local
+    className: nginx
+    tls:
+      enabled: false
+
+platformDependencies:
+  ingress:
+    mode: existing
+    provider: nginx
+    existingClassName: nginx
+    namespace: ingress-nginx
+    ownership: external
