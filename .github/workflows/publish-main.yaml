@@ -11,6 +11,7 @@ on:
       - 'scripts/publish-selected-child-charts.sh'
       - 'scripts/resolve-latest-published-artifacts.sh'
       - 'scripts/generate-umbrella-compatibility-manifest.sh'
+      - 'scripts/verify-umbrella-reinstall-compatibility.sh'
       - 'scripts/tests/test-publish-selected-child-charts.sh'
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
       - 'scripts/tests/release-on-main-contract.sh'
