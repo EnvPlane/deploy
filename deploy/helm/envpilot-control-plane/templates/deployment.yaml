@@ -211,6 +211,11 @@ spec:
             - name: ENVPILOT_REMOTE_CLUSTER_RECONCILER_NAMESPACE
               value: {{ $leaderElectionNamespace | quote }}
             {{- end }}
+            {{- end }}
+            {{- if $executorReconcilerEnabled }}
+            # OCI chart resolution must use the writable cache mounted below.
+            # Same-cluster project executors use the same Helm SDK path as
+            # remote executors and cannot write the image user's home.
             - name: HOME
               value: /tmp/envpilot-home
             - name: XDG_CACHE_HOME
