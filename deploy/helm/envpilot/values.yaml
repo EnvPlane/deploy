@@ -58,6 +58,11 @@ global:
     # contains no target-cluster endpoint or credential material.
     remoteClusterReconciler:
       enabled: false
+    # Per-project management-cluster Agent/Runner releases. The namespace must
+    # already exist; the umbrella intentionally never creates namespaces.
+    sameClusterProjectExecutors:
+      enabled: false
+      namespace: ""
     # DEPRECATED bootstrap source only. At first start it seeds the persisted,
     # API/UI-managed ManagementEndpointProfile and is never remote-cluster
     # configuration. New installs should use managementEndpointProfile.bootstrap
@@ -238,6 +243,9 @@ envpilot-control-plane:
       namespaces: []
     remoteClusterReconciler:
       enabled: false
+    sameClusterProjectExecutors:
+      enabled: false
+      namespace: ""
   remoteClusterReconciler:
     compatibilityConfigMapName: ""
     leaderElection:

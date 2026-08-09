@@ -147,4 +147,48 @@ roleRef:
   kind: Role
   name: {{ include "envpilot-control-plane.fullname" . }}-remote-cluster-reconciler
 {{- end }}
+{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPilot "sameClusterProjectExecutors") -}}
+{{- $sameClusterProjectExecutorsRBAC := default (dict) .Values.rbac.sameClusterProjectExecutors -}}
+{{- $sameClusterProjectExecutorsEnabled := or (default false $sameClusterProjectExecutors.enabled) (default false $sameClusterProjectExecutorsRBAC.enabled) -}}
+{{- $sameClusterProjectExecutorsNamespace := trim (default (default "" $sameClusterProjectExecutors.namespace) $sameClusterProjectExecutorsRBAC.namespace) -}}
+{{- if $sameClusterProjectExecutorsEnabled }}
+{{- if not $sameClusterProjectExecutorsNamespace }}{{- fail "sameClusterProjectExecutors RBAC requires a namespace" }}{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-same-cluster-project-executors
+  namespace: {{ $sameClusterProjectExecutorsNamespace | quote }}
+  labels:
+    {{- include "envpilot-control-plane.labels" . | nindent 4 }}
+rules:
+  # Helm SDK state and the project bootstrap Secrets live only in this
+  # pre-existing executor namespace. This deliberately grants no cluster-wide
+  # or feature-namespace wildcard access.
+  - apiGroups: [""]
+    resources: ["secrets", "serviceaccounts", "pods"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-same-cluster-project-executors
+  namespace: {{ $sameClusterProjectExecutorsNamespace | quote }}
+  labels:
+    {{- include "envpilot-control-plane.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envpilot-control-plane.fullname" . }}-same-cluster-project-executors
+{{- end }}
 {{- end }}

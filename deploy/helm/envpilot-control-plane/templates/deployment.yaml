@@ -8,12 +8,19 @@
 {{- $platformDependencyStatusStaleAfter := default 300 (get $platformDependencyStatus "staleAfterSeconds") -}}
 {{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
 {{- $remoteClusterReconcilerEnabled := default false $remoteClusterReconciler.enabled -}}
+{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPilot "sameClusterProjectExecutors") -}}
+{{- $sameClusterProjectExecutorsEnabled := default false $sameClusterProjectExecutors.enabled -}}
+{{- $sameClusterProjectExecutorsNamespace := trim (default "" $sameClusterProjectExecutors.namespace) -}}
+{{- $executorReconcilerEnabled := or $remoteClusterReconcilerEnabled $sameClusterProjectExecutorsEnabled -}}
 {{- $remoteClusterReconcilerConfig := default (dict) .Values.remoteClusterReconciler -}}
 {{- $leaderElection := default (dict) (get $remoteClusterReconcilerConfig "leaderElection") -}}
 {{- $leaderElectionNamespace := trim (default "" (get $leaderElection "namespace")) -}}
 {{- $remoteCompatibilityConfigMap := include "envpilot-control-plane.remoteClusterCompatibilityConfigMapName" . -}}
 {{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
+{{- if and $sameClusterProjectExecutorsEnabled (or (eq $firstStartMode "disabled") (not $sameClusterProjectExecutorsNamespace)) -}}
+{{- fail "sameClusterProjectExecutors requires enabled firstStartRegistration and a pre-existing namespace" -}}
+{{- end -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPilot "e2eFixture") -}}
 {{- $e2eFixtureRecovery := default (dict) (get $e2eFixture "recovery") -}}
 {{- $firstStartSecret := "" -}}
@@ -211,7 +218,13 @@ spec:
             - name: XDG_CONFIG_HOME
               value: /tmp/envpilot-home/config
             {{- end }}
-            {{- if and $remoteClusterReconcilerEnabled $remoteCompatibilityConfigMap }}
+            {{- if $sameClusterProjectExecutorsEnabled }}
+            - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_ENABLED
+              value: "true"
+            - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_NAMESPACE
+              value: {{ $sameClusterProjectExecutorsNamespace | quote }}
+            {{- end }}
+            {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
             - name: ENVPILOT_REMOTE_CLUSTER_COMPATIBILITY_MANIFEST
               value: /etc/envpilot/compatibility/release.json
             {{- end }}
@@ -339,12 +352,12 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/envpilot/data
-          {{- if and $remoteClusterReconcilerEnabled $remoteCompatibilityConfigMap }}
+          {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
             - name: remote-cluster-compatibility
               mountPath: /etc/envpilot/compatibility
               readOnly: true
           {{- end }}
-          {{- if $remoteClusterReconcilerEnabled }}
+          {{- if $executorReconcilerEnabled }}
             - name: remote-cluster-helm-cache
               mountPath: /tmp/envpilot-home
           {{- end }}
@@ -380,12 +393,12 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
-      {{- if and $remoteClusterReconcilerEnabled $remoteCompatibilityConfigMap }}
+      {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
         - name: remote-cluster-compatibility
           configMap:
             name: {{ $remoteCompatibilityConfigMap | quote }}
       {{- end }}
-      {{- if $remoteClusterReconcilerEnabled }}
+      {{- if $executorReconcilerEnabled }}
         - name: remote-cluster-helm-cache
           emptyDir: {}
       {{- end }}

@@ -12,6 +12,17 @@ global:
       mode: managed
       cluster:
         id: bethunder-local
+    # Project-owned local Agent/Runner releases are reconciled only in this
+    # pre-created namespace. No credential material is stored in this file.
+    sameClusterProjectExecutors:
+      enabled: true
+      namespace: envpilot-executors
+
+envpilot-control-plane:
+  rbac:
+    sameClusterProjectExecutors:
+      enabled: true
+      namespace: envpilot-executors
 
 # Run the EnvPilot execution plane in the same minikube cluster as the control
 # plane. The managed first-start registration above supplies the one-time
