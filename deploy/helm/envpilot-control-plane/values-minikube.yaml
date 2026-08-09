@@ -1,4 +1,4 @@
-# Overrides for running the EnvPilot control plane in a local minikube cluster.
+# Overrides for running the EnvPlane control plane in a local minikube cluster.
 # Images are built directly inside the minikube docker daemon, so nothing is
 # pulled from GHCR and no image pull secret is required.
 

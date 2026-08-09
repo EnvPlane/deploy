@@ -1,4 +1,4 @@
-name: Publish latest compatible EnvPilot umbrella release
+name: Publish latest compatible EnvPlane umbrella release
 
 on:
   workflow_run:
@@ -261,5 +261,5 @@ jobs:
             "dist/envpilot-$VERSION.tgz" \
             deploy/helm/envpilot/compatibility/release.json \
             "dist/envpilot-$VERSION-release.json" \
-            --repo EnvPlane/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
+            --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
             --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"

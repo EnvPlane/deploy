@@ -34,7 +34,7 @@ release instead.
 {{- $actualTag := default "" (get $actual "tag") -}}
 {{- $actualDigest := default "" (get $actual "digest") -}}
 {{- if or (ne $actualRepository $expectedRepository) (ne $actualTag $expectedTag) (ne $actualDigest $expectedDigest) -}}
-{{- fail (printf "image override for %s conflicts with this umbrella release's signed compatibility manifest (expected %s:%s@%s, got %s:%s@%s). Do not use --reuse-values for an EnvPilot umbrella upgrade. Re-run scripts/upgrade-umbrella.sh with the durable operator values file, or update the explicit image override to this release's immutable pin." $component $expectedRepository $expectedTag $expectedDigest $actualRepository $actualTag $actualDigest) -}}
+{{- fail (printf "image override for %s conflicts with this umbrella release's signed compatibility manifest (expected %s:%s@%s, got %s:%s@%s). Do not use --reuse-values for an EnvPlane umbrella upgrade. Re-run scripts/upgrade-umbrella.sh with the durable operator values file, or update the explicit image override to this release's immutable pin." $component $expectedRepository $expectedTag $expectedDigest $actualRepository $actualTag $actualDigest) -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}

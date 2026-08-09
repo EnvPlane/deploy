@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provision and exercise one disposable, deploy-ready EnvPilot project across
+# Provision and exercise one disposable, deploy-ready EnvPlane project across
 # two already provisioned Kubernetes contexts. It uses only public control-plane
 # APIs and real Agent/Runner Helm charts; it never creates a tunnel, port-forward
 # or Kubernetes cluster, seeds bootstrap-session storage, or writes credentials
@@ -19,7 +19,7 @@ TARGET_PROFILE="${ENVPILOT_E2E_TARGET_CONTEXT:-${ENVPILOT_E2E_TARGET_MINIKUBE_PR
 CLUSTER_ID="${ENVPILOT_E2E_CLUSTER_ID:-$TARGET_PROFILE}"
 
 PROJECT_ID="${ENVPILOT_E2E_PROJECT_ID:-envpilot-e2e-fixture}"
-PROJECT_NAME="${ENVPILOT_E2E_PROJECT_NAME:-EnvPilot local E2E fixture}"
+PROJECT_NAME="${ENVPILOT_E2E_PROJECT_NAME:-EnvPlane local E2E fixture}"
 BASE_NAMESPACE="${ENVPILOT_E2E_BASE_NAMESPACE:-envpilot-e2e-base}"
 PR_NUMBER="${ENVPILOT_E2E_PR_NUMBER:-101}"
 FEATURE_NAMESPACE="${ENVPILOT_E2E_FEATURE_NAMESPACE:-envpilot-pr-${PR_NUMBER}}"

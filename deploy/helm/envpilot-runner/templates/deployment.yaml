@@ -1,7 +1,7 @@
 {{- $helmRegistry := default (dict) .Values.helmRegistry -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
-{{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
+{{- $globalEnvPlane := default (dict) (get $global "envpilot") -}}
+{{- $firstStart := default (dict) (get $globalEnvPlane "firstStartRegistration") -}}
 {{- $firstStartEnabled := eq (include "envpilot-runner.usesFirstStartRegistration" .) "true" -}}
 {{- $controlPlaneEndpoint := include "envpilot-runner.controlPlaneEndpoint" . -}}
 {{- /* A legacy release can have controlPlane without the later tls map. Use

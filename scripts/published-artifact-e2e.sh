@@ -61,7 +61,7 @@ curl -fsS "$API_URL/api/v1/health" >/dev/null
 
 helm uninstall "$RELEASE" --kube-context "$ENVPILOT_E2E_CONTEXT" --namespace "$NAMESPACE" --wait
 if kubectl --context "$ENVPILOT_E2E_CONTEXT" -n "$NAMESPACE" get configmap "${RELEASE}-platform-dependency-status" >/dev/null 2>&1; then
-  echo "EnvPilot release resources remain after uninstall" >&2
+  echo "EnvPlane release resources remain after uninstall" >&2
   exit 1
 fi
 if [[ -n "${ENVPILOT_E2E_EXISTING_RESOURCES:-}" ]]; then

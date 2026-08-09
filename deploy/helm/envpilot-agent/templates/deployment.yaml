@@ -1,6 +1,6 @@
 {{- $global := default (dict) .Values.global -}}
-{{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
-{{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
+{{- $globalEnvPlane := default (dict) (get $global "envpilot") -}}
+{{- $firstStart := default (dict) (get $globalEnvPlane "firstStartRegistration") -}}
 {{- $firstStartEnabled := eq (include "envpilot-agent.usesFirstStartRegistration" .) "true" -}}
 {{- $controlPlaneEndpoint := include "envpilot-agent.controlPlaneEndpoint" . -}}
 {{- $controlPlaneTLS := default (dict) .Values.controlPlane.tls -}}

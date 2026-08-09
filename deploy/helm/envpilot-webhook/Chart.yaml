@@ -1,6 +1,6 @@
 apiVersion: v2
 name: envpilot-webhook
-description: Standalone GitHub and GitLab webhook receiver for EnvPilot
+description: Standalone GitHub and GitLab webhook receiver for EnvPlane
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

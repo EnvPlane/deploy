@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Runs against an already-provisioned cluster. It verifies the lifecycle of
-# EnvPilot-owned reconciler support objects, while proving that the operator's
+# EnvPlane-owned reconciler support objects, while proving that the operator's
 # registry Secret and existing ingress provider survive uninstall/reinstall.
 : "${PLATFORM_RECONCILER_LIFECYCLE_CONTEXT:?set the Kubernetes context}"
 : "${PLATFORM_RECONCILER_LIFECYCLE_REGISTRY_SECRET:?set an existing image-pull Secret name}"

@@ -1,5 +1,5 @@
 // platform-reconciler is deliberately limited to external platform
-// capabilities. It never installs EnvPilot core charts or workloads.
+// capabilities. It never installs EnvPlane core charts or workloads.
 package main
 
 import (
@@ -736,7 +736,7 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 	install.Namespace = m.Namespace
 	// Managed platform providers may live in a dedicated namespace (for
 	// example ingress-nginx). Creating that namespace is part of the provider
-	// installation contract; EnvPilot never creates namespaces for its core
+	// installation contract; EnvPlane never creates namespaces for its core
 	// workloads through this reconciler.
 	install.CreateNamespace = true
 	install.Wait = true

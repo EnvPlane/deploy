@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bring up the EnvPilot control plane (API + frontend + Postgres + Redis)
+# Bring up the EnvPlane control plane (API + frontend + Postgres + Redis)
 # in a local minikube cluster, from the multi-repo workspace layout:
 #
 #   PROJECTS/envpilot/
@@ -80,7 +80,7 @@ kubectl --context "$PROFILE" -n "$NAMESPACE" get pods,svc,ingress,pvc
 # --- access ----------------------------------------------------------------
 cat <<EOF
 
-EnvPilot control plane is deployed.
+EnvPlane control plane is deployed.
 
 Local agent and runner images are available as envpilot/agent:local and
 envpilot/runner:local. Enable same-cluster Agent and Runner in the direct

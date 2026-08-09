@@ -736,7 +736,7 @@ func TestPlatformDependencyReconcilerSupportIsReleaseOwnedAndLeastPrivilege(t *t
 		}
 	}
 	if strings.Contains(rendered, "resources: [\"deployments\", \"pods\"]") || strings.Contains(rendered, "helm.sh/hook: post-install") {
-		t.Fatal("platform reconciler must not own EnvPilot core workloads")
+		t.Fatal("platform reconciler must not own EnvPlane core workloads")
 	}
 }
 

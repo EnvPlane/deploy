@@ -1,4 +1,4 @@
-EnvPilot runner has been installed.
+EnvPlane runner has been installed.
 
 Release:
   Name: {{ .Release.Name }}

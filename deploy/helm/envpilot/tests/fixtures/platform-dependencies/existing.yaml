@@ -1,6 +1,6 @@
 # The matrix runner executes this fixture on a cluster where a healthy,
 # compatible ingress-nginx controller and IngressClass/nginx already exist.
-# EnvPilot must detect it without adopting or reinstalling the provider.
+# EnvPlane must detect it without adopting or reinstalling the provider.
 platformDependencies:
   ingress:
     mode: existing

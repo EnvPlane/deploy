@@ -73,7 +73,7 @@ for item in "${declare_paths[@]}"; do
       echo "duplicate core chart source outside deploy: $chart" >&2
       exit 1
     fi
-    echo "non-canonical EnvPilot chart source outside deploy: $chart" >&2
+    echo "non-canonical EnvPlane chart source outside deploy: $chart" >&2
     exit 1
   done < <("${chart_files[@]}" | sort)
 done

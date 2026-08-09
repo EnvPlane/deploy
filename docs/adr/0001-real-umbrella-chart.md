@@ -2,7 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-08-03
-**Deciders:** EnvPilot maintainers  
+**Deciders:** EnvPlane maintainers
 **Repositories:** `deploy`, `control-plane`, `agent`, `runner`, `frontend`
 
 ## Context
@@ -33,7 +33,7 @@ port-forward or `host.minikube.internal`. A management-cluster Helm release
 cannot directly own resources in another Kubernetes API server, but leaving
 remote workload lifecycle outside the product is not an acceptable contract.
 
-EnvPilot must support a provider-neutral installation in a pre-existing
+EnvPlane must support a provider-neutral installation in a pre-existing
 Kubernetes cluster through exactly one command:
 
 ```sh
@@ -46,14 +46,14 @@ helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
 
 The product must not create, delete or otherwise provision a Kubernetes cluster.
 It must, however, be able to verify and, when explicitly requested, install the
-external capabilities required to expose and persist EnvPilot: an ingress
+external capabilities required to expose and persist EnvPlane: an ingress
 controller, DNS integration and dynamic StorageClass provisioner.
 
 ## Decision
 
 ### 1. `envpilot` becomes a real Helm v2 umbrella chart
 
-`deploy/deploy/helm/envpilot/Chart.yaml` will declare canonical EnvPilot child
+`deploy/deploy/helm/envpilot/Chart.yaml` will declare canonical EnvPlane child
 charts as Helm dependencies. The umbrella directly renders the core workload
 resources and owns their lifecycle through one Helm release.
 
@@ -91,10 +91,10 @@ the supported install path.
 charts. A child chart version is recorded in `Chart.yaml.dependencies` and
 `Chart.lock`; runtime image references are configured through values.
 
-### 2. Cluster provisioning is outside EnvPilot; platform capabilities are not
+### 2. Cluster provisioning is outside EnvPlane; platform capabilities are not
 
 The Kubernetes cluster itself, its node pools, cloud account, IAM, DNS zones and
-provider credentials are external prerequisites. EnvPilot never creates or
+provider credentials are external prerequisites. EnvPlane never creates or
 deletes a minikube profile, Kubernetes cluster, cloud load balancer account or
 DNS zone.
 
@@ -120,7 +120,7 @@ Mode semantics are:
 | `auto` | Detect a compatible healthy existing capability. Reuse it if found; otherwise install only the explicitly configured provider. |
 | `managed` | Install or reconcile the explicitly configured provider. Existing unrelated resources are not adopted. |
 | `existing` | Validate the explicitly named existing capability and fail if it is absent, incompatible or unhealthy. |
-| `disabled` | Do not inspect or install the capability; dependent EnvPilot features must be disabled or use an alternative configured path. |
+| `disabled` | Do not inspect or install the capability; dependent EnvPlane features must be disabled or use an alternative configured path. |
 
 `auto` never guesses a cloud provider, DNS credentials, DNS zone, StorageClass
 provisioner or IngressClass. If no compatible capability is found and required
@@ -222,7 +222,7 @@ Agent/Runner. A remote cluster must use a stable endpoint reachable by its own
 Pods. The product never creates a tunnel, port-forward, Kubernetes cluster,
 node pool, cloud account, DNS zone or cloud identity to satisfy this preflight.
 
-Each managed remote release has labels and annotations containing the EnvPilot
+Each managed remote release has labels and annotations containing the EnvPlane
 management installation UID, remote-cluster ID, component, project identity and
 desired-state generation. Reconciliation uses a database-backed per
 `remoteCluster/component/project` lease with a bounded TTL and attempt ID.
@@ -270,7 +270,7 @@ documentation contains a credential literal.
 
 ### 7. Upgrade, rollback and uninstall follow declared ownership
 
-| Operation | Core EnvPilot components | Existing platform capability | Managed platform capability | Remote Agent/Runner |
+| Operation | Core EnvPlane components | Existing platform capability | Managed platform capability | Remote Agent/Runner |
 |---|---|---|---|---|
 | Upgrade | Helm upgrades child charts atomically after compatibility validation. | Observe only. | Reconcile only the provider/version declared in values. | Reconciler applies the matching immutable remote component set under its lease. |
 | Rollback | Helm restores the earlier immutable umbrella compatibility set. | No change. | Do not automatically downgrade a shared provider; report version skew and require an explicit platform action. | Reconcile an API-approved prior remote compatibility set; preserve Runner-owned feature releases. |
@@ -309,7 +309,7 @@ requirement.
 | Helm lifecycle | Good for core components; explicit policy for shared platform resources |
 | Portability | High: provider adapters are selected through values |
 
-**Pros:** One user-facing Helm command, direct ownership of EnvPilot workloads,
+**Pros:** One user-facing Helm command, direct ownership of EnvPlane workloads,
 idempotent reuse of existing cluster capabilities, and a realistic route for
 conditionally installing external platform dependencies.
 
@@ -366,7 +366,7 @@ local DNS endpoint workarounds.
 
 - `helm upgrade --install` becomes the only supported same-cluster application
   deployment path.
-- Core EnvPilot components gain normal Helm ownership, readiness, rollback and
+- Core EnvPlane components gain normal Helm ownership, readiness, rollback and
   uninstall semantics.
 - Minikube is just one externally created Kubernetes cluster; chart defaults do
   not rely on it.

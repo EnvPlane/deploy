@@ -4,7 +4,7 @@ When `platformDependencyReconciler.enabled=true`, the umbrella renders normal,
 release-owned ConfigMaps, ServiceAccount and RBAC plus bounded
 post-install/post-upgrade hook Jobs running `platform-reconciler`. The binary uses
 client-go for capability discovery and the Helm Go SDK for configured provider
-charts; it never shells out to `helm` or `kubectl` and never installs EnvPilot
+charts; it never shells out to `helm` or `kubectl` and never installs EnvPlane
 core charts.
 
 The default discovery ClusterRole is read-only for IngressClass and

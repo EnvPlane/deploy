@@ -1,4 +1,4 @@
-name: Publish EnvPilot E2E workload Helm chart
+name: Publish EnvPlane E2E workload Helm chart
 
 on:
   push:

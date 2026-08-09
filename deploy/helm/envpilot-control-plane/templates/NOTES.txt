@@ -1,4 +1,4 @@
-EnvPilot control plane has been installed.
+EnvPlane control plane has been installed.
 
 Service:
   {{ include "envpilot-control-plane.fullname" . }}:{{ .Values.service.port }}

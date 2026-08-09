@@ -240,7 +240,7 @@ The direct umbrella consumes existing ingress/Gateway, DNS, and storage
 capabilities. It does not silently install a platform provider. `auto` and
 `managed` are handled only by the optional, scoped platform reconciler and
 require explicit pinned provider configuration; otherwise select `existing` or
-`disabled` and provision the platform outside EnvPilot.
+`disabled` and provision the platform outside EnvPlane.
 
 The reconciler is disabled by default when no dependency mode is enabled. To
 turn it on, set `platformDependencyReconciler.enabled=true` and provide either
@@ -252,7 +252,7 @@ deletes failed hook Jobs so a missing image cannot leave a stale Job behind.
 The umbrella renders the declared mode, provider, reference and state into a
 non-secret ConfigMap and the control plane exposes it as
 `GET /api/v1/capabilities.platformDependencies`. This is configuration status,
-not a Kubernetes capability probe: EnvPilot never installs ingress controllers,
+not a Kubernetes capability probe: EnvPlane never installs ingress controllers,
 DNS integrations, StorageClasses, minikube add-ons, tunnels, or clusters.
 Set an optional dependency `state` to `ready` or `unavailable` only when an
 external platform reconciler owns that observation.
@@ -261,7 +261,7 @@ external platform reconciler owns that observation.
 
 All component ServiceAccounts can be supplied by the platform with
 `serviceAccount.create=false`, `serviceAccount.name=<existing-name>` and
-`rbac.create=false`. In that mode EnvPilot renders neither the ServiceAccount
+`rbac.create=false`. In that mode EnvPlane renders neither the ServiceAccount
 nor RBAC objects; the platform owns the binding.
 
 The control plane has namespace-scoped `get` access to Secrets only, configured
@@ -274,7 +274,7 @@ off by default and requires `rbac.discovery.readSecrets=true`.
 
 Runner discovery is read-only, while its feature-environment writer is a
 namespace-scoped Role. Configure every writable feature namespace through the
-Runner `featureEnvWriter` mode; EnvPilot never grants Runner cluster-wide write
+Runner `featureEnvWriter` mode; EnvPlane never grants Runner cluster-wide write
 permissions. All default pod renders use the Kubernetes Pod Security
 Restricted baseline: non-root execution, RuntimeDefault seccomp and dropped
 Linux capabilities.

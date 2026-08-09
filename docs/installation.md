@@ -1,7 +1,7 @@
-# EnvPilot installation
+# EnvPlane installation
 
 This is the supported production installation path for an already provisioned
-Kubernetes cluster. EnvPilot is installed as one OCI umbrella release; it does
+Kubernetes cluster. EnvPlane is installed as one OCI umbrella release; it does
 not provision a cluster or install a distribution-specific add-on.
 
 ## Prerequisites
@@ -10,7 +10,7 @@ The operator must provide:
 
 - Kubernetes 1.26 or newer and Helm 3.14 or newer;
 - a kubeconfig context with permission to create the release namespace and the
-  explicitly enabled EnvPilot resources;
+  explicitly enabled EnvPlane resources;
 - a default StorageClass, or an explicitly configured storage dependency, when
   bundled PostgreSQL/Redis or persistence is enabled;
 - an existing healthy Ingress controller, Gateway API implementation, DNS
@@ -22,7 +22,7 @@ The operator must provide:
   bootstrap sessions.
 
 The target cluster, ingress/DNS provider and database services are owned by the
-platform team. EnvPilot only creates resources in its release namespace and
+platform team. EnvPlane only creates resources in its release namespace and
 does not create tunnels, minikube profiles or cloud infrastructure.
 
 ## Quick start
@@ -86,7 +86,7 @@ access:
     className: nginx
     tls:
       enabled: true
-      # Existing provider-managed server certificate Secret. EnvPilot never
+      # Existing provider-managed server certificate Secret. EnvPlane never
       # reads or generates its contents.
       secretName: envpilot-api-tls
 ```
@@ -105,7 +105,7 @@ Each of `platformDependencies.ingress`, `.dns` and `.storage` has one mode:
 
 | Mode | Meaning |
 |---|---|
-| `disabled` | EnvPilot does not require or manage this capability. |
+| `disabled` | EnvPlane does not require or manage this capability. |
 | `existing` | Reuse a healthy, compatible capability without adoption or mutation. |
 | `auto` | Detect a healthy capability first; install only an explicitly configured provider when absent. |
 | `managed` | Install/upgrade the explicitly selected pinned provider chart, with explicit ownership and cleanup policy. |

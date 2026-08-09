@@ -7,7 +7,7 @@ apiContract:
     scmOfflineBootstrap: true
 runnerCommandAPI:
   version: "1"
-  requestHeader: X-EnvPilot-Runner-Command-API-Version
+  requestHeader: X-EnvPlane-Runner-Command-API-Version
 images:
   api: ghcr.io/envpilot/api:0.1.6
   frontend: ghcr.io/envpilot/frontend:0.1.5

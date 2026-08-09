@@ -1,6 +1,6 @@
 apiVersion: v2
 name: envpilot-runner
-description: EnvPilot runner that compiles and applies feature environments for a single project.
+description: EnvPlane runner that compiles and applies feature environments for a single project.
 type: application
 version: 0.4.1
 appVersion: "0.2.0"
@@ -12,4 +12,4 @@ home: https://envpilot.local
 sources:
   - https://envpilot.local
 maintainers:
-  - name: EnvPilot Platform Team
+  - name: EnvPlane Platform Team

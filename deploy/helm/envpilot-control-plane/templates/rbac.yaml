@@ -80,9 +80,9 @@ roleRef:
   name: {{ include "envpilot-control-plane.fullname" $ }}-remote-cluster-credentials
 {{- end }}
 {{- end }}
-{{- $globalEnvPilot := default (dict) (get (default (dict) .Values.global) "envpilot") -}}
-{{- $platformDependencyStatus := default (dict) (get $globalEnvPilot "platformDependencyStatus") -}}
-{{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
+{{- $globalEnvPlane := default (dict) (get (default (dict) .Values.global) "envpilot") -}}
+{{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
+{{- $remoteClusterReconciler := default (dict) (get $globalEnvPlane "remoteClusterReconciler") -}}
 {{- $remoteClusterReconcilerConfig := default (dict) .Values.remoteClusterReconciler -}}
 {{- $leaderElection := default (dict) (get $remoteClusterReconcilerConfig "leaderElection") -}}
 {{- $leaderElectionNamespace := default .Release.Namespace (trim (default "" (get $leaderElection "namespace"))) -}}
@@ -147,7 +147,7 @@ roleRef:
   kind: Role
   name: {{ include "envpilot-control-plane.fullname" . }}-remote-cluster-reconciler
 {{- end }}
-{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPilot "sameClusterProjectExecutors") -}}
+{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPlane "sameClusterProjectExecutors") -}}
 {{- $sameClusterProjectExecutorsRBAC := default (dict) .Values.rbac.sameClusterProjectExecutors -}}
 {{- $sameClusterProjectExecutorsEnabled := or (default false $sameClusterProjectExecutors.enabled) (default false $sameClusterProjectExecutorsRBAC.enabled) -}}
 {{- $sameClusterProjectExecutorsNamespace := trim (default (default "" $sameClusterProjectExecutors.namespace) $sameClusterProjectExecutorsRBAC.namespace) -}}

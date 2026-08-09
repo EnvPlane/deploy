@@ -27,7 +27,7 @@ digest, missing child chart, failed compatibility test, or occupied release
 version stops the workflow before publication. The job needs the repository
 `GITHUB_TOKEN` with `packages: write`, `contents: write`, `id-token: write` and
 `attestations: write`; package visibility and Actions policy must allow that
-token to read the EnvPilot GHCR packages.
+token to read the EnvPlane GHCR packages.
 
 The workflow is serialized with the umbrella release group. Component image and
 child-chart publication workflows remain responsible for publishing their

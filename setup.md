@@ -1,4 +1,4 @@
-# EnvPilot setup guide
+# EnvPlane setup guide
 
 This guide describes the local MVP setup path and the secure bootstrap flow for agent and runner demos.
 
@@ -19,7 +19,7 @@ Optional:
 
 ## Deployment backend strategy
 
-EnvPilot supports two deployment backends:
+EnvPlane supports two deployment backends:
 
 - Helm Direct (`helm_direct`) applies Helm releases directly and is the default MVP/demo path.
 - FluxCD GitOps (`fluxcd`) renders and commits GitOps manifests for Flux reconciliation.
@@ -30,7 +30,7 @@ Use FluxCD for enterprise or GitOps-first workflows that require manifest histor
 
 Security notes:
 
-- Helm Direct performs direct cluster writes through the EnvPilot service identity, so RBAC should be least privilege.
+- Helm Direct performs direct cluster writes through the EnvPlane service identity, so RBAC should be least privilege.
 - FluxCD separates GitOps repository permissions from Kubernetes/Flux permissions.
 - Runtime bootstrap tokens must not be written into Helm commands, GitOps manifests, logs, or normal API responses.
 
@@ -41,7 +41,7 @@ Recommendation:
 
 Backend compatibility:
 
-- If `deployment.backend` is omitted, EnvPilot infers backend from existing config values.
+- If `deployment.backend` is omitted, EnvPlane infers backend from existing config values.
 - Flux/GitOps operational fields (`gitOpsOutputPath`, `fluxNamespace`, `fluxKustomizationRef`, etc.) imply `fluxcd`.
 - Otherwise default is `helm_direct`.
 
@@ -57,7 +57,7 @@ The compose stack starts:
 
 - PostgreSQL on `localhost:5432`
 - Redis on `localhost:6379`
-- EnvPilot API/UI on `http://localhost:8080`
+- EnvPlane API/UI on `http://localhost:8080`
 
 Stop the stack:
 
@@ -215,7 +215,7 @@ The generated remote instruction runs a pod-context `/api/v1/health` preflight
 before Helm. It mounts the optional CA and sets `controlPlane.endpointMode=remote`.
 Run the sensitive bootstrap Secret command once and then the generated Helm
 command unchanged. A stale remote status names the configured endpoint and asks
-the operator to re-run this preflight; EnvPilot never creates tunnels.
+the operator to re-run this preflight; EnvPlane never creates tunnels.
 
 `scripts/minikube-agent-e2e.sh` is a test-only wrapper for an already
 provisioned context and rejects host-local generated commands.
@@ -321,7 +321,7 @@ ENVPILOT_E2E_SCM_TOKEN='...' ./scripts/minikube-environment-e2e.sh --keep-enviro
 Do not add SCM, runner registration, or project-config tokens to values files,
 shell history, or the fixture project. The script obtains one-time runtime
 credentials from the control-plane API, writes them directly into target-cluster
-Secrets, and only records safe status/fingerprint metadata in EnvPilot.
+Secrets, and only records safe status/fingerprint metadata in EnvPlane.
 
 ## Create demo environment
 
@@ -364,7 +364,7 @@ terminated
 Safety rules:
 
 - protected namespaces cannot be targeted;
-- only EnvPilot-labeled resources are deleted;
+- only EnvPlane-labeled resources are deleted;
 - base namespace dependencies remain running;
 - delete retries are idempotent.
 
@@ -415,6 +415,6 @@ ENVPILOT_E2E_UMBRELLA_VERSION=<published-version> \
 ./scripts/published-local-fixture-e2e.sh
 ```
 
-The harness installs EnvPilot exactly once with `helm upgrade --install`, then
+The harness installs EnvPlane exactly once with `helm upgrade --install`, then
 uses port-forwards only to drive the browser test. It creates and removes a
 Full environment through the UI and verifies the runner lifecycle.

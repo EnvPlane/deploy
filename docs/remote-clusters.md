@@ -1,12 +1,12 @@
 # API-managed remote clusters
 
-EnvPilot installs core services once in the management cluster. A remote cluster is added through **Settings → Remote clusters** or `/api/v1/remote-clusters`; it is never encoded in umbrella values and an operator never installs Agent or Runner charts manually.
+EnvPlane installs core services once in the management cluster. A remote cluster is added through **Settings → Remote clusters** or `/api/v1/remote-clusters`; it is never encoded in umbrella values and an operator never installs Agent or Runner charts manually.
 
 ```text
 operator/UI or API
        |
        v
-management-cluster EnvPilot API ── Remote Cluster Reconciler ── Kubernetes API
+management-cluster EnvPlane API ── Remote Cluster Reconciler ── Kubernetes API
        |                                      |                       |
        |                                      | Helm Go SDK           v
        |                                      +--------------> managed Agent + Runner
@@ -69,7 +69,7 @@ Deleting a remote target is controlled: the API returns `202`, the reconciler re
 
 ### Product contract versus private-network prerequisite
 
-EnvPilot owns the RemoteCluster record, target Agent/Runner releases, scoped
+EnvPlane owns the RemoteCluster record, target Agent/Runner releases, scoped
 trust Secret copy, target-pod probe, heartbeats, Bootstrap and Environment
 lifecycle. It does **not** own network reachability outside Kubernetes. Before
 running the published E2E, the platform operator must provide:

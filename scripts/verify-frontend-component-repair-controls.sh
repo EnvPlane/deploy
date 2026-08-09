@@ -12,7 +12,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$image" =~ ^ghcr\.io/envpilot/frontend@sha256:[0-9a-f]{64}$ ]] || {
-  echo "image must be the immutable EnvPilot frontend digest" >&2
+  echo "image must be the immutable EnvPlane frontend digest" >&2
   exit 2
 }
 

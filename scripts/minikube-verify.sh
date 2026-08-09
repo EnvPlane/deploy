@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke-check the EnvPilot control plane running in minikube.
+# Smoke-check the EnvPlane control plane running in minikube.
 # Usage: ./scripts/minikube-verify.sh
 set -uo pipefail
 

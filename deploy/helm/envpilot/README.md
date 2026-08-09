@@ -1,4 +1,4 @@
-# EnvPilot umbrella chart
+# EnvPlane umbrella chart
 
 The production installation is the published OCI umbrella chart and one
 `helm upgrade --install` command. Start with [`docs/installation.md`](../../../docs/installation.md)

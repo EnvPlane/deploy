@@ -28,7 +28,7 @@ trap cleanup EXIT
 for bin in helm kubectl curl jq npm; do command -v "$bin" >/dev/null 2>&1 || { echo "missing required command: $bin" >&2; exit 2; }; done
 [[ -f "$VALUES_FILE" ]] || { echo "E2E values file does not exist: $VALUES_FILE" >&2; exit 2; }
 
-# This is intentionally the only EnvPilot install invocation.
+# This is intentionally the only EnvPlane install invocation.
 helm upgrade --install "$RELEASE" "$ENVPILOT_E2E_UMBRELLA_REF" \
   --version "$ENVPILOT_E2E_UMBRELLA_VERSION" \
   --kube-context "$ENVPILOT_E2E_CONTEXT" \

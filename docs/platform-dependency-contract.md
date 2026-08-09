@@ -1,14 +1,14 @@
 # External platform capability contract
 
 `platformDependencies.ingress`, `.dns` and `.storage` describe capabilities
-owned by the cluster platform, not by EnvPilot workloads. Every entry uses one
+owned by the cluster platform, not by EnvPlane workloads. Every entry uses one
 of four modes:
 
 | Mode | Ownership and behavior |
 | --- | --- |
 | `auto` | Detect a healthy compatible capability and reference it without Helm adoption. If none is detected, install only the explicitly named `provider`; missing provider configuration is a values error. |
-| `managed` | EnvPilot's configured reconciler owns the explicitly named provider. `provider`, version and any provider credentials are required. |
-| `existing` | Reference an already installed capability (`existingClassName` or `existingSecret`). EnvPilot never adopts, upgrades or deletes it. |
+| `managed` | EnvPlane's configured reconciler owns the explicitly named provider. `provider`, version and any provider credentials are required. |
+| `existing` | Reference an already installed capability (`existingClassName` or `existingSecret`). EnvPlane never adopts, upgrades or deletes it. |
 | `disabled` | No capability is required or configured. |
 
 The typed status values are `detected`, `managed`, `missing`, `incompatible`,

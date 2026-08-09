@@ -1,4 +1,4 @@
-name: Publish atomic EnvPilot umbrella release
+name: Publish atomic EnvPlane umbrella release
 
 on:
   workflow_dispatch:
@@ -140,5 +140,5 @@ jobs:
           gh release create "envpilot-v$VERSION" \
             "${{ steps.push.outputs.package }}" \
             deploy/helm/envpilot/compatibility/release.json \
-            --repo EnvPlane/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
+            --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
             --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"

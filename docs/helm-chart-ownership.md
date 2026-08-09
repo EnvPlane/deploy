@@ -1,6 +1,6 @@
-# EnvPilot Helm chart ownership and migration
+# EnvPlane Helm chart ownership and migration
 
-`deploy/deploy/helm` is the only editable source for distributable EnvPilot
+`deploy/deploy/helm` is the only editable source for distributable EnvPlane
 Helm charts. The published OCI names are stable:
 
 | Component | Canonical source | OCI reference |

@@ -1,4 +1,4 @@
-EnvPilot cluster agent has been installed.
+EnvPlane cluster agent has been installed.
 
 Release:
   Name: {{ .Release.Name }}
@@ -7,7 +7,7 @@ Release:
 Control plane:
   URL: {{ include "envpilot-agent.controlPlaneEndpoint" . }}
 
-The agent uses a read-only ClusterRole to observe EnvPilot namespaces, FluxCD Kustomizations,
+The agent uses a read-only ClusterRole to observe EnvPlane namespaces, FluxCD Kustomizations,
 HelmReleases, workload readiness, ingress state, and Kubernetes events.
 
 Controller-managed remote installation:

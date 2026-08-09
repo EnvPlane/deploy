@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tear down the EnvPilot control plane from the local minikube cluster.
+# Tear down the EnvPlane control plane from the local minikube cluster.
 # Usage: ./scripts/minikube-down.sh [--delete-cluster]
 set -euo pipefail
 

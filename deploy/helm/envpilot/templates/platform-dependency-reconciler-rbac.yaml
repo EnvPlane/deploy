@@ -174,7 +174,7 @@ subjects:
 ---
 # Helm creates these namespaced resources while installing ingress-nginx. The
 # Role is deliberately limited to the configured provider namespace and is
-# bound to the reconciler ServiceAccount from the EnvPilot namespace.
+# bound to the reconciler ServiceAccount from the EnvPlane namespace.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

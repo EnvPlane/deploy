@@ -51,7 +51,7 @@ jq -e --argjson prior "$(jq '.status.observed_generation' <<<"$n_minus_1")" '.st
 
 # A manually installed legacy release must remain unmanaged until the explicit
 # audited API action. The fixture setup creates it with the same release/PVC
-# names but without EnvPilot ownership values.
+# names but without EnvPlane ownership values.
 if [[ "${ENVPILOT_REMOTE_E2E_VERIFY_LEGACY_MIGRATION:-false}" == "true" ]]; then
   request_action migrate
   migrated="$(wait_for_phase healthy)"

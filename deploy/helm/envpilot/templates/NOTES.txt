@@ -1,6 +1,6 @@
-EnvPilot is installed as a direct Helm umbrella release.
+EnvPlane is installed as a direct Helm umbrella release.
 
-The release namespace is the EnvPilot workload namespace. Helm directly owns
+The release namespace is the EnvPlane workload namespace. Helm directly owns
 the enabled control-plane, frontend, Agent and Runner resources; no installer
 Job, nested Helm invocation, or cluster-wide installer RBAC is created.
 
