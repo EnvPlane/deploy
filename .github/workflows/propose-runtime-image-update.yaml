@@ -64,7 +64,7 @@ jobs:
           [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "invalid digest" >&2; exit 1; }
           [[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source revision" >&2; exit 1; }
           case "$COMPONENT:$SOURCE_REPOSITORY" in
-            control-plane:envpilot/control-plane|frontend:envpilot/frontend|agent:envpilot/agent|runner:envpilot/runner) ;;
+            control-plane:envpilot/control-plane|control-plane:EnvPlane/control-plane|frontend:envpilot/frontend|frontend:EnvPlane/frontend|agent:envpilot/agent|agent:EnvPlane/agent|runner:envpilot/runner|runner:EnvPlane/runner) ;;
             *) echo "source repository is not canonical for component" >&2; exit 1 ;;
           esac
           case "$COMPONENT:$REPOSITORY" in
@@ -87,11 +87,10 @@ jobs:
           FALLBACK_PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
-          if [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
-            echo "method=app" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$FALLBACK_PAT" ]]; then
+          if [[ -n "$FALLBACK_PAT" ]]; then
             echo "method=pat" >> "$GITHUB_OUTPUT"
-            echo "::warning::Using fine-grained PAT fallback; configure the GitHub App secrets."
+          elif [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+            echo "method=app" >> "$GITHUB_OUTPUT"
           else
             echo "Neither GitHub App credentials nor fallback PAT is configured." >&2
             exit 1
@@ -102,7 +101,7 @@ jobs:
         with:
           client-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
           private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
-          owner: envpilot
+          owner: EnvPlane
           repositories: deploy,frontend,control-plane,agent,runner
           permission-contents: write
           permission-pull-requests: write
