@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   release:
-    if: github.repository == 'envpilot/deploy' && github.ref == 'refs/heads/main'
+    if: github.repository == 'EnvPlane/deploy' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -140,5 +140,5 @@ jobs:
           gh release create "envpilot-v$VERSION" \
             "${{ steps.push.outputs.package }}" \
             deploy/helm/envpilot/compatibility/release.json \
-            --repo envpilot/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
+            --repo EnvPlane/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
             --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"

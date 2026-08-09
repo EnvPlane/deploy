@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository == 'envpilot/deploy' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    if: github.repository == 'EnvPlane/deploy' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     outputs:
       repository: ${{ steps.published.outputs.repository }}
@@ -47,7 +47,7 @@ jobs:
       - id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/platform-reconciler
+          images: ghcr.io/envpilot/platform-reconciler
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -67,7 +67,7 @@ jobs:
       - id: published
         name: Emit immutable image metadata
         env:
-          REPOSITORY: ghcr.io/${{ github.repository_owner }}/platform-reconciler
+          REPOSITORY: ghcr.io/envpilot/platform-reconciler
           TAG: sha-${{ github.sha }}
           DIGEST: ${{ steps.build.outputs.digest }}
           SOURCE_REVISION: ${{ github.sha }}

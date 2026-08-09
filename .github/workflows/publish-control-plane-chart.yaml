@@ -39,7 +39,7 @@ jobs:
         id: push
         run: |
           set -euo pipefail
-          output="$(helm push dist/envpilot-control-plane-*.tgz oci://ghcr.io/${{ github.repository_owner }} 2>&1 | tee /dev/stderr)"
+          output="$(helm push dist/envpilot-control-plane-*.tgz oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ -n "$digest" ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
@@ -57,7 +57,7 @@ jobs:
         with:
           client-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
           private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
-          owner: envpilot
+          owner: EnvPlane
           repositories: deploy
           permission-contents: write
       - name: Dispatch chart publication

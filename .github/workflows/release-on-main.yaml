@@ -261,5 +261,5 @@ jobs:
             "dist/envpilot-$VERSION.tgz" \
             deploy/helm/envpilot/compatibility/release.json \
             "dist/envpilot-$VERSION-release.json" \
-            --repo envpilot/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
+            --repo EnvPlane/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
             --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"
