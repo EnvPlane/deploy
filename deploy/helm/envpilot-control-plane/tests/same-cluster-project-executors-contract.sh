@@ -18,6 +18,7 @@ helm template envpilot "$chart_dir" \
   --set 'global.envpilot.sameClusterProjectExecutors.enabled=true' \
   --set 'global.envpilot.sameClusterProjectExecutors.namespace=envpilot-executors' \
   --set 'global.envpilot.sameClusterProjectExecutors.registry.existingSecret=envpilot-ghcr' \
+  --set 'global.envpilot.sameClusterProjectExecutors.registry.imagePullSecret=envpilot-ghcr' \
   --set 'rbac.sameClusterProjectExecutors.enabled=true' \
   --set 'rbac.sameClusterProjectExecutors.namespace=envpilot-executors' >"$rendered"
 
@@ -25,6 +26,8 @@ rg -Fq 'name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_ENABLED' "$rendered"
 rg -Fq 'value: "true"' "$rendered"
 rg -Fq 'name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_NAMESPACE' "$rendered"
 rg -Fq 'value: "envpilot-executors"' "$rendered"
+rg -Fq 'name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET' "$rendered"
+rg -Fq 'value: "envpilot-ghcr"' "$rendered"
 rg -Fq 'name: HOME' "$rendered"
 rg -Fq 'value: /tmp/envpilot-home' "$rendered"
 rg -Fq 'name: XDG_CACHE_HOME' "$rendered"

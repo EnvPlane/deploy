@@ -1,4 +1,4 @@
-# Provider-neutral EnvPilot umbrella defaults. No ingress controller, DNS
+# Provider-neutral EnvPlane umbrella defaults. No ingress controller, DNS
 # provider, domain, StorageClass, cloud load balancer, or Kubernetes provider is
 # assumed until an access/dependency profile explicitly requests one. When
 # access.mode=ingress and access.ingress.className=nginx, the umbrella detects a
@@ -64,9 +64,13 @@ global:
       enabled: false
       namespace: ""
       # Name only: mounted read-only as a Docker config for signed OCI child
-      # chart resolution. Its content never reaches EnvPilot APIs or audit.
+      # chart resolution. Its content never reaches EnvPlane APIs or audit.
       registry:
         existingSecret: ""
+        # Must already exist in the executor namespace. Project Agent/Runner
+        # Pods reference this name; neither Helm nor the control plane reads
+        # or duplicates its credential data.
+        imagePullSecret: ""
     # DEPRECATED bootstrap source only. At first start it seeds the persisted,
     # API/UI-managed ManagementEndpointProfile and is never remote-cluster
     # configuration. New installs should use managementEndpointProfile.bootstrap
@@ -97,7 +101,7 @@ global:
       tokenTTLSeconds: 86400
       project:
         id: envpilot
-        name: EnvPilot
+        name: EnvPlane
         productId: generic
         appRepositoryId: envpilot/app
         gitopsRepositoryId: envpilot/gitops
@@ -151,7 +155,7 @@ access:
     sectionName: ""
     hostnames: []
 
-# External platform capability contract. EnvPilot never adopts resources owned
+# External platform capability contract. EnvPlane never adopts resources owned
 # by a platform provider. `auto` detects a healthy compatible capability first
 # and may install only the explicitly configured provider when detection fails.
 platformDependencies:
@@ -191,7 +195,7 @@ platformDependencies:
     managed: {}
 
 # Optional chart-owned reconciler. It only handles the three external
-# capabilities above; EnvPilot core workloads remain ordinary chart children.
+# capabilities above; EnvPlane core workloads remain ordinary chart children.
 platformDependencyReconciler:
   # Opt-in only. With all platform dependency modes disabled, no reconciler
   # hooks/RBAC or private image are rendered.

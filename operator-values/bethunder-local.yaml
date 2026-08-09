@@ -19,6 +19,7 @@ global:
       namespace: envpilot-executors
       registry:
         existingSecret: envpilot-ghcr
+        imagePullSecret: envpilot-ghcr
 
 envpilot-control-plane:
   rbac:
@@ -26,7 +27,7 @@ envpilot-control-plane:
       enabled: true
       namespace: envpilot-executors
 
-# Run the EnvPilot execution plane in the same minikube cluster as the control
+# Run the EnvPlane execution plane in the same minikube cluster as the control
 # plane. The managed first-start registration above supplies the one-time
 # credentials used by both workloads.
 agent:

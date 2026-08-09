@@ -1,25 +1,26 @@
 {{- $postgresMode := default (ternary "internal" "disabled" .Values.postgres.enabled) .Values.postgres.mode -}}
 {{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $globalEnvPilot := default (dict) (get $global "envpilot") -}}
-{{- $platformDependencyStatus := default (dict) (get $globalEnvPilot "platformDependencyStatus") -}}
+{{- $globalEnvPlane := default (dict) (get $global "envpilot") -}}
+{{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
 {{- $platformDependencyStatusConfigMap := include "envpilot-control-plane.platformDependencyStatusConfigMapName" . -}}
 {{- $platformDependencyStatusStaleAfter := default 300 (get $platformDependencyStatus "staleAfterSeconds") -}}
-{{- $remoteClusterReconciler := default (dict) (get $globalEnvPilot "remoteClusterReconciler") -}}
+{{- $remoteClusterReconciler := default (dict) (get $globalEnvPlane "remoteClusterReconciler") -}}
 {{- $remoteClusterReconcilerEnabled := default false $remoteClusterReconciler.enabled -}}
-{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPilot "sameClusterProjectExecutors") -}}
+{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPlane "sameClusterProjectExecutors") -}}
 {{- $sameClusterProjectExecutorsEnabled := default false $sameClusterProjectExecutors.enabled -}}
 {{- $sameClusterProjectExecutorsNamespace := trim (default "" $sameClusterProjectExecutors.namespace) -}}
 {{- $executorReconcilerEnabled := or $remoteClusterReconcilerEnabled $sameClusterProjectExecutorsEnabled -}}
-{{- $registry := default (dict) (get $globalEnvPilot "registry") -}}
+{{- $registry := default (dict) (get $globalEnvPlane "registry") -}}
 {{- $projectExecutorRegistry := default (dict) (get $sameClusterProjectExecutors "registry") -}}
 {{- $executorRegistrySecret := trim (default (default "" (get $registry "existingSecret")) (get $projectExecutorRegistry "existingSecret")) -}}
+{{- $executorImagePullSecret := trim (default $executorRegistrySecret (get $projectExecutorRegistry "imagePullSecret")) -}}
 {{- $remoteClusterReconcilerConfig := default (dict) .Values.remoteClusterReconciler -}}
 {{- $leaderElection := default (dict) (get $remoteClusterReconcilerConfig "leaderElection") -}}
 {{- $leaderElectionNamespace := trim (default "" (get $leaderElection "namespace")) -}}
 {{- $remoteCompatibilityConfigMap := include "envpilot-control-plane.remoteClusterCompatibilityConfigMapName" . -}}
-{{- $firstStart := default (dict) (get $globalEnvPilot "firstStartRegistration") -}}
+{{- $firstStart := default (dict) (get $globalEnvPlane "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- if and $sameClusterProjectExecutorsEnabled (or (eq $firstStartMode "disabled") (not $sameClusterProjectExecutorsNamespace)) -}}
 {{- fail "sameClusterProjectExecutors requires enabled firstStartRegistration and a pre-existing namespace" -}}
@@ -27,15 +28,18 @@
 {{- if and $sameClusterProjectExecutorsEnabled (not $executorRegistrySecret) -}}
 {{- fail "sameClusterProjectExecutors requires registry.existingSecret for signed OCI child charts" -}}
 {{- end -}}
-{{- $e2eFixture := default (dict) (get $globalEnvPilot "e2eFixture") -}}
+{{- if and $sameClusterProjectExecutorsEnabled (not $executorImagePullSecret) -}}
+{{- fail "sameClusterProjectExecutors requires registry.imagePullSecret in the pre-existing executor namespace" -}}
+{{- end -}}
+{{- $e2eFixture := default (dict) (get $globalEnvPlane "e2eFixture") -}}
 {{- $e2eFixtureRecovery := default (dict) (get $e2eFixture "recovery") -}}
 {{- $firstStartSecret := "" -}}
 {{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
 {{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
 {{- $agentBootstrapChart := default (dict) $agentBootstrap.chart -}}
 {{- $legacyRemoteControlPlane := default (dict) .Values.remoteControlPlane -}}
-{{- $globalRemoteControlPlane := default (dict) (get $globalEnvPilot "remoteControlPlane") -}}
-{{- $managementEndpointProfile := default (dict) (get $globalEnvPilot "managementEndpointProfile") -}}
+{{- $globalRemoteControlPlane := default (dict) (get $globalEnvPlane "remoteControlPlane") -}}
+{{- $managementEndpointProfile := default (dict) (get $globalEnvPlane "managementEndpointProfile") -}}
 {{- $managementEndpointBootstrap := default (dict) (get $managementEndpointProfile "bootstrap") -}}
 {{- $globalRemoteTLS := default (dict) (get $globalRemoteControlPlane "tls") -}}
 {{- $globalRemoteCARef := default (dict) (get $globalRemoteTLS "caSecretRef") -}}
@@ -240,6 +244,8 @@ spec:
               value: "true"
             - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_NAMESPACE
               value: {{ $sameClusterProjectExecutorsNamespace | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET
+              value: {{ $executorImagePullSecret | quote }}
             {{- end }}
             {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
             - name: ENVPILOT_REMOTE_CLUSTER_COMPATIBILITY_MANIFEST

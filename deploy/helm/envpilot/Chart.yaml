@@ -1,12 +1,12 @@
 apiVersion: v2
 name: envpilot
-description: EnvPilot same-cluster umbrella chart.
+description: EnvPlane same-cluster umbrella chart.
 type: application
-version: 0.3.36
-appVersion: "0.3.36"
+version: 0.3.37
+appVersion: "0.3.37"
 dependencies:
   - name: envpilot-control-plane
-    version: 0.3.19
+    version: 0.3.20
     repository: file://../envpilot-control-plane
     condition: controlPlane.enabled
   - name: envpilot-frontend
