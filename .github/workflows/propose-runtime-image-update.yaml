@@ -45,7 +45,7 @@ concurrency:
 
 jobs:
   propose:
-    if: github.repository == 'envpilot/deploy' && (github.event_name == 'repository_dispatch' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    if: github.repository == 'EnvPlane/deploy' && (github.event_name == 'repository_dispatch' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     steps:
       - id: payload
@@ -143,7 +143,7 @@ jobs:
           # release bot explicitly before that merge.
           git config user.name "envpilot-release-automation[bot]"
           git config user.email "envpilot-release-automation[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/envpilot/deploy.git"
+          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/EnvPlane/deploy.git"
           git fetch origin main
           git checkout -B main origin/main
           if git fetch origin refs/heads/automation/runtime-image-pins:refs/remotes/origin/automation/runtime-image-pins; then
@@ -207,4 +207,4 @@ jobs:
           # The immutable artifact and complete umbrella render were verified
           # above. Do not leave a successful publication pending on a
           # repository-wide auto-merge setting.
-          gh pr merge "$PR_NUMBER" --squash --delete-branch --repo envpilot/deploy
+          gh pr merge "$PR_NUMBER" --squash --delete-branch --repo EnvPlane/deploy

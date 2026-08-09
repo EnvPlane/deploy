@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   update:
-    if: github.repository == 'envpilot/deploy'
+    if: github.repository == 'EnvPlane/deploy'
     runs-on: ubuntu-latest
     steps:
       - id: payload
@@ -30,11 +30,11 @@ jobs:
         run: |
           set -euo pipefail
           case "$COMPONENT:$CHART:$REPOSITORY:$SOURCE_REPOSITORY" in
-            control-plane:envpilot-control-plane:oci://ghcr.io/envpilot/envpilot-control-plane:envpilot/deploy) ;;
-            frontend:envpilot-frontend:oci://ghcr.io/envpilot/envpilot-frontend:envpilot/deploy) ;;
-            agent:envpilot-agent:oci://ghcr.io/envpilot/envpilot-agent:envpilot/deploy) ;;
-            runner:envpilot-runner:oci://ghcr.io/envpilot/envpilot-runner:envpilot/deploy) ;;
-            webhook:envpilot-webhook:oci://ghcr.io/envpilot/envpilot-webhook:envpilot/deploy) ;;
+            control-plane:envpilot-control-plane:oci://ghcr.io/envpilot/envpilot-control-plane:EnvPlane/deploy) ;;
+            frontend:envpilot-frontend:oci://ghcr.io/envpilot/envpilot-frontend:EnvPlane/deploy) ;;
+            agent:envpilot-agent:oci://ghcr.io/envpilot/envpilot-agent:EnvPlane/deploy) ;;
+            runner:envpilot-runner:oci://ghcr.io/envpilot/envpilot-runner:EnvPlane/deploy) ;;
+            webhook:envpilot-webhook:oci://ghcr.io/envpilot/envpilot-webhook:EnvPlane/deploy) ;;
             *) echo "chart/source/repository is not canonical" >&2; exit 1 ;;
           esac
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "invalid chart version" >&2; exit 1; }
@@ -93,7 +93,7 @@ jobs:
           TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
-          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/envpilot/deploy.git"
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/EnvPlane/deploy.git"
           git fetch origin main
           if git fetch origin refs/heads/automation/umbrella-chart-dependencies:refs/remotes/origin/automation/umbrella-chart-dependencies; then
             git checkout -B automation/umbrella-chart-dependencies origin/automation/umbrella-chart-dependencies
@@ -142,4 +142,4 @@ jobs:
           # The selected OCI chart, lock file and umbrella render were
           # verified above. Merge so the next release cannot retain an older
           # child-chart pin solely because auto-merge is disabled.
-          gh pr merge "$PR_NUMBER" --squash --delete-branch --repo envpilot/deploy
+          gh pr merge "$PR_NUMBER" --squash --delete-branch --repo EnvPlane/deploy

@@ -139,7 +139,7 @@ grep -Fq 'git ls-remote origin refs/heads/main' "$workflow" || {
 }
 
 for receiver in "$runtime_receiver" "$chart_receiver"; do
-  grep -Fq 'gh pr merge "$PR_NUMBER" --squash --delete-branch --repo envpilot/deploy' "$receiver" || {
+  grep -Fq 'gh pr merge "$PR_NUMBER" --squash --delete-branch --repo EnvPlane/deploy' "$receiver" || {
     echo "published component pins must merge after their validated update" >&2
     exit 1
   }
