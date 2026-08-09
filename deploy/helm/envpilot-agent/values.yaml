@@ -40,6 +40,12 @@ managedRemote:
   # mode renders Roles only in these namespaces and never a ClusterRole.
   targetNamespaces: []
 
+# Set only by the management-cluster project reconciler. It deliberately
+# bypasses umbrella firstStartRegistration so this release uses its own
+# project-scoped Secret and identity instead of the singleton bootstrap one.
+managedSameCluster:
+  enabled: false
+
 command: []
 args:
   - agent

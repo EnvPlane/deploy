@@ -46,6 +46,12 @@ managedRemote:
   # available in managed remote mode.
   targetNamespaces: []
 
+# Set only by the management-cluster project reconciler. It deliberately
+# bypasses umbrella firstStartRegistration so this release uses its own
+# project-scoped Secret and identity instead of the singleton bootstrap one.
+managedSameCluster:
+  enabled: false
+
 controlPlane:
   # sameCluster derives a Service DNS endpoint from this release. remote
   # requires an explicit URL reachable from the target Runner pod.

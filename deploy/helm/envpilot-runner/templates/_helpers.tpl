@@ -142,7 +142,8 @@ envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 {{- $global := default (dict) .Values.global -}}
 {{- $envpilot := default (dict) (get $global "envpilot") -}}
 {{- $firstStart := default (dict) (get $envpilot "firstStartRegistration") -}}
-{{- if ne (default "disabled" $firstStart.mode) "disabled" }}true{{ else }}false{{ end -}}
+{{- $managedSameCluster := default (dict) .Values.managedSameCluster -}}
+{{- if and (not (default false $managedSameCluster.enabled)) (ne (default "disabled" $firstStart.mode) "disabled") }}true{{ else }}false{{ end -}}
 {{- end -}}
 
 {{- define "envpilot-runner.image" -}}

@@ -7,12 +7,12 @@ dependencies:
   version: 0.2.1
 - name: envpilot-agent
   repository: file://../envpilot-agent
-  version: 0.2.5
+  version: 0.2.6
 - name: envpilot-runner
   repository: file://../envpilot-runner
-  version: 0.4.0
+  version: 0.4.1
 - name: envpilot-webhook
   repository: file://../envpilot-webhook
   version: 0.1.0
-digest: sha256:552f9eb23af8c30ff15c81f4feab18a77e1f8e0d85ca3a592859392e80b9c62e
-generated: "2026-08-09T12:45:40.816024+02:00"
+digest: sha256:1869c9ab8df541fcc78089c63727dab491e2e54cce50c0145a818af41e6fe1d7
+generated: "2026-08-09T12:54:20.436795+02:00"
