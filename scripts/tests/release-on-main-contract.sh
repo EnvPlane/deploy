@@ -63,6 +63,16 @@ grep -Fq 'publish-selected-child-charts.sh' "$artifact_workflow" || {
   exit 1
 }
 
+grep -Fq -- "--owner 'envpilot'" "$artifact_workflow" || {
+  echo "artifact workflow must preserve the canonical lowercase EnvPilot OCI namespace" >&2
+  exit 1
+}
+
+if grep -Fq -- '--owner '\''${{ github.repository_owner }}'\''' "$artifact_workflow"; then
+  echo "artifact workflow must not derive OCI namespace from GitHub repository owner casing" >&2
+  exit 1
+fi
+
 grep -Fq -- '--selected-child-charts' "$artifact_workflow" || {
   echo "artifact workflow must pass the selected child-chart manifest to the resolver" >&2
   exit 1

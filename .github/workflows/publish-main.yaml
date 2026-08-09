@@ -93,7 +93,9 @@ jobs:
             --charts-dir deploy/helm \
             --dist dist \
             --output "$RUNNER_TEMP/selected-child-charts.json" \
-            --owner '${{ github.repository_owner }}' \
+            # Artifact references are a public, lowercase registry contract.
+            # They remain ghcr.io/envpilot across GitHub repository-owner moves.
+            --owner 'envpilot' \
             --source-revision "$GITHUB_SHA"
       - name: Resolve and verify the published compatibility set
         env:
