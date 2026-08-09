@@ -12,6 +12,9 @@
 {{- $sameClusterProjectExecutorsEnabled := default false $sameClusterProjectExecutors.enabled -}}
 {{- $sameClusterProjectExecutorsNamespace := trim (default "" $sameClusterProjectExecutors.namespace) -}}
 {{- $executorReconcilerEnabled := or $remoteClusterReconcilerEnabled $sameClusterProjectExecutorsEnabled -}}
+{{- $registry := default (dict) (get $globalEnvPilot "registry") -}}
+{{- $projectExecutorRegistry := default (dict) (get $sameClusterProjectExecutors "registry") -}}
+{{- $executorRegistrySecret := trim (default (default "" (get $registry "existingSecret")) (get $projectExecutorRegistry "existingSecret")) -}}
 {{- $remoteClusterReconcilerConfig := default (dict) .Values.remoteClusterReconciler -}}
 {{- $leaderElection := default (dict) (get $remoteClusterReconcilerConfig "leaderElection") -}}
 {{- $leaderElectionNamespace := trim (default "" (get $leaderElection "namespace")) -}}
@@ -20,6 +23,9 @@
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- if and $sameClusterProjectExecutorsEnabled (or (eq $firstStartMode "disabled") (not $sameClusterProjectExecutorsNamespace)) -}}
 {{- fail "sameClusterProjectExecutors requires enabled firstStartRegistration and a pre-existing namespace" -}}
+{{- end -}}
+{{- if and $sameClusterProjectExecutorsEnabled (not $executorRegistrySecret) -}}
+{{- fail "sameClusterProjectExecutors requires registry.existingSecret for signed OCI child charts" -}}
 {{- end -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPilot "e2eFixture") -}}
 {{- $e2eFixtureRecovery := default (dict) (get $e2eFixture "recovery") -}}
@@ -222,6 +228,12 @@ spec:
               value: /tmp/envpilot-home/cache
             - name: XDG_CONFIG_HOME
               value: /tmp/envpilot-home/config
+            {{- if $executorRegistrySecret }}
+            # This read-only Docker config is consumed only by Helm's OCI
+            # client. Registry credentials never enter project state or API.
+            - name: HELM_REGISTRY_CONFIG
+              value: /etc/envpilot/helm-registry/config.json
+            {{- end }}
             {{- end }}
             {{- if $sameClusterProjectExecutorsEnabled }}
             - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_ENABLED
@@ -366,6 +378,11 @@ spec:
             - name: remote-cluster-helm-cache
               mountPath: /tmp/envpilot-home
           {{- end }}
+          {{- if $executorRegistrySecret }}
+            - name: executor-registry-config
+              mountPath: /etc/envpilot/helm-registry
+              readOnly: true
+          {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
@@ -406,6 +423,14 @@ spec:
       {{- if $executorReconcilerEnabled }}
         - name: remote-cluster-helm-cache
           emptyDir: {}
+      {{- end }}
+      {{- if $executorRegistrySecret }}
+        - name: executor-registry-config
+          secret:
+            secretName: {{ $executorRegistrySecret | quote }}
+            items:
+              - key: .dockerconfigjson
+                path: config.json
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

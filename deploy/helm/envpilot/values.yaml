@@ -63,6 +63,10 @@ global:
     sameClusterProjectExecutors:
       enabled: false
       namespace: ""
+      # Name only: mounted read-only as a Docker config for signed OCI child
+      # chart resolution. Its content never reaches EnvPilot APIs or audit.
+      registry:
+        existingSecret: ""
     # DEPRECATED bootstrap source only. At first start it seeds the persisted,
     # API/UI-managed ManagementEndpointProfile and is never remote-cluster
     # configuration. New installs should use managementEndpointProfile.bootstrap

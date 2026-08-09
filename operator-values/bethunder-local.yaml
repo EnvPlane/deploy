@@ -17,6 +17,8 @@ global:
     sameClusterProjectExecutors:
       enabled: true
       namespace: envpilot-executors
+      registry:
+        existingSecret: envpilot-ghcr
 
 envpilot-control-plane:
   rbac:

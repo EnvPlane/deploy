@@ -17,6 +17,7 @@ helm template envpilot "$chart_dir" \
   --set 'global.envpilot.firstStartRegistration.cluster.id=bethunder-local' \
   --set 'global.envpilot.sameClusterProjectExecutors.enabled=true' \
   --set 'global.envpilot.sameClusterProjectExecutors.namespace=envpilot-executors' \
+  --set 'global.envpilot.sameClusterProjectExecutors.registry.existingSecret=envpilot-ghcr' \
   --set 'rbac.sameClusterProjectExecutors.enabled=true' \
   --set 'rbac.sameClusterProjectExecutors.namespace=envpilot-executors' >"$rendered"
 
@@ -28,10 +29,31 @@ rg -Fq 'name: HOME' "$rendered"
 rg -Fq 'value: /tmp/envpilot-home' "$rendered"
 rg -Fq 'name: XDG_CACHE_HOME' "$rendered"
 rg -Fq 'value: /tmp/envpilot-home/cache' "$rendered"
+rg -Fq 'name: HELM_REGISTRY_CONFIG' "$rendered"
+rg -Fq 'value: /etc/envpilot/helm-registry/config.json' "$rendered"
+rg -Fq 'name: executor-registry-config' "$rendered"
+rg -Fq 'secretName: "envpilot-ghcr"' "$rendered"
+rg -Fq 'key: .dockerconfigjson' "$rendered"
 rg -Fq 'name: envpilot-control-plane-same-cluster-project-executors' "$rendered"
 rg -Fq 'namespace: "envpilot-executors"' "$rendered"
 ! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$rendered"
 ! rg -q 'resources: \["\*"\]|verbs: \["\*"\]' "$rendered"
+
+# A project executor must never silently fall back to an anonymous OCI pull.
+# The Registry Secret name is configuration only; its contents stay write-only.
+if helm template missing-registry "$chart_dir" \
+  --set 'global.envpilot.firstStartRegistration.mode=managed' \
+  --set 'global.envpilot.firstStartRegistration.project.id=envpilot' \
+  --set 'global.envpilot.firstStartRegistration.project.productId=generic' \
+  --set 'global.envpilot.firstStartRegistration.agent.id=envpilot-agent' \
+  --set 'global.envpilot.firstStartRegistration.runner.id=envpilot-runner' \
+  --set 'global.envpilot.firstStartRegistration.runner.deploymentMode=helm' \
+  --set 'global.envpilot.firstStartRegistration.cluster.id=bethunder-local' \
+  --set 'global.envpilot.sameClusterProjectExecutors.enabled=true' \
+  --set 'global.envpilot.sameClusterProjectExecutors.namespace=envpilot-executors' >/dev/null 2>&1; then
+  echo 'expected signed OCI registry Secret requirement to fail rendering' >&2
+  exit 1
+fi
 
 helm template project-agent "$chart_dir/../envpilot-agent" \
   --set 'global.envpilot.firstStartRegistration.mode=managed' \
