@@ -107,6 +107,13 @@ jobs:
             "$report" >/dev/null
           cp "$report" "$RUNNER_TEMP/latest-artifacts.json"
           echo "report=$RUNNER_TEMP/latest-artifacts.json" >> "$GITHUB_OUTPUT"
+      - name: Smoke-check editable Draft component controls in frontend image
+        env:
+          REPORT: ${{ steps.artifacts.outputs.report }}
+        run: |
+          set -euo pipefail
+          ./scripts/verify-frontend-component-repair-controls.sh \
+            --image "$(jq -er '.images.frontend.repository + "@" + .images.frontend.digest' "$REPORT")"
       - name: Apply latest image pins in the ephemeral release workspace
         env:
           REPORT: ${{ steps.artifacts.outputs.report }}

@@ -7,6 +7,7 @@ artifact_workflow="$root/.github/workflows/publish-main.yaml"
 resolver="$root/scripts/resolve-latest-published-artifacts.sh"
 child_publisher="$root/scripts/publish-selected-child-charts.sh"
 freshness_gate="$root/scripts/ensure-current-compatible-artifact.sh"
+frontend_smoke="$root/scripts/verify-frontend-component-repair-controls.sh"
 runtime_receiver="$root/.github/workflows/propose-runtime-image-update.yaml"
 chart_receiver="$root/.github/workflows/propose-umbrella-chart-dependency-update.yaml"
 
@@ -14,9 +15,11 @@ chart_receiver="$root/.github/workflows/propose-umbrella-chart-dependency-update
 [[ -x "$resolver" ]] || { echo "artifact resolver is not executable" >&2; exit 1; }
 [[ -x "$child_publisher" ]] || { echo "selected child-chart publisher is not executable" >&2; exit 1; }
 [[ -x "$freshness_gate" ]] || { echo "compatibility freshness gate is not executable" >&2; exit 1; }
+[[ -x "$frontend_smoke" ]] || { echo "frontend image smoke check is not executable" >&2; exit 1; }
 bash -n "$resolver"
 bash -n "$child_publisher"
 bash -n "$freshness_gate"
+bash -n "$frontend_smoke"
 
 for required in \
   "workflow_run:" \
@@ -123,6 +126,16 @@ done
 
 grep -Fq 'Verify confirmed immutable artifacts' "$workflow" || {
   echo "release must validate the downloaded compatibility manifest" >&2
+  exit 1
+}
+
+grep -Fq 'Smoke-check editable Draft component controls in frontend image' "$workflow" || {
+  echo "release must smoke-check the frontend image before packaging the umbrella" >&2
+  exit 1
+}
+
+grep -Fq 'verify-frontend-component-repair-controls.sh' "$workflow" || {
+  echo "release must verify editable component controls in the pinned frontend digest" >&2
   exit 1
 }
 
