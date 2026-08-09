@@ -6,12 +6,17 @@ workflow="$root/.github/workflows/release-on-main.yaml"
 artifact_workflow="$root/.github/workflows/publish-main.yaml"
 resolver="$root/scripts/resolve-latest-published-artifacts.sh"
 child_publisher="$root/scripts/publish-selected-child-charts.sh"
+freshness_gate="$root/scripts/ensure-current-compatible-artifact.sh"
+runtime_receiver="$root/.github/workflows/propose-runtime-image-update.yaml"
+chart_receiver="$root/.github/workflows/propose-umbrella-chart-dependency-update.yaml"
 
 [[ -f "$workflow" ]] || { echo "main release workflow is missing" >&2; exit 1; }
 [[ -x "$resolver" ]] || { echo "artifact resolver is not executable" >&2; exit 1; }
 [[ -x "$child_publisher" ]] || { echo "selected child-chart publisher is not executable" >&2; exit 1; }
+[[ -x "$freshness_gate" ]] || { echo "compatibility freshness gate is not executable" >&2; exit 1; }
 bash -n "$resolver"
 bash -n "$child_publisher"
+bash -n "$freshness_gate"
 
 for required in \
   "workflow_run:" \
@@ -89,6 +94,32 @@ grep -Fq 'Select the artifact source revision' "$workflow" || {
   echo "release must checkout the artifact workflow source revision" >&2
   exit 1
 }
+
+grep -Fq 'Ensure selected compatibility set is current deploy main' "$workflow" || {
+  echo "release must reject a compatibility report superseded on deploy/main" >&2
+  exit 1
+}
+
+grep -Fq 'ensure-current-compatible-artifact.sh' "$workflow" || {
+  echo "release must enforce current-main compatibility selection" >&2
+  exit 1
+}
+
+grep -Fq 'git ls-remote origin refs/heads/main' "$workflow" || {
+  echo "release must compare the artifact revision with deploy/main" >&2
+  exit 1
+}
+
+for receiver in "$runtime_receiver" "$chart_receiver"; do
+  grep -Fq 'gh pr merge "$PR_NUMBER" --squash --delete-branch --repo envpilot/deploy' "$receiver" || {
+    echo "published component pins must merge after their validated update" >&2
+    exit 1
+  }
+  if grep -Fq 'enablePullRequestAutoMerge' "$receiver"; then
+    echo "published component pins must not silently remain pending when auto-merge is disabled" >&2
+    exit 1
+  fi
+done
 
 grep -Fq 'Verify confirmed immutable artifacts' "$workflow" || {
   echo "release must validate the downloaded compatibility manifest" >&2

@@ -10,11 +10,13 @@ on:
       - 'go.sum'
       - 'scripts/publish-selected-child-charts.sh'
       - 'scripts/resolve-latest-published-artifacts.sh'
+      - 'scripts/ensure-current-compatible-artifact.sh'
       - 'scripts/generate-umbrella-compatibility-manifest.sh'
       - 'scripts/verify-umbrella-reinstall-compatibility.sh'
       - 'scripts/tests/test-publish-selected-child-charts.sh'
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
       - 'scripts/tests/release-on-main-contract.sh'
+      - 'scripts/tests/test-current-compatible-artifact.sh'
       - 'deploy/helm/envpilot/values.yaml'
       - 'deploy/helm/envpilot/Chart.yaml'
       - '.github/workflows/publish-main.yaml'
@@ -48,6 +50,7 @@ jobs:
       - name: Test deploy tooling
         run: |
           go test ./...
+          ./scripts/tests/test-current-compatible-artifact.sh
           ./scripts/tests/test-publish-selected-child-charts.sh
           ./scripts/tests/test-generate-umbrella-compatibility-manifest.sh
       - uses: azure/setup-helm@v4

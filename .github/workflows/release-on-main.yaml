@@ -41,6 +41,14 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.artifact_run_id }}
+      - name: Ensure selected compatibility set is current deploy main
+        env:
+          REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
+        run: |
+          set -euo pipefail
+          main_revision="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          ./scripts/ensure-current-compatible-artifact.sh \
+            --report "$REPORT" --main-revision "$main_revision"
       - name: Select the artifact source revision
         id: source
         env:

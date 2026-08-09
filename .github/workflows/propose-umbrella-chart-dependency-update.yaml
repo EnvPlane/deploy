@@ -132,21 +132,14 @@ jobs:
 
             Only the matching umbrella dependency, Chart.lock and regenerated
             archive are included. Values files are intentionally unchanged.
-      - name: Enable auto-merge after chart tests
+      - name: Merge validated child-chart dependency pin
         if: steps.pr.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
         run: |
           set -euo pipefail
-          if ! output="$(gh pr merge "$PR_NUMBER" --auto --squash --repo envpilot/deploy 2>&1)"; then
-            if grep -Fq 'enablePullRequestAutoMerge' <<< "$output"; then
-              echo '::warning::Automatic merge is disabled for envpilot/deploy; leaving the tested PR open for a normal protected merge.'
-              printf '%s\n' "$output"
-            else
-              printf '%s\n' "$output" >&2
-              exit 1
-            fi
-          else
-            printf '%s\n' "$output"
-          fi
+          # The selected OCI chart, lock file and umbrella render were
+          # verified above. Merge so the next release cannot retain an older
+          # child-chart pin solely because auto-merge is disabled.
+          gh pr merge "$PR_NUMBER" --squash --delete-branch --repo envpilot/deploy

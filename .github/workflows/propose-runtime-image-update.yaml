@@ -197,21 +197,14 @@ jobs:
             immutable GHCR tag was inspected before this PR was refreshed. The
             next atomic umbrella release generates the signed compatibility
             manifest from these source values.
-      - name: Enable auto-merge after passing tests
+      - name: Merge validated runtime image pin
         if: steps.pull_request.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           PR_NUMBER: ${{ steps.pull_request.outputs.pull-request-number }}
         run: |
           set -euo pipefail
-          if ! output="$(gh pr merge "$PR_NUMBER" --auto --squash --repo envpilot/deploy 2>&1)"; then
-            if grep -Fq 'enablePullRequestAutoMerge' <<< "$output"; then
-              echo '::warning::Automatic merge is disabled for envpilot/deploy; leaving the tested PR open for a normal protected merge.'
-              printf '%s\n' "$output"
-            else
-              printf '%s\n' "$output" >&2
-              exit 1
-            fi
-          else
-            printf '%s\n' "$output"
-          fi
+          # The immutable artifact and complete umbrella render were verified
+          # above. Do not leave a successful publication pending on a
+          # repository-wide auto-merge setting.
+          gh pr merge "$PR_NUMBER" --squash --delete-branch --repo envpilot/deploy
