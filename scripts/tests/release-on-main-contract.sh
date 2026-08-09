@@ -43,6 +43,16 @@ if grep -Eq '^  push:' "$workflow"; then
   exit 1
 fi
 
+grep -Fq "github.repository == 'EnvPlane/deploy'" "$workflow" || {
+  echo "umbrella release must target the canonical EnvPlane deploy repository" >&2
+  exit 1
+}
+
+if grep -Fq "github.repository == 'envpilot/deploy'" "$workflow"; then
+  echo "umbrella release must not retain the retired repository gate" >&2
+  exit 1
+fi
+
 grep -Fq "pinned source tree" "$resolver" || {
   echo "resolver must verify pinned source artifacts rather than selecting registry latest" >&2
   exit 1
