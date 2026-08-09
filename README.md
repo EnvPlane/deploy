@@ -1,29 +1,57 @@
-# EnvPilot Deploy
+# EnvPlane Deploy
 
-The `deploy/deploy/helm` directory is the canonical source of EnvPilot's Helm
-charts. The supported same-cluster installation is one real umbrella release:
+Canonical Helm charts, deployment automation, and end-to-end installation
+fixtures for [EnvPlane](https://envplane.dev).
 
-```sh
-helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
+## What this repository owns
+
+- EnvPlane umbrella and stable child charts.
+- Same-cluster installation for control plane, frontend, Agent, and Runner.
+- Remote-cluster lifecycle and compatibility-pinned runtime artifacts.
+- Release automation and published OCI chart verification.
+- Minikube and published-artifact end-to-end scenarios.
+
+## Installation
+
+The supported same-cluster installation uses one umbrella release:
+
+```bash
+helm upgrade --install envplane oci://ghcr.io/envpilot/envpilot \
   --version <version> \
-  --namespace envpilot \
+  --namespace envplane \
   --create-namespace \
   -f values.yaml
 ```
 
-The umbrella directly owns enabled control-plane, frontend, Agent and Runner
-workloads. It does not publish or run a privileged `envpilot/install` image,
-does not invoke nested Helm or `kubectl`, and does not delete namespaces.
+The existing OCI coordinates are retained for compatibility with the current
+release pipeline. Review values and use a versioned chart before installing.
+See [`deploy/helm`](deploy/helm) and
+[`docs/remote-clusters.md`](docs/remote-clusters.md) for configuration.
 
-The stable OCI child charts are:
+## Local validation
 
-- `oci://ghcr.io/envpilot/envpilot-control-plane`
-- `oci://ghcr.io/envpilot/envpilot-frontend`
-- `oci://ghcr.io/envpilot/envpilot-agent`
-- `oci://ghcr.io/envpilot/envpilot-runner`
+```bash
+./scripts/minikube-up.sh
+./scripts/minikube-verify.sh
+./scripts/minikube-down.sh
+```
 
-See the [umbrella chart guide](deploy/helm/envpilot/README.md) and the
-[provider-neutral values contract](deploy/helm/envpilot/VALUES.md) for values,
-same-cluster versus remote Agent/Runner operation, and migration from the
-retired installer-Job chart. Chart ownership and child-chart migration details
-are documented in [Helm chart ownership](docs/helm-chart-ownership.md).
+Run published-artifact and remote-cluster scenarios only against disposable or
+approved test environments.
+
+## Related components
+
+- [Control Plane](https://github.com/EnvPlane/control-plane)
+- [Frontend](https://github.com/EnvPlane/frontend)
+- [Agent](https://github.com/EnvPlane/agent)
+- [Runner](https://github.com/EnvPlane/runner)
+- [Webhook](https://github.com/EnvPlane/webhook)
+
+## Security
+
+Do not commit kubeconfigs, registry credentials, cloud keys, bootstrap tokens,
+or production values. Release credentials belong in CI secrets.
+
+## Status
+
+Private EnvPlane deployment and release component under active development.
