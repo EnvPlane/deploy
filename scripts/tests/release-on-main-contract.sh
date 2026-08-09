@@ -68,6 +68,11 @@ grep -Fq -- "--owner 'envpilot'" "$artifact_workflow" || {
   exit 1
 }
 
+if grep -B2 -F -- "--owner 'envpilot'" "$artifact_workflow" | grep -Eq '^            #'; then
+  echo "workflow comments must not interrupt the continued child-chart publisher command" >&2
+  exit 1
+fi
+
 if grep -Fq -- '--owner '\''${{ github.repository_owner }}'\''' "$artifact_workflow"; then
   echo "artifact workflow must not derive OCI namespace from GitHub repository owner casing" >&2
   exit 1

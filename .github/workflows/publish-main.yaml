@@ -83,6 +83,8 @@ jobs:
             helm lint "$chart"
           done
       - name: Publish selected stable child charts
+        # Artifact references are a public, lowercase registry contract.
+        # They remain ghcr.io/envpilot across GitHub repository-owner moves.
         shell: bash
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
@@ -93,8 +95,6 @@ jobs:
             --charts-dir deploy/helm \
             --dist dist \
             --output "$RUNNER_TEMP/selected-child-charts.json" \
-            # Artifact references are a public, lowercase registry contract.
-            # They remain ghcr.io/envpilot across GitHub repository-owner moves.
             --owner 'envpilot' \
             --source-revision "$GITHUB_SHA"
       - name: Resolve and verify the published compatibility set
