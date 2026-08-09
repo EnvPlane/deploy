@@ -39,6 +39,11 @@ rg -Fq 'secretName: "envpilot-ghcr"' "$rendered"
 rg -Fq 'key: .dockerconfigjson' "$rendered"
 rg -Fq 'name: envpilot-control-plane-same-cluster-project-executors' "$rendered"
 rg -Fq 'namespace: "envpilot-executors"' "$rendered"
+# The control-plane must hold precisely the namespaced read permissions it
+# delegates to a project Agent, otherwise Kubernetes rejects the RoleBinding
+# as an RBAC escalation. They must remain read-only and namespace-scoped.
+rg -Fq 'resources: ["configmaps", "endpoints", "events", "limitranges", "resourcequotas", "services"]' "$rendered"
+rg -Fq 'resources: ["buckets", "gitrepositories", "helmrepositories", "ocirepositories"]' "$rendered"
 ! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$rendered"
 ! rg -q 'resources: \["\*"\]|verbs: \["\*"\]' "$rendered"
 
