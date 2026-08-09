@@ -113,10 +113,11 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          # The repository-scoped GITHUB_TOKEN cannot read canonical
-          # ghcr.io/envpilot packages after the repository-owner migration.
-          # The validated App token is explicitly granted packages:read.
-          password: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          # Canonical packages remain under ghcr.io/envpilot after the
+          # repository-owner migration. Use the dedicated registry credential
+          # before the repository App token, which cannot access that package
+          # namespace. Digest verification below remains mandatory.
+          password: ${{ secrets.GHCR_TOKEN || steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
       - name: Verify immutable GHCR artifact and digest
         env:
           REPOSITORY: ${{ steps.payload.outputs.repository }}
