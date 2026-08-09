@@ -68,12 +68,12 @@ helm template project-agent "$chart_dir/../envpilot-agent" \
   --set 'controlPlane.existingSecret=project-cms-agent-bootstrap' \
   --set 'rbac.discovery.scope=namespace' \
   --set 'rbac.discovery.namespaces[0]=envpilot-executors' \
-  --set 'agent.authPersistence.createClaim=false' \
   --set 'installValidation.enabled=false' >"$agent_rendered"
 rg -Fq 'value: "project-cms"' "$agent_rendered"
 rg -Fq 'value: "project-cms-agent"' "$agent_rendered"
 ! rg -Fq 'value: "singleton"' "$agent_rendered"
 ! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$agent_rendered"
+rg -Fq 'kind: PersistentVolumeClaim' "$agent_rendered"
 
 helm template project-runner "$chart_dir/../envpilot-runner" \
   --set 'global.envpilot.firstStartRegistration.mode=managed' \
@@ -84,7 +84,6 @@ helm template project-runner "$chart_dir/../envpilot-runner" \
   --set 'project.clusterId=bethunder-local' \
   --set 'project.namespace=envpilot-executors' \
   --set 'controlPlane.existingSecret=project-cms-runner-bootstrap' \
-  --set 'controlPlane.authPersistence.createClaim=false' \
   --set 'rbac.discovery.scope=namespace' \
   --set 'rbac.discovery.namespace=envpilot-executors' \
   --set 'rbac.featureEnvWriter.mode=preconfiguredNamespaces' \
@@ -93,3 +92,4 @@ rg -Fq 'value: "project-cms"' "$runner_rendered"
 rg -Fq 'value: "project-cms-runner"' "$runner_rendered"
 ! rg -Fq 'value: "singleton"' "$runner_rendered"
 ! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$runner_rendered"
+rg -Fq 'kind: PersistentVolumeClaim' "$runner_rendered"

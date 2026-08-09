@@ -166,7 +166,7 @@ rules:
   # pre-existing executor namespace. This deliberately grants no cluster-wide
   # or feature-namespace wildcard access.
   - apiGroups: [""]
-    resources: ["secrets", "serviceaccounts", "pods"]
+    resources: ["secrets", "serviceaccounts", "pods", "persistentvolumeclaims"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["apps"]
     resources: ["deployments", "replicasets"]
