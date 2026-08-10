@@ -481,6 +481,30 @@ func TestAgentChartRendersDefaultAuthPersistencePVC(t *testing.T) {
 	}
 }
 
+func TestAgentChartRendersGenerationScopedAuthPersistenceClaim(t *testing.T) {
+	commandArgs := []string{
+		"template", "envpilot-agent", "..",
+		"--set", "controlPlane.existingSecret=envpilot-agent-bootstrap",
+		"--set", "bootstrap.projectId=project-1",
+		"--set", "agent.authPersistence.claimName=ep-agent-project-auth-r2",
+	}
+	cmd := exec.Command("helm", commandArgs...)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, string(output))
+	}
+	rendered := string(output)
+	for _, expected := range []string{
+		`name: ep-agent-project-auth-r2`,
+		`claimName: "ep-agent-project-auth-r2"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered chart missing generation-scoped auth claim %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestAgentChartUsesReleaseAwareResourcesAndSupportsLegacyName(t *testing.T) {
 	releaseA := renderAgentChartWithRelease(t, "agent-a", "--set", "controlPlane.existingSecret=agent-a-bootstrap")
 	releaseB := renderAgentChartWithRelease(t, "agent-b", "--set", "controlPlane.existingSecret=agent-b-bootstrap")
