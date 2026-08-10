@@ -39,7 +39,16 @@ for chart in \
   [[ -n "$changed" ]] || continue
 
   # Tests, documentation and vendored build output do not alter the OCI chart.
-  source_changed="$(printf '%s\n' "$changed" | rg "^${chart_dir}/(Chart\\.yaml|values\\.yaml|templates/|crds/|files/)")" || true
+  # Keep this guard self-contained: publish runners guarantee grep, unlike
+  # optional developer tools such as ripgrep. A non-match is expected; a
+  # missing matcher must fail rather than silently disable enforcement.
+  if source_changed="$(printf '%s\n' "$changed" | grep -E "^${chart_dir}/(Chart\\.yaml|values\\.yaml|templates/|crds/|files/)")"; then
+    :
+  else
+    matcher_status=$?
+    [[ "$matcher_status" -eq 1 ]] || exit "$matcher_status"
+    source_changed=""
+  fi
   [[ -n "$source_changed" ]] || continue
 
   before_version="$(chart_version_at "$base" "$chart_dir")"
