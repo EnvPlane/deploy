@@ -175,21 +175,34 @@ rules:
     resources: ["roles", "rolebindings"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Kubernetes RBAC refuses a Role/RoleBinding that grants permissions the
-  # reconciler itself does not hold. These are exactly the Agent's
-  # namespaced, read-only discovery permissions; they do not allow writes or
-  # access outside the dedicated executor namespace.
+  # reconciler itself does not hold. The write rules below are exactly the
+  # project Runner's feature-env-writer contract. They apply only in the
+  # dedicated executor namespace; feature namespaces and Secrets outside it
+  # remain inaccessible to the control plane.
   - apiGroups: [""]
     resources: ["configmaps", "endpoints", "events", "limitranges", "resourcequotas", "services"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps", "events", "limitranges", "resourcequotas", "services"]
+    verbs: ["create", "update", "patch", "delete"]
   - apiGroups: ["apps"]
     resources: ["daemonsets", "statefulsets"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["create", "update", "patch", "delete"]
   - apiGroups: ["batch"]
     resources: ["cronjobs", "jobs"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["create", "update", "patch", "delete"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses", "networkpolicies"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["create", "update", "patch", "delete"]
   - apiGroups: ["helm.toolkit.fluxcd.io"]
     resources: ["helmreleases"]
     verbs: ["get", "list", "watch"]
