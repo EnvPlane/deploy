@@ -77,6 +77,11 @@ controlPlane:
 
 dependencyWait:
   enabled: true
+  connectivity:
+    maxAttempts: 12
+    initialBackoffSeconds: 1
+    maxBackoffSeconds: 5
+    deadlineSeconds: 120
 
 cluster:
   id: ""

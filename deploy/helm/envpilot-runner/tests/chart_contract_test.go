@@ -36,6 +36,10 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 		"name: XDG_CONFIG_HOME",
 		"name: XDG_DATA_HOME",
 		"name: runner-work",
+		"ENVPILOT_CONTROL_PLANE_CONNECTIVITY_MAX_ATTEMPTS",
+		"ENVPILOT_CONTROL_PLANE_CONNECTIVITY_INITIAL_BACKOFF_SECONDS",
+		"ENVPILOT_CONTROL_PLANE_CONNECTIVITY_MAX_BACKOFF_SECONDS",
+		"ENVPILOT_CONTROL_PLANE_CONNECTIVITY_DEADLINE_SECONDS",
 		"ENVPILOT_CONTROL_PLANE_URL",
 		"ENVPILOT_PROJECT_CONFIG_URL",
 		"ENVPILOT_PROJECT_CONFIG_TOKEN",
@@ -59,6 +63,9 @@ func TestRunnerChartDefinesHelmDeployContract(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "path: /livez") || !strings.Contains(rendered, "readinessProbe:\n            httpGet:\n              path: /health") {
 		t.Fatalf("runner chart must keep stale identities live while marking them unready:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "startupProbe:\n            httpGet:\n              path: /health") {
+		t.Fatalf("runner chart must wait for authenticated startup before startup completion:\n%s", rendered)
 	}
 	for _, expected := range []string{
 		"name: HOME",

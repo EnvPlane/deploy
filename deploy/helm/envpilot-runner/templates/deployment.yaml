@@ -61,6 +61,14 @@ spec:
               value: {{ $controlPlaneEndpoint | quote }}
             - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
               value: {{ default "sameCluster" (get $controlPlane "endpointMode") | quote }}
+            - name: ENVPILOT_CONTROL_PLANE_CONNECTIVITY_MAX_ATTEMPTS
+              value: {{ .Values.dependencyWait.connectivity.maxAttempts | quote }}
+            - name: ENVPILOT_CONTROL_PLANE_CONNECTIVITY_INITIAL_BACKOFF_SECONDS
+              value: {{ .Values.dependencyWait.connectivity.initialBackoffSeconds | quote }}
+            - name: ENVPILOT_CONTROL_PLANE_CONNECTIVITY_MAX_BACKOFF_SECONDS
+              value: {{ .Values.dependencyWait.connectivity.maxBackoffSeconds | quote }}
+            - name: ENVPILOT_CONTROL_PLANE_CONNECTIVITY_DEADLINE_SECONDS
+              value: {{ .Values.dependencyWait.connectivity.deadlineSeconds | quote }}
             {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
@@ -204,6 +212,14 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 2
+          startupProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.service.targetPort }}
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 15
           readinessProbe:
             httpGet:
               path: /health
