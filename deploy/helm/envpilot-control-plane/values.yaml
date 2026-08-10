@@ -64,7 +64,9 @@ ingress:
 env:
   ENVPILOT_API_CONTRACT_VERSION: "1"
   ENVPILOT_ADDR: ":8080"
+  ENVPLANE_DATA_DIR: "/var/lib/envpilot/data"
   ENVPILOT_DATA_DIR: "/var/lib/envpilot/data"
+  ENVPLANE_GITOPS_DIR: "/var/lib/envpilot/data/gitops"
   ENVPILOT_GITOPS_DIR: "/var/lib/envpilot/data/gitops"
   ENVPILOT_POSTGRES_MIGRATIONS_DIR: "/var/lib/envpilot/migrations/postgres"
   ENVPILOT_GITHUB_WEBHOOK_DEBUG_PAYLOAD_LOG: "false"

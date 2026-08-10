@@ -39,7 +39,7 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 		"range $key, $value := $environment",
 		"ENVPILOT_DATABASE_URL",
 		"ENVPILOT_REDIS_URL",
-		"mountPath: /var/lib/envpilot",
+		"mountPath: /var/lib/envpilot/data",
 	} {
 		if !strings.Contains(deploymentText, expected) {
 			t.Fatalf("deployment template does not contain %q", expected)
@@ -53,6 +53,8 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	valuesText := string(values)
 	for _, expected := range []string{
 		"ENVPILOT_ADDR",
+		"ENVPLANE_DATA_DIR",
+		"ENVPLANE_GITOPS_DIR",
 		"ENVPILOT_DATA_DIR",
 		"ENVPILOT_GITOPS_DIR",
 		"ENVPILOT_POSTGRES_MIGRATIONS_DIR",
@@ -76,6 +78,31 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	}
 	if !strings.Contains(string(service), "kind: Service") {
 		t.Fatalf("service template does not contain kind Service")
+	}
+}
+
+func TestControlPlaneChartUsesWritableDataAndGitOpsPathsFromEnv(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "env.ENVPLANE_DATA_DIR=/custom/envpilot-data",
+		"--set", "env.ENVPLANE_GITOPS_DIR=/custom/envpilot-data/gitops",
+	)
+	for _, expected := range []string{
+		"mountPath: /var/lib/envpilot/data",
+		"name: ENVPLANE_DATA_DIR",
+		`value: "/custom/envpilot-data"`,
+		"name: ENVPLANE_GITOPS_DIR",
+		`value: "/custom/envpilot-data/gitops"`,
+		"name: ENVPILOT_DATA_DIR",
+		`value: "/var/lib/envpilot/data"`,
+		"name: ENVPILOT_GITOPS_DIR",
+		`value: "/var/lib/envpilot/data/gitops"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("data-path contract render missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "/var/lib/envplane") {
+		t.Fatalf("control-plane render still references non-writable data path:\n%s", rendered)
 	}
 }
 

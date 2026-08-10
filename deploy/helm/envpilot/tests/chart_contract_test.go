@@ -250,6 +250,32 @@ func TestUmbrellaInjectsReleaseCompatibleAgentChartContract(t *testing.T) {
 	}
 }
 
+func TestUmbrellaForwardsControlPlaneWritableEnvPathsToChild(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "envpilot-control-plane.env.ENVPLANE_DATA_DIR=/custom/umbrella/data",
+		"--set", "envpilot-control-plane.env.ENVPLANE_GITOPS_DIR=/custom/umbrella/data/gitops",
+	)
+	for _, expected := range []string{
+		"# Source: envpilot/charts/envpilot-control-plane/templates/deployment.yaml",
+		"mountPath: /var/lib/envpilot/data",
+		"name: ENVPLANE_DATA_DIR",
+		`value: "/custom/umbrella/data"`,
+		"name: ENVPLANE_GITOPS_DIR",
+		`value: "/custom/umbrella/data/gitops"`,
+		"name: ENVPILOT_DATA_DIR",
+		`value: "/var/lib/envpilot/data"`,
+		"name: ENVPILOT_GITOPS_DIR",
+		`value: "/var/lib/envpilot/data/gitops"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("umbrella control-plane env-path contract missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "/var/lib/envplane") {
+		t.Fatalf("umbrella render still references non-writable data path:\n%s", rendered)
+	}
+}
+
 func TestUmbrellaDefinesPrivateOrPublicHTTPSRemoteControlPlaneContract(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "global.envpilot.managementEndpointProfile.bootstrap.endpoint=https://envpilot.platform.internal",

@@ -279,6 +279,10 @@ envpilot-control-plane:
     annotations: {}
   env:
     ENVPILOT_API_CONTRACT_VERSION: "1"
+    ENVPLANE_DATA_DIR: "/var/lib/envpilot/data"
+    ENVPILOT_DATA_DIR: "/var/lib/envpilot/data"
+    ENVPLANE_GITOPS_DIR: "/var/lib/envpilot/data/gitops"
+    ENVPILOT_GITOPS_DIR: "/var/lib/envpilot/data/gitops"
   commercialization:
     billing:
       provider: ""
