@@ -71,6 +71,11 @@
 {{- $agentBootstrapChartRef := default $legacyAgentBootstrapChartRef $agentBootstrapChart.ref -}}
 {{- $agentBootstrapChartVersion := default $legacyAgentBootstrapChartVersion $agentBootstrapChart.version -}}
 {{- $environment := omit (deepCopy .Values.env) "ENVPILOT_AGENT_CONTROL_PLANE_URL" "ENVPILOT_AGENT_IMAGE_REPOSITORY" "ENVPILOT_AGENT_IMAGE_TAG" "ENVPILOT_AGENT_HELM_CHART_REF" "ENVPILOT_AGENT_HELM_CHART_VERSION" -}}
+{{- $commercialization := default (dict) .Values.commercialization -}}
+{{- $billing := default (dict) (get $commercialization "billing") -}}
+{{- $billingAPIKeyRef := default (dict) (get $billing "apiKeySecretRef") -}}
+{{- $billingWebhookRef := default (dict) (get $billing "webhookSecretRef") -}}
+{{- $license := default (dict) (get $commercialization "license") -}}
 {{- if eq $firstStartMode "existing" -}}
 {{- $firstStartSecret = required "global.envpilot.firstStartRegistration.existingSecret is required when mode=existing" $firstStart.existingSecret -}}
 {{- else if eq $firstStartMode "managed" -}}
@@ -206,6 +211,32 @@ spec:
               value: {{ .Values.runnerCommand.leaseSeconds | quote }}
             - name: ENVPILOT_RUNNER_COMMAND_MAX_ATTEMPTS
               value: {{ .Values.runnerCommand.maxAttempts | quote }}
+            {{- if get $billing "provider" }}
+            - name: ENVPLANE_BILLING_PROVIDER
+              value: {{ get $billing "provider" | quote }}
+            {{- end }}
+            {{- if get $billing "baseURL" }}
+            - name: ENVPLANE_BILLING_BASE_URL
+              value: {{ get $billing "baseURL" | quote }}
+            {{- end }}
+            {{- if get $billingAPIKeyRef "name" }}
+            - name: ENVPLANE_BILLING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ get $billingAPIKeyRef "name" | quote }}
+                  key: {{ default "api-key" (get $billingAPIKeyRef "key") | quote }}
+            {{- end }}
+            {{- if get $billingWebhookRef "name" }}
+            - name: ENVPLANE_BILLING_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ get $billingWebhookRef "name" | quote }}
+                  key: {{ default "webhook-secret" (get $billingWebhookRef "key") | quote }}
+            {{- end }}
+            - name: ENVPLANE_LICENSE_PUBLIC_KEYS_JSON
+              value: {{ default "{}" (get $license "publicKeysJSON") | quote }}
+            - name: ENVPLANE_LICENSE_GRACE_DAYS
+              value: {{ default 14 (get $license "graceDays") | quote }}
             - name: ENVPILOT_REMOTE_CLUSTER_RECONCILER_ENABLED
               value: {{ $remoteClusterReconcilerEnabled | quote }}
             {{- if $remoteClusterReconcilerEnabled }}
