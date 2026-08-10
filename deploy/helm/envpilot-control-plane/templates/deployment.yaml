@@ -11,6 +11,8 @@
 {{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPlane "sameClusterProjectExecutors") -}}
 {{- $sameClusterProjectExecutorsEnabled := default false $sameClusterProjectExecutors.enabled -}}
 {{- $sameClusterProjectExecutorsNamespace := trim (default "" $sameClusterProjectExecutors.namespace) -}}
+{{- $sameClusterProjectExecutorsDiscovery := default (dict) $sameClusterProjectExecutors.discovery -}}
+{{- $sameClusterProjectExecutorsDiscoveryNamespaces := default (list) $sameClusterProjectExecutorsDiscovery.namespaces -}}
 {{- $executorReconcilerEnabled := or $remoteClusterReconcilerEnabled $sameClusterProjectExecutorsEnabled -}}
 {{- $registry := default (dict) (get $globalEnvPlane "registry") -}}
 {{- $projectExecutorRegistry := default (dict) (get $sameClusterProjectExecutors "registry") -}}
@@ -277,6 +279,8 @@ spec:
               value: {{ $sameClusterProjectExecutorsNamespace | quote }}
             - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET
               value: {{ $executorImagePullSecret | quote }}
+            - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_DISCOVERY_NAMESPACES
+              value: {{ join "," $sameClusterProjectExecutorsDiscoveryNamespaces | quote }}
             {{- end }}
             {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
             - name: ENVPILOT_REMOTE_CLUSTER_COMPATIBILITY_MANIFEST

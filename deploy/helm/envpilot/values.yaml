@@ -63,6 +63,8 @@ global:
     sameClusterProjectExecutors:
       enabled: false
       namespace: ""
+      discovery:
+        namespaces: []
       # Name only: mounted read-only as a Docker config for signed OCI child
       # chart resolution. Its content never reaches EnvPlane APIs or audit.
       registry:
@@ -254,6 +256,8 @@ envpilot-control-plane:
     sameClusterProjectExecutors:
       enabled: false
       namespace: ""
+      discovery:
+        namespaces: []
   remoteClusterReconciler:
     compatibilityConfigMapName: ""
     leaderElection:

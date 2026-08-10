@@ -218,6 +218,11 @@ rbac:
   sameClusterProjectExecutors:
     enabled: false
     namespace: ""
+    # Finite operator-approved base namespaces. Project Agents use named
+    # namespace GETs and namespaced Roles for this list; empty intentionally
+    # keeps discovery blocked until an allowlist is configured.
+    discovery:
+      namespaces: []
 
 remoteClusterReconciler:
   compatibilityConfigMapName: ""

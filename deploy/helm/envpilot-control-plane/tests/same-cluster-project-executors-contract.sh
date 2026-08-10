@@ -17,6 +17,8 @@ helm template envpilot "$chart_dir" \
   --set 'global.envpilot.firstStartRegistration.cluster.id=bethunder-local' \
   --set 'global.envpilot.sameClusterProjectExecutors.enabled=true' \
   --set 'global.envpilot.sameClusterProjectExecutors.namespace=envpilot-executors' \
+  --set 'global.envpilot.sameClusterProjectExecutors.discovery.namespaces[0]=envpilot-e2e-base' \
+  --set 'global.envpilot.sameClusterProjectExecutors.discovery.namespaces[1]=envpilot-shared' \
   --set 'global.envpilot.sameClusterProjectExecutors.registry.existingSecret=envpilot-ghcr' \
   --set 'global.envpilot.sameClusterProjectExecutors.registry.imagePullSecret=envpilot-ghcr' \
   --set 'rbac.sameClusterProjectExecutors.enabled=true' \
@@ -28,6 +30,8 @@ rg -Fq 'name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_NAMESPACE' "$rendered"
 rg -Fq 'value: "envpilot-executors"' "$rendered"
 rg -Fq 'name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET' "$rendered"
 rg -Fq 'value: "envpilot-ghcr"' "$rendered"
+rg -Fq 'name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_DISCOVERY_NAMESPACES' "$rendered"
+rg -Fq 'value: "envpilot-e2e-base,envpilot-shared"' "$rendered"
 rg -Fq 'name: HOME' "$rendered"
 rg -Fq 'value: /tmp/envpilot-home' "$rendered"
 rg -Fq 'name: XDG_CACHE_HOME' "$rendered"
