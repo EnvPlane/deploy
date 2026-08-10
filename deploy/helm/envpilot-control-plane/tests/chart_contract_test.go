@@ -144,6 +144,30 @@ func TestControlPlaneChartUsesServiceDNSForSameClusterAgentBootstrapAndAllowsRem
 	}
 }
 
+func TestControlPlaneChartRendersCommercializationAliasesAndSecretReferences(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "commercialization.billing.provider=stripe",
+		"--set", "commercialization.billing.baseURL=https://billing.example.com",
+		"--set", "commercialization.billing.apiKeySecretRef.name=envplane-billing",
+		"--set", "commercialization.billing.webhookSecretRef.name=envplane-billing",
+		"--set", "commercialization.license.graceDays=21",
+	)
+	for _, expected := range []string{
+		"name: ENVPLANE_BILLING_PROVIDER\n              value: \"stripe\"",
+		"name: ENVPLANE_BILLING_BASE_URL\n              value: \"https://billing.example.com\"",
+		"name: ENVPLANE_BILLING_API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: \"envplane-billing\"\n                  key: \"api-key\"",
+		"name: ENVPLANE_BILLING_WEBHOOK_SECRET\n              valueFrom:\n                secretKeyRef:\n                  name: \"envplane-billing\"\n                  key: \"webhook-secret\"",
+		"name: ENVPLANE_LICENSE_GRACE_DAYS\n              value: \"21\"",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("commercialization deployment contract missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "api-key: ") || strings.Contains(rendered, "webhook-secret: ") {
+		t.Fatalf("commercialization secret bytes were rendered instead of SecretRefs:\n%s", rendered)
+	}
+}
+
 func TestControlPlaneChartUsesNamespaceScopedSecretReaderInsteadOfClusterAdmin(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
 		"--set", "rbac.secretReader.namespaces[0]=envpilot-secrets",

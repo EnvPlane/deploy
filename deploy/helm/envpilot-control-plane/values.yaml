@@ -108,6 +108,22 @@ dependencyWait:
 
 secretEnv: {}
 
+# Commercialization settings use the canonical EnvPlane aliases. Legacy
+# ENVPILOT_* variables remain accepted by the application for upgrades.
+commercialization:
+  billing:
+    provider: ""
+    baseURL: ""
+    apiKeySecretRef:
+      name: ""
+      key: api-key
+    webhookSecretRef:
+      name: ""
+      key: webhook-secret
+  license:
+    publicKeysJSON: "{}"
+    graceDays: 14
+
 postgres:
   # Empty preserves legacy postgres.enabled semantics. Set explicitly to
   # internal, external or disabled for the provider-neutral umbrella contract.
