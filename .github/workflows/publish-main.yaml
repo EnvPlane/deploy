@@ -39,7 +39,11 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # The immutable child-chart guard compares the pushed range, including
+      # github.event.before. Keep its base revision available in the runner.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
