@@ -61,6 +61,27 @@ Agent and Runner remain disabled by default. Enable them only with an existing
 project-scoped registration Secret; values never need to contain a plaintext
 bootstrap token.
 
+### Browser authentication and default tenant membership
+
+The local and production browser flow requires an operator-managed OAuth/OIDC
+Secret. Configure only its name through `global.envpilot.auth.existingSecret`
+(or `envpilot-control-plane.auth.existingSecret`). The Secret is read by the
+control-plane through `secretKeyRef` and is never returned by the API or copied
+into browser/session/audit state.
+
+The Secret uses these keys when the corresponding provider is enabled:
+
+- `oauth-session-secret` — random HMAC session key;
+- `gitlab-client-id`, `gitlab-client-secret`;
+- `github-client-id`, `github-client-secret`;
+- `oidc-client-id`, `oidc-client-secret`.
+
+Provider endpoint overrides are non-secret values under the child chart's
+`auth.github`, `auth.gitlab`, or `auth.oidc` blocks. A successful OAuth callback
+creates or restores the user's active membership in tenant `default`. Without
+an active membership the frontend blocks quota-controlled mutations and links
+to sign-in; it never relies on a hidden tenant header or a development bypass.
+
 ## Declarative same-cluster first start
 
 One Helm release can create and register a same-cluster Agent and Runner without

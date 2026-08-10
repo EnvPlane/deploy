@@ -73,6 +73,12 @@
 {{- $agentBootstrapChartRef := default $legacyAgentBootstrapChartRef $agentBootstrapChart.ref -}}
 {{- $agentBootstrapChartVersion := default $legacyAgentBootstrapChartVersion $agentBootstrapChart.version -}}
 {{- $environment := omit (deepCopy .Values.env) "ENVPILOT_AGENT_CONTROL_PLANE_URL" "ENVPILOT_AGENT_IMAGE_REPOSITORY" "ENVPILOT_AGENT_IMAGE_TAG" "ENVPILOT_AGENT_HELM_CHART_REF" "ENVPILOT_AGENT_HELM_CHART_VERSION" -}}
+{{- $auth := default (dict) .Values.auth -}}
+{{- $globalAuth := default (dict) (get $globalEnvPlane "auth") -}}
+{{- $authSecret := trim (default (get $globalAuth "existingSecret") (get $auth "existingSecret")) -}}
+{{- $authGitHub := default (dict) (get $auth "github") -}}
+{{- $authGitLab := default (dict) (get $auth "gitlab") -}}
+{{- $authOIDC := default (dict) (get $auth "oidc") -}}
 {{- $commercialization := default (dict) .Values.commercialization -}}
 {{- $billing := default (dict) (get $commercialization "billing") -}}
 {{- $billingAPIKeyRef := default (dict) (get $billing "apiKeySecretRef") -}}
@@ -328,6 +334,59 @@ spec:
                 secretKeyRef:
                   name: {{ required "redis.external.existingSecret is required when redis.mode=external" .Values.redis.external.existingSecret | quote }}
                   key: {{ .Values.redis.external.urlKey | quote }}
+            {{- end }}
+            {{- if $authSecret }}
+            - name: ENVPILOT_OAUTH_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: oauth-session-secret
+            - name: ENVPILOT_GITHUB_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: github-client-id
+            - name: ENVPILOT_GITHUB_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: github-client-secret
+            - name: ENVPILOT_GITLAB_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: gitlab-client-id
+            - name: ENVPILOT_GITLAB_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: gitlab-client-secret
+            - name: ENVPILOT_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: oidc-client-id
+            - name: ENVPILOT_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: oidc-client-secret
+            {{- end }}
+            {{- range $name, $value := dict
+              "ENVPILOT_GITHUB_OAUTH_AUTH_URL" (get $authGitHub "authURL")
+              "ENVPILOT_GITHUB_OAUTH_TOKEN_URL" (get $authGitHub "tokenURL")
+              "ENVPILOT_GITHUB_OAUTH_USER_URL" (get $authGitHub "userURL")
+              "ENVPILOT_GITLAB_OAUTH_AUTH_URL" (get $authGitLab "authURL")
+              "ENVPILOT_GITLAB_OAUTH_TOKEN_URL" (get $authGitLab "tokenURL")
+              "ENVPILOT_GITLAB_OAUTH_USER_URL" (get $authGitLab "userURL")
+              "ENVPILOT_OIDC_AUTH_URL" (get $authOIDC "authURL")
+              "ENVPILOT_OIDC_TOKEN_URL" (get $authOIDC "tokenURL")
+              "ENVPILOT_OIDC_USER_URL" (get $authOIDC "userURL")
+              "ENVPILOT_OIDC_SCOPES" (get $authOIDC "scopes") }}
+              {{- if trim (printf "%v" $value) }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+              {{- end }}
             {{- end }}
             {{- range $key, $value := $environment }}
             - name: {{ $key }}

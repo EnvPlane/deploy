@@ -73,6 +73,10 @@ global:
         # Pods reference this name; neither Helm nor the control plane reads
         # or duplicates its credential data.
         imagePullSecret: ""
+    # Name only. The Secret must already exist in the release namespace and
+    # contains OAuth/OIDC client material; the umbrella never renders values.
+    auth:
+      existingSecret: ""
     # DEPRECATED bootstrap source only. At first start it seeds the persisted,
     # API/UI-managed ManagementEndpointProfile and is never remote-cluster
     # configuration. New installs should use managementEndpointProfile.bootstrap
@@ -222,6 +226,9 @@ platformDependencyReconciler:
 
 envpilot-control-plane:
   fullnameOverride: envpilot-control-plane
+  auth:
+    # Empty inherits global.envpilot.auth.existingSecret.
+    existingSecret: ""
   # Keep the API startup dependency explicit at the umbrella boundary. The
   # child chart renders a least-privilege initContainer which waits for the
   # internal PostgreSQL/Redis readiness probes before starting migrations.

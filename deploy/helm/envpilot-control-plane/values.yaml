@@ -73,6 +73,25 @@ env:
   ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS: "120"
   ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS: "2"
 
+# OAuth/OIDC bootstrap uses one operator-managed Secret. Only its name is
+# rendered; the control plane reads the referenced keys through secretKeyRef.
+# Required keys are documented in the umbrella installation guide.
+auth:
+  existingSecret: ""
+  github:
+    authURL: ""
+    tokenURL: ""
+    userURL: ""
+  gitlab:
+    authURL: ""
+    tokenURL: ""
+    userURL: ""
+  oidc:
+    authURL: ""
+    tokenURL: ""
+    userURL: ""
+    scopes: ""
+
 # A claimed Runner command has a bounded lease. On expiry the control plane
 # requeues it with a new attempt ID; after maxAttempts delete becomes a visible
 # retryable failure rather than an indefinitely claimed record.

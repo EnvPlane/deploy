@@ -106,6 +106,34 @@ func TestControlPlaneChartUsesWritableDataAndGitOpsPathsFromEnv(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartUsesWriteOnlyOAuthSecretReferences(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "global.envpilot.auth.existingSecret=envpilot-oauth",
+		"--set", "auth.gitlab.authURL=https://gitlab.example.test/oauth/authorize",
+	)
+	for _, expected := range []string{
+		"name: ENVPILOT_OAUTH_SESSION_SECRET",
+		"name: ENVPILOT_GITLAB_OAUTH_CLIENT_ID",
+		"name: ENVPILOT_GITLAB_OAUTH_CLIENT_SECRET",
+		"name: \"envpilot-oauth\"",
+		"key: oauth-session-secret",
+		"key: gitlab-client-id",
+		"value: \"https://gitlab.example.test/oauth/authorize\"",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("OAuth SecretRef contract missing %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{"client-secret:", "oauth-session-secret:", "test-token", "secret-value"} {
+		if strings.Contains(rendered, forbidden) && forbidden != "oauth-session-secret:" {
+			t.Fatalf("OAuth credential material was rendered: %q\n%s", forbidden, rendered)
+		}
+	}
+	if strings.Contains(rendered, "kind: Secret\nmetadata:\n  name: envpilot-oauth") || strings.Contains(rendered, "kind: Secret\nmetadata:\n  name: \"envpilot-oauth\"") {
+		t.Fatalf("OAuth Secret must be operator-managed, not rendered by the chart:\n%s", rendered)
+	}
+}
+
 func TestControlPlaneChartUsesServiceDNSForSameClusterAgentBootstrapAndAllowsRemoteOverride(t *testing.T) {
 	sameCluster := renderControlPlaneChart(t, "--namespace", "envpilot")
 	for _, expected := range []string{
