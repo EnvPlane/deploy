@@ -9,6 +9,8 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'scripts/publish-selected-child-charts.sh'
+      - 'scripts/verify-changed-child-chart-versions.sh'
+      - 'scripts/tests/test-verify-changed-child-chart-versions.sh'
       - 'scripts/resolve-latest-published-artifacts.sh'
       - 'scripts/ensure-current-compatible-artifact.sh'
       - 'scripts/verify-frontend-component-repair-controls.sh'
@@ -54,6 +56,7 @@ jobs:
           ./scripts/tests/test-current-compatible-artifact.sh
           ./scripts/tests/test-publish-selected-child-charts.sh
           ./scripts/tests/test-generate-umbrella-compatibility-manifest.sh
+          ./scripts/tests/test-verify-changed-child-chart-versions.sh
       - uses: azure/setup-helm@v4
       - uses: oras-project/setup-oras@v1
       - uses: sigstore/cosign-installer@v3
@@ -67,6 +70,16 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Verify canonical Helm chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
+      - name: Require a new version for changed child chart sources
+        env:
+          BASE_REVISION: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base="$BASE_REVISION"
+          if [[ ! "$base" =~ ^[0-9a-f]{40}$ ]] || [[ "$base" =~ ^0+$ ]]; then
+            base="$(git rev-parse HEAD^)"
+          fi
+          ./scripts/verify-changed-child-chart-versions.sh --base "$base" --head "$GITHUB_SHA"
       - name: Verify remote-cluster credential RBAC contract
         run: ./scripts/tests/remote-cluster-credential-contract.sh
       - name: Verify published remote-cluster lifecycle contract
