@@ -14,5 +14,5 @@ dependencies:
 - name: envpilot-webhook
   repository: file://../envpilot-webhook
   version: 0.1.0
-digest: sha256:6359497a27be872ef0c61b4d8057194f96e975f338fa0f93b1a5e546d7796718
-generated: "2026-08-10T13:01:29.677459+02:00"
+digest: sha256:c81ae8efc47acffa2d3c2ca25163fe18feb4d82c2320808e8c9b06db45e0a6c9
+generated: "2026-08-10T17:50:32.998201+02:00"
