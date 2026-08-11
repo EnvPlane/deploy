@@ -8,6 +8,8 @@ global:
       existingSecret: envpilot-ghcr
       imagePullSecrets:
         - name: envpilot-ghcr
+    auth:
+      existingSecret: envpilot-oauth
     firstStartRegistration:
       mode: managed
       cluster:
@@ -22,6 +24,8 @@ global:
         imagePullSecret: envpilot-ghcr
 
 envpilot-control-plane:
+  env:
+    ENVPILOT_OAUTH_COOKIE_SECURE: "false"
   rbac:
     sameClusterProjectExecutors:
       enabled: true
