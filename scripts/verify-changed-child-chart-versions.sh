@@ -33,7 +33,8 @@ for chart in \
   envpilot-frontend \
   envpilot-agent \
   envpilot-runner \
-  envpilot-webhook; do
+  envpilot-webhook \
+  envpilot-e2e-workload; do
   chart_dir="deploy/helm/$chart"
   changed="$(git diff --name-only "$base" "$head" -- "$chart_dir")"
   [[ -n "$changed" ]] || continue

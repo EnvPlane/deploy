@@ -121,7 +121,11 @@ For Helm Direct:
 - Deployment backend: `helm_direct`
 - Release pattern: `{{ .project.id }}-{{ .environment.name }}`
 - Namespace mode: `dedicated`
-- Chart ref/path: `charts/checkout`
+- Step 2 is prefilled with the umbrella-pinned
+  `oci://ghcr.io/envpilot/envpilot-e2e-workload` chart and its immutable
+  version; it can be replaced with the application's chart before compile.
+  Choose the prefilled chart for the local/demo workload, or enter the
+  application's chart ref/path (for example `charts/checkout`).
 
 For FluxCD:
 

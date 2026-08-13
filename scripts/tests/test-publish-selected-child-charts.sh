@@ -13,7 +13,8 @@ for mapping in \
   envpilot-frontend:1.0.0 \
   envpilot-agent:1.0.0 \
   envpilot-runner:9.9.9 \
-  envpilot-webhook:1.0.0; do
+  envpilot-webhook:1.0.0 \
+  envpilot-e2e-workload:1.0.0; do
   chart="${mapping%%:*}"
   version="${mapping##*:}"
   mkdir -p "$tmp/charts/$chart"
@@ -34,6 +35,8 @@ dependencies:
   - name: envpilot-runner
     version: 9.9.9
   - name: envpilot-webhook
+    version: 1.0.0
+  - name: envpilot-e2e-workload
     version: 1.0.0
 EOF
 
@@ -104,7 +107,7 @@ PATH="$bin:$PATH" FAKE_STATE="$state" "$root/scripts/publish-selected-child-char
   --source-revision 0123456789abcdef0123456789abcdef01234567 >/dev/null
 
 jq -e '
-  .schemaVersion == 1 and (.childCharts | length == 5) and
+  .schemaVersion == 1 and (.childCharts | length == 6) and
   ([.childCharts[] | select(.component == "runner")][0] |
     .chart == "envpilot-runner" and .version == "9.9.9" and
     .publication == "published" and (.digest | test("^sha256:[0-9]{63}9$")))

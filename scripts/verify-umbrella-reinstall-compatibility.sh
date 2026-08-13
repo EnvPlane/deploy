@@ -26,7 +26,8 @@ fi
 tar -xOf "$chart_archive" "$manifest_path" > "$tmp/manifest.json"
 jq -e '.schemaVersion == 1 and
   (((.images | length) == 5 and (.childCharts | length) == 4) or
-   ((.images | length) == 6 and (.childCharts | length) == 5)) and
+   ((.images | length) == 6 and (.childCharts | length) == 5) or
+   ((.images | length) == 6 and (.childCharts | length) == 6)) and
   all(.images[]; .digest | test("^sha256:[0-9a-f]{64}$"))' "$tmp/manifest.json" >/dev/null
 helm template reinstall-a "$chart_archive" > "$tmp/a.yaml"
 test "$(sha256sum "$tmp/manifest.json" | awk '{print $1}')" = "$(tar -xOf "$chart_archive" "$manifest_path" | sha256sum | awk '{print $1}')" || {

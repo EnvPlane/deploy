@@ -60,6 +60,29 @@ never be put in values. Remote execution targets are configured after this
 install through the authenticated UI/API RemoteCluster flow, not values or
 manual child-chart commands. See [API-managed remote clusters](remote-clusters.md).
 
+## Helm Direct bootstrap default
+
+The umbrella publishes and pins `envpilot-e2e-workload` alongside its normal
+child charts. New Draft bootstrap sessions receive its OCI ref and version in
+Step 2, so a local/demo user can continue without typing a chart coordinate.
+The dependency is disabled as an umbrella workload; only a project Runner
+installs it.
+
+To use an organization chart instead, override both public coordinates during
+the Helm install or upgrade. These fields are not credentials and never grant
+registry access:
+
+```yaml
+global:
+  envpilot:
+    bootstrapDefaults:
+      helmDirect:
+        chartRef: oci://registry.example.com/platform/application
+        chartVersion: "1.2.3"
+```
+
+An individual project can still replace the default before bootstrap compile.
+
 ## Same-cluster project executors and private registry access
 
 When `global.envpilot.sameClusterProjectExecutors.enabled` is true, project

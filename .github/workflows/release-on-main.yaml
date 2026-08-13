@@ -58,7 +58,7 @@ jobs:
           test -s "$REPORT"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
-             (.images | length == 6) and (.charts | length == 5) and
+             (.images | length == 6) and (.charts | length == 6) and
              all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
                (.digest | test("^sha256:[0-9a-f]{64}$")) and
                (.sourceRevision | test("^[0-9a-f]{40}$")))' \
@@ -98,7 +98,7 @@ jobs:
           test -s "$report"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
-             (.images | length == 6) and (.charts | length == 5) and
+             (.images | length == 6) and (.charts | length == 6) and
              all(.images[]; (.tag | test("^sha-[0-9a-f]{40}$")) and
                (.digest | test("^sha256:[0-9a-f]{64}$"))) and
              all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
@@ -141,7 +141,7 @@ jobs:
           REPORT: ${{ steps.artifacts.outputs.report }}
         run: |
           set -euo pipefail
-          for mapping in controlPlane:control-plane frontend:frontend agent:agent runner:runner webhook:webhook; do
+          for mapping in controlPlane:control-plane frontend:frontend agent:agent runner:runner webhook:webhook e2eWorkload:e2e-workload; do
             report_component="${mapping%%:*}"
             component="${mapping##*:}"
             ./scripts/update-umbrella-chart-dependency.sh \
@@ -157,6 +157,7 @@ jobs:
             -e 's#repository: file://../envpilot-agent#repository: oci://ghcr.io/envpilot#' \
             -e 's#repository: file://../envpilot-runner#repository: oci://ghcr.io/envpilot#' \
             -e 's#repository: file://../envpilot-webhook#repository: oci://ghcr.io/envpilot#' \
+            -e 's#repository: file://../envpilot-e2e-workload#repository: oci://ghcr.io/envpilot#' \
             deploy/helm/envpilot/Chart.yaml
           rm -f deploy/helm/envpilot/Chart.yaml.bak
           rm -f deploy/helm/envpilot/Chart.lock deploy/helm/envpilot/charts/*.tgz
@@ -192,7 +193,7 @@ jobs:
             --artifact-report "$REPORT" \
             --output deploy/helm/envpilot/compatibility/release.json
           jq -e --arg version "$VERSION" \
-            '.umbrella.version == $version and (.images | length == 6) and (.childCharts | length == 5) and
+            '.umbrella.version == $version and (.images | length == 6) and (.childCharts | length == 6) and
              all(.childCharts[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and
                (.sourceRevision | test("^[0-9a-f]{40}$")))' \
             deploy/helm/envpilot/compatibility/release.json >/dev/null

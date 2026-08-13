@@ -6,7 +6,7 @@ version: 0.3.38
 appVersion: "0.3.38"
 dependencies:
   - name: envpilot-control-plane
-    version: 0.3.25
+    version: 0.3.26
     repository: file://../envpilot-control-plane
     condition: controlPlane.enabled
   - name: envpilot-frontend
@@ -25,3 +25,10 @@ dependencies:
     version: 0.1.0
     repository: file://../envpilot-webhook
     condition: webhook.enabled
+  # Published and pinned with the umbrella so Helm Direct bootstrap defaults
+  # always point at an attested OCI artifact. It is disabled as a workload:
+  # project Runners, not the umbrella, install it.
+  - name: envpilot-e2e-workload
+    version: 0.1.0
+    repository: file://../envpilot-e2e-workload
+    condition: e2eWorkload.enabled

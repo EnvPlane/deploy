@@ -35,6 +35,12 @@
 {{- end -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPlane "e2eFixture") -}}
 {{- $e2eFixtureRecovery := default (dict) (get $e2eFixture "recovery") -}}
+{{- $globalBootstrapDefaults := default (dict) (get $globalEnvPlane "bootstrapDefaults") -}}
+{{- $localBootstrapDefaults := default (dict) .Values.bootstrapDefaults -}}
+{{- $globalDefaultHelmDirect := default (dict) (get $globalBootstrapDefaults "helmDirect") -}}
+{{- $localDefaultHelmDirect := default (dict) (get $localBootstrapDefaults "helmDirect") -}}
+{{- $defaultHelmDirectChartRef := trim (default (get $localDefaultHelmDirect "chartRef") (get $globalDefaultHelmDirect "chartRef")) -}}
+{{- $defaultHelmDirectChartVersion := trim (default (get $localDefaultHelmDirect "chartVersion") (get $globalDefaultHelmDirect "chartVersion")) -}}
 {{- $firstStartSecret := "" -}}
 {{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
 {{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
@@ -456,6 +462,12 @@ spec:
               value: {{ $e2eFixture.appDefaultBranch | quote }}
             - name: ENVPILOT_SAME_CLUSTER_FIXTURE_GITOPS_DEFAULT_BRANCH
               value: {{ $e2eFixture.gitopsDefaultBranch | quote }}
+            {{- end }}
+            {{- if and $defaultHelmDirectChartRef $defaultHelmDirectChartVersion }}
+            - name: ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF
+              value: {{ $defaultHelmDirectChartRef | quote }}
+            - name: ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_VERSION
+              value: {{ $defaultHelmDirectChartVersion | quote }}
             {{- end }}
             {{- if .Values.secretEnv }}
             {{- range $key, $_ := .Values.secretEnv }}

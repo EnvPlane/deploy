@@ -115,6 +115,13 @@ agentBootstrap:
     ref: ""
     version: ""
 
+# Standalone deployments may opt into a default Helm Direct chart for new
+# bootstrap sessions. The umbrella supplies its release-compatible default.
+bootstrapDefaults:
+  helmDirect:
+    chartRef: ""
+    chartVersion: ""
+
 # Deprecated compatibility bootstrap source. The umbrella's
 # managementEndpointProfile.bootstrap is preferred and is migrated once into
 # the API/UI-managed singleton profile; it is never RemoteCluster config.

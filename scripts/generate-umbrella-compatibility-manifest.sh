@@ -18,8 +18,8 @@ done
 if [[ -n "$artifact_report" ]]; then
   [[ -f "$artifact_report" ]] || { echo "artifact report not found: $artifact_report" >&2; exit 2; }
   jq -e --arg revision "$source_revision" \
-    '.schemaVersion == 1 and .sourceRevision == $revision and (.charts | length == 5)' "$artifact_report" >/dev/null || {
-    echo "artifact report does not contain five selected child charts" >&2; exit 1;
+    '.schemaVersion == 1 and .sourceRevision == $revision and (.charts | length == 6)' "$artifact_report" >/dev/null || {
+    echo "artifact report does not contain six selected child charts" >&2; exit 1;
   }
 fi
 image_json() {
@@ -52,9 +52,9 @@ dep_json() {
     '{name:$name,version:$version,repository:$repository,digest:$digest,sourceRevision:$sourceRevision}'
 }
 images="$(printf '%s\n' "$(image_json envpilot-control-plane control-plane)" "$(image_json envpilot-frontend frontend)" "$(image_json envpilot-agent agent)" "$(image_json envpilot-runner runner)" "$(image_json envpilot-webhook webhook)" "$(image_json platformDependencyReconciler platform-reconciler)" | jq -s .)"
-charts="$(printf '%s\n' "$(dep_json envpilot-control-plane oci://ghcr.io/envpilot/envpilot-control-plane controlPlane)" "$(dep_json envpilot-frontend oci://ghcr.io/envpilot/envpilot-frontend frontend)" "$(dep_json envpilot-agent oci://ghcr.io/envpilot/envpilot-agent agent)" "$(dep_json envpilot-runner oci://ghcr.io/envpilot/envpilot-runner runner)" "$(dep_json envpilot-webhook oci://ghcr.io/envpilot/envpilot-webhook webhook)" | jq -s .)"
+charts="$(printf '%s\n' "$(dep_json envpilot-control-plane oci://ghcr.io/envpilot/envpilot-control-plane controlPlane)" "$(dep_json envpilot-frontend oci://ghcr.io/envpilot/envpilot-frontend frontend)" "$(dep_json envpilot-agent oci://ghcr.io/envpilot/envpilot-agent agent)" "$(dep_json envpilot-runner oci://ghcr.io/envpilot/envpilot-runner runner)" "$(dep_json envpilot-webhook oci://ghcr.io/envpilot/envpilot-webhook webhook)" "$(dep_json envpilot-e2e-workload oci://ghcr.io/envpilot/envpilot-e2e-workload e2eWorkload)" | jq -s .)"
 [[ "$(jq 'length' <<<"$images")" == 6 ]] || { echo "compatibility manifest requires six immutable images" >&2; exit 1; }
-[[ "$(jq 'length' <<<"$charts")" == 5 ]] || { echo "compatibility manifest requires five child charts" >&2; exit 1; }
+[[ "$(jq 'length' <<<"$charts")" == 6 ]] || { echo "compatibility manifest requires six child charts" >&2; exit 1; }
 if [[ -n "$artifact_report" ]]; then
   jq -e 'all(.[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and (.sourceRevision | test("^[0-9a-f]{40}$")))' <<<"$charts" >/dev/null || {
     echo "compatibility manifest requires immutable child chart digests" >&2; exit 1;

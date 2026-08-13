@@ -174,6 +174,11 @@ grep -Fq 'controlPlane:control-plane' "$workflow" || {
   exit 1
 }
 
+grep -Fq 'e2eWorkload:e2e-workload' "$workflow" || {
+  echo "workflow must publish and pin the Helm Direct bootstrap workload with the umbrella" >&2
+  exit 1
+}
+
 grep -Fq '.charts[$component].version' "$workflow" || {
   echo "workflow must read child chart versions from the compatibility report" >&2
   exit 1

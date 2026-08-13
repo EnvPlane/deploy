@@ -121,6 +121,13 @@ global:
         # Empty resolves to the umbrella release namespace at render time.
         namespace: ""
         deploymentMode: helm
+    # Public OCI coordinates seeded into new Draft bootstrap sessions. A user
+    # may replace them before compilation; registry credentials are never
+    # included in a session.
+    bootstrapDefaults:
+      helmDirect:
+        chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload
+        chartVersion: "0.1.0"
     # Opt-in only. The local E2E profile creates a disposable base workload and
     # reconciles this reserved project through real Agent discovery, Runner
     # chart preflight and bootstrap compilation. It never affects user projects.
@@ -515,3 +522,8 @@ envpilot-webhook:
     url: http://envpilot-control-plane:8080
   secrets:
     existingSecret: envpilot-webhook-secrets
+
+# This dependency exists only to publish and pin the immutable Helm Direct
+# bootstrap artifact. The umbrella never installs the workload itself.
+e2eWorkload:
+  enabled: false

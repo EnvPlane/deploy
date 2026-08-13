@@ -165,11 +165,13 @@ func TestUmbrellaUsesDirectCanonicalDependencies(t *testing.T) {
 		"name: envpilot-agent",
 		"name: envpilot-runner",
 		"name: envpilot-webhook",
+		"name: envpilot-e2e-workload",
 		"condition: controlPlane.enabled",
 		"condition: frontend.enabled",
 		"condition: agent.enabled",
 		"condition: runner.enabled",
 		"condition: webhook.enabled",
+		"condition: e2eWorkload.enabled",
 	} {
 		if !strings.Contains(string(chart), expected) {
 			t.Fatalf("umbrella Chart.yaml missing %q:\n%s", expected, chart)
@@ -202,6 +204,38 @@ func TestUmbrellaUsesDirectCanonicalDependencies(t *testing.T) {
 			strings.Contains(string(contents), "docker/build-push-action") {
 			t.Fatalf("workflow %s still publishes the retired installer image", workflow)
 		}
+	}
+}
+
+func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *testing.T) {
+	values, err := os.ReadFile("../values.yaml")
+	if err != nil {
+		t.Fatalf("read values: %v", err)
+	}
+	for _, expected := range []string{
+		"bootstrapDefaults:",
+		"chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload",
+		`chartVersion: "0.1.0"`,
+		"e2eWorkload:",
+		"enabled: false",
+	} {
+		if !strings.Contains(string(values), expected) {
+			t.Fatalf("umbrella values missing %q:\n%s", expected, values)
+		}
+	}
+	rendered := renderUmbrella(t)
+	for _, expected := range []string{
+		"name: ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF",
+		`value: "oci://ghcr.io/envpilot/envpilot-e2e-workload"`,
+		"name: ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_VERSION",
+		`value: "0.1.0"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("active umbrella render missing Helm Direct bootstrap default %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "envpilot-e2e-workload/templates/") {
+		t.Fatalf("disabled Helm Direct bootstrap chart must not render as an umbrella workload:\n%s", rendered)
 	}
 }
 

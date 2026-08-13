@@ -194,13 +194,15 @@ frontend_chart="$(chart_json envpilot-frontend envpilot-frontend)"
 agent_chart="$(chart_json envpilot-agent envpilot-agent)"
 runner_chart="$(chart_json envpilot-runner envpilot-runner)"
 webhook_chart="$(chart_json envpilot-webhook envpilot-webhook)"
+e2e_workload_chart="$(chart_json envpilot-e2e-workload envpilot-e2e-workload)"
 charts="$(jq -cn \
   --argjson controlPlane "$control_plane_chart" \
   --argjson frontend "$frontend_chart" \
   --argjson agent "$agent_chart" \
   --argjson runner "$runner_chart" \
   --argjson webhook "$webhook_chart" \
-  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook}')"
+  --argjson e2eWorkload "$e2e_workload_chart" \
+  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook,e2eWorkload:$e2eWorkload}')"
 
 mkdir -p "$(dirname "$output")"
 jq -n --arg previousUmbrellaVersion "$previous_umbrella" \
