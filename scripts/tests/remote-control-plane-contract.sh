@@ -31,9 +31,9 @@ helm template envpilot "$root/deploy/helm/envpilot" --namespace envpilot \
   --set envpilot-control-plane.remoteControlPlane.url=https://api.remote.example \
   --set envpilot-control-plane.remoteControlPlane.caSecret=remote-control-plane-ca \
   --set envpilot-control-plane.remoteControlPlane.clusterID=control-cluster > "$rendered"
-grep -Fq 'name: ENVPILOT_REMOTE_CONTROL_PLANE_URL' "$rendered"
+grep -Fq 'name: ENVPILOT_MANAGEMENT_ENDPOINT_BOOTSTRAP_URL' "$rendered"
 grep -Fq 'value: "https://api.remote.example"' "$rendered"
-grep -Fq 'name: ENVPILOT_REMOTE_CONTROL_PLANE_CA_SECRET' "$rendered"
+grep -Fq 'name: ENVPILOT_MANAGEMENT_ENDPOINT_BOOTSTRAP_CA_SECRET' "$rendered"
 grep -Fq 'name: ENVPILOT_CONTROL_PLANE_CLUSTER_ID' "$rendered"
 
 echo "remote control-plane E2E contract is valid"
