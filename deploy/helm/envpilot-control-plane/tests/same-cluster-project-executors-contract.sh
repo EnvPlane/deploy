@@ -41,6 +41,10 @@ rg -Fq 'value: /etc/envpilot/helm-registry/config.json' "$rendered"
 rg -Fq 'name: executor-registry-config' "$rendered"
 rg -Fq 'secretName: "envpilot-ghcr"' "$rendered"
 rg -Fq 'key: .dockerconfigjson' "$rendered"
+# The registry Secret remains operator-managed. The chart can reference its
+# name, but must never render a credential-bearing Secret for it.
+! rg -Uq 'kind: Secret\nmetadata:\n  name: "envpilot-ghcr"' "$rendered"
+! rg -q 'dockerconfigjson:' "$rendered"
 rg -Fq 'name: envpilot-control-plane-same-cluster-project-executors' "$rendered"
 rg -Fq 'namespace: "envpilot-executors"' "$rendered"
 # Kubernetes anti-escalation requires the control plane to hold the exact

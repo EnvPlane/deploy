@@ -71,7 +71,8 @@ global:
         existingSecret: ""
         # Must already exist in the executor namespace. Project Agent/Runner
         # Pods reference this name; neither Helm nor the control plane reads
-        # or duplicates its credential data.
+        # or duplicates its credential data. Operators can materialize it with
+        # scripts/sync-namespaced-registry-secret.sh.
         imagePullSecret: ""
     # Name only. The Secret must already exist in the release namespace and
     # contains OAuth/OIDC client material; the umbrella never renders values.

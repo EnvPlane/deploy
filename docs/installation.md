@@ -60,6 +60,73 @@ never be put in values. Remote execution targets are configured after this
 install through the authenticated UI/API RemoteCluster flow, not values or
 manual child-chart commands. See [API-managed remote clusters](remote-clusters.md).
 
+## Same-cluster project executors and private registry access
+
+When `global.envpilot.sameClusterProjectExecutors.enabled` is true, project
+Agent/Runner releases run in its dedicated executor namespace. Kubernetes image
+pull Secrets are namespace-scoped: `envpilot/envpilot-ghcr` is not visible to
+Pods in `envpilot-executors`. Materialize an identically named
+`kubernetes.io/dockerconfigjson` Secret in the executor namespace before
+enabling the reconciler. The executor pull Secret is referenced only by name;
+the chart never renders it and the control plane verifies only Secret metadata,
+never credential data, through the Kubernetes API.
+
+For a local Minikube installation whose management Secret already exists, run
+the repository script. It streams the Secret between `kubectl` processes,
+does not print it, does not write it to disk, and refuses to force-overwrite a
+target owned by another field manager:
+
+```sh
+kubectl --context bethunder-local create namespace envpilot-executors \
+  --dry-run=client -o yaml | kubectl --context bethunder-local apply -f -
+
+./scripts/sync-namespaced-registry-secret.sh \
+  --context bethunder-local \
+  --source-namespace envpilot \
+  --target-namespace envpilot-executors \
+  --secret envpilot-ghcr
+
+helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
+  --version <published-umbrella-version> \
+  --namespace envpilot --create-namespace \
+  --values operator-values/bethunder-local.yaml --wait
+```
+
+For production, prefer your external-secrets controller to materialize the
+same registry credential in both namespaces from one secret-manager entry. If
+an operator must create it from a protected local Docker config, use this
+idempotent command in *each* namespace (the file must not be committed):
+
+```sh
+kubectl --context <production-context> --namespace envpilot-executors \
+  create secret generic envpilot-ghcr \
+  --type=kubernetes.io/dockerconfigjson \
+  --from-file=.dockerconfigjson=/secure/path/ghcr-dockerconfig.json \
+  --dry-run=client -o yaml | kubectl --context <production-context> apply -f -
+```
+
+Verify only metadata and type, never `.data`:
+
+```sh
+kubectl --context <context> -n envpilot-executors get secret envpilot-ghcr \
+  -o jsonpath='{.type}{"\\n"}'
+```
+
+Keep the existing value references aligned with the target namespace:
+
+```yaml
+global:
+  envpilot:
+    registry:
+      existingSecret: envpilot-ghcr # management namespace: Helm OCI client
+    sameClusterProjectExecutors:
+      enabled: true
+      namespace: envpilot-executors
+      registry:
+        existingSecret: envpilot-ghcr
+        imagePullSecret: envpilot-ghcr # executor namespace: Agent/Runner Pods
+```
+
 ## Remote-cluster management endpoint
 
 Remote Agent and Runner pods must reach the management control plane through a

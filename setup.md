@@ -258,6 +258,14 @@ namespace remain so the fixture is fast to rerun.
 ./scripts/minikube-up.sh
 minikube start -p bethunder-local
 
+# Project-owned same-cluster executors run in a separate namespace. If the
+# management registry Secret already exists, materialize its identically named
+# target Secret without printing or writing credential data to disk.
+kubectl --context bethunder-local create namespace envpilot-executors --dry-run=client -o yaml | \
+  kubectl --context bethunder-local apply -f -
+./scripts/sync-namespaced-registry-secret.sh --context bethunder-local \
+  --source-namespace envpilot --target-namespace envpilot-executors --secret envpilot-ghcr
+
 # Export a short-lived GitHub or GitLab token only for this command. The script
 # sends it to validate-scm and does not store it in the project/session.
 export ENVPILOT_E2E_SCM_TOKEN='...'
