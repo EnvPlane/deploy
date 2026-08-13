@@ -57,7 +57,7 @@ if [[ "$component" == "e2e-workload" ]]; then
   awk -v version="$version" '
     $0 == "    bootstrapDefaults:" { in_defaults=1 }
     in_defaults && $0 ~ /^    [^[:space:]]/ && $0 != "    bootstrapDefaults:" { in_defaults=0 }
-    in_defaults && $0 == "      helmDirect:" { in_helm_direct=1; next }
+    in_defaults && $0 == "      helmDirect:" { in_helm_direct=1 }
     in_helm_direct && $0 ~ /^      [^[:space:]]/ && $0 != "      helmDirect:" { in_helm_direct=0 }
     in_helm_direct && $0 ~ /^        chartVersion:/ { print "        chartVersion: \"" version "\""; version_found=1; next }
     { print }

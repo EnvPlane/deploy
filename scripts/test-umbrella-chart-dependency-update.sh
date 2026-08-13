@@ -18,5 +18,8 @@ grep -A2 'name: envpilot-agent' "$tmp/envpilot/Chart.yaml" | grep -q 'version: 0
 awk '/  agentBootstrap:/{in_bootstrap=1} in_bootstrap&&/    chart:/{in_chart=1} in_chart&&/      version:/{print; exit}' "$tmp/envpilot/values.yaml" | grep -q 'version: "0.2.1"'
 "$root/scripts/update-umbrella-chart-dependency.sh" --component e2e-workload --version 0.1.1 --chart-file "$tmp/envpilot/Chart.yaml" --values-file "$tmp/envpilot/values.yaml"
 grep -A2 'name: envpilot-e2e-workload' "$tmp/envpilot/Chart.yaml" | grep -q 'version: 0.1.1'
-grep -A2 '^    bootstrapDefaults:' "$tmp/envpilot/values.yaml" | grep -q 'chartVersion: "0.1.1"'
+grep -A3 '^    bootstrapDefaults:' "$tmp/envpilot/values.yaml" | grep -q '^      helmDirect:$'
+grep -A3 '^    bootstrapDefaults:' "$tmp/envpilot/values.yaml" | grep -q 'chartVersion: "0.1.1"'
+"$root/scripts/update-umbrella-chart-dependency.sh" --component e2e-workload --version 0.1.0 --chart-file "$tmp/envpilot/Chart.yaml" --values-file "$tmp/envpilot/values.yaml" >/dev/null
+helm template envpilot "$tmp/envpilot" | grep -q 'ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF'
 echo "umbrella dependency isolation test passed"

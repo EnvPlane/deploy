@@ -15,6 +15,8 @@ on:
       - 'scripts/ensure-current-compatible-artifact.sh'
       - 'scripts/verify-frontend-component-repair-controls.sh'
       - 'scripts/generate-umbrella-compatibility-manifest.sh'
+      - 'scripts/update-umbrella-chart-dependency.sh'
+      - 'scripts/test-umbrella-chart-dependency-update.sh'
       - 'scripts/verify-umbrella-reinstall-compatibility.sh'
       - 'scripts/tests/test-publish-selected-child-charts.sh'
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
