@@ -2,7 +2,7 @@ apiVersion: v2
 name: envpilot-control-plane
 description: EnvPlane control-plane API
 type: application
-version: 0.3.26
+version: 0.3.27
 appVersion: "0.1.6"
 dependencies:
   - name: envpilot-frontend
