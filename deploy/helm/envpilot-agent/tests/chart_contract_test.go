@@ -289,6 +289,30 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 		}
 	}
 
+	projectOwned := renderAgentChart(t,
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.namespaces[0]=envpilot-executors",
+		"--set", "rbac.discovery.clusterCapabilityRead=true",
+	)
+	for _, expected := range []string{
+		"name: envpilot-agent-cluster-capability-reader",
+		"kind: ClusterRole",
+		"kind: ClusterRoleBinding",
+		"resources: [\"ingressclasses\"]",
+		"resources: [\"customresourcedefinitions\"]",
+		"resources: [\"storageclasses\"]",
+		"verbs: [\"get\",\"list\",\"watch\"]",
+	} {
+		if !strings.Contains(projectOwned, expected) {
+			t.Fatalf("project-owned capability discovery RBAC missing %q:\n%s", expected, projectOwned)
+		}
+	}
+	for _, forbidden := range []string{"verbs: [\"create\"", "verbs: [\"update\"", "verbs: [\"patch\"", "verbs: [\"delete\"", "resources: [\"namespaces\"]"} {
+		if strings.Contains(projectOwned, forbidden) {
+			t.Fatalf("project-owned capability reader must stay minimal/read-only, found %q:\n%s", forbidden, projectOwned)
+		}
+	}
+
 	external := renderAgentChart(t,
 		"--set", "serviceAccount.create=false",
 		"--set", "serviceAccount.name=platform-agent",

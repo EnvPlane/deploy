@@ -7,7 +7,7 @@ dependencies:
   version: 0.2.1
 - name: envpilot-agent
   repository: file://../envpilot-agent
-  version: 0.2.6
+  version: 0.2.7
 - name: envpilot-runner
   repository: file://../envpilot-runner
   version: 0.4.1
@@ -17,5 +17,5 @@ dependencies:
 - name: envpilot-e2e-workload
   repository: file://../envpilot-e2e-workload
   version: 0.1.0
-digest: sha256:e7d0024cae5da032e20712550372c92386bb3ad43d24e9371ca5da8df74541d3
-generated: "2026-08-13T23:32:04.193525+02:00"
+digest: sha256:1cb14d9615d958ebc7fc3f7775431ce4382bef8cc953d0dce1cfa0529cc17faf
+generated: "2026-08-14T12:37:29.752478+02:00"

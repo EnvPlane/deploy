@@ -168,9 +168,12 @@ rbac:
   discovery:
     # cluster grants read-only visibility across the selected namespaces plus
     # cluster capability probes. namespace renders one Role per listed
-    # namespace and deliberately omits cluster-scoped probes.
+    # namespace. Project-owned same-cluster Agents additionally opt into the
+    # three read-only cluster capability probes below; they remain unable to
+    # discover arbitrary cluster workloads.
     scope: cluster # namespace | cluster
     namespaces: []
+    clusterCapabilityRead: false
     # Secret reads are sensitive and disabled by default. Set true only when
     # manifest discovery must include Secret metadata for selected namespaces.
     readSecrets: false
