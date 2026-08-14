@@ -81,10 +81,33 @@
 {{- $environment := omit (deepCopy .Values.env) "ENVPILOT_AGENT_CONTROL_PLANE_URL" "ENVPILOT_AGENT_IMAGE_REPOSITORY" "ENVPILOT_AGENT_IMAGE_TAG" "ENVPILOT_AGENT_HELM_CHART_REF" "ENVPILOT_AGENT_HELM_CHART_VERSION" -}}
 {{- $auth := default (dict) .Values.auth -}}
 {{- $globalAuth := default (dict) (get $globalEnvPlane "auth") -}}
+{{- $authMode := "disabled" -}}
+{{- if or (eq (default "disabled" (get $globalAuth "mode")) "legacy_secret") (eq (default "disabled" (get $auth "mode")) "legacy_secret") -}}
+{{- $authMode = "legacy_secret" -}}
+{{- end -}}
+{{- if and (ne (default "disabled" (get $globalAuth "mode")) "disabled") (ne (default "disabled" (get $globalAuth "mode")) "legacy_secret") -}}
+{{- fail "global.envpilot.auth.mode must be disabled or legacy_secret" -}}
+{{- end -}}
+{{- if and (ne (default "disabled" (get $auth "mode")) "disabled") (ne (default "disabled" (get $auth "mode")) "legacy_secret") -}}
+{{- fail "auth.mode must be disabled or legacy_secret" -}}
+{{- end -}}
 {{- $authSecret := trim (default (get $globalAuth "existingSecret") (get $auth "existingSecret")) -}}
 {{- $authGitHub := default (dict) (get $auth "github") -}}
 {{- $authGitLab := default (dict) (get $auth "gitlab") -}}
 {{- $authOIDC := default (dict) (get $auth "oidc") -}}
+{{- $authProviderConfigured := or (trim (printf "%v" (get $authGitHub "authURL"))) (trim (printf "%v" (get $authGitHub "tokenURL"))) (trim (printf "%v" (get $authGitHub "userURL"))) (trim (printf "%v" (get $authGitLab "authURL"))) (trim (printf "%v" (get $authGitLab "tokenURL"))) (trim (printf "%v" (get $authGitLab "userURL"))) (trim (printf "%v" (get $authOIDC "authURL"))) (trim (printf "%v" (get $authOIDC "tokenURL"))) (trim (printf "%v" (get $authOIDC "userURL"))) (trim (printf "%v" (get $authOIDC "scopes"))) -}}
+{{- if eq $authMode "legacy_secret" -}}
+  {{- if not $authSecret -}}
+    {{- fail "auth.existingSecret is required when auth.mode=legacy_secret" -}}
+  {{- end -}}
+{{- else -}}
+  {{- if $authSecret -}}
+    {{- fail "auth.existingSecret requires auth.mode=legacy_secret" -}}
+  {{- end -}}
+  {{- if $authProviderConfigured -}}
+    {{- fail "auth provider settings require auth.mode=legacy_secret" -}}
+  {{- end -}}
+{{- end -}}
 {{- $commercialization := default (dict) .Values.commercialization -}}
 {{- $billing := default (dict) (get $commercialization "billing") -}}
 {{- $billingAPIKeyRef := default (dict) (get $billing "apiKeySecretRef") -}}
@@ -341,7 +364,7 @@ spec:
                   name: {{ required "redis.external.existingSecret is required when redis.mode=external" .Values.redis.external.existingSecret | quote }}
                   key: {{ .Values.redis.external.urlKey | quote }}
             {{- end }}
-            {{- if $authSecret }}
+            {{- if eq $authMode "legacy_secret" }}
             - name: ENVPILOT_OAUTH_SESSION_SECRET
               valueFrom:
                 secretKeyRef:
@@ -378,6 +401,7 @@ spec:
                   name: {{ $authSecret | quote }}
                   key: oidc-client-secret
             {{- end }}
+            {{- if eq $authMode "legacy_secret" }}
             {{- range $name, $value := dict
               "ENVPILOT_GITHUB_OAUTH_AUTH_URL" (get $authGitHub "authURL")
               "ENVPILOT_GITHUB_OAUTH_TOKEN_URL" (get $authGitHub "tokenURL")
@@ -393,6 +417,7 @@ spec:
             - name: {{ $name }}
               value: {{ $value | quote }}
               {{- end }}
+            {{- end }}
             {{- end }}
             {{- range $key, $value := $environment }}
             - name: {{ $key }}

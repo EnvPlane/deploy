@@ -61,13 +61,34 @@ Agent and Runner remain disabled by default. Enable them only with an existing
 project-scoped registration Secret; values never need to contain a plaintext
 bootstrap token.
 
-### Browser authentication and default tenant membership
+### Browser authentication (deploy-time mode)
 
-The local and production browser flow requires an operator-managed OAuth/OIDC
-Secret. Configure only its name through `global.envpilot.auth.existingSecret`
-(or `envpilot-control-plane.auth.existingSecret`). The Secret is read by the
-control-plane through `secretKeyRef` and is never returned by the API or copied
-into browser/session/audit state.
+Interactive OAuth is explicitly disabled by default: a clean install needs no
+OAuth/OIDC Secret and renders no OAuth client/session `secretKeyRef` or provider
+endpoint environment variables.
+
+Use `legacy_secret` only to preserve an existing operator-managed OAuth/OIDC
+Secret during migration. Set the mode and Secret name together; the chart reads
+only the named keys through `secretKeyRef` and never renders credential values:
+
+```yaml
+global:
+  envpilot:
+    auth:
+      mode: legacy_secret
+      existingSecret: envpilot-oauth
+```
+
+`legacy_secret` requires a non-empty `existingSecret`. Conversely, `disabled`
+rejects an OAuth Secret name or provider endpoint values, preventing accidental
+activation through Helm values.
+
+Every release also creates one empty `Opaque` Secret named
+`<release>-authentication` (or the safe DNS-label override
+`envpilot-control-plane.auth.managedSecret.nameOverride`). It contains no OAuth
+or session credentials. The control-plane ServiceAccount has only
+`get`, `update`, and `patch` on this exact name; it cannot create, list, watch,
+or delete Secrets through this managed-store permission.
 
 The Secret uses these keys when the corresponding provider is enabled:
 

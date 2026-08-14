@@ -37,6 +37,60 @@ func renderUmbrella(t *testing.T, values ...string) string {
 	return string(output)
 }
 
+func renderUmbrellaError(t *testing.T, values ...string) string {
+	t.Helper()
+	buildDependencies(t)
+	args := append([]string{"template", "envpilot", "..", "--namespace", "envpilot"}, values...)
+	cmd := exec.Command("helm", args...)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("helm template unexpectedly succeeded:\n%s", output)
+	}
+	return string(output)
+}
+
+func TestUmbrellaAuthenticationModeDefaultsToDisabled(t *testing.T) {
+	rendered := renderUmbrella(t)
+	for _, forbidden := range []string{
+		"ENVPILOT_OAUTH_SESSION_SECRET",
+		"ENVPILOT_GITHUB_OAUTH_",
+		"ENVPILOT_GITLAB_OAUTH_",
+		"ENVPILOT_OIDC_",
+		"oauth-session-secret",
+	} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("default umbrella render unexpectedly contains OAuth configuration %q:\n%s", forbidden, rendered)
+		}
+	}
+
+	legacy := renderUmbrella(t,
+		"--set", "global.envpilot.auth.mode=legacy_secret",
+		"--set", "global.envpilot.auth.existingSecret=envpilot-oauth",
+		"--set", "envpilot-control-plane.auth.gitlab.authURL=https://gitlab.example.test/oauth/authorize",
+	)
+	for _, expected := range []string{
+		"name: ENVPILOT_OAUTH_SESSION_SECRET",
+		"name: ENVPILOT_GITLAB_OAUTH_CLIENT_ID",
+		"key: oauth-session-secret",
+		`value: "https://gitlab.example.test/oauth/authorize"`,
+	} {
+		if !strings.Contains(legacy, expected) {
+			t.Fatalf("legacy umbrella render missing %q:\n%s", expected, legacy)
+		}
+	}
+
+	for _, values := range [][]string{
+		{"--set", "global.envpilot.auth.mode=legacy_secret"},
+		{"--set", "global.envpilot.auth.existingSecret=envpilot-oauth"},
+		{"--set", "envpilot-control-plane.auth.github.authURL=https://github.example.test/login/oauth/authorize"},
+	} {
+		if output := renderUmbrellaError(t, values...); !strings.Contains(output, "auth") {
+			t.Fatalf("invalid umbrella authentication values did not report validation failure:\n%s", output)
+		}
+	}
+}
+
 // Render one canonical child chart in an isolated chart tree. Published
 // umbrellas intentionally reject runtime image overrides that conflict with
 // their signed compatibility manifest, but the child charts must still support
@@ -335,7 +389,7 @@ func TestUmbrellaDefinesPrivateOrPublicHTTPSRemoteControlPlaneContract(t *testin
 
 	buildDependencies(t)
 	for name, args := range map[string][]string{
-		"host-local": {"--set", "global.envpilot.remoteControlPlane.endpoint=https://envpilot.local"},
+		"host-local":       {"--set", "global.envpilot.remoteControlPlane.endpoint=https://envpilot.local"},
 		"insecure-ingress": {"--set", "access.mode=ingress", "--set", "access.ingress.host=api.envpilot.example.test", "--set", "global.envpilot.remoteControlPlane.endpoint=https://api.envpilot.example.test"},
 	} {
 		cmd := exec.Command("helm", append([]string{"template", "envpilot", ".."}, args...)...)
@@ -1492,7 +1546,7 @@ func TestInternalPostgresCanUseAnExistingPasswordSecret(t *testing.T) {
 			t.Fatalf("existing internal PostgreSQL Secret render missing %q:\n%s", expected, rendered)
 		}
 	}
-	if strings.Contains(rendered, "# Source: envpilot/charts/envpilot-control-plane/templates/secret.yaml") {
+	if strings.Contains(rendered, "kind: Secret\nmetadata:\n  name: envpilot-control-plane-postgres") {
 		t.Fatalf("chart must not create a PostgreSQL password Secret when an existing Secret is selected:\n%s", rendered)
 	}
 }

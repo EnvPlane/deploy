@@ -45,6 +45,18 @@ app.kubernetes.io/component: control-plane
 {{- printf "%s-redis" (include "envpilot-control-plane.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "envpilot-control-plane.authenticationManagedSecretName" -}}
+{{- $override := trim (default "" .Values.auth.managedSecret.nameOverride) -}}
+{{- if $override -}}
+  {{- if or (gt (len $override) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $override)) -}}
+    {{- fail "auth.managedSecret.nameOverride must be a Kubernetes DNS label of at most 63 characters" -}}
+  {{- end -}}
+  {{- $override -}}
+{{- else -}}
+  {{- printf "%s-authentication" (include "envpilot-control-plane.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "envpilot-control-plane.image" -}}
 {{- $repository := required "image.repository is required" .Values.image.repository -}}
 {{- $digest := trim (default "" .Values.image.digest) -}}

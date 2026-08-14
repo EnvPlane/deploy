@@ -31,6 +31,73 @@
         "key": { "type": "string", "minLength": 1 }
       }
     },
+    "authentication": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["disabled", "legacy_secret"] },
+        "existingSecret": { "type": "string" },
+        "managedSecret": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "nameOverride": { "type": "string", "maxLength": 63 } }
+        },
+        "github": { "$ref": "#/definitions/oauthProviderEndpoints" },
+        "gitlab": { "$ref": "#/definitions/oauthProviderEndpoints" },
+        "oidc": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "authURL": { "type": "string" },
+            "tokenURL": { "type": "string" },
+            "userURL": { "type": "string" },
+            "scopes": { "type": "string" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "legacy_secret" } } },
+          "then": {
+            "required": ["existingSecret"],
+            "properties": { "existingSecret": { "minLength": 1 } }
+          }
+        },
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "disabled" } } },
+          "then": {
+            "properties": { "existingSecret": { "maxLength": 0 } }
+          }
+        }
+      ]
+    },
+    "authenticationReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "enum": ["disabled", "legacy_secret"] },
+        "existingSecret": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "legacy_secret" } } },
+          "then": { "required": ["existingSecret"], "properties": { "existingSecret": { "minLength": 1 } } }
+        },
+        {
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "disabled" } } },
+          "then": { "properties": { "existingSecret": { "maxLength": 0 } } }
+        }
+      ]
+    },
+    "oauthProviderEndpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authURL": { "type": "string" },
+        "tokenURL": { "type": "string" },
+        "userURL": { "type": "string" }
+      }
+    },
     "resources": {
       "type": "object",
       "additionalProperties": true,
@@ -404,6 +471,7 @@
               }
             },
             "registry": { "$ref": "#/definitions/registry" },
+            "auth": { "$ref": "#/definitions/authenticationReference" },
             "firstStartRegistration": { "$ref": "#/definitions/firstStartRegistration" },
             "e2eFixture": { "$ref": "#/definitions/e2eFixture" }
           }
@@ -510,6 +578,7 @@
             "postgres": { "$ref": "#/definitions/database" },
             "redis": { "$ref": "#/definitions/database" },
             "persistence": { "$ref": "#/definitions/persistence" },
+            "auth": { "$ref": "#/definitions/authentication" },
             "secretEnv": { "type": "object", "additionalProperties": { "type": "string" } }
           }
         }

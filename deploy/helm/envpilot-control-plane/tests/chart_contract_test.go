@@ -108,6 +108,7 @@ func TestControlPlaneChartUsesWritableDataAndGitOpsPathsFromEnv(t *testing.T) {
 
 func TestControlPlaneChartUsesWriteOnlyOAuthSecretReferences(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
+		"--set", "global.envpilot.auth.mode=legacy_secret",
 		"--set", "global.envpilot.auth.existingSecret=envpilot-oauth",
 		"--set", "auth.gitlab.authURL=https://gitlab.example.test/oauth/authorize",
 	)
@@ -131,6 +132,31 @@ func TestControlPlaneChartUsesWriteOnlyOAuthSecretReferences(t *testing.T) {
 	}
 	if strings.Contains(rendered, "kind: Secret\nmetadata:\n  name: envpilot-oauth") || strings.Contains(rendered, "kind: Secret\nmetadata:\n  name: \"envpilot-oauth\"") {
 		t.Fatalf("OAuth Secret must be operator-managed, not rendered by the chart:\n%s", rendered)
+	}
+}
+
+func TestControlPlaneChartDisablesOAuthByDefaultAndValidatesLegacyMode(t *testing.T) {
+	rendered := renderControlPlaneChart(t)
+	for _, forbidden := range []string{
+		"ENVPILOT_OAUTH_SESSION_SECRET",
+		"ENVPILOT_GITHUB_OAUTH_",
+		"ENVPILOT_GITLAB_OAUTH_",
+		"ENVPILOT_OIDC_",
+		"oauth-session-secret",
+	} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("default render unexpectedly contains OAuth configuration %q:\n%s", forbidden, rendered)
+		}
+	}
+
+	for _, args := range [][]string{
+		{"--set", "auth.mode=legacy_secret"},
+		{"--set", "auth.github.authURL=https://github.example.test/login/oauth/authorize"},
+		{"--set", "auth.existingSecret=envpilot-oauth"},
+	} {
+		if output := renderControlPlaneChartError(t, args...); !strings.Contains(output, "auth.") {
+			t.Fatalf("invalid OAuth mode values did not report auth validation failure:\n%s", output)
+		}
 	}
 }
 
@@ -225,6 +251,7 @@ func TestControlPlaneChartRendersCommercializationAliasesAndSecretReferences(t *
 
 func TestControlPlaneChartUsesNamespaceScopedSecretReaderInsteadOfClusterAdmin(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
+		"--set", "rbac.secretReader.enabled=true",
 		"--set", "rbac.secretReader.namespaces[0]=envpilot-secrets",
 		"--set", "rbac.secretReader.namespaces[1]=shared-secrets",
 	)
@@ -245,6 +272,47 @@ func TestControlPlaneChartUsesNamespaceScopedSecretReaderInsteadOfClusterAdmin(t
 		if strings.Contains(rendered, forbidden) {
 			t.Fatalf("control-plane RBAC retained broad permission %q:\n%s", forbidden, rendered)
 		}
+	}
+}
+
+func TestControlPlaneChartCreatesNameScopedAuthenticationManagedSecret(t *testing.T) {
+	rendered := renderControlPlaneChart(t, "--namespace", "management-system")
+	for _, expected := range []string{
+		"name: envpilot-control-plane-authentication\n  namespace: \"management-system\"",
+		"envpilot.io/managed-secret: authentication",
+		"envpilot.io/purpose: authentication-managed-store",
+		"name: envpilot-control-plane-authentication-managed-secret",
+		"resourceNames: [\"envpilot-control-plane-authentication\"]",
+		"verbs: [\"get\", \"update\", \"patch\"]",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("managed authentication Secret contract missing %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{
+		"verbs: [\"get\", \"create\", \"update\", \"patch\"]",
+		"verbs: [\"get\", \"update\", \"patch\", \"delete\"]",
+		"resourceNames: [\"envpilot-control-plane-authentication\"]\n    verbs: [\"get\", \"list\"]",
+	} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("managed authentication Secret RBAC is broader than intended %q:\n%s", forbidden, rendered)
+		}
+	}
+
+	secretStart := strings.Index(rendered, "name: envpilot-control-plane-authentication\n  namespace: \"management-system\"")
+	if secretStart < 0 {
+		t.Fatal("managed authentication Secret was not rendered")
+	}
+	secretEnd := strings.Index(rendered[secretStart:], "\n---")
+	secret := rendered[secretStart:]
+	if secretEnd >= 0 {
+		secret = secret[:secretEnd]
+	}
+	if strings.Contains(secret, "data:") || strings.Contains(secret, "stringData:") {
+		t.Fatalf("managed authentication Secret must be empty:\n%s", secret)
+	}
+	if output := renderControlPlaneChartError(t, "--set", "auth.managedSecret.nameOverride=not_a_dns_label"); !strings.Contains(output, "auth.managedSecret.nameOverride") {
+		t.Fatalf("unsafe managed Secret override was not rejected:\n%s", output)
 	}
 }
 
@@ -476,6 +544,25 @@ func renderControlPlaneChart(t *testing.T, args ...string) string {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("helm template failed: %v\n%s", err, string(output))
+	}
+	return string(output)
+}
+
+func renderControlPlaneChartError(t *testing.T, args ...string) string {
+	t.Helper()
+	buildControlPlaneDependencies.Do(func() {
+		cmd := exec.Command("helm", "dependency", "build", "--skip-refresh", "..")
+		cmd.Dir = "."
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("helm dependency build failed: %v\n%s", err, string(output))
+		}
+	})
+	commandArgs := append([]string{"template", "envpilot", ".."}, args...)
+	cmd := exec.Command("helm", commandArgs...)
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("helm template unexpectedly succeeded:\n%s", output)
 	}
 	return string(output)
 }

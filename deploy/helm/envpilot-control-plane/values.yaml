@@ -73,11 +73,15 @@ env:
   ENVPILOT_DEPENDENCY_WAIT_TIMEOUT_SECONDS: "120"
   ENVPILOT_DEPENDENCY_WAIT_INTERVAL_SECONDS: "2"
 
-# OAuth/OIDC bootstrap uses one operator-managed Secret. Only its name is
-# rendered; the control plane reads the referenced keys through secretKeyRef.
-# Required keys are documented in the umbrella installation guide.
+# Interactive OAuth is disabled unless the legacy operator-managed Secret path
+# is selected explicitly. The chart never renders credential values.
 auth:
+  mode: disabled
   existingSecret: ""
+  # Helm owns one empty Opaque Secret in the release namespace. Its name may
+  # be overridden only as a DNS label; namespace is always the release namespace.
+  managedSecret:
+    nameOverride: ""
   github:
     authURL: ""
     tokenURL: ""
@@ -231,7 +235,9 @@ rbac:
   # Kubernetes/external-secret references. Empty means this release namespace.
   # Add namespaces deliberately; no ClusterRole is created by this chart.
   secretReader:
-    enabled: true
+    # Opt in only for legacy named external Secret references. The managed
+    # authentication store uses its own resourceName-scoped Role below.
+    enabled: false
     namespaces: []
   # Management-cluster Secret access used exclusively by the RemoteCluster API.
   # It can create/update only explicitly referenced credential Secrets; no

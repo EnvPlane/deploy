@@ -74,9 +74,11 @@ global:
         # or duplicates its credential data. Operators can materialize it with
         # scripts/sync-namespaced-registry-secret.sh.
         imagePullSecret: ""
-    # Name only. The Secret must already exist in the release namespace and
-    # contains OAuth/OIDC client material; the umbrella never renders values.
+    # Interactive OAuth is disabled by default. legacy_secret is a temporary
+    # compatibility path for an operator-managed Secret in the release
+    # namespace; the umbrella never renders credential values.
     auth:
+      mode: disabled
       existingSecret: ""
     # DEPRECATED bootstrap source only. At first start it seeds the persisted,
     # API/UI-managed ManagementEndpointProfile and is never remote-cluster
@@ -235,7 +237,9 @@ platformDependencyReconciler:
 envpilot-control-plane:
   fullnameOverride: envpilot-control-plane
   auth:
-    # Empty inherits global.envpilot.auth.existingSecret.
+    # legacy_secret enables the operator-managed compatibility Secret. Empty
+    # inherits global.envpilot.auth.existingSecret when legacy mode is enabled.
+    mode: disabled
     existingSecret: ""
   # Keep the API startup dependency explicit at the umbrella boundary. The
   # child chart renders a least-privilege initContainer which waits for the

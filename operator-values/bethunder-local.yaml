@@ -9,6 +9,7 @@ global:
       imagePullSecrets:
         - name: envpilot-ghcr
     auth:
+      mode: legacy_secret
       existingSecret: envpilot-oauth
     firstStartRegistration:
       mode: managed
