@@ -83,6 +83,16 @@ global:
 rejects an OAuth Secret name or provider endpoint values, preventing accidental
 activation through Helm values.
 
+On the first upgraded control-plane start, exactly one fully configured legacy
+provider is imported from the already-mounted legacy environment into the
+release-owned managed authentication Secret. The legacy Secret is never read
+through the Kubernetes API or deleted. Its safe persisted source is marked
+`legacy_bootstrap`; effective mode remains `oauth_required`, so a protected
+installation is never opened during upgrade. Multiple or incomplete legacy
+providers fail closed before the HTTP listener starts; select one provider and
+retry rather than relying on an implicit choice. Keep the operator Secret for
+rollback during the migration window.
+
 Every release also creates one empty `Opaque` Secret named
 `<release>-authentication` (or the safe DNS-label override
 `envpilot-control-plane.auth.managedSecret.nameOverride`). It contains no OAuth
@@ -102,6 +112,13 @@ Provider endpoint overrides are non-secret values under the child chart's
 creates or restores the user's active membership in tenant `default`. Without
 an active membership the frontend blocks quota-controlled mutations and links
 to sign-in; it never relies on a hidden tenant header or a development bypass.
+
+Set `global.envpilot.publicURL` to the canonical public HTTPS origin before
+enabling a provider. The callback URL is derived only from that value; request
+Host and forwarded headers are not fallbacks. A disabled installation is an
+open/local human-access mode and must remain on a trusted network. The initial
+setup credential is retrieved out-of-band from the managed Secret and is never
+printed by Helm, the API, logs, events, or status endpoints.
 
 ## Declarative same-cluster first start
 
