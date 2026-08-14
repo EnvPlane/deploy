@@ -286,19 +286,42 @@ func TestControlPlaneChartUsesNamespaceScopedSecretReaderInsteadOfClusterAdmin(t
 }
 
 func TestControlPlaneChartCreatesNameScopedAuthenticationManagedSecret(t *testing.T) {
-	rendered := renderControlPlaneChart(t, "--namespace", "management-system")
-	for _, expected := range []string{
-		"name: envpilot-control-plane-authentication\n  namespace: \"management-system\"",
-		"envpilot.io/managed-secret: authentication",
-		"envpilot.io/purpose: authentication-managed-store",
-		"name: envpilot-control-plane-authentication-managed-secret",
-		"resourceNames: [\"envpilot-control-plane-authentication\"]",
-		"verbs: [\"get\", \"update\", \"patch\"]",
+	for _, test := range []struct {
+		name string
+		args []string
+		secretName string
+	}{
+		{name: "default", args: []string{"--namespace", "management-system"}, secretName: "envpilot-control-plane-authentication"},
+		{name: "override", args: []string{"--namespace", "management-system", "--set", "auth.managedSecret.nameOverride=installation-authentication"}, secretName: "installation-authentication"},
 	} {
-		if !strings.Contains(rendered, expected) {
-			t.Fatalf("managed authentication Secret contract missing %q:\n%s", expected, rendered)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			rendered := renderControlPlaneChart(t, test.args...)
+			for _, expected := range []string{
+				"name: " + test.secretName + "\n  namespace: \"management-system\"",
+				"envpilot.io/managed-secret: authentication",
+				"envpilot.io/purpose: authentication-managed-store",
+				"name: envpilot-control-plane-authentication-managed-secret",
+				"resourceNames: [\"" + test.secretName + "\"]",
+				"verbs: [\"get\", \"update\", \"patch\"]",
+				"name: ENVPILOT_AUTHENTICATION_MANAGED_SECRET_NAME\n              value: \"" + test.secretName + "\"",
+			} {
+				if !strings.Contains(rendered, expected) {
+					t.Fatalf("managed authentication Secret contract missing %q:\n%s", expected, rendered)
+				}
+			}
+			for _, occurrence := range []string{
+				"name: " + test.secretName + "\n  namespace: \"management-system\"",
+				"resourceNames: [\"" + test.secretName + "\"]",
+				"value: \"" + test.secretName + "\"",
+			} {
+				if count := strings.Count(rendered, occurrence); count != 1 {
+					t.Fatalf("managed authentication Secret name must occur exactly once as %q; got %d:\n%s", occurrence, count, rendered)
+				}
+			}
+		})
 	}
+
+	rendered := renderControlPlaneChart(t, "--namespace", "management-system")
 	for _, forbidden := range []string{
 		"verbs: [\"get\", \"create\", \"update\", \"patch\"]",
 		"verbs: [\"get\", \"update\", \"patch\", \"delete\"]",
