@@ -82,6 +82,7 @@ auth:
   # be overridden only as a DNS label; namespace is always the release namespace.
   managedSecret:
     nameOverride: ""
+
   github:
     authURL: ""
     tokenURL: ""
@@ -95,6 +96,9 @@ auth:
     tokenURL: ""
     userURL: ""
     scopes: ""
+
+# Canonical browser-facing origin. Empty is valid while OAuth is disabled.
+publicURL: ""
 
 # A claimed Runner command has a bounded lease. On expiry the control plane
 # requeues it with a new attempt ID; after maxAttempts delete becomes a visible

@@ -26,6 +26,7 @@ webhook:
 # runtime pods. It is never exposed through a bootstrap API response.
 global:
   envpilot:
+    publicURL: ""
     # Runtime image registry contract. Set mode=existing and reference a
     # Secret containing .dockerconfigjson for private images. The Secret name
     # and pull references are safe metadata; credentials never enter values.
@@ -236,6 +237,7 @@ platformDependencyReconciler:
 
 envpilot-control-plane:
   fullnameOverride: envpilot-control-plane
+  publicURL: ""
   auth:
     # legacy_secret enables the operator-managed compatibility Secret. Empty
     # inherits global.envpilot.auth.existingSecret when legacy mode is enabled.

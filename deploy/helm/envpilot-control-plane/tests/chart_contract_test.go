@@ -160,6 +160,16 @@ func TestControlPlaneChartDisablesOAuthByDefaultAndValidatesLegacyMode(t *testin
 	}
 }
 
+func TestControlPlaneChartPropagatesCanonicalPublicURL(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "global.envpilot.publicURL=https://global.example.test",
+		"--set", "publicURL=https://child.example.test",
+	)
+	if !strings.Contains(rendered, "name: ENVPILOT_PUBLIC_URL\n              value: \"https://child.example.test\"") {
+		t.Fatalf("child publicURL must override global publicURL:\n%s", rendered)
+	}
+}
+
 func TestControlPlaneChartUsesServiceDNSForSameClusterAgentBootstrapAndAllowsRemoteOverride(t *testing.T) {
 	sameCluster := renderControlPlaneChart(t, "--namespace", "envpilot")
 	for _, expected := range []string{

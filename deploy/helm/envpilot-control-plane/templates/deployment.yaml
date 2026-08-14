@@ -81,6 +81,7 @@
 {{- $environment := omit (deepCopy .Values.env) "ENVPILOT_AGENT_CONTROL_PLANE_URL" "ENVPILOT_AGENT_IMAGE_REPOSITORY" "ENVPILOT_AGENT_IMAGE_TAG" "ENVPILOT_AGENT_HELM_CHART_REF" "ENVPILOT_AGENT_HELM_CHART_VERSION" -}}
 {{- $auth := default (dict) .Values.auth -}}
 {{- $globalAuth := default (dict) (get $globalEnvPlane "auth") -}}
+{{- $publicURL := trim (default (get $globalEnvPlane "publicURL") .Values.publicURL) -}}
 {{- $authMode := "disabled" -}}
 {{- if or (eq (default "disabled" (get $globalAuth "mode")) "legacy_secret") (eq (default "disabled" (get $auth "mode")) "legacy_secret") -}}
 {{- $authMode = "legacy_secret" -}}
@@ -236,6 +237,8 @@ spec:
             # explicit agentBootstrap.controlPlaneURL override.
             - name: ENVPILOT_AGENT_CONTROL_PLANE_URL
               value: {{ $agentBootstrapEndpoint | quote }}
+            - name: ENVPILOT_PUBLIC_URL
+              value: {{ $publicURL | quote }}
             - name: ENVPILOT_AGENT_IMAGE_REPOSITORY
               value: {{ $agentBootstrapRepository | quote }}
             - name: ENVPILOT_AGENT_IMAGE_TAG

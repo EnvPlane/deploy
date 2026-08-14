@@ -411,6 +411,7 @@
           "type": "object",
           "additionalProperties": true,
           "properties": {
+            "publicURL": { "type": "string" },
             "platformDependencyStatus": {
               "type": "object",
               "additionalProperties": false,
@@ -578,6 +579,7 @@
             "postgres": { "$ref": "#/definitions/database" },
             "redis": { "$ref": "#/definitions/database" },
             "persistence": { "$ref": "#/definitions/persistence" },
+            "publicURL": { "type": "string" },
             "auth": { "$ref": "#/definitions/authentication" },
             "secretEnv": { "type": "object", "additionalProperties": { "type": "string" } }
           }
