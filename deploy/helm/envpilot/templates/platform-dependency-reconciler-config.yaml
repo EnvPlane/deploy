@@ -2,7 +2,7 @@
 {{- $dependencies := include "envpilot.effectivePlatformDependencies" . | fromJson -}}
 {{- $statusConfigMap := include "envpilot.platformReconcilerStatusConfigMapName" . -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot.globalConfig" . | fromJson -}}
 {{- $platformStatus := default (dict) (get $envpilot "platformDependencyStatus") -}}
 {{- $externalStatusConfigMap := trim (default "" (get $platformStatus "statusConfigMapName")) -}}
 apiVersion: v1

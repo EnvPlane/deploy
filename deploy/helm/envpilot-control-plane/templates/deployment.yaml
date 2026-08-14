@@ -1,7 +1,7 @@
 {{- $postgresMode := default (ternary "internal" "disabled" .Values.postgres.enabled) .Values.postgres.mode -}}
 {{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $globalEnvPlane := default (dict) (get $global "envpilot") -}}
+{{- $globalEnvPlane := include "envpilot-control-plane.globalConfig" . | fromJson -}}
 {{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
 {{- $platformDependencyStatusConfigMap := include "envpilot-control-plane.platformDependencyStatusConfigMapName" . -}}

@@ -160,6 +160,18 @@ func TestControlPlaneChartDisablesOAuthByDefaultAndValidatesLegacyMode(t *testin
 	}
 }
 
+func TestControlPlaneCanonicalGlobalEnvPlaneOverridesLegacyAuth(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "global.envpilot.auth.mode=legacy_secret",
+		"--set", "global.envpilot.auth.existingSecret=legacy-oauth",
+		"--set", "global.envplane.auth.mode=disabled",
+		"--set", "global.envplane.auth.existingSecret=",
+	)
+	if strings.Contains(rendered, "name: ENVPILOT_OAUTH_SESSION_SECRET") {
+		t.Fatalf("canonical global.envplane auth did not override legacy auth tree:\n%s", rendered)
+	}
+}
+
 func TestControlPlaneChartPropagatesCanonicalPublicURL(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
 		"--set", "global.envpilot.publicURL=https://global.example.test",

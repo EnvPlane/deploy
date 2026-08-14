@@ -1,6 +1,19 @@
+{{/*
+Return the effective global product configuration. `global.envplane` is the
+canonical spelling; `global.envpilot` remains a compatibility source. A
+recursive overwrite makes canonical values win without renaming any live
+Kubernetes objects or selectors.
+*/}}
+{{- define "envpilot.globalConfig" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $legacy := deepCopy (default (dict) (get $global "envpilot")) -}}
+{{- $canonical := default (dict) (get $global "envplane") -}}
+{{- toJson (mergeOverwrite $legacy $canonical) -}}
+{{- end -}}
+
 {{- define "envpilot.firstStartRegistrationSecretName" -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot.globalConfig" . | fromJson -}}
 {{- $registration := default (dict) (get $envpilot "firstStartRegistration") -}}
 {{- $mode := default "disabled" $registration.mode -}}
 {{- if eq $mode "existing" -}}
@@ -15,8 +28,7 @@ Return the de-duplicated image pull Secret list shared by every child chart.
 Only Secret names are rendered; the Secret data is managed by the operator.
 */}}
 {{- define "envpilot.registryImagePullSecrets" -}}
-{{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot.globalConfig" . | fromJson -}}
 {{- $registry := default (dict) (get $envpilot "registry") -}}
 {{- $items := default (list) $registry.imagePullSecrets -}}
 {{- $existing := default "" $registry.existingSecret -}}
@@ -93,7 +105,7 @@ private optional image when no external platform provider is configured.
     {{- if ne (default "disabled" $dependency.mode) "disabled" }}{{- $configured = true -}}{{- end -}}
   {{- end -}}
   {{- if not $configured -}}false{{- else -}}
-    {{- $registry := default (dict) (get (default (dict) (get (default (dict) $.Values.global) "envpilot")) "registry") -}}
+    {{- $registry := default (dict) (get (include "envpilot.globalConfig" $ | fromJson) "registry") -}}
     {{- $explicitPullSecrets := default (list) $.Values.platformDependencyReconciler.imagePullSecrets -}}
     {{- if and (ne (default "disabled" $registry.mode) "existing") (eq (len $explicitPullSecrets) 0) -}}
       {{- fail "platformDependencyReconciler requires global.envpilot.registry.mode=existing with existingSecret, or platformDependencyReconciler.imagePullSecrets" -}}
@@ -111,8 +123,7 @@ controller-owned data.status.json field. An explicit name is external and must
 be supplied/owned by the operator.
 */}}
 {{- define "envpilot.platformReconcilerStatusConfigMapName" -}}
-{{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot.globalConfig" . | fromJson -}}
 {{- $status := default (dict) (get $envpilot "platformDependencyStatus") -}}
 {{- $override := trim (default "" (get $status "statusConfigMapName")) -}}
 {{- if $override -}}

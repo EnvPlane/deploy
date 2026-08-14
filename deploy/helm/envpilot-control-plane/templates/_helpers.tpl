@@ -1,3 +1,10 @@
+{{- define "envpilot-control-plane.globalConfig" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $legacy := deepCopy (default (dict) (get $global "envpilot")) -}}
+{{- $canonical := default (dict) (get $global "envplane") -}}
+{{- toJson (mergeOverwrite $legacy $canonical) -}}
+{{- end -}}
+
 {{- define "envpilot-control-plane.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
@@ -90,7 +97,7 @@ app.kubernetes.io/component: control-plane
 {{- define "envpilot-control-plane.imagePullSecrets" -}}
 {{- $explicit := default (list) .Values.imagePullSecrets -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot-control-plane.globalConfig" . | fromJson -}}
 {{- $registry := default (dict) (get $envpilot "registry") -}}
 {{- $shared := default (list) $registry.imagePullSecrets -}}
 {{- $existing := default "" $registry.existingSecret -}}
@@ -114,7 +121,7 @@ envpilot.io/release: {{ default "" .Values.image.release | quote }}
 An explicit global name remains an external operator-owned override. */}}
 {{- define "envpilot-control-plane.platformDependencyStatusConfigMapName" -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot-control-plane.globalConfig" . | fromJson -}}
 {{- $status := default (dict) (get $envpilot "platformDependencyStatus") -}}
 {{- $override := trim (default "" (get $status "statusConfigMapName")) -}}
 {{- if $override -}}

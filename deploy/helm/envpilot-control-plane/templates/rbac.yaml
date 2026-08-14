@@ -111,7 +111,7 @@ roleRef:
   name: {{ include "envpilot-control-plane.fullname" $ }}-remote-cluster-credentials
 {{- end }}
 {{- end }}
-{{- $globalEnvPlane := default (dict) (get (default (dict) .Values.global) "envpilot") -}}
+{{- $globalEnvPlane := include "envpilot-control-plane.globalConfig" . | fromJson -}}
 {{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
 {{- $remoteClusterReconciler := default (dict) (get $globalEnvPlane "remoteClusterReconciler") -}}
 {{- $remoteClusterReconcilerConfig := default (dict) .Values.remoteClusterReconciler -}}

@@ -1,5 +1,5 @@
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot.globalConfig" . | fromJson -}}
 {{- $fixture := default (dict) (get $envpilot "e2eFixture") -}}
 {{- if $fixture.enabled }}
 {{- $baseNamespace := required "global.envpilot.e2eFixture.baseNamespace is required when the E2E fixture is enabled" $fixture.baseNamespace -}}

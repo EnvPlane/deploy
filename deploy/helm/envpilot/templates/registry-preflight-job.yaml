@@ -1,5 +1,5 @@
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot.globalConfig" . | fromJson -}}
 {{- $registry := default (dict) (get $envpilot "registry") -}}
 {{- $preflight := default (dict) (get $registry "preflight") -}}
 {{- if and (eq (default "disabled" $registry.mode) "existing") (default true $preflight.enabled) }}

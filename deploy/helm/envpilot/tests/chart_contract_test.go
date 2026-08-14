@@ -91,6 +91,22 @@ func TestUmbrellaAuthenticationModeDefaultsToDisabled(t *testing.T) {
 	}
 }
 
+func TestCanonicalGlobalEnvPlaneValuesOverrideLegacyTree(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "global.envpilot.auth.mode=legacy_secret",
+		"--set", "global.envpilot.auth.existingSecret=legacy-oauth",
+		"--set", "global.envplane.auth.mode=disabled",
+		"--set", "global.envplane.auth.existingSecret=",
+		"--set", "global.envplane.bootstrapDefaults.helmDirect.chartVersion=9.9.9",
+	)
+	if strings.Contains(rendered, "name: ENVPILOT_OAUTH_SESSION_SECRET") {
+		t.Fatalf("canonical global.envplane auth did not override legacy auth tree:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "9.9.9") {
+		t.Fatalf("canonical global.envplane bootstrap default was not propagated:\n%s", rendered)
+	}
+}
+
 // Render one canonical child chart in an isolated chart tree. Published
 // umbrellas intentionally reject runtime image overrides that conflict with
 // their signed compatibility manifest, but the child charts must still support

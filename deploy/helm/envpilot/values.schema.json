@@ -407,6 +407,11 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
+        "envplane": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Canonical EnvPlane configuration. Overrides global.envpilot recursively."
+        },
         "envpilot": {
           "type": "object",
           "additionalProperties": true,

@@ -1,5 +1,5 @@
 {{- $global := default (dict) .Values.global -}}
-{{- $globalEnvPlane := default (dict) (get $global "envpilot") -}}
+{{- $globalEnvPlane := include "envpilot-agent.globalConfig" . | fromJson -}}
 {{- $firstStart := default (dict) (get $globalEnvPlane "firstStartRegistration") -}}
 {{- $firstStartEnabled := eq (include "envpilot-agent.usesFirstStartRegistration" .) "true" -}}
 {{- $controlPlaneEndpoint := include "envpilot-agent.controlPlaneEndpoint" . -}}

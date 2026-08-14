@@ -42,7 +42,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "envpilot-runner.tokenSecretName" -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot-runner.globalConfig" . | fromJson -}}
 {{- $firstStart := default (dict) (get $envpilot "firstStartRegistration") -}}
 {{- $mode := default "disabled" $firstStart.mode -}}
 {{- if eq $mode "existing" -}}
@@ -140,7 +140,7 @@ envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 
 {{- define "envpilot-runner.usesFirstStartRegistration" -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot-runner.globalConfig" . | fromJson -}}
 {{- $firstStart := default (dict) (get $envpilot "firstStartRegistration") -}}
 {{- $managedSameCluster := default (dict) .Values.managedSameCluster -}}
 {{- if and (not (default false $managedSameCluster.enabled)) (ne (default "disabled" $firstStart.mode) "disabled") }}true{{ else }}false{{ end -}}
@@ -179,7 +179,7 @@ envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 {{- define "envpilot-runner.imagePullSecrets" -}}
 {{- $explicit := default (list) .Values.imagePullSecrets -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot-runner.globalConfig" . | fromJson -}}
 {{- $registry := default (dict) (get $envpilot "registry") -}}
 {{- $shared := default (list) $registry.imagePullSecrets -}}
 {{- $existing := default "" $registry.existingSecret -}}
@@ -197,4 +197,10 @@ envpilot.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 envpilot.io/image-reference: {{ include "envpilot-runner.image" . | quote }}
 envpilot.io/source-revision: {{ default "" .Values.image.sourceRevision | quote }}
 envpilot.io/release: {{ default "" .Values.image.release | quote }}
+{{- end -}}
+{{- define "envpilot-runner.globalConfig" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $legacy := deepCopy (default (dict) (get $global "envpilot")) -}}
+{{- $canonical := default (dict) (get $global "envplane") -}}
+{{- toJson (mergeOverwrite $legacy $canonical) -}}
 {{- end -}}

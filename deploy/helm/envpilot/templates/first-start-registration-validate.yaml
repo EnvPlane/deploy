@@ -1,5 +1,5 @@
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot.globalConfig" . | fromJson -}}
 {{- $registration := default (dict) (get $envpilot "firstStartRegistration") -}}
 {{- $mode := default "disabled" $registration.mode -}}
 {{- if and (ne $mode "disabled") (or (not .Values.agent.enabled) (not .Values.runner.enabled)) -}}

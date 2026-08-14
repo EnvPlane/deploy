@@ -25,6 +25,10 @@ webhook:
 # Secret. The Secret is mounted only into the control plane and the matching
 # runtime pods. It is never exposed through a bootstrap API response.
 global:
+  # Canonical configuration namespace. Values here override the legacy
+  # global.envpilot tree recursively; legacy keys remain accepted for
+  # in-place upgrades and rollback.
+  envplane: {}
   envpilot:
     publicURL: ""
     # Runtime image registry contract. Set mode=existing and reference a

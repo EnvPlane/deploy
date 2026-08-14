@@ -5,7 +5,7 @@ port-forwards or Service DNS; a provider-owned private or public
 ingress/Gateway/LB must expose this HTTPS endpoint instead.
 */}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot.globalConfig" . | fromJson -}}
 {{- $remote := default (dict) (get $envpilot "remoteControlPlane") -}}
 {{- $profile := default (dict) (get $envpilot "managementEndpointProfile") -}}
 {{- $bootstrap := default (dict) (get $profile "bootstrap") -}}

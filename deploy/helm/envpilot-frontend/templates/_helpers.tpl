@@ -69,7 +69,7 @@ app.kubernetes.io/component: frontend
 {{- define "envpilot-frontend.imagePullSecrets" -}}
 {{- $explicit := default (list) .Values.imagePullSecrets -}}
 {{- $global := default (dict) .Values.global -}}
-{{- $envpilot := default (dict) (get $global "envpilot") -}}
+{{- $envpilot := include "envpilot-frontend.globalConfig" . | fromJson -}}
 {{- $registry := default (dict) (get $envpilot "registry") -}}
 {{- $shared := default (list) $registry.imagePullSecrets -}}
 {{- $existing := default "" $registry.existingSecret -}}
@@ -87,4 +87,10 @@ app.kubernetes.io/component: frontend
 envpilot.io/image-reference: {{ include "envpilot-frontend.image" . | quote }}
 envpilot.io/source-revision: {{ default "" .Values.image.sourceRevision | quote }}
 envpilot.io/release: {{ default "" .Values.image.release | quote }}
+{{- end -}}
+{{- define "envpilot-frontend.globalConfig" -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $legacy := deepCopy (default (dict) (get $global "envpilot")) -}}
+{{- $canonical := default (dict) (get $global "envplane") -}}
+{{- toJson (mergeOverwrite $legacy $canonical) -}}
 {{- end -}}
