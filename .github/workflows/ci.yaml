@@ -33,7 +33,7 @@ jobs:
           # Helm still imports x/crypto/openpgp transitively. The package is
           # unmaintained and has no fixed release; keep this single advisory
           # explicit while failing closed for every other vulnerability.
-          ids="$(sed -nE 's/^Vulnerability #[0-9]+: (GO-[0-9-]+)$/\1/p' "$report" | sort -u)"
+          ids="$(sed -nE 's/.*Vulnerability #[0-9]+: (GO-[0-9-]+)$/\1/p' "$report" | sort -u)"
           if [[ "$ids" == "GO-2026-5932" ]]; then
             exit 0
           fi
