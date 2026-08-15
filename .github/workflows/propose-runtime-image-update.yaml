@@ -174,7 +174,14 @@ jobs:
         run: |
           helm dependency build --skip-refresh deploy/helm/envpilot
           helm lint deploy/helm/envpilot
-          helm template envpilot deploy/helm/envpilot >/dev/null
+          # The child chart intentionally requires a password and, when TLS
+          # is enabled, a CA Secret.  The proposal gate only validates chart
+          # structure; use disposable render-only values and keep runtime
+          # secret validation unchanged.
+          helm template envpilot deploy/helm/envpilot \
+            --set-string envpilot-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envpilot-control-plane.postgres.tls.enabled=false \
+            >/dev/null
       - uses: peter-evans/create-pull-request@v7
         id: pull_request
         with:
