@@ -54,6 +54,7 @@ rules:
   {{- end }}
   {{- $ingress := index $dependencies "ingress" -}}
   {{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") }}
+  {{- $ingressReleaseName := default (printf "%s-ingress-nginx" .Release.Name) $ingress.managed.releaseName -}}
   # The reconciler installs only the pinned ingress-nginx provider. These
   # cluster-scoped permissions are limited to the provider's RBAC/admission
   # objects and discovery resources; they are not a cluster-admin wildcard.
@@ -62,7 +63,11 @@ rules:
     verbs: ["get", "create"]
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles", "clusterrolebindings"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs: ["create"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    resourceNames: ["{{ $ingressReleaseName }}", "{{ $ingressReleaseName }}-admission"]
+    verbs: ["get", "update", "patch", "delete"]
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -73,9 +78,6 @@ rules:
   # ingress-nginx controller ClusterRole. The installer must hold them too,
   # otherwise Kubernetes rejects creation of that ClusterRole as privilege
   # escalation.
-  - apiGroups: [""]
-    resources: ["configmaps", "endpoints", "pods", "secrets"]
-    verbs: ["list", "watch"]
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["list", "watch"]
