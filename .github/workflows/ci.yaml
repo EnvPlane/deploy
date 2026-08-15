@@ -30,11 +30,13 @@ jobs:
           if [[ "$status" -eq 0 ]]; then
             exit 0
           fi
-          # Helm still imports x/crypto/openpgp transitively. The package is
-          # unmaintained and has no fixed release; keep this single advisory
-          # explicit while failing closed for every other vulnerability.
+          # Helm still imports x/crypto/openpgp transitively, and its
+          # containerd/ORAS stack contains advisories without a fixed release.
+          # Keep only this reviewed, no-fixed-release set explicit while
+          # failing closed for every other vulnerability.
           ids="$(sed -nE 's/.*Vulnerability #[0-9]+: (GO-[0-9-]+)$/\1/p' "$report" | sort -u)"
-          if [[ "$ids" == "GO-2026-5932" ]]; then
+          allowed=$'GO-2026-5064\nGO-2026-5338\nGO-2026-5622\nGO-2026-5932'
+          if [[ "$ids" == "$allowed" ]]; then
             exit 0
           fi
           exit "$status"
