@@ -156,7 +156,7 @@ rbac:
     # namespace. Project-owned same-cluster Agents additionally opt into the
     # three read-only cluster capability probes below; they remain unable to
     # discover arbitrary cluster workloads.
-    scope: cluster # namespace | cluster
+    scope: namespace # namespace | cluster; cluster requires explicit opt-in
     namespaces: []
     clusterCapabilityRead: false
     # Secret reads are sensitive and disabled by default. Set true only when
