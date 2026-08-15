@@ -1,5 +1,6 @@
 {{- $postgresMode := default (ternary "internal" "disabled" .Values.postgres.enabled) .Values.postgres.mode -}}
 {{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
+{{- $redisAuthSecret := printf "%s-redis-auth" (include "envpilot-control-plane.fullname" .) -}}
 {{- $global := default (dict) .Values.global -}}
 {{- $globalEnvPlane := include "envpilot-control-plane.globalConfig" . | fromJson -}}
 {{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
@@ -194,10 +195,16 @@ spec:
             - sh
             - -ec
             - |
-              until redis-cli -h {{ include "envpilot-control-plane.redisName" . }} -p {{ .Values.redis.service.port }} ping | grep -q PONG; do
+              until redis-cli --no-auth-warning -a "$REDIS_PASSWORD" -h {{ include "envpilot-control-plane.redisName" . }} -p {{ .Values.redis.service.port }} ping | grep -q PONG; do
                 echo "waiting for redis"
                 sleep 2
               done
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $redisAuthSecret | quote }}
+                  key: password
         {{- end }}
       {{- end }}
       containers:
@@ -365,8 +372,13 @@ spec:
                   key: {{ .Values.postgres.external.urlKey | quote }}
             {{- end }}
             {{- if eq $redisMode "internal" }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $redisAuthSecret | quote }}
+                  key: password
             - name: ENVPILOT_REDIS_URL
-              value: "redis://{{ include "envpilot-control-plane.redisName" . }}:{{ .Values.redis.service.port }}/0"
+              value: "redis://:$(REDIS_PASSWORD)@{{ include "envpilot-control-plane.redisName" . }}:{{ .Values.redis.service.port }}/0"
             {{- else if eq $redisMode "external" }}
             - name: ENVPILOT_REDIS_URL
               valueFrom:

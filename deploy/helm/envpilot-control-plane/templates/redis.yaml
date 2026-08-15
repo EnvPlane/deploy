@@ -1,5 +1,6 @@
 {{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
 {{- if eq $redisMode "internal" }}
+{{- $redisAuthSecret := printf "%s-redis-auth" (include "envpilot-control-plane.fullname" .) -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -79,6 +80,8 @@ spec:
             runAsGroup: 999
           args:
             - redis-server
+            - --requirepass
+            - $(REDIS_PASSWORD)
             - --appendonly
             - "yes"
             - --dir
@@ -87,6 +90,12 @@ spec:
             - name: redis
               containerPort: 6379
               protocol: TCP
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $redisAuthSecret | quote }}
+                  key: password
           volumeMounts:
             - name: data
               mountPath: /data
@@ -94,6 +103,9 @@ spec:
             exec:
               command:
                 - redis-cli
+                - --no-auth-warning
+                - -a
+                - $(REDIS_PASSWORD)
                 - ping
             initialDelaySeconds: 5
             periodSeconds: 10
