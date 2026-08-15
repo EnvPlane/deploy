@@ -182,7 +182,7 @@ jobs:
             --set-string envpilot-control-plane.postgres.auth.password=ci-render-only-password \
             --set envpilot-control-plane.postgres.tls.enabled=false \
             >/dev/null
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@v8
         id: pull_request
         with:
           token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}

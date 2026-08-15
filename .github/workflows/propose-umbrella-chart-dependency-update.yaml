@@ -110,7 +110,7 @@ jobs:
           helm lint deploy/helm/envpilot
           helm template envpilot deploy/helm/envpilot >/dev/null
       - id: pr
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           branch: automation/umbrella-chart-dependencies
