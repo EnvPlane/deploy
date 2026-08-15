@@ -222,6 +222,8 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           env:
+            - name: GOMEMLIMIT
+              value: {{ .Values.runtime.gomemlimit | quote }}
             {{- if $platformDependencyStatusEnabled }}
             # The declared contract comes from envFrom above. This separate,
             # read-only ConfigMap watch supplies observed reconciler state.
