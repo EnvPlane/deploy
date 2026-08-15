@@ -37,6 +37,8 @@ spec:
               value: {{ printf ":%d" (.Values.service.port | int) | quote }}
             - name: ENVPILOT_WEBHOOK_REQUEST_TIMEOUT
               value: {{ .Values.requestTimeout | quote }}
+            - name: ENVPILOT_WEBHOOK_READY_STALE_AFTER
+              value: {{ .Values.readyStaleAfter | quote }}
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ required "controlPlane.url is required" .Values.controlPlane.url | quote }}
             - name: ENVPILOT_CONTROL_PLANE_TOKEN
@@ -62,7 +64,7 @@ spec:
               port: http
           readinessProbe:
             httpGet:
-              path: /health
+              path: /readyz
               port: http
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}

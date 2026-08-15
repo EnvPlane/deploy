@@ -31,6 +31,7 @@ service:
   port: 8080
 
 requestTimeout: 10s
+readyStaleAfter: 2m
 
 ingress:
   enabled: false
