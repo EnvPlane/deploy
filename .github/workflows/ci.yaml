@@ -45,5 +45,8 @@ jobs:
       - run: helm lint deploy/helm/envpilot-agent
       - run: helm lint deploy/helm/envpilot-runner
       - run: bash scripts/check-vendored-chart-drift.sh
-      - run: bash scripts/check-env-parity.sh
+      - name: Check environment parity
+        run: |
+          helm dependency build --skip-refresh deploy/helm/envpilot
+          bash scripts/check-env-parity.sh
       - run: bash scripts/check-base-image-digests.sh
