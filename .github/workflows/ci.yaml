@@ -18,4 +18,4 @@ jobs:
       - run: helm lint deploy/helm/envpilot-control-plane
       - run: helm lint deploy/helm/envpilot-agent
       - run: helm lint deploy/helm/envpilot-runner
-      - run: bash deploy/scripts/check-env-parity.sh
+      - run: bash scripts/check-env-parity.sh

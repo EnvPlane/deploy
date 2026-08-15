@@ -13,8 +13,13 @@ check_chart() {
   helm template parity "$repo_root/deploy/helm/$chart" \
     --set postgres.auth.existingSecret=parity-postgres \
     --set postgres.tls.enabled=false >"$rendered"
-  source="$(rg -o 'ENVPILOT_[A-Z0-9_]+' "$repo_root/../$source_dir" --glob '*.go' --glob '*.ts' --glob '*.tsx' --glob '!**/*_test.go' --glob '!**/*.test.ts' --glob '!**/*.test.tsx' | sed 's/.*://' | sort -u || true)"
-  rendered_vars="$(rg -o 'name:[[:space:]]+ENVPILOT_[A-Z0-9_]+' "$rendered" | sed -E 's/.*name:[[:space:]]+//' | sort -u || true)"
+  if command -v rg >/dev/null 2>&1; then
+    source="$(rg -o 'ENVPILOT_[A-Z0-9_]+' "$repo_root/../$source_dir" --glob '*.go' --glob '*.ts' --glob '*.tsx' --glob '!**/*_test.go' --glob '!**/*.test.ts' --glob '!**/*.test.tsx' | sed 's/.*://' | sort -u || true)"
+    rendered_vars="$(rg -o 'name:[[:space:]]+ENVPILOT_[A-Z0-9_]+' "$rendered" | sed -E 's/.*name:[[:space:]]+//' | sort -u || true)"
+  else
+    source="$(find "$repo_root/../$source_dir" -type f \( -name '*.go' -o -name '*.ts' -o -name '*.tsx' \) ! -name '*_test.go' ! -name '*.test.ts' ! -name '*.test.tsx' -print0 | xargs -0 grep -Eho 'ENVPILOT_[A-Z0-9_]+' | sort -u || true)"
+    rendered_vars="$(grep -Eho 'name:[[:space:]]+ENVPILOT_[A-Z0-9_]+' "$rendered" | sed -E 's/.*name:[[:space:]]+//' | sort -u || true)"
+  fi
   echo "[$service]"
   while IFS= read -r name; do
     [[ -z "$name" ]] && continue

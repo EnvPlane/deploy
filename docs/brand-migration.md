@@ -17,7 +17,7 @@ the compatibility contract for existing installations.
 | Secrets/ConfigMaps | managed auth, registration, compatibility and status names | Keep stable; Secret data is never copied by Helm. Revision-scoped ConfigMaps remain immutable inputs. |
 | OCI charts/images | `oci://ghcr.io/envpilot/envpilot-*`, `ghcr.io/envpilot/*` | Keep published coordinates; publish any `envplane` coordinate as an additional artifact first. |
 | Values/env keys | `global.envpilot.*`, `ENVPILOT_*` | `global.envplane.*` and `ENVPLANE_*` are canonical; canonical values win. |
-| Human-readable docs/UI | EnvPilot spelling | Use EnvPlane; machine compatibility names may remain in code examples where required. |
+| Human-readable docs/UI | legacy product spelling | Use EnvPlane; machine compatibility names may remain in code examples where required. |
 
 ## Values compatibility
 
