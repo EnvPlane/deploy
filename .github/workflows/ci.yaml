@@ -28,3 +28,4 @@ jobs:
       - run: helm lint deploy/helm/envpilot-runner
       - run: bash scripts/check-vendored-chart-drift.sh
       - run: bash scripts/check-env-parity.sh
+      - run: bash scripts/check-base-image-digests.sh

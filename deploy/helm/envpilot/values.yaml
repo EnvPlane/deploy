@@ -355,7 +355,7 @@ envpilot-control-plane:
     image:
       repository: postgres
       tag: "16-alpine"
-      digest: ""
+      digest: "sha256:44c4ee9810eff91f7eab4d822642e01115b1a9eccce4bcbdde7604752d68eac6"
       pullPolicy: IfNotPresent
     auth:
       database: envpilot
@@ -377,7 +377,7 @@ envpilot-control-plane:
     image:
       repository: redis
       tag: "7-alpine"
-      digest: ""
+      digest: "sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2"
       pullPolicy: IfNotPresent
     external:
       existingSecret: ""
