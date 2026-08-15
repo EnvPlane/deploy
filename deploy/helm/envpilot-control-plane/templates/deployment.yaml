@@ -2,6 +2,11 @@
 {{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
 {{- $redisAuthSecret := printf "%s-redis-auth" (include "envpilot-control-plane.fullname" .) -}}
 {{- $global := default (dict) .Values.global -}}
+{{- $allowInsecureLocalDevelopment := default false .Values.allowInsecureLocalDevelopment -}}
+{{- $cookieSecure := default "true" (get (default (dict) .Values.env) "ENVPILOT_OAUTH_COOKIE_SECURE") -}}
+{{- if and .Values.ingress.enabled (not .Values.ingress.tls.enabled) (eq (lower (toString $cookieSecure)) "false") (not $allowInsecureLocalDevelopment) -}}
+{{- fail "refusing ingress without TLS while ENVPILOT_OAUTH_COOKIE_SECURE=false; set allowInsecureLocalDevelopment=true only for local development" -}}
+{{- end -}}
 {{- $globalEnvPlane := include "envpilot-control-plane.globalConfig" . | fromJson -}}
 {{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}

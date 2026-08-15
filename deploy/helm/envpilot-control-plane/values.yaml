@@ -25,6 +25,8 @@ frontend:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+# Explicit opt-in required for the insecure local-development cookie/HTTP mode.
+allowInsecureLocalDevelopment: false
 
 command: []
 args: []

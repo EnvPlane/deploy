@@ -1,6 +1,9 @@
 # Operator configuration for the existing bethunder-local minikube profile.
 # The image-pull Secret contains credentials and is created in the cluster;
 # this file stores only its name.
+# LOCAL DEVELOPMENT ONLY: this profile intentionally disables TLS and Secure
+# cookies for a disposable minikube cluster; never use it for shared access.
+allowInsecureLocalDevelopment: true
 global:
   envpilot:
     registry:
