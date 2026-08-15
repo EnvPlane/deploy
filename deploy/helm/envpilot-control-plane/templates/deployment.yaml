@@ -1,5 +1,8 @@
 {{- $postgresMode := default (ternary "internal" "disabled" .Values.postgres.enabled) .Values.postgres.mode -}}
 {{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
+{{- if gt (int .Values.replicaCount) 1 }}
+{{- fail "control-plane replicaCount > 1 is unsupported while security-sensitive process state is local; keep replicaCount at 1" }}
+{{- end }}
 {{- $redisAuthSecret := printf "%s-redis-auth" (include "envpilot-control-plane.fullname" .) -}}
 {{- $global := default (dict) .Values.global -}}
 {{- $allowInsecureLocalDevelopment := default false .Values.allowInsecureLocalDevelopment -}}
