@@ -157,7 +157,8 @@ rbac:
     # three read-only cluster capability probes below; they remain unable to
     # discover arbitrary cluster workloads.
     scope: namespace # namespace | cluster; cluster requires explicit opt-in
-    namespaces: []
+    namespaces:
+      - default
     clusterCapabilityRead: false
     # Secret reads are sensitive and disabled by default. Set true only when
     # manifest discovery must include Secret metadata for selected namespaces.

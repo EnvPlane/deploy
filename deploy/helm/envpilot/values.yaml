@@ -167,6 +167,9 @@ access:
     host: ""
     className: ""
     annotations: {}
+    # HTTP ingress is unsafe for browser sessions and must be explicitly
+    # opted into for a disposable local-development profile.
+    allowInsecureHttp: false
     tls:
       enabled: false
       secretName: ""
@@ -432,6 +435,12 @@ envpilot-agent:
   affinity: {}
   podSecurityContext: {}
   securityContext: {}
+  rbac:
+    discovery:
+      # The umbrella's default child is disabled; this namespace keeps an
+      # explicit safe render contract when an operator enables it.
+      namespaces:
+        - default
   controlPlane:
     endpointMode: sameCluster
     url: http://envpilot-control-plane:8080

@@ -26,6 +26,8 @@ global:
 
 envpilot-control-plane:
   env:
+    # LOCAL DEVELOPMENT ONLY: this profile intentionally uses HTTP on a
+    # disposable minikube host. Production/operator values must omit this.
     ENVPILOT_OAUTH_COOKIE_SECURE: "false"
   rbac:
     sameClusterProjectExecutors:
@@ -44,6 +46,8 @@ runner:
 access:
   mode: ingress
   ingress:
+    # LOCAL DEVELOPMENT ONLY: required by the umbrella chart when TLS is off.
+    allowInsecureHttp: true
     host: envpilot.local
     className: nginx
     tls:

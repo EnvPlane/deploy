@@ -321,7 +321,6 @@ func TestAgentAPIToRBACContractKeepsSecretReadsOptIn(t *testing.T) {
 
 func TestAgentChartRejectsIncompleteDiscoveryOrServiceAccountContracts(t *testing.T) {
 	for _, args := range [][]string{
-		{"--set", "rbac.discovery.scope=namespace"},
 		{"--set", "serviceAccount.create=false"},
 	} {
 		cmd := exec.Command("helm", append([]string{"template", "envpilot-agent", ".."}, args...)...)
@@ -549,7 +548,8 @@ func renderAgentChart(t *testing.T, args ...string) string {
 
 func renderAgentChartWithRelease(t *testing.T, releaseName string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("helm", append([]string{"template", releaseName, ".."}, args...)...)
+	base := []string{"template", releaseName, "..", "--set", "rbac.discovery.namespaces[0]=default"}
+	cmd := exec.Command("helm", append(base, args...)...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
 	if err != nil {

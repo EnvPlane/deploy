@@ -40,6 +40,11 @@ global:
       gitopsDefaultBranch: main
 
 envpilot-agent:
+  rbac:
+    discovery:
+      namespaces:
+        - envpilot-e2e-base
+        - envpilot-e2e-feature
   controlPlane:
     endpointMode: sameCluster
     serviceName: envpilot-control-plane

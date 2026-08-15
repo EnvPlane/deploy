@@ -6,6 +6,9 @@
 {{- if eq $mode "ingress" }}
 {{- $ingress := $access.ingress | default dict -}}
 {{- $host := required "access.ingress.host is required when access.mode=ingress" $ingress.host -}}
+{{- if and (not (default false $ingress.allowInsecureHttp)) (not (and $ingress.tls $ingress.tls.enabled)) }}
+{{- fail "access.ingress.tls.enabled=true is required; set access.ingress.allowInsecureHttp=true only for disposable local development" }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

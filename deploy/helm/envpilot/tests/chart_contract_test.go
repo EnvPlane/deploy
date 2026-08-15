@@ -16,6 +16,7 @@ func withFixturePostgres(values []string) []string {
 	base := []string{
 		"--set", "envpilot-control-plane.postgres.auth.password=test-fixture-password",
 		"--set", "envpilot-control-plane.postgres.tls.enabled=false",
+		"--set", "access.ingress.allowInsecureHttp=true",
 	}
 	return append(values, base...)
 }
@@ -45,6 +46,7 @@ func renderUmbrella(t *testing.T, values ...string) string {
 	args := append([]string{"template", "envpilot", "..", "--namespace", "envpilot",
 		"--set", "envpilot-control-plane.postgres.auth.password=test-fixture-password",
 		"--set", "envpilot-control-plane.postgres.tls.enabled=false",
+		"--set", "access.ingress.allowInsecureHttp=true",
 	}, values...)
 	cmd := exec.Command("helm", args...)
 	cmd.Dir = "."
@@ -61,6 +63,7 @@ func renderUmbrellaError(t *testing.T, values ...string) string {
 	args := append([]string{"template", "envpilot", "..", "--namespace", "envpilot",
 		"--set", "envpilot-control-plane.postgres.auth.password=test-fixture-password",
 		"--set", "envpilot-control-plane.postgres.tls.enabled=false",
+		"--set", "access.ingress.allowInsecureHttp=true",
 	}, values...)
 	cmd := exec.Command("helm", args...)
 	cmd.Dir = "."
