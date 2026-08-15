@@ -12,6 +12,21 @@ import (
 
 var buildUmbrellaDependencies sync.Once
 
+func withFixturePostgres(values []string) []string {
+	base := []string{
+		"--set", "envpilot-control-plane.postgres.auth.password=test-fixture-password",
+		"--set", "envpilot-control-plane.postgres.tls.enabled=false",
+	}
+	return append(values, base...)
+}
+
+func withChildFixturePostgres(values []string) []string {
+	return append(values,
+		"--set", "postgres.auth.password=test-fixture-password",
+		"--set", "postgres.tls.enabled=false",
+	)
+}
+
 func buildDependencies(t *testing.T) {
 	t.Helper()
 	buildUmbrellaDependencies.Do(func() {
@@ -27,7 +42,10 @@ func buildDependencies(t *testing.T) {
 func renderUmbrella(t *testing.T, values ...string) string {
 	t.Helper()
 	buildDependencies(t)
-	args := append([]string{"template", "envpilot", "..", "--namespace", "envpilot"}, values...)
+	args := append([]string{"template", "envpilot", "..", "--namespace", "envpilot",
+		"--set", "envpilot-control-plane.postgres.auth.password=test-fixture-password",
+		"--set", "envpilot-control-plane.postgres.tls.enabled=false",
+	}, values...)
 	cmd := exec.Command("helm", args...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
@@ -40,7 +58,10 @@ func renderUmbrella(t *testing.T, values ...string) string {
 func renderUmbrellaError(t *testing.T, values ...string) string {
 	t.Helper()
 	buildDependencies(t)
-	args := append([]string{"template", "envpilot", "..", "--namespace", "envpilot"}, values...)
+	args := append([]string{"template", "envpilot", "..", "--namespace", "envpilot",
+		"--set", "envpilot-control-plane.postgres.auth.password=test-fixture-password",
+		"--set", "envpilot-control-plane.postgres.tls.enabled=false",
+	}, values...)
 	cmd := exec.Command("helm", args...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
@@ -131,7 +152,7 @@ func renderChildChart(t *testing.T, chartName string, values ...string) string {
 	if err != nil {
 		t.Fatalf("build %s child dependencies: %v\n%s", chartName, err, output)
 	}
-	args := append([]string{"template", "envpilot", chartPath, "--namespace", "envpilot"}, values...)
+	args := append([]string{"template", "envpilot", chartPath, "--namespace", "envpilot"}, withChildFixturePostgres(values)...)
 	cmd := exec.Command("helm", args...)
 	output, err = cmd.CombinedOutput()
 	if err != nil {
@@ -201,7 +222,7 @@ func renderPublishedUmbrella(t *testing.T, values ...string) (string, error) {
 		t.Fatalf("generate test compatibility manifest: %v\n%s", err, output)
 	}
 
-	args := append([]string{"template", "envpilot", temporaryChart, "--namespace", "envpilot"}, values...)
+	args := append([]string{"template", "envpilot", temporaryChart, "--namespace", "envpilot"}, withFixturePostgres(values)...)
 	cmd = exec.Command("helm", args...)
 	output, err = cmd.CombinedOutput()
 	return string(output), err
@@ -408,7 +429,7 @@ func TestUmbrellaDefinesPrivateOrPublicHTTPSRemoteControlPlaneContract(t *testin
 		"host-local":       {"--set", "global.envpilot.remoteControlPlane.endpoint=https://envpilot.local"},
 		"insecure-ingress": {"--set", "access.mode=ingress", "--set", "access.ingress.host=api.envpilot.example.test", "--set", "global.envpilot.remoteControlPlane.endpoint=https://api.envpilot.example.test"},
 	} {
-		cmd := exec.Command("helm", append([]string{"template", "envpilot", ".."}, args...)...)
+		cmd := exec.Command("helm", append([]string{"template", "envpilot", ".."}, withFixturePostgres(args)...)...)
 		cmd.Dir = "."
 		output, err := cmd.CombinedOutput()
 		if err == nil {
@@ -426,9 +447,10 @@ func TestUmbrellaDefinesPrivateOrPublicHTTPSRemoteControlPlaneContract(t *testin
 	if !strings.Contains(legacy, `name: ENVPILOT_MANAGEMENT_ENDPOINT_BOOTSTRAP_URL`) || !strings.Contains(legacy, `value: "https://legacy.envpilot.example.test"`) {
 		t.Fatalf("legacy endpoint values must remain a one-time bootstrap source:\n%s", legacy)
 	}
-	cmd := exec.Command("helm", "template", "envpilot", "..",
+	cmd := exec.Command("helm", append([]string{"template", "envpilot", ".."}, withFixturePostgres([]string{
 		"--set", "global.envpilot.remoteControlPlane.endpoint=https://legacy.envpilot.example.test",
-		"--set", "global.envpilot.managementEndpointProfile.bootstrap.endpoint=https://different.envpilot.example.test")
+		"--set", "global.envpilot.managementEndpointProfile.bootstrap.endpoint=https://different.envpilot.example.test",
+	})...)...)
 	cmd.Dir = "."
 	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "conflict") {
 		t.Fatalf("conflicting legacy and bootstrap profile values must fail safely: %v\n%s", err, output)
@@ -476,7 +498,9 @@ func TestUmbrellaFixtureRecoveryIsExplicitlyOptIn(t *testing.T) {
 
 func TestUmbrellaRejectsFixtureWithoutChartManagedRuntime(t *testing.T) {
 	buildDependencies(t)
-	cmd := exec.Command("helm", "template", "envpilot", "..", "--set", "global.envpilot.e2eFixture.enabled=true")
+	cmd := exec.Command("helm", append([]string{"template", "envpilot", ".."}, withFixturePostgres([]string{
+		"--set", "global.envpilot.e2eFixture.enabled=true",
+	})...)...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(output), "requires managed or existing firstStartRegistration") {
@@ -632,11 +656,11 @@ func TestChildChartsRejectImplicitLatestAndSharedTagOverride(t *testing.T) {
 			// Some child charts intentionally ship a digest default. Clear it here so
 			// this assertion exercises the tag-validation branch rather than digest
 			// precedence.
-			args := []string{
+			args := withFixturePostgres([]string{
 				"template", "envpilot", "..",
 				"--set", component + ".image.tag=" + invalid.value,
 				"--set", component + ".image.digest=",
-			}
+			})
 			if component == "envpilot-agent" {
 				args = append(args, "--set", "agent.enabled=true")
 			}
@@ -973,9 +997,10 @@ func TestReleaseOwnedConfigMapsAreRevisionScopedForServerSideUpgrades(t *testing
 	if err != nil {
 		t.Fatalf("build control-plane child dependencies: %v\n%s", err, dependencyOutput)
 	}
-	child := exec.Command("helm", "template", "envpilot", childPath, "--namespace", "envpilot",
+	child := exec.Command("helm", append([]string{"template", "envpilot", childPath, "--namespace", "envpilot"}, withChildFixturePostgres([]string{
 		"--set", "global.envpilot.remoteClusterReconciler.enabled=true",
-		"--set", "rbac.remoteClusterReconciler.enabled=true")
+		"--set", "rbac.remoteClusterReconciler.enabled=true",
+	})...)...)
 	child.Dir = "."
 	childRendered, err := child.CombinedOutput()
 	if err != nil {
@@ -1039,11 +1064,11 @@ func TestPlatformReconcilerIsOptInWhenNoProvidersAreConfigured(t *testing.T) {
 }
 
 func TestPlatformReconcilerRequiresRegistryCredentialsBeforeHooks(t *testing.T) {
-	cmd := exec.Command("helm", "template", "envpilot", "..",
+	cmd := exec.Command("helm", append([]string{"template", "envpilot", ".."}, withFixturePostgres([]string{
 		"--set", "platformDependencyReconciler.enabled=true",
 		"--set", "platformDependencies.ingress.mode=existing",
 		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
-	)
+	})...)...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(output), "platformDependencyReconciler requires") {

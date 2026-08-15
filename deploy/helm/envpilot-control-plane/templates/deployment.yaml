@@ -354,7 +354,7 @@ spec:
                   name: {{ default (include "envpilot-control-plane.postgresName" .) .Values.postgres.auth.existingSecret }}
                   key: {{ .Values.postgres.auth.passwordKey | quote }}
             - name: ENVPILOT_DATABASE_URL
-              value: "postgres://{{ .Values.postgres.auth.username }}:$(ENVPILOT_POSTGRES_PASSWORD)@{{ include "envpilot-control-plane.postgresName" . }}:{{ .Values.postgres.service.port }}/{{ .Values.postgres.auth.database }}?sslmode=disable"
+              value: "postgres://{{ .Values.postgres.auth.username }}:$(ENVPILOT_POSTGRES_PASSWORD)@{{ include "envpilot-control-plane.postgresName" . }}:{{ .Values.postgres.service.port }}/{{ .Values.postgres.auth.database }}?sslmode={{ ternary "verify-full" "disable" .Values.postgres.tls.enabled }}{{ if .Values.postgres.tls.enabled }}&sslrootcert=/etc/envpilot/postgres-ca/{{ .Values.postgres.tls.caKey }}{{ end }}"
             {{- else if eq $postgresMode "external" }}
             - name: ENVPILOT_DATABASE_URL
               valueFrom:
@@ -514,6 +514,11 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/envpilot/data
+          {{- if and (eq $postgresMode "internal") .Values.postgres.tls.enabled }}
+            - name: postgres-ca
+              mountPath: /etc/envpilot/postgres-ca
+              readOnly: true
+          {{- end }}
           {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
             - name: remote-cluster-compatibility
               mountPath: /etc/envpilot/compatibility
@@ -553,6 +558,14 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+        {{- if and (eq $postgresMode "internal") .Values.postgres.tls.enabled }}
+        - name: postgres-ca
+          secret:
+            secretName: {{ required "postgres.tls.caSecret is required when postgres.tls.enabled=true" .Values.postgres.tls.caSecret | quote }}
+            items:
+              - key: {{ .Values.postgres.tls.caKey | quote }}
+                path: {{ .Values.postgres.tls.caKey | quote }}
+        {{- end }}
         - name: data
           {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:

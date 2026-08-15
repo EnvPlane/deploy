@@ -35,6 +35,8 @@ spec:
           env:
             - name: ENVPILOT_WEBHOOK_ADDR
               value: {{ printf ":%d" (.Values.service.port | int) | quote }}
+            - name: ENVPILOT_WEBHOOK_REQUEST_TIMEOUT
+              value: {{ .Values.requestTimeout | quote }}
             - name: ENVPILOT_CONTROL_PLANE_URL
               value: {{ required "controlPlane.url is required" .Values.controlPlane.url | quote }}
             - name: ENVPILOT_CONTROL_PLANE_TOKEN

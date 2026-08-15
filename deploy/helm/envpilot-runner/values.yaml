@@ -1,5 +1,14 @@
 replicaCount: 1
 
+# Must exceed the runner report/drain timeout so in-flight Helm results can be
+# acknowledged before Kubernetes sends SIGKILL.
+terminationGracePeriodSeconds: 390
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+
 image:
   repository: ghcr.io/envpilot/runner
   pullPolicy: IfNotPresent
@@ -77,6 +86,7 @@ controlPlane:
   tokenKey: token
   configTokenKey: project-config-token
   heartbeatIntervalSeconds: 30
+  reportTimeoutSeconds: 10
   authPersistence:
     # Persist the post-registration runnerAuthToken on a writable volume so
     # normal container/pod restarts do not reuse the one-time bootstrap token.
@@ -124,6 +134,9 @@ project:
 
 service:
   targetPort: 8080
+
+health:
+  port: 8080
 
 serviceAccount:
   create: true

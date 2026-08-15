@@ -1,0 +1,21 @@
+name: Deploy CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm lint deploy/helm/envpilot
+      - run: helm lint deploy/helm/envpilot-control-plane
+      - run: helm lint deploy/helm/envpilot-agent
+      - run: helm lint deploy/helm/envpilot-runner
+      - run: bash deploy/scripts/check-env-parity.sh

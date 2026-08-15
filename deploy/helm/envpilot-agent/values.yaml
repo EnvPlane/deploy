@@ -125,21 +125,6 @@ installValidation:
   podLabels: {}
   resources: {}
 
-ttlCleanup:
-  # TTL cleanup remains a control-plane responsibility; the standalone agent
-  # image deliberately exposes only agent and agent-install-check commands.
-  enabled: false
-  schedule: "*/15 * * * *"
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
-  backoffLimit: 1
-  ttlSecondsAfterFinished: 300
-  timeoutSeconds: 30
-  podAnnotations: {}
-  podLabels: {}
-  resources: {}
-
 watch:
   namespaces: []
   # Empty means discover every namespace except excludeNamespaces. Set a

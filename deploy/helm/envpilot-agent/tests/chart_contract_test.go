@@ -16,7 +16,6 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		"../templates/install-validation-job.yaml",
 		"../templates/serviceaccount.yaml",
 		"../templates/rbac.yaml",
-		"../templates/ttl-cleanup-cronjob.yaml",
 	}
 	for _, path := range requiredFiles {
 		if _, err := os.Stat(path); err != nil {
@@ -111,22 +110,6 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		}
 	}
 
-	cronJob, err := os.ReadFile("../templates/ttl-cleanup-cronjob.yaml")
-	if err != nil {
-		t.Fatalf("read ttl cleanup cronjob template: %v", err)
-	}
-	cronJobText := string(cronJob)
-	for _, expected := range []string{
-		"kind: CronJob",
-		"ttl-cleanup",
-		"ENVPILOT_CONTROL_PLANE_URL",
-		"ENVPILOT_TTL_CLEANUP_TIMEOUT_SECONDS",
-		"ENVPILOT_AGENT_REGISTRATION_TOKEN",
-	} {
-		if !strings.Contains(cronJobText, expected) {
-			t.Fatalf("ttl cleanup cronjob template does not contain %q", expected)
-		}
-	}
 }
 
 func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {

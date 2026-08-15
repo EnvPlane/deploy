@@ -34,6 +34,7 @@ spec:
       annotations:
         {{- toYaml $podAnnotations | nindent 8 }}
     spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       serviceAccountName: {{ include "envpilot-runner.serviceAccountName" . }}
       {{- $pullSecrets := include "envpilot-runner.imagePullSecrets" . }}
       {{- if $pullSecrets }}
@@ -159,8 +160,12 @@ spec:
             {{- end }}
             - name: ENVPILOT_RUNNER_HEARTBEAT_INTERVAL_SECONDS
               value: {{ .Values.controlPlane.heartbeatIntervalSeconds | quote }}
-            - name: ENVPILOT_RUNNER_HEALTH_CHECK_URL
-              value: "/health"
+            - name: ENVPILOT_RUNNER_REPORT_TIMEOUT_SECONDS
+              value: {{ .Values.controlPlane.reportTimeoutSeconds | quote }}
+            - name: ENVPILOT_RUNNER_HEALTH_ADDR
+              value: {{ printf ":%d" (.Values.health.port | int) | quote }}
+            - name: ENVPILOT_RUNNER_VERSION
+              value: {{ .Chart.AppVersion | quote }}
             {{- if $helmRegistry.existingSecret }}
             - name: HELM_REGISTRY_CONFIG
               value: {{ printf "%s/config.json" $helmRegistry.mountPath | quote }}

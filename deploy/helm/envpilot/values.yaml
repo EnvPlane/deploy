@@ -357,7 +357,7 @@ envpilot-control-plane:
     auth:
       database: envpilot
       username: envpilot
-      password: envpilot # use auth.existingSecret in production
+      password: "" # provide auth.existingSecret or an explicit password
       existingSecret: ""
       passwordKey: password
     external:

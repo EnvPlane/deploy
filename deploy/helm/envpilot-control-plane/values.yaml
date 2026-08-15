@@ -34,6 +34,12 @@ service:
   port: 8080
   nodePort: null
 
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  path: /api/v1/metrics
+
 ingress:
   enabled: false
   # Configure domain, className and provider-specific annotations explicitly
@@ -104,8 +110,26 @@ publicURL: ""
 # requeues it with a new attempt ID; after maxAttempts delete becomes a visible
 # retryable failure rather than an indefinitely claimed record.
 runnerCommand:
-  leaseSeconds: 120
+  # Must exceed the default Helm execution timeout (300s). The runner may
+  # still renew this lease while a long command is active.
+  leaseSeconds: 360
   maxAttempts: 3
+
+ttlCleanup:
+  enabled: false
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+  timeoutSeconds: 30
+  token: ""
+  existingSecret: ""
+  tokenKey: ttl-cleanup-token
+  podAnnotations: {}
+  podLabels: {}
+  resources: {}
 
 # Endpoint and image used in generated bootstrap Agent instructions. An empty
 # endpoint resolves at render time to this chart's Service FQDN in the release
@@ -173,9 +197,19 @@ postgres:
   auth:
     database: envpilot
     username: envpilot
-    password: envpilot
+    password: ""
     existingSecret: ""
     passwordKey: password
+  tls:
+    # Production deployments must provide a Secret containing the CA and
+    # server certificate. Set enabled=false only for an explicitly local
+    # development PostgreSQL instance.
+    enabled: true
+    caSecret: ""
+    caKey: ca.crt
+    serverSecret: ""
+    serverCertKey: tls.crt
+    serverKeyKey: tls.key
   service:
     port: 5432
   persistence:
@@ -226,6 +260,9 @@ persistence:
   enabled: false
   size: 1Gi
   storageClassName: ""
+
+networkPolicy:
+  enabled: true
 
 serviceAccount:
   create: true

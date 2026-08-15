@@ -30,6 +30,8 @@ service:
   type: ClusterIP
   port: 8080
 
+requestTimeout: 10s
+
 ingress:
   enabled: false
   className: ""

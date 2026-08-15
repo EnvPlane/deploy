@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "envpilot-runner.fullname" . }}
+  labels:
+    {{- include "envpilot-runner.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "envpilot-runner.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: health
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

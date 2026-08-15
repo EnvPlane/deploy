@@ -1,0 +1,58 @@
+{{- if .Values.ttlCleanup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-ttl-cleanup
+  labels:
+    {{- include "envpilot-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ttl-cleanup
+spec:
+  schedule: {{ .Values.ttlCleanup.schedule | quote }}
+  concurrencyPolicy: {{ .Values.ttlCleanup.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.ttlCleanup.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.ttlCleanup.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.ttlCleanup.backoffLimit }}
+      ttlSecondsAfterFinished: {{ .Values.ttlCleanup.ttlSecondsAfterFinished }}
+      template:
+        metadata:
+          labels:
+            {{- include "envpilot-control-plane.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: ttl-cleanup
+          {{- with .Values.ttlCleanup.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          serviceAccountName: {{ include "envpilot-control-plane.serviceAccountName" . }}
+          restartPolicy: OnFailure
+          containers:
+            - name: ttl-cleanup
+              image: {{ include "envpilot-control-plane.image" . | quote }}
+              imagePullPolicy: {{ include "envpilot-control-plane.imagePullPolicy" . }}
+              args: ["ttl-cleanup"]
+              env:
+                - name: ENVPILOT_CONTROL_PLANE_URL
+                  value: {{ printf "http://%s:%d" (include "envpilot-control-plane.fullname" .) (.Values.service.port | int) | quote }}
+                - name: ENVPILOT_TTL_CLEANUP_TIMEOUT_SECONDS
+                  value: {{ .Values.ttlCleanup.timeoutSeconds | quote }}
+                {{- if .Values.ttlCleanup.existingSecret }}
+                - name: ENVPILOT_TTL_CLEANUP_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.ttlCleanup.existingSecret | quote }}
+                      key: {{ .Values.ttlCleanup.tokenKey | quote }}
+                {{- else if .Values.ttlCleanup.token }}
+                - name: ENVPILOT_TTL_CLEANUP_TOKEN
+                  value: {{ .Values.ttlCleanup.token | quote }}
+                {{- end }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                {{- toYaml .Values.ttlCleanup.resources | nindent 16 }}
+{{- end }}

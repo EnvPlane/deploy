@@ -417,7 +417,7 @@ func TestControlPlaneChartSupportsExistingServiceAccountAndExternalRBAC(t *testi
 			t.Fatalf("rbac.create=false must not render %s:\n%s", forbidden, rendered)
 		}
 	}
-	cmd := exec.Command("helm", "template", "envpilot", "..", "--set", "serviceAccount.create=false")
+	cmd := exec.Command("helm", "template", "envpilot", "..", "--set", "serviceAccount.create=false", "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false")
 	cmd.Dir = "."
 	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "serviceAccount.name is required") {
 		t.Fatalf("missing existing ServiceAccount name must fail, err=%v output=%s", err, output)
@@ -583,7 +583,7 @@ func renderControlPlaneChart(t *testing.T, args ...string) string {
 			t.Fatalf("helm dependency build failed: %v\n%s", err, string(output))
 		}
 	})
-	commandArgs := append([]string{"template", "envpilot", ".."}, args...)
+	commandArgs := append([]string{"template", "envpilot", "..", "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false"}, args...)
 	cmd := exec.Command("helm", commandArgs...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
@@ -602,7 +602,7 @@ func renderControlPlaneChartError(t *testing.T, args ...string) string {
 			t.Fatalf("helm dependency build failed: %v\n%s", err, string(output))
 		}
 	})
-	commandArgs := append([]string{"template", "envpilot", ".."}, args...)
+	commandArgs := append([]string{"template", "envpilot", "..", "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false"}, args...)
 	cmd := exec.Command("helm", commandArgs...)
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
