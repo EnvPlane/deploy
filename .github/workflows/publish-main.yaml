@@ -43,7 +43,7 @@ jobs:
     steps:
       # The immutable child-chart guard compares the pushed range, including
       # github.event.before. Keep its base revision available in the runner.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v5

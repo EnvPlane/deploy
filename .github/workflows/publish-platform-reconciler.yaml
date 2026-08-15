@@ -31,7 +31,7 @@ jobs:
       digest: ${{ steps.published.outputs.digest }}
       source_revision: ${{ steps.published.outputs.source_revision }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
