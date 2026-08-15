@@ -66,7 +66,7 @@ must declare their provider explicitly under platformDependencies.ingress.
 {{- if $autoAccess -}}
   {{- $smoke := dict "serviceName" (default "envpilot-frontend" (get (default (dict) (get $access "services")) "frontendName")) "namespace" .Release.Namespace "port" 3000 "host" (default "" (get $accessIngress "host")) -}}
   {{- $controllerValues := dict "controller" (dict "ingressClassResource" (dict "name" $className "enabled" true "default" false) "service" (dict "type" "LoadBalancer")) -}}
-  {{- $managed := dict "chartRef" "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz" "version" "4.11.0" "releaseName" (printf "%s-ingress-nginx" .Release.Name) "namespace" "ingress-nginx" "cleanupPolicy" "retain" "values" $controllerValues "smoke" $smoke -}}
+  {{- $managed := dict "chartRef" "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz" "chartSha256" "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737" "version" "4.11.0" "releaseName" (printf "%s-ingress-nginx" .Release.Name) "namespace" "ingress-nginx" "cleanupPolicy" "retain" "values" $controllerValues "smoke" $smoke -}}
   {{- $_ := set $ingress "mode" "auto" -}}
   {{- $_ := set $ingress "provider" "nginx" -}}
   {{- $_ := set $ingress "existingClassName" $className -}}

@@ -4,9 +4,11 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -53,6 +55,7 @@ type credentialsConfig struct {
 }
 type managedConfig struct {
 	ChartRef      string         `json:"chartRef"`
+	ChartSHA256   string         `json:"chartSha256"`
 	Version       string         `json:"version"`
 	ReleaseName   string         `json:"releaseName"`
 	Namespace     string         `json:"namespace"`
@@ -105,8 +108,9 @@ var (
 )
 
 type ingressProvider struct {
-	Controller string
-	Chart      string
+	Controller  string
+	Chart       string
+	ChartSHA256 string
 }
 
 type dnsProvider struct {
@@ -119,8 +123,8 @@ type storageProvider struct {
 }
 
 var ingressProviders = map[string]ingressProvider{
-	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz"},
-	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz"},
+	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz", ChartSHA256: "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737"},
+	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz", ChartSHA256: "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737"},
 }
 
 var dnsProviders = map[string]dnsProvider{
@@ -290,6 +294,10 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 		if !strings.Contains(dep.Managed.ChartRef, "ingress-nginx") || dep.Managed.ChartRef != provider.Chart {
 			r.State = "incompatible"
 			return r, fmt.Errorf("ingress provider %s requires pinned chart %s", dep.Provider, provider.Chart)
+		}
+		if !strings.EqualFold(strings.TrimPrefix(dep.Managed.ChartSHA256, "sha256:"), provider.ChartSHA256) {
+			r.State = "incompatible"
+			return r, fmt.Errorf("ingress provider %s requires chart SHA-256 %s", dep.Provider, provider.ChartSHA256)
 		}
 		if dep.ExistingClassName != "" {
 			if item, err := client.Resource(schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}).Get(ctx, dep.ExistingClassName, metav1.GetOptions{}); err == nil {
@@ -711,6 +719,25 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 	ch, err := loader.Load(path)
 	if err != nil {
 		return err
+	}
+	if expected := strings.TrimPrefix(strings.TrimSpace(m.ChartSHA256), "sha256:"); expected != "" {
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("open chart for integrity verification: %w", err)
+		}
+		hash := sha256.New()
+		if _, err := io.Copy(hash, file); err != nil {
+			_ = file.Close()
+			return fmt.Errorf("hash chart: %w", err)
+		}
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("close chart: %w", err)
+		}
+		if !strings.EqualFold(fmt.Sprintf("%x", hash.Sum(nil)), expected) {
+			return fmt.Errorf("chart integrity mismatch: expected sha256:%s", expected)
+		}
+	} else {
+		return fmt.Errorf("managed chart %s requires chartSha256", m.ChartRef)
 	}
 	values := map[string]any{}
 	for key, value := range m.Values {
