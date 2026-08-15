@@ -6,6 +6,9 @@ access:
   ingress:
     host: envpilot.example.invalid
     className: nginx
+    tls:
+      enabled: true
+      secretName: envpilot-access-tls
 global:
   envpilot:
     registry:

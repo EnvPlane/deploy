@@ -63,7 +63,7 @@ ingress:
         - path: /
           pathType: Prefix
   tls:
-    enabled: false
+    enabled: true
     secretName: envpilot-tls
     hosts: []
 
