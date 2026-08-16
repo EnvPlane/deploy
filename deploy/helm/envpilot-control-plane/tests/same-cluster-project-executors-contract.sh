@@ -8,6 +8,7 @@ runner_rendered="$(mktemp)"
 trap 'rm -f "$rendered" "$agent_rendered" "$runner_rendered"' EXIT
 
 helm template envpilot "$chart_dir" \
+  --set 'postgres.tls.enabled=false' \
   --set 'global.envpilot.firstStartRegistration.mode=managed' \
   --set 'global.envpilot.firstStartRegistration.project.id=envpilot' \
   --set 'global.envpilot.firstStartRegistration.project.productId=generic' \
@@ -47,6 +48,7 @@ rg -Fq 'key: .dockerconfigjson' "$rendered"
 ! rg -q 'dockerconfigjson:' "$rendered"
 rg -Fq 'name: envpilot-control-plane-same-cluster-project-executors' "$rendered"
 rg -Fq 'namespace: "envpilot-executors"' "$rendered"
+rg -Fq 'helm.sh/resource-policy: keep' "$rendered"
 # Kubernetes anti-escalation requires the control plane to hold the exact
 # namespaced rules it delegates to project-owned Agent and Runner releases.
 # The Runner writer contract remains limited to the executor namespace.
@@ -63,6 +65,7 @@ rg -Fq 'resources: ["buckets", "gitrepositories", "helmrepositories", "ocireposi
 # A project executor must never silently fall back to an anonymous OCI pull.
 # The Registry Secret name is configuration only; its contents stay write-only.
 if helm template missing-registry "$chart_dir" \
+  --set 'postgres.tls.enabled=false' \
   --set 'global.envpilot.firstStartRegistration.mode=managed' \
   --set 'global.envpilot.firstStartRegistration.project.id=envpilot' \
   --set 'global.envpilot.firstStartRegistration.project.productId=generic' \

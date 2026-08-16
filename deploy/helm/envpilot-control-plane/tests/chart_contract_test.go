@@ -106,6 +106,20 @@ func TestControlPlaneChartUsesWritableDataAndGitOpsPathsFromEnv(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartUsesValidGoMemoryLimit(t *testing.T) {
+	values, err := os.ReadFile("../values.yaml")
+	if err != nil {
+		t.Fatalf("read values file: %v", err)
+	}
+	if !strings.Contains(string(values), "gomemlimit: 1600MiB") {
+		t.Fatalf("default GOMEMLIMIT must use a Go-valid binary suffix: %s", values)
+	}
+	rendered := renderControlPlaneChart(t)
+	if !strings.Contains(rendered, "name: GOMEMLIMIT\n              value: \"1600MiB\"") {
+		t.Fatalf("rendered control-plane deployment must set a Go-valid GOMEMLIMIT:\n%s", rendered)
+	}
+}
+
 func TestControlPlaneChartUsesWriteOnlyOAuthSecretReferences(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
 		"--set", "global.envpilot.auth.mode=legacy_secret",

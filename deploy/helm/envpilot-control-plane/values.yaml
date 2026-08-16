@@ -338,7 +338,9 @@ resources:
     memory: 2Gi
 
 runtime:
-  gomemlimit: 1600Mi
+  # Go accepts binary memory suffixes only when they include the B (for
+  # example MiB). "1600Mi" makes the runtime abort during process startup.
+  gomemlimit: 1600MiB
 
 autoscaling:
   enabled: true

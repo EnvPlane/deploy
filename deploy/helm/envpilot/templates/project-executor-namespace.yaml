@@ -10,4 +10,9 @@ metadata:
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: envplane
     envplane.io/managed-by: umbrella
+  annotations:
+    # Project executor Roles and RoleBindings live in this namespace. Keep it
+    # across rollback/uninstall so Helm never deletes the namespace before
+    # restoring those namespaced resources from an older release revision.
+    helm.sh/resource-policy: keep
 {{- end }}
