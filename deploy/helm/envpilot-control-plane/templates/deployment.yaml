@@ -34,13 +34,13 @@
 {{- $firstStart := default (dict) (get $globalEnvPlane "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- if and $sameClusterProjectExecutorsEnabled (or (eq $firstStartMode "disabled") (not $sameClusterProjectExecutorsNamespace)) -}}
-{{- fail "sameClusterProjectExecutors requires enabled firstStartRegistration and a pre-existing namespace" -}}
+{{- fail "sameClusterProjectExecutors requires enabled firstStartRegistration and a namespace" -}}
 {{- end -}}
 {{- if and $sameClusterProjectExecutorsEnabled (not $executorRegistrySecret) -}}
 {{- fail "sameClusterProjectExecutors requires registry.existingSecret for signed OCI child charts" -}}
 {{- end -}}
 {{- if and $sameClusterProjectExecutorsEnabled (not $executorImagePullSecret) -}}
-{{- fail "sameClusterProjectExecutors requires registry.imagePullSecret in the pre-existing executor namespace" -}}
+{{- fail "sameClusterProjectExecutors requires registry.imagePullSecret in the executor namespace" -}}
 {{- end -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPlane "e2eFixture") -}}
 {{- $e2eFixtureRecovery := default (dict) (get $e2eFixture "recovery") -}}

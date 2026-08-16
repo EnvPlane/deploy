@@ -63,8 +63,8 @@ global:
     # contains no target-cluster endpoint or credential material.
     remoteClusterReconciler:
       enabled: false
-    # Per-project management-cluster Agent/Runner releases. The namespace must
-    # already exist; the umbrella intentionally never creates namespaces.
+    # Per-project management-cluster Agent/Runner releases. The umbrella owns
+    # and creates this namespace on the first install when enabled.
     sameClusterProjectExecutors:
       enabled: false
       namespace: ""
@@ -74,10 +74,8 @@ global:
       # chart resolution. Its content never reaches EnvPlane APIs or audit.
       registry:
         existingSecret: ""
-        # Must already exist in the executor namespace. Project Agent/Runner
-        # Pods reference this name; neither Helm nor the control plane reads
-        # or duplicates its credential data. Operators can materialize it with
-        # scripts/sync-namespaced-registry-secret.sh.
+      # Project Agent/Runner Pods reference this name. Registry credentials
+      # remain operator-managed; this value only references the Secret.
         imagePullSecret: ""
     # Interactive OAuth is disabled by default. legacy_secret is a temporary
     # compatibility path for an operator-managed Secret in the release

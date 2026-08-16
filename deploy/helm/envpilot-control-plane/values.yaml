@@ -292,7 +292,8 @@ rbac:
   remoteClusterReconciler:
     enabled: false
   # Allows the control plane to reconcile project-owned Agent/Runner releases
-  # only inside this pre-existing namespace. It never creates a ClusterRole.
+  # only inside this chart-owned executor namespace. It never creates a
+  # ClusterRole.
   sameClusterProjectExecutors:
     enabled: false
     namespace: ""

@@ -21,9 +21,11 @@ The operator must provide:
   provider credentials. Secret values are never placed in Git, values files or
   bootstrap sessions.
 
-The target cluster, ingress/DNS provider and database services are owned by the
-platform team. EnvPlane only creates resources in its release namespace and
-does not create tunnels, minikube profiles or cloud infrastructure.
+The target cluster, ingress/DNS provider and external database services are
+owned by the platform team. For an internal PostgreSQL deployment, the chart
+creates the database workload and a generated password Secret on first install
+and preserves that Secret on upgrades. EnvPlane does not create tunnels,
+minikube profiles or cloud infrastructure.
 
 ## Quick start
 
@@ -94,15 +96,13 @@ enabling the reconciler. The executor pull Secret is referenced only by name;
 the chart never renders it and the control plane verifies only Secret metadata,
 never credential data, through the Kubernetes API.
 
-For a local Minikube installation whose management Secret already exists, run
-the repository script. It streams the Secret between `kubectl` processes,
+For a local Minikube installation whose management registry Secret already
+exists, run the repository script. The chart creates the executor namespace on
+the first install; the script streams the registry Secret between `kubectl` processes,
 does not print it, does not write it to disk, and refuses to force-overwrite a
 target owned by another field manager:
 
 ```sh
-kubectl --context bethunder-local create namespace envpilot-executors \
-  --dry-run=client -o yaml | kubectl --context bethunder-local apply -f -
-
 ./scripts/sync-namespaced-registry-secret.sh \
   --context bethunder-local \
   --source-namespace envpilot \

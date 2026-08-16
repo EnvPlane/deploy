@@ -40,10 +40,13 @@ envpilot-control-plane:
       namespace: envpilot-executors
   postgres:
     auth:
-      # A local-only generated Secret is created before Helm installation.
-      # Keeping the password out of this tracked values file prevents a fresh
-      # PostgreSQL install from receiving an empty credential.
-      existingSecret: envpilot-control-plane-postgres
+      # The control-plane chart creates and owns this Secret on first install,
+      # then preserves its generated password across upgrades.
+      existingSecret: ""
+    tls:
+      # LOCAL DEVELOPMENT ONLY: the disposable minikube PostgreSQL instance
+      # does not provision a CA/server certificate.
+      enabled: false
 
 # Run the EnvPlane execution plane in the same minikube cluster as the control
 # plane. The managed first-start registration above supplies the one-time

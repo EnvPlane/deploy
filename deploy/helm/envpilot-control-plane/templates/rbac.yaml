@@ -194,7 +194,7 @@ metadata:
     {{- include "envpilot-control-plane.labels" . | nindent 4 }}
 rules:
   # Helm SDK state and the project bootstrap Secrets live only in this
-  # pre-existing executor namespace. This deliberately grants no cluster-wide
+  # chart-owned executor namespace. This deliberately grants no cluster-wide
   # or feature-namespace wildcard access.
   - apiGroups: [""]
     resources: ["secrets", "serviceaccounts", "pods", "persistentvolumeclaims"]
