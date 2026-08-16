@@ -68,6 +68,9 @@ global:
     sameClusterProjectExecutors:
       enabled: false
       namespace: ""
+      # LOCAL DEVELOPMENT ONLY: permit project-owned runtimes to reach an
+      # explicitly configured HTTP control plane.
+      allowInsecureControlPlane: false
       discovery:
         namespaces: []
       # Name only: mounted read-only as a Docker config for signed OCI child

@@ -59,7 +59,13 @@ rg -Fq 'resources: ["cronjobs", "jobs"]' "$rendered"
 rg -Fq 'resources: ["ingresses"]' "$rendered"
 rg -Fq 'verbs: ["create", "update", "patch", "delete"]' "$rendered"
 rg -Fq 'resources: ["buckets", "gitrepositories", "helmrepositories", "ocirepositories"]' "$rendered"
-! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$rendered"
+rg -Fq 'kind: ClusterRole' "$rendered"
+rg -Fq 'kind: ClusterRoleBinding' "$rendered"
+rg -Fq 'name: envpilot-control-plane-same-cluster-project-executor-release-manager' "$rendered"
+rg -Fq 'resources: ["clusterroles", "clusterrolebindings"]' "$rendered"
+rg -Fq 'resources: ["ingressclasses"]' "$rendered"
+rg -Fq 'resources: ["customresourcedefinitions"]' "$rendered"
+rg -Fq 'resources: ["storageclasses"]' "$rendered"
 ! rg -q 'resources: \["\*"\]|verbs: \["\*"\]' "$rendered"
 
 # A project executor must never silently fall back to an anonymous OCI pull.
@@ -87,6 +93,7 @@ helm template project-agent "$chart_dir/../envpilot-agent" \
   --set 'agent.id=project-cms-agent' \
   --set 'cluster.id=bethunder-local' \
   --set 'controlPlane.existingSecret=project-cms-agent-bootstrap' \
+  --set 'controlPlane.allowInsecure=true' \
   --set 'rbac.discovery.scope=namespace' \
   --set 'rbac.discovery.namespaces[0]=envpilot-executors' \
   --set 'installValidation.enabled=false' >"$agent_rendered"
@@ -95,6 +102,7 @@ rg -Fq 'value: "project-cms-agent"' "$agent_rendered"
 ! rg -Fq 'value: "singleton"' "$agent_rendered"
 ! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$agent_rendered"
 rg -Fq 'kind: PersistentVolumeClaim' "$agent_rendered"
+rg -Fq 'name: ENVPILOT_ALLOW_INSECURE_CONTROL_PLANE' "$agent_rendered"
 
 helm template project-runner "$chart_dir/../envpilot-runner" \
   --set 'global.envpilot.firstStartRegistration.mode=managed' \

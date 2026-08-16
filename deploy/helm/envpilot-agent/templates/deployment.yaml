@@ -62,6 +62,10 @@ spec:
               value: {{ $controlPlaneEndpoint | quote }}
             - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
               value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
+            {{- if .Values.controlPlane.allowInsecure }}
+            - name: ENVPILOT_ALLOW_INSECURE_CONTROL_PLANE
+              value: "true"
+            {{- end }}
             - name: ENVPILOT_CONTROL_PLANE_CONNECTIVITY_MAX_ATTEMPTS
               value: {{ .Values.dependencyWait.connectivity.maxAttempts | quote }}
             - name: ENVPILOT_CONTROL_PLANE_CONNECTIVITY_INITIAL_BACKOFF_SECONDS
@@ -102,6 +106,10 @@ spec:
               value: {{ $controlPlaneEndpoint | quote }}
             - name: ENVPILOT_CONTROL_PLANE_ENDPOINT_MODE
               value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
+            {{- if .Values.controlPlane.allowInsecure }}
+            - name: ENVPILOT_ALLOW_INSECURE_CONTROL_PLANE
+              value: "true"
+            {{- end }}
             {{- if $controlPlaneTLS.caSecret }}
             - name: ENVPILOT_CONTROL_PLANE_CA_FILE
               value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}

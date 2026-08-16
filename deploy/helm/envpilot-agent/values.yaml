@@ -74,6 +74,9 @@ controlPlane:
   tokenKey: token
   registrationTokenKey: registration-token
   reportTimeoutSeconds: 10
+  # LOCAL DEVELOPMENT ONLY: permits an explicitly configured HTTP control
+  # plane endpoint. Production releases must retain the default.
+  allowInsecure: false
 
 dependencyWait:
   enabled: true

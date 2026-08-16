@@ -22,6 +22,7 @@
 {{- $sameClusterProjectExecutorsNamespace := trim (default "" $sameClusterProjectExecutors.namespace) -}}
 {{- $sameClusterProjectExecutorsDiscovery := default (dict) $sameClusterProjectExecutors.discovery -}}
 {{- $sameClusterProjectExecutorsDiscoveryNamespaces := default (list) $sameClusterProjectExecutorsDiscovery.namespaces -}}
+{{- $sameClusterProjectExecutorsAllowInsecureControlPlane := default false $sameClusterProjectExecutors.allowInsecureControlPlane -}}
 {{- $executorReconcilerEnabled := or $remoteClusterReconcilerEnabled $sameClusterProjectExecutorsEnabled -}}
 {{- $registry := default (dict) (get $globalEnvPlane "registry") -}}
 {{- $projectExecutorRegistry := default (dict) (get $sameClusterProjectExecutors "registry") -}}
@@ -339,6 +340,10 @@ spec:
               value: {{ $sameClusterProjectExecutorsNamespace | quote }}
             - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET
               value: {{ $executorImagePullSecret | quote }}
+            {{- if $sameClusterProjectExecutorsAllowInsecureControlPlane }}
+            - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_ALLOW_INSECURE_CONTROL_PLANE
+              value: "true"
+            {{- end }}
             - name: ENVPILOT_SAME_CLUSTER_PROJECT_EXECUTORS_DISCOVERY_NAMESPACES
               value: {{ join "," $sameClusterProjectExecutorsDiscoveryNamespaces | quote }}
             {{- end }}

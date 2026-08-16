@@ -259,5 +259,43 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ include "envpilot-control-plane.fullname" . }}-same-cluster-project-executors
+---
+# Helm creates project-owned Agent and Runner charts dynamically. Kubernetes
+# allows that only when the reconciler already holds every permission it is
+# delegating, including the Agent's cluster-scoped capability reads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+  labels:
+    {{- include "envpilot-control-plane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "envpilot-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+  labels:
+    {{- include "envpilot-control-plane.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "envpilot-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
 {{- end }}
 {{- end }}
