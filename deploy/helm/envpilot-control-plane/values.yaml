@@ -169,6 +169,12 @@ remoteControlPlane:
 dependencyWait:
   enabled: true
 
+# A fresh install gets a stable, chart-owned encryption key. Set
+# existingSecret to delegate key lifecycle to an external secret manager.
+credentialEncryption:
+  existingSecret: ""
+  key: ENVPILOT_CREDENTIAL_ENCRYPTION_KEY
+
 secretEnv: {}
 
 # Commercialization settings use the canonical EnvPlane aliases. Legacy

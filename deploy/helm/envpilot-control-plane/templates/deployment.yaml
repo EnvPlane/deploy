@@ -257,6 +257,11 @@ spec:
               value: {{ $agentBootstrapEndpoint | quote }}
             - name: ENVPILOT_PUBLIC_URL
               value: {{ $publicURL | quote }}
+            - name: ENVPILOT_CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envpilot-control-plane.credentialEncryptionSecretName" . | quote }}
+                  key: {{ .Values.credentialEncryption.key | quote }}
             # This is the chart-owned, empty authentication material container.
             # It is an identifier only: credential bytes never enter Helm values
             # or this manifest.
