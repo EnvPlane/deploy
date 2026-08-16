@@ -87,10 +87,10 @@ jobs:
           FALLBACK_PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
-          if [[ -n "$FALLBACK_PAT" ]]; then
-            echo "method=pat" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+          if [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
             echo "method=app" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$FALLBACK_PAT" ]]; then
+            echo "method=pat" >> "$GITHUB_OUTPUT"
           else
             echo "Neither GitHub App credentials nor fallback PAT is configured." >&2
             exit 1
