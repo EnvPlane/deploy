@@ -12,8 +12,10 @@ global:
       imagePullSecrets:
         - name: envpilot-ghcr
     auth:
-      mode: legacy_secret
-      existingSecret: envpilot-oauth
+      # Authentication is configured after installation through the Settings
+      # UI. Do not require an OAuth credential Secret for a local bootstrap.
+      mode: disabled
+      existingSecret: ""
     firstStartRegistration:
       mode: managed
       cluster:
@@ -36,6 +38,12 @@ envpilot-control-plane:
     sameClusterProjectExecutors:
       enabled: true
       namespace: envpilot-executors
+  postgres:
+    auth:
+      # A local-only generated Secret is created before Helm installation.
+      # Keeping the password out of this tracked values file prevents a fresh
+      # PostgreSQL install from receiving an empty credential.
+      existingSecret: envpilot-control-plane-postgres
 
 # Run the EnvPlane execution plane in the same minikube cluster as the control
 # plane. The managed first-start registration above supplies the one-time
