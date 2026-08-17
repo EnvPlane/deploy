@@ -25,6 +25,8 @@ jobs:
           GO_VERSION_FILE="go.mod" \
           GO_MIN_VERSION="1.26.0" \
           ./scripts/ensure-go.sh
+      - name: Select module Go toolchain
+        run: echo "GOTOOLCHAIN=go$(awk '/^go[[:space:]]/ {print $2; exit}' go.mod)" >> "$GITHUB_ENV"
       - name: Scan Go dependencies
         run: |
           set -euo pipefail
