@@ -130,7 +130,7 @@ jobs:
             echo "GHCR tag exists but does not resolve to the supplied digest" >&2
             exit 1
           }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
           ref: main
