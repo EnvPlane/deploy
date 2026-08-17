@@ -288,6 +288,13 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "list", "watch"]
+  # Project-owned Agents use namespaceInventoryRead during bootstrap so the
+  # UI can offer an explicit non-system namespace selection. The reconciler
+  # must hold the same read permission before Helm can create that Agent
+  # ClusterRole (Kubernetes rejects delegated RBAC escalation otherwise).
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
