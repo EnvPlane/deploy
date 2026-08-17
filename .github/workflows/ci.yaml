@@ -25,6 +25,17 @@ jobs:
           GO_VERSION_FILE="go.mod" \
           GO_MIN_VERSION="1.26.0" \
           ./scripts/ensure-go.sh
+      - name: Cache Go modules and Helm cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/.cache/helm
+            ~/.config/helm
+          key: deploy-ci-cache-${{ runner.os }}-${{ hashFiles('go.sum', 'deploy/helm/**/Chart.lock', 'deploy/helm/**/Chart.yaml') }}
+          restore-keys: |
+            deploy-ci-cache-${{ runner.os }}-
       - name: Select module Go toolchain
         run: echo "GOTOOLCHAIN=go$(awk '/^go[[:space:]]/ {print $2; exit}' go.mod)" >> "$GITHUB_ENV"
       - name: Scan Go dependencies

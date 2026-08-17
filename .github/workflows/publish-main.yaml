@@ -53,6 +53,17 @@ jobs:
           ./scripts/ensure-go.sh
       - name: Select module Go toolchain
         run: echo "GOTOOLCHAIN=go$(awk '/^go[[:space:]]/ {print $2; exit}' go.mod)" >> "$GITHUB_ENV"
+      - name: Cache Go modules, build cache and Helm cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/helm
+            ~/.config/helm
+          key: deploy-publish-main-cache-${{ runner.os }}-${{ hashFiles('go.sum', 'deploy/helm/**/Chart.lock', 'deploy/helm/**/Chart.yaml') }}
+          restore-keys: |
+            deploy-publish-main-cache-${{ runner.os }}-
       - name: Authenticate Docker to GHCR
         uses: docker/login-action@v4
         with:
