@@ -64,6 +64,21 @@ app.kubernetes.io/component: control-plane
 {{- end -}}
 {{- end -}}
 
+{{/*
+The control plane cannot safely persist SCM credentials without this key.
+Use a chart-owned Secret by default so a clean install has no hidden manual
+prerequisite. Operators may supply an existing Secret when they manage keys
+outside Helm.
+*/}}
+{{- define "envpilot-control-plane.credentialEncryptionSecretName" -}}
+{{- $existing := trim (default "" .Values.credentialEncryption.existingSecret) -}}
+{{- if $existing -}}
+{{- $existing -}}
+{{- else -}}
+{{- printf "%s-runtime-credentials" (include "envpilot-control-plane.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "envpilot-control-plane.image" -}}
 {{- $repository := required "image.repository is required" .Values.image.repository -}}
 {{- $digest := trim (default "" .Values.image.digest) -}}

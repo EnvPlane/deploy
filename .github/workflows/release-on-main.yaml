@@ -204,7 +204,12 @@ jobs:
           set -euo pipefail
           go test ./deploy/helm/envpilot/tests
           helm lint deploy/helm/envpilot
-          helm template envpilot deploy/helm/envpilot >/dev/null
+          # This is a structural release check, not an installation. Supply
+          # disposable values for credentials that remain required at runtime.
+          helm template envpilot deploy/helm/envpilot \
+            --set-string envpilot-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envpilot-control-plane.postgres.tls.enabled=false \
+            >/dev/null
           mkdir -p dist
           helm package deploy/helm/envpilot --destination dist --version "$VERSION" --app-version "$VERSION"
       - name: Generate JSON attestation predicate

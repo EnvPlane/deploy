@@ -12,8 +12,10 @@ global:
       imagePullSecrets:
         - name: envpilot-ghcr
     auth:
-      mode: legacy_secret
-      existingSecret: envpilot-oauth
+      # Authentication is configured after installation through the Settings
+      # UI. Do not require an OAuth credential Secret for a local bootstrap.
+      mode: disabled
+      existingSecret: ""
     firstStartRegistration:
       mode: managed
       cluster:
@@ -36,6 +38,15 @@ envpilot-control-plane:
     sameClusterProjectExecutors:
       enabled: true
       namespace: envpilot-executors
+  postgres:
+    auth:
+      # The control-plane chart creates and owns this Secret on first install,
+      # then preserves its generated password across upgrades.
+      existingSecret: ""
+    tls:
+      # LOCAL DEVELOPMENT ONLY: the disposable minikube PostgreSQL instance
+      # does not provision a CA/server certificate.
+      enabled: false
 
 # Run the EnvPlane execution plane in the same minikube cluster as the control
 # plane. The managed first-start registration above supplies the one-time

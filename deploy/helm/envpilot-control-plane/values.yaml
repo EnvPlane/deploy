@@ -169,6 +169,12 @@ remoteControlPlane:
 dependencyWait:
   enabled: true
 
+# A fresh install gets a stable, chart-owned encryption key. Set
+# existingSecret to delegate key lifecycle to an external secret manager.
+credentialEncryption:
+  existingSecret: ""
+  key: ENVPILOT_CREDENTIAL_ENCRYPTION_KEY
+
 secretEnv: {}
 
 # Commercialization settings use the canonical EnvPlane aliases. Legacy
@@ -292,7 +298,8 @@ rbac:
   remoteClusterReconciler:
     enabled: false
   # Allows the control plane to reconcile project-owned Agent/Runner releases
-  # only inside this pre-existing namespace. It never creates a ClusterRole.
+  # only inside this chart-owned executor namespace. It never creates a
+  # ClusterRole.
   sameClusterProjectExecutors:
     enabled: false
     namespace: ""
@@ -337,7 +344,9 @@ resources:
     memory: 2Gi
 
 runtime:
-  gomemlimit: 1600Mi
+  # Go accepts binary memory suffixes only when they include the B (for
+  # example MiB). "1600Mi" makes the runtime abort during process startup.
+  gomemlimit: 1600MiB
 
 autoscaling:
   enabled: true

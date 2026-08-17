@@ -281,6 +281,10 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 		"name: envpilot-agent-cluster-capability-reader",
 		"kind: ClusterRole",
 		"kind: ClusterRoleBinding",
+		`resources: ["namespaces"]`,
+		`resourceNames:`,
+		`- "envpilot-executors"`,
+		`verbs: ["get"]`,
 		"resources: [\"ingressclasses\"]",
 		"resources: [\"customresourcedefinitions\"]",
 		"resources: [\"storageclasses\"]",
@@ -290,7 +294,7 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 			t.Fatalf("project-owned capability discovery RBAC missing %q:\n%s", expected, projectOwned)
 		}
 	}
-	for _, forbidden := range []string{"verbs: [\"create\"", "verbs: [\"update\"", "verbs: [\"patch\"", "verbs: [\"delete\"", "resources: [\"namespaces\"]"} {
+	for _, forbidden := range []string{"verbs: [\"create\"", "verbs: [\"update\"", "verbs: [\"patch\"", "verbs: [\"delete\"", "resources: [\"namespaces\"]\n    verbs: [\"get\",\"list\",\"watch\"]"} {
 		if strings.Contains(projectOwned, forbidden) {
 			t.Fatalf("project-owned capability reader must stay minimal/read-only, found %q:\n%s", forbidden, projectOwned)
 		}

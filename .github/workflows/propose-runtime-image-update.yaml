@@ -87,10 +87,10 @@ jobs:
           FALLBACK_PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
-          if [[ -n "$FALLBACK_PAT" ]]; then
-            echo "method=pat" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+          if [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
             echo "method=app" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$FALLBACK_PAT" ]]; then
+            echo "method=pat" >> "$GITHUB_OUTPUT"
           else
             echo "Neither GitHub App credentials nor fallback PAT is configured." >&2
             exit 1
@@ -182,7 +182,7 @@ jobs:
             --set-string envpilot-control-plane.postgres.auth.password=ci-render-only-password \
             --set envpilot-control-plane.postgres.tls.enabled=false \
             >/dev/null
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@v8
         id: pull_request
         with:
           token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}

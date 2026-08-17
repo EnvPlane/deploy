@@ -39,6 +39,7 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 		"range $key, $value := $environment",
 		"ENVPILOT_DATABASE_URL",
 		"ENVPILOT_REDIS_URL",
+		"ENVPILOT_CREDENTIAL_ENCRYPTION_KEY",
 		"mountPath: /var/lib/envpilot/data",
 	} {
 		if !strings.Contains(deploymentText, expected) {
@@ -81,6 +82,20 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartManagesCredentialEncryptionKey(t *testing.T) {
+	rendered := renderControlPlaneChart(t)
+	for _, expected := range []string{
+		"name: envpilot-control-plane-runtime-credentials",
+		"envpilot.io/purpose: credential-encryption",
+		"name: ENVPILOT_CREDENTIAL_ENCRYPTION_KEY",
+		"key: \"ENVPILOT_CREDENTIAL_ENCRYPTION_KEY\"",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("credential encryption contract render missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestControlPlaneChartUsesWritableDataAndGitOpsPathsFromEnv(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
 		"--set", "env.ENVPLANE_DATA_DIR=/custom/envpilot-data",
@@ -103,6 +118,20 @@ func TestControlPlaneChartUsesWritableDataAndGitOpsPathsFromEnv(t *testing.T) {
 	}
 	if strings.Contains(rendered, "/var/lib/envplane") {
 		t.Fatalf("control-plane render still references non-writable data path:\n%s", rendered)
+	}
+}
+
+func TestControlPlaneChartUsesValidGoMemoryLimit(t *testing.T) {
+	values, err := os.ReadFile("../values.yaml")
+	if err != nil {
+		t.Fatalf("read values file: %v", err)
+	}
+	if !strings.Contains(string(values), "gomemlimit: 1600MiB") {
+		t.Fatalf("default GOMEMLIMIT must use a Go-valid binary suffix: %s", values)
+	}
+	rendered := renderControlPlaneChart(t)
+	if !strings.Contains(rendered, "name: GOMEMLIMIT\n              value: \"1600MiB\"") {
+		t.Fatalf("rendered control-plane deployment must set a Go-valid GOMEMLIMIT:\n%s", rendered)
 	}
 }
 

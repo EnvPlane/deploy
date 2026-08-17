@@ -63,21 +63,22 @@ global:
     # contains no target-cluster endpoint or credential material.
     remoteClusterReconciler:
       enabled: false
-    # Per-project management-cluster Agent/Runner releases. The namespace must
-    # already exist; the umbrella intentionally never creates namespaces.
+    # Per-project management-cluster Agent/Runner releases. The umbrella owns
+    # and creates this namespace on the first install when enabled.
     sameClusterProjectExecutors:
       enabled: false
       namespace: ""
+      # LOCAL DEVELOPMENT ONLY: permit project-owned runtimes to reach an
+      # explicitly configured HTTP control plane.
+      allowInsecureControlPlane: false
       discovery:
         namespaces: []
       # Name only: mounted read-only as a Docker config for signed OCI child
       # chart resolution. Its content never reaches EnvPlane APIs or audit.
       registry:
         existingSecret: ""
-        # Must already exist in the executor namespace. Project Agent/Runner
-        # Pods reference this name; neither Helm nor the control plane reads
-        # or duplicates its credential data. Operators can materialize it with
-        # scripts/sync-namespaced-registry-secret.sh.
+      # Project Agent/Runner Pods reference this name. Registry credentials
+      # remain operator-managed; this value only references the Secret.
         imagePullSecret: ""
     # Interactive OAuth is disabled by default. legacy_secret is a temporary
     # compatibility path for an operator-managed Secret in the release
@@ -259,11 +260,11 @@ envpilot-control-plane:
     enabled: true
   image:
     repository: ghcr.io/envpilot/api
-    tag: "sha-669e1e9e5f5132b61ad4eb0f54322bed46343e85"
-    digest: "sha256:6c8b36a9c116643091b8bbc1f309358132e2d5790ba3bca7f724a3748808c99b"
+    tag: "sha-a89c8651b02a4fd74131ad968cb22e4c1f9534b5"
+    digest: "sha256:6dfac3884ada4c9322661acd27b64815d3f390302216ffb87ffead4fd43338fb"
     pullPolicy: IfNotPresent
-    sourceRevision: "669e1e9e5f5132b61ad4eb0f54322bed46343e85"
-    release: "sha-669e1e9e5f5132b61ad4eb0f54322bed46343e85"
+    sourceRevision: "a89c8651b02a4fd74131ad968cb22e4c1f9534b5"
+    release: "sha-a89c8651b02a4fd74131ad968cb22e4c1f9534b5"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -336,7 +337,7 @@ envpilot-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envpilot/envpilot-agent"
-      version: "0.2.7"
+      version: "0.2.10"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
     # stable target-pod-reachable HTTPS endpoint, never a tunnel or Service
@@ -398,11 +399,11 @@ envpilot-frontend:
   fullnameOverride: envpilot-frontend
   image:
     repository: ghcr.io/envpilot/frontend
-    tag: "sha-596f7ca8e51165911d0f6bd3ece9c1598c0f82ba"
-    digest: "sha256:290080d7500dabd3512eb62b42a64fce4d0ec330ba4516e013066ccc70b5ac3a"
+    tag: "sha-14795ecf0f8231b5d4e191c828e038888c2d771a"
+    digest: "sha256:135f296cb683bd8d3eb6f838e00e46dc4859afbeede0ea2ede9441d5a2ea3dba"
     pullPolicy: IfNotPresent
-    sourceRevision: "596f7ca8e51165911d0f6bd3ece9c1598c0f82ba"
-    release: "sha-596f7ca8e51165911d0f6bd3ece9c1598c0f82ba"
+    sourceRevision: "14795ecf0f8231b5d4e191c828e038888c2d771a"
+    release: "sha-14795ecf0f8231b5d4e191c828e038888c2d771a"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -422,11 +423,11 @@ envpilot-agent:
   fullnameOverride: envpilot-agent
   image:
     repository: ghcr.io/envpilot/agent
-    tag: "sha-a9d12ad283fc59f1a113c2e01fd361d210a30ccc"
-    digest: "sha256:f68f1ee96d38832977776719b14a1e9df1d70e6988073395cd396e7ea25e26c7"
+    tag: "sha-44f32fcdde4d2facd5d88007911a54bf20a80ff4"
+    digest: "sha256:a00d298fe44f3292d2d9f8dcf2e59f36c2b5b8a9f9b44a306a78e5ee57b74955"
     pullPolicy: IfNotPresent
-    sourceRevision: "a9d12ad283fc59f1a113c2e01fd361d210a30ccc"
-    release: "sha-a9d12ad283fc59f1a113c2e01fd361d210a30ccc"
+    sourceRevision: "44f32fcdde4d2facd5d88007911a54bf20a80ff4"
+    release: "sha-44f32fcdde4d2facd5d88007911a54bf20a80ff4"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -477,11 +478,11 @@ envpilot-runner:
   fullnameOverride: envpilot-runner
   image:
     repository: ghcr.io/envpilot/runner
-    tag: "sha-087c6351453cc041b2a38f25ac9452a0dfbbe0a0"
-    digest: "sha256:9cd668547438b5a8ddf341640942b2218dcba49e1a16bd77752b720390aa7b15"
+    tag: "sha-394e2c5d531ef48a6dda72f37f9afb9bd1c9bfb0"
+    digest: "sha256:7a38d0040c3378c684079f4964da126fba9a407dee82664ad4d31a1eb1213351"
     pullPolicy: IfNotPresent
-    sourceRevision: "087c6351453cc041b2a38f25ac9452a0dfbbe0a0"
-    release: "sha-087c6351453cc041b2a38f25ac9452a0dfbbe0a0"
+    sourceRevision: "394e2c5d531ef48a6dda72f37f9afb9bd1c9bfb0"
+    release: "sha-394e2c5d531ef48a6dda72f37f9afb9bd1c9bfb0"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}

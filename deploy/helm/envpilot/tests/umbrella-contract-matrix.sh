@@ -12,10 +12,14 @@ mkdir -p "$KUBECONFORM_CACHE"
 profiles=(minimal all-enabled external-databases ingress gateway private-registry existing-secrets)
 for profile in "${profiles[@]}"; do
   args=()
+  # This matrix is a cluster-free render test and has no PostgreSQL CA Secret
+  # fixture. Keep the production TLS default intact, but make the test input
+  # explicit so rendering does not depend on a cluster-provided Secret.
+  args+=(--set 'envpilot-control-plane.postgres.tls.enabled=false')
   case "$profile" in
     all-enabled) args+=(--set agent.enabled=true --set runner.enabled=true) ;;
     external-databases) args+=(--set 'envpilot-control-plane.postgres.mode=external' --set 'envpilot-control-plane.postgres.external.existingSecret=postgres-connection' --set 'envpilot-control-plane.redis.mode=external' --set 'envpilot-control-plane.redis.external.existingSecret=redis-connection') ;;
-    ingress) args+=(--set access.mode=ingress --set access.ingress.host=envpilot.example.test --set access.ingress.className=nginx --set 'platformDependencyReconciler.imagePullSecrets[0].name=registry-credentials') ;;
+    ingress) args+=(--set access.mode=ingress --set access.ingress.host=envpilot.example.test --set access.ingress.className=nginx --set access.ingress.tls.enabled=true --set access.ingress.tls.secretName=envpilot-test-tls --set 'platformDependencyReconciler.imagePullSecrets[0].name=registry-credentials') ;;
     gateway) args+=(--set access.mode=gateway --set access.gateway.name=shared-gateway --set 'access.gateway.hostnames[0]=envpilot.example.test') ;;
     private-registry) args+=(--set 'global.envpilot.registry.mode=existing' --set 'global.envpilot.registry.existingSecret=registry-credentials' --set 'envpilot-control-plane.image.repository=registry.example.test/envpilot/api' --set 'envpilot-control-plane.image.tag=0.1.0' --set 'envpilot-frontend.image.repository=registry.example.test/envpilot/frontend' --set 'envpilot-frontend.image.tag=0.1.0') ;;
     existing-secrets) args+=(--set 'envpilot-control-plane.postgres.mode=external' --set 'envpilot-control-plane.postgres.external.existingSecret=postgres-connection' --set 'envpilot-control-plane.redis.mode=external' --set 'envpilot-control-plane.redis.external.existingSecret=redis-connection' --set 'envpilot-agent.controlPlane.existingSecret=agent-credentials' --set 'envpilot-runner.controlPlane.existingSecret=runner-credentials') ;;
@@ -32,6 +36,10 @@ require "yaml"
 docs = YAML.load_stream(File.read(ARGV[0])).compact.select { |d| d.is_a?(Hash) }
 allowed_namespaces = ["", "envpilot"]
 allowed_namespaces << "ingress-nginx" if ARGV[1] == "ingress"
+# The all-enabled profile intentionally exercises the Agent's default
+# namespaced discovery target. Its Role and RoleBinding belong in `default`;
+# this is an explicit workload scope, not an accidental namespace leak.
+allowed_namespaces << "default" if ARGV[1] == "all-enabled"
 seen = {}
 docs.each do |d|
   md = d.fetch("metadata", {})

@@ -22,11 +22,21 @@ frontend:
 
 imagePullSecrets: []
 
+# The Minikube profile exposes the UI over an explicit local HTTP endpoint.
+# Keep this override confined to the local profile: production releases retain
+# HTTPS and secure OAuth/session cookies by default.
+allowInsecureLocalDevelopment: true
+publicURL: "http://127.0.0.1:8080"
+
 # This test-only profile must not publish a host-local endpoint for a remote
 # Agent or Runner. Same-cluster components use the Service DNS. A remote target
 # requires ENVPILOT_REMOTE_CONTROL_PLANE_URL to be configured to a stable
 # pod-reachable endpoint (and optional CA Secret/key) on the control plane.
 env:
+
+  # Browser cookies must be accepted by the loopback HTTP endpoint while
+  # exercising the first-operator GitHub OAuth flow locally.
+  ENVPILOT_OAUTH_COOKIE_SECURE: "false"
   ENVPILOT_AGENT_CONTROL_PLANE_URL: ""
   ENVPILOT_AGENT_HELM_CHART_REF: "oci://ghcr.io/envpilot/envpilot-agent"
   ENVPILOT_AGENT_HELM_CHART_VERSION: "0.2.0"

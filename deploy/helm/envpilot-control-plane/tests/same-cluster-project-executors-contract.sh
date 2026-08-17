@@ -8,6 +8,7 @@ runner_rendered="$(mktemp)"
 trap 'rm -f "$rendered" "$agent_rendered" "$runner_rendered"' EXIT
 
 helm template envpilot "$chart_dir" \
+  --set 'postgres.tls.enabled=false' \
   --set 'global.envpilot.firstStartRegistration.mode=managed' \
   --set 'global.envpilot.firstStartRegistration.project.id=envpilot' \
   --set 'global.envpilot.firstStartRegistration.project.productId=generic' \
@@ -47,6 +48,7 @@ rg -Fq 'key: .dockerconfigjson' "$rendered"
 ! rg -q 'dockerconfigjson:' "$rendered"
 rg -Fq 'name: envpilot-control-plane-same-cluster-project-executors' "$rendered"
 rg -Fq 'namespace: "envpilot-executors"' "$rendered"
+rg -Fq 'helm.sh/resource-policy: keep' "$rendered"
 # Kubernetes anti-escalation requires the control plane to hold the exact
 # namespaced rules it delegates to project-owned Agent and Runner releases.
 # The Runner writer contract remains limited to the executor namespace.
@@ -57,12 +59,20 @@ rg -Fq 'resources: ["cronjobs", "jobs"]' "$rendered"
 rg -Fq 'resources: ["ingresses"]' "$rendered"
 rg -Fq 'verbs: ["create", "update", "patch", "delete"]' "$rendered"
 rg -Fq 'resources: ["buckets", "gitrepositories", "helmrepositories", "ocirepositories"]' "$rendered"
-! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$rendered"
+rg -Fq 'kind: ClusterRole' "$rendered"
+rg -Fq 'kind: ClusterRoleBinding' "$rendered"
+rg -Fq 'name: envpilot-control-plane-same-cluster-project-executor-release-manager' "$rendered"
+rg -Fq 'resources: ["clusterroles", "clusterrolebindings"]' "$rendered"
+rg -Fq 'resources: ["roles", "rolebindings"]' "$rendered"
+rg -Fq 'resources: ["ingressclasses"]' "$rendered"
+rg -Fq 'resources: ["customresourcedefinitions"]' "$rendered"
+rg -Fq 'resources: ["storageclasses"]' "$rendered"
 ! rg -q 'resources: \["\*"\]|verbs: \["\*"\]' "$rendered"
 
 # A project executor must never silently fall back to an anonymous OCI pull.
 # The Registry Secret name is configuration only; its contents stay write-only.
 if helm template missing-registry "$chart_dir" \
+  --set 'postgres.tls.enabled=false' \
   --set 'global.envpilot.firstStartRegistration.mode=managed' \
   --set 'global.envpilot.firstStartRegistration.project.id=envpilot' \
   --set 'global.envpilot.firstStartRegistration.project.productId=generic' \
@@ -84,6 +94,7 @@ helm template project-agent "$chart_dir/../envpilot-agent" \
   --set 'agent.id=project-cms-agent' \
   --set 'cluster.id=bethunder-local' \
   --set 'controlPlane.existingSecret=project-cms-agent-bootstrap' \
+  --set 'controlPlane.allowInsecure=true' \
   --set 'rbac.discovery.scope=namespace' \
   --set 'rbac.discovery.namespaces[0]=envpilot-executors' \
   --set 'installValidation.enabled=false' >"$agent_rendered"
@@ -92,6 +103,7 @@ rg -Fq 'value: "project-cms-agent"' "$agent_rendered"
 ! rg -Fq 'value: "singleton"' "$agent_rendered"
 ! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$agent_rendered"
 rg -Fq 'kind: PersistentVolumeClaim' "$agent_rendered"
+rg -Fq 'name: ENVPILOT_ALLOW_INSECURE_CONTROL_PLANE' "$agent_rendered"
 
 helm template project-runner "$chart_dir/../envpilot-runner" \
   --set 'global.envpilot.firstStartRegistration.mode=managed' \

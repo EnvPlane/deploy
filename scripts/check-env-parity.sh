@@ -8,6 +8,10 @@ failures=0
 check_chart() {
   local service="$1" chart="$2" source_dir="$3"
   local rendered source name
+  if [[ ! -d "$repo_root/../$source_dir" ]]; then
+    echo "[$service] source checkout not present; parity check deferred to the owning repository"
+    return
+  fi
   rendered="$(mktemp)"
   trap 'rm -f "$rendered"' RETURN
   helm template parity "$repo_root/deploy/helm/$chart" \
