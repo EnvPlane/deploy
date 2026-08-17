@@ -16,9 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
+      - name: Ensure go toolchain
+        run: |
+          GO_VERSION_FILE="go.mod" \
+          GO_MIN_VERSION="1.26.0" \
+          ./scripts/ensure-go.sh
       - uses: azure/setup-helm@v4
       - uses: sigstore/cosign-installer@v3
       - id: chart
