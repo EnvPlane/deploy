@@ -1,5 +1,9 @@
 name: Deploy CI
 
+concurrency:
+  group: deploy-go-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
   push:
@@ -13,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
       - uses: azure/setup-helm@v4
       - uses: actions/setup-go@v7
         with:
@@ -40,6 +46,7 @@ jobs:
             exit 0
           fi
           exit "$status"
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       - run: helm lint deploy/helm/envpilot
       - run: helm lint deploy/helm/envpilot-control-plane
       - run: helm lint deploy/helm/envpilot-agent
@@ -50,3 +57,4 @@ jobs:
           helm dependency build --skip-refresh deploy/helm/envpilot
           bash scripts/check-env-parity.sh
       - run: bash scripts/check-base-image-digests.sh
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
