@@ -1,6 +1,6 @@
 module github.com/envpilot/deploy
 
-go 1.26.1
+go 1.26.6
 
 require (
 	helm.sh/helm/v3 v3.21.4
