@@ -423,11 +423,11 @@ envpilot-agent:
   fullnameOverride: envpilot-agent
   image:
     repository: ghcr.io/envpilot/agent
-    tag: "sha-44f32fcdde4d2facd5d88007911a54bf20a80ff4"
-    digest: "sha256:a00d298fe44f3292d2d9f8dcf2e59f36c2b5b8a9f9b44a306a78e5ee57b74955"
+    tag: "sha-bf27c80cb8f7346d74d36a2f4ef94fba1c8a4b3d"
+    digest: "sha256:5ebaea7381689aaf9eba8c49c3252bf4bd7afd2fda51a6c22a7e39830e8a79aa"
     pullPolicy: IfNotPresent
-    sourceRevision: "44f32fcdde4d2facd5d88007911a54bf20a80ff4"
-    release: "sha-44f32fcdde4d2facd5d88007911a54bf20a80ff4"
+    sourceRevision: "bf27c80cb8f7346d74d36a2f4ef94fba1c8a4b3d"
+    release: "sha-bf27c80cb8f7346d74d36a2f4ef94fba1c8a4b3d"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
