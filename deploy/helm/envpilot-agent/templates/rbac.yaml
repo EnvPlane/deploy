@@ -42,12 +42,13 @@
 {{- $scope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $namespaces := .Values.rbac.discovery.namespaces -}}
 {{- $clusterCapabilityRead := default false .Values.rbac.discovery.clusterCapabilityRead -}}
+{{- $namespaceInventoryRead := default false .Values.rbac.discovery.namespaceInventoryRead -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- if eq (include "envpilot-agent.managedRemoteEnabled" .) "true" -}}
 {{- $scope = "namespace" -}}
 {{- $namespaces = get $managedRemote "targetNamespaces" -}}
 {{- end -}}
-{{- if and (eq $scope "namespace") (not $namespaces) -}}
+{{- if and (eq $scope "namespace") (not $namespaces) (not $namespaceInventoryRead) -}}
 {{- fail "rbac.discovery.namespaces must contain at least one namespace when rbac.discovery.scope=namespace" -}}
 {{- end -}}
 {{- if eq $scope "namespace" -}}
@@ -83,7 +84,7 @@ roleRef:
   kind: Role
   name: {{ $fullName }}-discovery-reader
 {{- end }}
-{{- if $clusterCapabilityRead }}
+{{- if or $clusterCapabilityRead $namespaceInventoryRead }}
 ---
 # Project-owned same-cluster Agents use namespace-scoped discovery for
 # workloads. Namespace objects themselves are cluster-scoped, so permit GET
@@ -96,6 +97,13 @@ metadata:
   labels:
     {{- include "envpilot-agent.labels" . | nindent 4 }}
 rules:
+{{- if $namespaceInventoryRead }}
+  # Bootstrap inventory only: enumerate namespace names so the user can make
+  # an explicit selection. Workload discovery remains Role-scoped below.
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list"]
+{{- else }}
   - apiGroups: [""]
     resources: ["namespaces"]
     resourceNames:
@@ -103,6 +111,8 @@ rules:
       - {{ $namespace | quote }}
 {{- end }}
     verbs: ["get"]
+{{- end }}
+{{- if $clusterCapabilityRead }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingressclasses"]
     verbs: ["get","list","watch"]
@@ -112,6 +122,7 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get","list","watch"]
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

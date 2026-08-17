@@ -163,6 +163,10 @@ rbac:
     namespaces:
       - default
     clusterCapabilityRead: false
+    # Allows a bootstrap Agent to list Namespace objects before the user has
+    # selected the finite set of namespaces whose workloads it may discover.
+    # This does not grant workload or Secret access outside selected namespaces.
+    namespaceInventoryRead: false
     # Secret reads are sensitive and disabled by default. Set true only when
     # manifest discovery must include Secret metadata for selected namespaces.
     readSecrets: false
