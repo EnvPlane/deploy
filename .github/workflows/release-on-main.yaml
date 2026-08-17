@@ -41,6 +41,16 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.artifact_run_id }}
+      - name: Refresh compatibility manifest to current deploy main
+        env:
+          REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          ./scripts/resolve-compatible-manifest.sh \
+            --report "$REPORT" \
+            --main-revision "$current_main"
       - name: Ensure selected compatibility set is current deploy main
         env:
           REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json

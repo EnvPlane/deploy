@@ -12,8 +12,8 @@ global:
       imagePullSecrets:
         - name: envpilot-ghcr
     auth:
-      # Authentication is configured after installation through the Settings
-      # UI. Do not require an OAuth credential Secret for a local bootstrap.
+      # OAuth is now activated in the managed authentication store. Do not
+      # re-run the legacy bootstrap migration on every local restart.
       mode: disabled
       existingSecret: ""
     firstStartRegistration:
@@ -30,10 +30,13 @@ global:
         imagePullSecret: envpilot-ghcr
 
 envpilot-control-plane:
+  # LOCAL DEVELOPMENT ONLY: canonical callback origin for the minikube ingress.
+  publicURL: http://envpilot.local
   env:
     # LOCAL DEVELOPMENT ONLY: this profile intentionally uses HTTP on a
     # disposable minikube host. Production/operator values must omit this.
     ENVPILOT_OAUTH_COOKIE_SECURE: "false"
+    ENVPILOT_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
   rbac:
     sameClusterProjectExecutors:
       enabled: true
@@ -66,6 +69,18 @@ access:
     className: nginx
     tls:
       enabled: false
+
+envpilot-agent:
+  controlPlane:
+    # LOCAL DEVELOPMENT ONLY: the disposable minikube ingress exposes the
+    # control plane over HTTP. Production profiles must keep this false.
+    allowInsecure: true
+
+envpilot-runner:
+  controlPlane:
+    # LOCAL DEVELOPMENT ONLY: the disposable minikube ingress exposes the
+    # control plane over HTTP. Production profiles must keep this false.
+    allowInsecure: true
 
 platformDependencies:
   ingress:
