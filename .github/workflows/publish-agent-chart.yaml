@@ -47,6 +47,8 @@ jobs:
         if: steps.dispatch_auth.outputs.method == 'app'
         run: ./scripts/obtain-github-app-token.sh
         env:
+          ENVPILOT_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
+          ENVPILOT_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
           GH_APP_OWNER: EnvPlane
           GH_APP_REPOSITORY: deploy
           GH_APP_TOKEN_PERMISSIONS: '{"contents":"write"}'
