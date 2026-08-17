@@ -86,9 +86,9 @@ roleRef:
 {{- if $clusterCapabilityRead }}
 ---
 # Project-owned same-cluster Agents use namespace-scoped discovery for
-# workloads. These three APIs are inherently cluster-scoped, so grant only
-# their capability metadata as read-only access; no workload or write access
-# is included in this ClusterRole.
+# workloads. Namespace objects themselves are cluster-scoped, so permit GET
+# only for the explicit allowlist. Capability APIs remain read-only; no
+# workload, namespace-list, or write access is included in this ClusterRole.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -96,6 +96,13 @@ metadata:
   labels:
     {{- include "envpilot-agent.labels" . | nindent 4 }}
 rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames:
+{{- range $namespace := $namespaces }}
+      - {{ $namespace | quote }}
+{{- end }}
+    verbs: ["get"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingressclasses"]
     verbs: ["get","list","watch"]
