@@ -137,7 +137,7 @@ jobs:
                (.sourceRevision | test("^[0-9a-f]{40}$")))' \
             "$RUNNER_TEMP/latest-artifacts.json" >/dev/null
       - name: Upload confirmed compatibility manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: envpilot-compatible-artifacts
           path: ${{ runner.temp }}/latest-artifacts.json
