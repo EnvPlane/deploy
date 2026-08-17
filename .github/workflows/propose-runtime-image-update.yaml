@@ -95,6 +95,10 @@ jobs:
             echo "Neither GitHub App credentials nor fallback PAT is configured." >&2
             exit 1
           fi
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 1
       - id: deploy_pr_app
         if: steps.auth_method.outputs.method == 'app'
         run: ./scripts/obtain-github-app-token.sh
