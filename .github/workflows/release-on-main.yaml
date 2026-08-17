@@ -45,18 +45,20 @@ jobs:
         env:
           REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
           GITHUB_TOKEN: ${{ github.token }}
+          WORKFLOW_RUN_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
         run: |
           set -euo pipefail
-          current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          current_main="${WORKFLOW_RUN_SHA:-$(git ls-remote origin refs/heads/main | awk '{print $1}')}"
           ./scripts/resolve-compatible-manifest.sh \
             --report "$REPORT" \
             --main-revision "$current_main"
       - name: Ensure selected compatibility set is current deploy main
         env:
           REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
+          WORKFLOW_RUN_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
         run: |
           set -euo pipefail
-          main_revision="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          main_revision="${WORKFLOW_RUN_SHA:-$(git ls-remote origin refs/heads/main | awk '{print $1}')}"
           ./scripts/ensure-current-compatible-artifact.sh \
             --report "$REPORT" --main-revision "$main_revision"
       - name: Select the artifact source revision
