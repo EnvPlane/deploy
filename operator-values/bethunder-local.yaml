@@ -25,6 +25,7 @@ global:
     sameClusterProjectExecutors:
       enabled: true
       namespace: envpilot-executors
+      allowInsecureControlPlane: true
       registry:
         existingSecret: envpilot-ghcr
         imagePullSecret: envpilot-ghcr
