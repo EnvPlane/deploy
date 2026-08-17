@@ -45,13 +45,11 @@ jobs:
           if [[ -n "$CLIENT_ID" && -n "$APP_KEY" ]]; then echo method=app >> "$GITHUB_OUTPUT"; elif [[ -n "$PAT" ]]; then echo method=pat >> "$GITHUB_OUTPUT"; else exit 1; fi
       - id: dispatch_app
         if: steps.dispatch_auth.outputs.method == 'app'
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
-          private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
-          owner: EnvPlane
-          repositories: deploy
-          permission-contents: write
+        run: ./scripts/obtain-github-app-token.sh
+        env:
+          GH_APP_OWNER: EnvPlane
+          GH_APP_REPOSITORY: deploy
+          GH_APP_TOKEN_PERMISSIONS: '{"contents":"write"}'
       - name: Dispatch chart publication
         env:
           GH_TOKEN: ${{ steps.dispatch_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}

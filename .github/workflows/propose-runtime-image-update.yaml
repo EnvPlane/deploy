@@ -97,15 +97,11 @@ jobs:
           fi
       - id: deploy_pr_app
         if: steps.auth_method.outputs.method == 'app'
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
-          private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
-          owner: EnvPlane
-          repositories: deploy,frontend,control-plane,agent,runner
-          permission-contents: write
-          permission-pull-requests: write
-          permission-packages: read
+        run: ./scripts/obtain-github-app-token.sh
+        env:
+          GH_APP_OWNER: EnvPlane
+          GH_APP_REPOSITORY: deploy
+          GH_APP_TOKEN_PERMISSIONS: '{"contents":"write","pull_requests":"write","packages":"read"}'
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
       - name: Authenticate to GHCR with deploy workflow token
