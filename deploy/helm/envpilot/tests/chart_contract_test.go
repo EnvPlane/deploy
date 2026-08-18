@@ -491,7 +491,7 @@ func TestUmbrellaDefinesPrivateOrPublicHTTPSRemoteControlPlaneContract(t *testin
 }
 
 func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
-	rendered := renderUmbrella(t, "--values", "../values-e2e-local.yaml")
+	rendered := renderUmbrella(t, "--values", "values-e2e-local.yaml")
 	for _, expected := range []string{
 		"# Source: envpilot/charts/envpilot-agent/templates/deployment.yaml",
 		"# Source: envpilot/charts/envpilot-runner/templates/deployment.yaml",
@@ -517,7 +517,7 @@ func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
 }
 
 func TestUmbrellaFixtureRecoveryIsExplicitlyOptIn(t *testing.T) {
-	rendered := renderUmbrella(t, "--values", "../values-e2e-local.yaml", "--set", "global.envpilot.e2eFixture.recovery.enabled=false")
+	rendered := renderUmbrella(t, "--values", "values-e2e-local.yaml", "--set", "global.envpilot.e2eFixture.recovery.enabled=false")
 	if !strings.Contains(rendered, "name: ENVPILOT_SAME_CLUSTER_FIXTURE_RECOVERY_ENABLED\n              value: \"false\"") {
 		t.Fatalf("fixture recovery must be disabled unless explicitly opted in:\n%s", rendered)
 	}
@@ -831,7 +831,7 @@ func TestProviderNeutralProfilesRenderDeclaredAccessAndServiceModes(t *testing.T
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			rendered := renderUmbrella(t, "--values", filepath.Join("..", "profiles", tc.profile))
+			rendered := renderUmbrella(t, "--values", filepath.Join("profiles", tc.profile))
 			for _, expected := range tc.expected {
 				if !strings.Contains(rendered, expected) {
 					t.Fatalf("profile %s missing %q:\n%s", tc.profile, expected, rendered)
