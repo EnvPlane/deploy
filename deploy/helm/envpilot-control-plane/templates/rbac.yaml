@@ -313,6 +313,28 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "list", "watch"]
+  # The Runner Helm chart creates a namespace-scoped feature-env writer Role
+  # in the concrete target namespace. Kubernetes requires the reconciler to
+  # hold every permission it delegates in that Role; keep this list identical
+  # to the Runner writer contract and avoid wildcard resources.
+  - apiGroups: [""]
+    resources: ["configmaps", "events", "limitranges", "resourcequotas", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Project-owned Agents use namespaceInventoryRead during bootstrap so the
   # UI can offer an explicit non-system namespace selection. The reconciler
   # must hold the same read permission before Helm can create that Agent
