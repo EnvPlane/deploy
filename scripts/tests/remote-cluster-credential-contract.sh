@@ -8,6 +8,8 @@ chart="$root/deploy/helm/envpilot-control-plane"
 rendered="$(mktemp "${TMPDIR:-/tmp}/envpilot-remote-credentials.XXXXXX")"
 trap 'rm -f "$rendered"' EXIT
 
+helm dependency build --skip-refresh "$chart" >/dev/null
+
 helm template envpilot "$chart" --namespace envpilot \
   --set rbac.remoteClusterCredentials.enabled=true \
   --set-string postgres.auth.password=ci-render-only-password \
