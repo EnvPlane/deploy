@@ -42,6 +42,19 @@ func buildDependencies(t *testing.T) {
 		}
 		umbrellaChartFixture = filepath.Join(fixtureRoot, "envpilot")
 		copyChartTree(t, source, umbrellaChartFixture)
+		for _, dependency := range []string{
+			"envpilot-control-plane",
+			"envpilot-frontend",
+			"envpilot-agent",
+			"envpilot-runner",
+			"envpilot-webhook",
+			"envpilot-e2e-workload",
+		} {
+			dependencySource := filepath.Join(filepath.Dir(source), dependency)
+			if _, err := os.Stat(dependencySource); err == nil {
+				copyChartTree(t, dependencySource, filepath.Join(fixtureRoot, dependency))
+			}
+		}
 		cmd := exec.Command("helm", "dependency", "build", "--skip-refresh", umbrellaChartFixture)
 		output, err := cmd.CombinedOutput()
 		if err != nil {

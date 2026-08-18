@@ -653,6 +653,7 @@ func buildControlPlaneDependencies(t *testing.T) {
 		}
 		controlPlaneChartFixture = filepath.Join(fixtureRoot, "envpilot-control-plane")
 		copyChartTree(t, source, controlPlaneChartFixture)
+		copyChartTree(t, filepath.Join(filepath.Dir(source), "envpilot-frontend"), filepath.Join(fixtureRoot, "envpilot-frontend"))
 		cmd := exec.Command("helm", "dependency", "build", "--skip-refresh", controlPlaneChartFixture)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
