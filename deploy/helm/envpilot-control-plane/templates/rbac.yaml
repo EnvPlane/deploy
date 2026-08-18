@@ -205,31 +205,6 @@ rules:
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["roles", "rolebindings"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  # Kubernetes RBAC prevents the reconciler from creating the Agent's
-  # namespace-scoped discovery Role unless the reconciler itself holds the
-  # delegated read contract. Keep this read-only and omit Secrets: project
-  # Agent discovery is workload metadata only.
-  - apiGroups: [""]
-    resources: ["pods", "services", "endpoints", "events", "configmaps", "resourcequotas", "limitranges", "persistentvolumeclaims", "serviceaccounts"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["batch"]
-    resources: ["jobs", "cronjobs"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["ingresses", "networkpolicies"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
-    resources: ["kustomizations"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["helm.toolkit.fluxcd.io"]
-    resources: ["helmreleases"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["source.toolkit.fluxcd.io"]
-    resources: ["gitrepositories", "helmrepositories", "ocirepositories", "buckets"]
-    verbs: ["get", "list", "watch"]
   # Kubernetes RBAC refuses a Role/RoleBinding that grants permissions the
   # reconciler itself does not hold. The write rules below are exactly the
   # project Runner's feature-env-writer contract. They apply only in the
@@ -304,6 +279,31 @@ rules:
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["roles", "rolebindings"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Kubernetes RBAC prevents the reconciler from creating the Agent's
+  # namespace-scoped discovery Role unless the reconciler itself holds the
+  # delegated read contract. Keep this read-only and omit Secrets: project
+  # Agent discovery is workload metadata only.
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "events", "configmaps", "resourcequotas", "limitranges", "persistentvolumeclaims", "serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
+    resources: ["kustomizations"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["helm.toolkit.fluxcd.io"]
+    resources: ["helmreleases"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["gitrepositories", "helmrepositories", "ocirepositories", "buckets"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingressclasses"]
     verbs: ["get", "list", "watch"]
