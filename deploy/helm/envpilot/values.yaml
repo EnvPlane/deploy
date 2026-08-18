@@ -479,7 +479,7 @@ envpilot-runner:
   image:
     repository: ghcr.io/envpilot/runner
     tag: "sha-e6ed88e88aeb278cee4d839eb4ec8f3a3a184e69"
-    digest: "sha256:cc36b3425fde7b0c4f121399b9b6c7035c52ab5a2845dbe14085727360f79dca"
+    digest: "sha256:77249b9752f16f213ef83983feda281c5cbafa0b74ab569f3240fabdc9becb8b"
     pullPolicy: IfNotPresent
     sourceRevision: "e6ed88e88aeb278cee4d839eb4ec8f3a3a184e69"
     release: "sha-e6ed88e88aeb278cee4d839eb4ec8f3a3a184e69"
