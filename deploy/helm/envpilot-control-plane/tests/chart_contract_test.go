@@ -1,14 +1,17 @@
 package tests
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 )
 
-var buildControlPlaneDependencies sync.Once
+var buildControlPlaneDependenciesOnce sync.Once
+var controlPlaneChartFixture string
 
 func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	requiredFiles := []string{
@@ -446,8 +449,9 @@ func TestControlPlaneChartSupportsExistingServiceAccountAndExternalRBAC(t *testi
 			t.Fatalf("rbac.create=false must not render %s:\n%s", forbidden, rendered)
 		}
 	}
-	cmd := exec.Command("helm", "template", "envpilot", "..", "--set", "serviceAccount.create=false", "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false")
-	cmd.Dir = "."
+	chartPath := controlPlaneChartPath(t)
+	cmd := exec.Command("helm", "template", "envpilot", chartPath, "--set", "serviceAccount.create=false", "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false")
+	cmd.Dir = chartPath
 	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "serviceAccount.name is required") {
 		t.Fatalf("missing existing ServiceAccount name must fail, err=%v output=%s", err, output)
 	}
@@ -606,17 +610,10 @@ func TestControlPlaneChartUsesCanonicalFrontendDependency(t *testing.T) {
 
 func renderControlPlaneChart(t *testing.T, args ...string) string {
 	t.Helper()
-	buildControlPlaneDependencies.Do(func() {
-		cmd := exec.Command("helm", "dependency", "build", "--skip-refresh", "..")
-		cmd.Dir = "."
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("helm dependency build failed: %v\n%s", err, string(output))
-		}
-	})
-	commandArgs := append([]string{"template", "envpilot", "..", "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false"}, args...)
+	chartPath := controlPlaneChartPath(t)
+	commandArgs := append([]string{"template", "envpilot", chartPath, "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false"}, args...)
 	cmd := exec.Command("helm", commandArgs...)
-	cmd.Dir = "."
+	cmd.Dir = chartPath
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("helm template failed: %v\n%s", err, string(output))
@@ -626,19 +623,72 @@ func renderControlPlaneChart(t *testing.T, args ...string) string {
 
 func renderControlPlaneChartError(t *testing.T, args ...string) string {
 	t.Helper()
-	buildControlPlaneDependencies.Do(func() {
-		cmd := exec.Command("helm", "dependency", "build", "--skip-refresh", "..")
-		cmd.Dir = "."
-		if output, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("helm dependency build failed: %v\n%s", err, string(output))
-		}
-	})
-	commandArgs := append([]string{"template", "envpilot", "..", "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false"}, args...)
+	chartPath := controlPlaneChartPath(t)
+	commandArgs := append([]string{"template", "envpilot", chartPath, "--set", "postgres.auth.existingSecret=chart-test-postgres", "--set", "postgres.tls.enabled=false"}, args...)
 	cmd := exec.Command("helm", commandArgs...)
-	cmd.Dir = "."
+	cmd.Dir = chartPath
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatalf("helm template unexpectedly succeeded:\n%s", output)
 	}
 	return string(output)
+}
+
+func controlPlaneChartPath(t *testing.T) string {
+	t.Helper()
+	buildControlPlaneDependencies(t)
+	return controlPlaneChartFixture
+}
+
+func buildControlPlaneDependencies(t *testing.T) {
+	t.Helper()
+	buildControlPlaneDependenciesOnce.Do(func() {
+		source, err := filepath.Abs("..")
+		if err != nil {
+			t.Fatalf("resolve control-plane chart path: %v", err)
+		}
+		fixtureRoot, err := os.MkdirTemp("", "envpilot-control-plane-chart-")
+		if err != nil {
+			t.Fatalf("create temporary fixture: %v", err)
+		}
+		controlPlaneChartFixture = filepath.Join(fixtureRoot, "envpilot-control-plane")
+		copyChartTree(t, source, controlPlaneChartFixture)
+		cmd := exec.Command("helm", "dependency", "build", "--skip-refresh", controlPlaneChartFixture)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("helm dependency build failed: %v\n%s", err, string(output))
+		}
+	})
+}
+
+func copyChartTree(t *testing.T, source, destination string) {
+	t.Helper()
+	err := filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(destination, relative)
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, contents, info.Mode())
+	})
+	if err != nil {
+		t.Fatalf("copy chart tree: %v", err)
+	}
 }
