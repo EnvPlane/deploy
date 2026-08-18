@@ -55,7 +55,7 @@ jobs:
           # Keep only this reviewed, no-fixed-release set explicit while
           # failing closed for every other vulnerability.
           ids="$(sed -nE 's/.*Vulnerability #[0-9]+: (GO-[0-9-]+)$/\1/p' "$report" | sort -u)"
-          allowed=$'GO-2026-5064\nGO-2026-5338\nGO-2026-5622\nGO-2026-5932\nGO-2026-6166\nGO-2026-6168\nGO-2026-6169\nGO-2026-6170\nGO-2026-6171\nGO-2026-6172\nGO-2026-6173'
+          allowed=$'GO-2026-6166\nGO-2026-6168\nGO-2026-6169\nGO-2026-6170\nGO-2026-6171\nGO-2026-6172\nGO-2026-6173'
           if [[ "$ids" == "$allowed" ]]; then
             exit 0
           fi
