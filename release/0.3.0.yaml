@@ -47,3 +47,20 @@ valuesContract:
   providerNeutral: true
   schema: deploy/helm/envpilot/values.schema.json
   platformDependencyModes: [auto, managed, existing, disabled]
+releaseGate:
+  contractVersion: "1"
+  requiredFlow: [multi_namespace_scan, immutable_template, scm_mr_open, independent_feature, update, close_cleanup]
+  providers: [gitlab, github]
+  backends: [helm_direct, fluxcd]
+  parity: [inventory, dependency_graph]
+  reject: [placeholder, stale_artifact, credential_payload, contract_skew]
+testedArtifacts:
+  contracts: { sourceRevision: "9e88e6e40cde92deb11203376cc1434c6a56ce21" }
+  controlPlane: { sourceRevision: "0c9687df8966507d13fdd62520a5b052d4c67860" }
+  frontend: { sourceRevision: "e60454543c1ee98594fe4738d269d2e65a61a5f5" }
+  agent: { sourceRevision: "5237a6785d2709ab79f2629ab07a3b427b7be77f" }
+  runner: { sourceRevision: "ee71d4414c76e68d7e610f1170c0110bd5cba530" }
+  webhook: { sourceRevision: "1d9a732c3153ebdac2067ba6081d2d0bb4b0b9c7" }
+  gitops: { sourceRevision: "a54ad6d143bf09a1f7501c988ef4290d6636a1d8" }
+  bootstrap: { sourceRevision: "144d48940d954445908764b44cfe4172a708dc47" }
+  deploy: { sourceRevision: "317d6d2bc028a95d28f8540a701dd4c9b1e263cf" }
