@@ -530,8 +530,10 @@ func TestRunnerChartSecretManagerUsesExplicitNamespaceAllowlist(t *testing.T) {
 			t.Fatalf("secret-manager Role not found in exact namespace %s", namespace)
 		}
 	}
-	if strings.Contains(rendered, "kind: ClusterRole") && strings.Contains(rendered, "secret-manager") {
-		t.Fatalf("secret materialization must not grant cluster-wide RBAC:\n%s", rendered)
+	for _, doc := range docs {
+		if docIsKind(doc, "ClusterRole") && strings.Contains(doc, "secret-manager") {
+			t.Fatalf("secret materialization must not grant cluster-wide RBAC:\n%s", doc)
+		}
 	}
 }
 
