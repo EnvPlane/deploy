@@ -55,12 +55,12 @@ releaseGate:
   parity: [inventory, dependency_graph]
   reject: [placeholder, stale_artifact, credential_payload, contract_skew]
 testedArtifacts:
-  contracts: { sourceRevision: "9e88e6e40cde92deb11203376cc1434c6a56ce21" }
-  controlPlane: { sourceRevision: "0c9687df8966507d13fdd62520a5b052d4c67860" }
-  frontend: { sourceRevision: "e60454543c1ee98594fe4738d269d2e65a61a5f5" }
-  agent: { sourceRevision: "5237a6785d2709ab79f2629ab07a3b427b7be77f" }
-  runner: { sourceRevision: "ee71d4414c76e68d7e610f1170c0110bd5cba530" }
-  webhook: { sourceRevision: "1d9a732c3153ebdac2067ba6081d2d0bb4b0b9c7" }
-  gitops: { sourceRevision: "a54ad6d143bf09a1f7501c988ef4290d6636a1d8" }
-  bootstrap: { sourceRevision: "144d48940d954445908764b44cfe4172a708dc47" }
-  deploy: { sourceRevision: "317d6d2bc028a95d28f8540a701dd4c9b1e263cf" }
+  contracts: { version: "0.3.0", sourceRevision: "9e88e6e40cde92deb11203376cc1434c6a56ce21", artifactDigest: "sha256:4303be180ca90b9863364a8ce85f87b35a9619f83b74d6390416f520af043f2e" }
+  controlPlane: { version: "0.3.0", sourceRevision: "0c9687df8966507d13fdd62520a5b052d4c67860", artifactDigest: "sha256:6853c84da4f77f8f5c7fe49723330e797ff7196fc823ccae49aa535decfb5208" }
+  frontend: { version: "0.3.0", sourceRevision: "e60454543c1ee98594fe4738d269d2e65a61a5f5", artifactDigest: "sha256:f5cfb2fce40ad6e75ffdfbb50fcdab871483b0821a7487bcbe3565f3e44f2d00" }
+  agent: { version: "0.3.0", sourceRevision: "5237a6785d2709ab79f2629ab07a3b427b7be77f", artifactDigest: "sha256:eb392e0207d578deacd3b8fae7cc57886b7e5c1bcb28c90ed4202659d534f4cc" }
+  runner: { version: "0.3.0", sourceRevision: "ee71d4414c76e68d7e610f1170c0110bd5cba530", artifactDigest: "sha256:6c65fd3b666cb8ae0eb1735e50419ae51d220348e8d3d5f6044ec1c3e37b5808" }
+  webhook: { version: "0.3.0", sourceRevision: "1d9a732c3153ebdac2067ba6081d2d0bb4b0b9c7", artifactDigest: "sha256:afa906f95f1249cbed2e5cd412696bba63ce8277dea83877ea34199a05991967" }
+  gitops: { version: "0.3.0", sourceRevision: "a54ad6d143bf09a1f7501c988ef4290d6636a1d8", artifactDigest: "sha256:34a12e02820b09ebdbf5ca582c990dccb06a882daf6fe37fde8d606b26b183f3" }
+  bootstrap: { version: "0.3.0", sourceRevision: "144d48940d954445908764b44cfe4172a708dc47", artifactDigest: "sha256:c496b96b426fd7bbfcc209b825fe764beca6c8f6f6916e54a38e80a735ccbfa8" }
+  deploy: { version: "0.3.0", sourceRevision: "317d6d2bc028a95d28f8540a701dd4c9b1e263cf", artifactDigest: "sha256:c8eefe1fc9106e27190eed6d214d59a519936bda4adbcc1a8560d6a392b61a70" }
