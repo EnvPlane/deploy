@@ -260,11 +260,11 @@ envpilot-control-plane:
     enabled: true
   image:
     repository: ghcr.io/envpilot/api
-    tag: "sha-3cefdec8b81fe41aa341d574670f2954e553ef10"
-    digest: "sha256:e46b3d263e4ef66dba5a6d9219f5eb3dc5c925c4c1d7f54f15a4eb18bf941c73"
+    tag: "sha-25f0c27b4e66cbe2056c400c0821f3ef7ab3b10f"
+    digest: "sha256:e4e0d38a79e87d2635db58471cccc02c5fa5a4b0ec8a550ca1aec852d3df9980"
     pullPolicy: IfNotPresent
-    sourceRevision: "3cefdec8b81fe41aa341d574670f2954e553ef10"
-    release: "sha-3cefdec8b81fe41aa341d574670f2954e553ef10"
+    sourceRevision: "25f0c27b4e66cbe2056c400c0821f3ef7ab3b10f"
+    release: "sha-25f0c27b4e66cbe2056c400c0821f3ef7ab3b10f"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
