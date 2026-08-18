@@ -178,6 +178,9 @@ rbac:
     allowFluxResources: false
   secretManager:
     enabled: false
+    # Explicit target namespace allowlist for secret materialization. An empty
+    # list falls back to the single legacy namespace below.
+    namespaces: []
     namespace: ""
 
 podAnnotations: {}

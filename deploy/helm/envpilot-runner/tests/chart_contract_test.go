@@ -518,6 +518,23 @@ func TestRunnerChartCapabilityFlagsControlOptionalPermissions(t *testing.T) {
 	}
 }
 
+func TestRunnerChartSecretManagerUsesExplicitNamespaceAllowlist(t *testing.T) {
+	rendered := renderRunnerChart(t,
+		"--set", "rbac.secretManager.enabled=true",
+		"--set", "rbac.secretManager.namespaces[0]=feature-a",
+		"--set", "rbac.secretManager.namespaces[1]=feature-b",
+	)
+	docs := renderedDocs(rendered)
+	for _, namespace := range []string{"feature-a", "feature-b"} {
+		if role := findResourceDoc(docs, "Role", "envpilot-runner-secret-manager", namespace); role == "" {
+			t.Fatalf("secret-manager Role not found in exact namespace %s", namespace)
+		}
+	}
+	if strings.Contains(rendered, "kind: ClusterRole") && strings.Contains(rendered, "secret-manager") {
+		t.Fatalf("secret materialization must not grant cluster-wide RBAC:\n%s", rendered)
+	}
+}
+
 func TestRunnerChartRejectsPlaintextBootstrapTokensWithoutExplicitOverride(t *testing.T) {
 	commandArgs := []string{
 		"template", "envpilot-runner", "..",
