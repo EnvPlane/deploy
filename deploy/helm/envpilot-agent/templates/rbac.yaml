@@ -1,10 +1,7 @@
 {{- define "envpilot-agent.namespacedDiscoveryRules" -}}
 - apiGroups: [""]
   resources:
-    - pods
     - services
-    - endpoints
-    - events
     - configmaps
     - resourcequotas
     - limitranges
@@ -17,13 +14,19 @@
   verbs: ["get","list","watch"]
 {{- end }}
 - apiGroups: ["apps"]
-  resources: ["deployments","daemonsets","replicasets","statefulsets"]
+  resources: ["deployments","daemonsets","statefulsets"]
   verbs: ["get","list","watch"]
 - apiGroups: ["batch"]
   resources: ["jobs","cronjobs"]
   verbs: ["get","list","watch"]
 - apiGroups: ["networking.k8s.io"]
   resources: ["ingresses","networkpolicies"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
   verbs: ["get","list","watch"]
 - apiGroups: ["kustomize.toolkit.fluxcd.io"]
   resources: ["kustomizations"]
