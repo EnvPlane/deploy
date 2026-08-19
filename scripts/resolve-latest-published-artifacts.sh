@@ -16,7 +16,9 @@ usage: resolve-latest-published-artifacts.sh --output <file> \
 
 Requires Docker/Buildx and Helm registry authentication for artifact checks.
 ENVPILOT_ARTIFACT_WAIT_ATTEMPTS and ENVPILOT_ARTIFACT_WAIT_SECONDS tune the
-bounded wait for an image/chart publication still in progress.
+bounded wait for an image/chart publication still in progress. The defaults
+are intentionally short so a missing immutable artifact fails the workflow
+promptly rather than holding a runner for many minutes.
 EOF
   exit 2
 }
@@ -51,8 +53,8 @@ command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
 command -v oras >/dev/null || { echo "oras is required" >&2; exit 1; }
 
-wait_attempts="${ENVPILOT_ARTIFACT_WAIT_ATTEMPTS:-30}"
-wait_seconds="${ENVPILOT_ARTIFACT_WAIT_SECONDS:-20}"
+wait_attempts="${ENVPILOT_ARTIFACT_WAIT_ATTEMPTS:-6}"
+wait_seconds="${ENVPILOT_ARTIFACT_WAIT_SECONDS:-10}"
 [[ "$wait_attempts" =~ ^[1-9][0-9]*$ && "$wait_seconds" =~ ^[0-9]+$ ]] || {
   echo "artifact wait settings must be positive integers" >&2; exit 2;
 }
