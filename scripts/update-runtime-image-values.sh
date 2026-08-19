@@ -49,12 +49,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$component" in
-  control-plane) section="envpilot-control-plane"; expected_repository="ghcr.io/EnvPlane/api" ;;
-  frontend) section="envpilot-frontend"; expected_repository="ghcr.io/EnvPlane/frontend" ;;
-  agent) section="envpilot-agent"; expected_repository="ghcr.io/EnvPlane/agent" ;;
-  runner) section="envpilot-runner"; expected_repository="ghcr.io/EnvPlane/runner" ;;
-  webhook) section="envpilot-webhook"; expected_repository="ghcr.io/EnvPlane/webhook" ;;
-  platform-reconciler) section="platformDependencyReconciler"; expected_repository="ghcr.io/EnvPlane/platform-reconciler" ;;
+  control-plane) section="envpilot-control-plane"; expected_repository="ghcr.io/envplane/api" ;;
+  frontend) section="envpilot-frontend"; expected_repository="ghcr.io/envplane/frontend" ;;
+  agent) section="envpilot-agent"; expected_repository="ghcr.io/envplane/agent" ;;
+  runner) section="envpilot-runner"; expected_repository="ghcr.io/envplane/runner" ;;
+  webhook) section="envpilot-webhook"; expected_repository="ghcr.io/envplane/webhook" ;;
+  platform-reconciler) section="platformDependencyReconciler"; expected_repository="ghcr.io/envplane/platform-reconciler" ;;
   *) die "unsupported component: $component" ;;
 esac
 
