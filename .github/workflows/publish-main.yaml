@@ -130,6 +130,18 @@ jobs:
             --output "$RUNNER_TEMP/selected-child-charts.json" \
             --owner 'envplane' \
             --source-revision "$GITHUB_SHA"
+      - name: Make runtime image packages publicly readable
+        env:
+          GH_TOKEN: ${{ secrets.ENVPILOT_PACKAGE_ADMIN_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          for package in api frontend agent runner webhook; do
+            gh api --method PATCH \
+              "/orgs/EnvPlane/packages/container/$package" \
+              -H 'Accept: application/vnd.github+json' \
+              -f visibility=public >/dev/null
+            test "$(gh api "/orgs/EnvPlane/packages/container/$package" --jq '.visibility')" = public
+          done
       - name: Resolve and verify the published compatibility set
         env:
           GH_TOKEN: ${{ github.token }}
