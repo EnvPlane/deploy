@@ -282,9 +282,16 @@ jobs:
             --slurpfile compatibility deploy/helm/envpilot/compatibility/release.json \
             '{schemaVersion:1,chart:$chart,version:$version,digest:$digest,compatibility:$compatibility[0]}' \
             > "dist/envpilot-$VERSION-release.json"
-          gh release create "envpilot-v$VERSION" \
-            "dist/envpilot-$VERSION.tgz" \
-            deploy/helm/envpilot/compatibility/release.json \
-            "dist/envpilot-$VERSION-release.json" \
-            --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
-            --notes "OCI chart: oci://ghcr.io/envplane/envpilot:$VERSION\nDigest: $DIGEST"
+          tag="envpilot-v$VERSION"
+          assets=(
+            "dist/envpilot-$VERSION.tgz"
+            "deploy/helm/envpilot/compatibility/release.json"
+            "dist/envpilot-$VERSION-release.json"
+          )
+          if gh release view "$tag" --repo EnvPlane/deploy >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --repo EnvPlane/deploy --clobber
+          else
+            gh release create "$tag" "${assets[@]}" \
+              --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
+              --notes "OCI chart: oci://ghcr.io/envplane/envpilot:$VERSION\nDigest: $DIGEST"
+          fi
