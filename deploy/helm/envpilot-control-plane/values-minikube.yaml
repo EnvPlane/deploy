@@ -38,7 +38,7 @@ env:
   # exercising the first-operator GitHub OAuth flow locally.
   ENVPILOT_OAUTH_COOKIE_SECURE: "false"
   ENVPILOT_AGENT_CONTROL_PLANE_URL: ""
-  ENVPILOT_AGENT_HELM_CHART_REF: "oci://ghcr.io/envpilot/envpilot-agent"
+  ENVPILOT_AGENT_HELM_CHART_REF: "oci://ghcr.io/EnvPlane/envpilot-agent"
   ENVPILOT_AGENT_HELM_CHART_VERSION: "0.2.0"
   ENVPILOT_AGENT_IMAGE_REPOSITORY: "envpilot/api"
   ENVPILOT_AGENT_IMAGE_TAG: "local"

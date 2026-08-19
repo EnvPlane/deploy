@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/envpilot/api
+  repository: ghcr.io/EnvPlane/api
   pullPolicy: IfNotPresent
   tag: "0.1.6"
   # When set, digest takes precedence over tag.
@@ -141,7 +141,7 @@ ttlCleanup:
 agentBootstrap:
   controlPlaneURL: ""
   image:
-    repository: ghcr.io/envpilot/agent
+    repository: ghcr.io/EnvPlane/agent
     tag: "0.1.4"
   # Standalone control-plane installs must explicitly provide a remote Agent
   # chart contract. The umbrella injects its signed release-compatible child

@@ -265,7 +265,7 @@ func TestRunnerChartUsesPersistentImage(t *testing.T) {
 	}
 	valuesText := string(values)
 	for _, expected := range []string{
-		"repository: ghcr.io/envpilot/runner",
+		"repository: ghcr.io/EnvPlane/runner",
 		`tag: "0.2.0"`,
 	} {
 		if !strings.Contains(valuesText, expected) {

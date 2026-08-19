@@ -134,7 +134,7 @@ global:
     # included in a session.
     bootstrapDefaults:
       helmDirect:
-        chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload
+        chartRef: oci://ghcr.io/EnvPlane/envpilot-e2e-workload
         chartVersion: "0.1.0"
     # Opt-in only. The local E2E profile creates a disposable base workload and
     # reconciles this reserved project through real Agent discovery, Runner
@@ -148,7 +148,7 @@ global:
         enabled: false
       baseNamespace: envpilot-e2e-base
       featureNamespace: envpilot-e2e-feature
-      chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload
+      chartRef: oci://ghcr.io/EnvPlane/envpilot-e2e-workload
       chartVersion: "0.1.0"
       appRepositoryURL: https://github.com/envpilot/envpilot-e2e-workload
       gitopsRepositoryURL: https://github.com/envpilot/deploy
@@ -226,7 +226,7 @@ platformDependencyReconciler:
   # hooks/RBAC or private image are rendered.
   enabled: false
   image:
-    repository: ghcr.io/envpilot/platform-reconciler
+    repository: ghcr.io/EnvPlane/platform-reconciler
     tag: "sha-6adc8322c3bc3d051f19ab8407bc418c004d55d8"
     digest: "sha256:80242aeb7e222369eed170fe7f4f64b6a0a69b45eac6bed409ae45802a9fd75d"
     pullPolicy: IfNotPresent
@@ -259,7 +259,7 @@ envpilot-control-plane:
   dependencyWait:
     enabled: true
   image:
-    repository: ghcr.io/envpilot/api
+    repository: ghcr.io/EnvPlane/api
     tag: "sha-4e3c29221661598d5b86cf50d13a4874995d9ad2"
     digest: "sha256:353658e27a1f28ae9d8a022b699b3ac38dbbd3cd8dae2cbd5a8ce56986988644"
     pullPolicy: IfNotPresent
@@ -330,13 +330,13 @@ envpilot-control-plane:
   agentBootstrap:
     controlPlaneURL: ""
     image:
-      repository: ghcr.io/envpilot/agent
+      repository: ghcr.io/EnvPlane/agent
       tag: "sha-7e03dde324a6f5fd095682177f547d9ad30e7f12"
     # This must match the envpilot-agent child dependency in Chart.yaml. The
     # release workflow signs it into compatibility/release.json and the
     # dependency update workflow changes both fields atomically.
     chart:
-      ref: "oci://ghcr.io/envpilot/envpilot-agent"
+      ref: "oci://ghcr.io/EnvPlane/envpilot-agent"
       version: "0.2.10"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
@@ -398,7 +398,7 @@ envpilot-control-plane:
 envpilot-frontend:
   fullnameOverride: envpilot-frontend
   image:
-    repository: ghcr.io/envpilot/frontend
+    repository: ghcr.io/EnvPlane/frontend
     tag: "sha-51d7c7ca0b6da780cb8069c8ef60e2435fe75143"
     digest: "sha256:d29707bc554ef3c404e8944f2b05a3cf71c61b535e527525e102e4a6e7e38ba7"
     pullPolicy: IfNotPresent
@@ -422,7 +422,7 @@ envpilot-frontend:
 envpilot-agent:
   fullnameOverride: envpilot-agent
   image:
-    repository: ghcr.io/envpilot/agent
+    repository: ghcr.io/EnvPlane/agent
     tag: "sha-bf27c80cb8f7346d74d36a2f4ef94fba1c8a4b3d"
     digest: "sha256:5ebaea7381689aaf9eba8c49c3252bf4bd7afd2fda51a6c22a7e39830e8a79aa"
     pullPolicy: IfNotPresent
@@ -477,7 +477,7 @@ envpilot-agent:
 envpilot-runner:
   fullnameOverride: envpilot-runner
   image:
-    repository: ghcr.io/envpilot/runner
+    repository: ghcr.io/EnvPlane/runner
     tag: "sha-599713ee08a40e66c7d887588a1474b76201a677"
     digest: "sha256:0ecc688a47fcf3a7f61a1be7a3bf408759b9d305ffbf212899dfc5475426d094"
     pullPolicy: IfNotPresent
@@ -531,7 +531,7 @@ envpilot-runner:
 envpilot-webhook:
   fullnameOverride: envpilot-webhook
   image:
-    repository: ghcr.io/envpilot/webhook
+    repository: ghcr.io/EnvPlane/webhook
     tag: "sha-bbfef36a8b981aedda6d9edd2e536f512576392c"
     digest: "sha256:1d0799de422f6ca4747957800d2986d9a4d4017c09fc675675fbf521a90cead0"
     pullPolicy: IfNotPresent

@@ -86,7 +86,7 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Reject an existing umbrella OCI version
         if: inputs.resume != true
-        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envpilot/envpilot --version '${{ steps.version.outputs.version }}'
+        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/EnvPlane/envpilot --version '${{ steps.version.outputs.version }}'
       - name: Package umbrella chart
         if: inputs.resume != true
         run: helm package deploy/helm/envpilot --destination dist --version '${{ steps.version.outputs.version }}' --app-version '${{ steps.version.outputs.version }}'
@@ -99,7 +99,7 @@ jobs:
           set -euo pipefail
           if [[ "$RESUME" == true ]]; then
             mkdir -p /tmp/envpilot-release-resume deploy/helm/envpilot/compatibility
-            output="$(helm pull "oci://ghcr.io/envpilot/envpilot" --version "$VERSION" --destination /tmp/envpilot-release-resume 2>&1 | tee /dev/stderr)"
+            output="$(helm pull "oci://ghcr.io/EnvPlane/envpilot" --version "$VERSION" --destination /tmp/envpilot-release-resume 2>&1 | tee /dev/stderr)"
             package="/tmp/envpilot-release-resume/envpilot-$VERSION.tgz"
             tar -tzf "$package" > /tmp/envpilot-release-resume/archive-files.txt
             manifest_path="$(awk '/\/compatibility\/release\.json$/ { print; exit }' /tmp/envpilot-release-resume/archive-files.txt)"
@@ -107,7 +107,7 @@ jobs:
             tar -xOf "$package" "$manifest_path" > deploy/helm/envpilot/compatibility/release.json
           else
             package="dist/envpilot-$VERSION.tgz"
-            output="$(helm push "$package" oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+            output="$(helm push "$package" oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
           fi
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
@@ -115,7 +115,7 @@ jobs:
           echo "package=$package" >> "$GITHUB_OUTPUT"
       - name: Sign and attest published chart
         env:
-          CHART_REF: ghcr.io/envpilot/envpilot@${{ steps.push.outputs.digest }}
+          CHART_REF: ghcr.io/EnvPlane/envpilot@${{ steps.push.outputs.digest }}
           MANIFEST: deploy/helm/envpilot/compatibility/release.json
         run: |
           cosign sign --yes "$CHART_REF"
@@ -125,7 +125,7 @@ jobs:
           PREVIOUS: ${{ steps.version.outputs.previous }}
         run: |
           set -euo pipefail
-          helm pull "oci://ghcr.io/envpilot/envpilot" --version "$PREVIOUS" --destination /tmp
+          helm pull "oci://ghcr.io/EnvPlane/envpilot" --version "$PREVIOUS" --destination /tmp
           args=()
           if [[ "$PREVIOUS" == *-main.* ]]; then
             args+=(--allow-legacy-without-manifest)
@@ -141,4 +141,4 @@ jobs:
             "${{ steps.push.outputs.package }}" \
             deploy/helm/envpilot/compatibility/release.json \
             --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
-            --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"
+            --notes "OCI chart: oci://ghcr.io/EnvPlane/envpilot:$VERSION\nDigest: $DIGEST"

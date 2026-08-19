@@ -42,12 +42,12 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Reject an existing OCI version
-        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envpilot/envpilot-runner --version '${{ steps.chart.outputs.version }}'
+        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/EnvPlane/envpilot-runner --version '${{ steps.chart.outputs.version }}'
       - name: Publish OCI chart
         id: push
         run: |
           set -euo pipefail
-          output="$(helm push dist/envpilot-runner-*.tgz oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+          output="$(helm push dist/envpilot-runner-*.tgz oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
@@ -75,7 +75,7 @@ jobs:
           echo "path=$predicate" >> "$GITHUB_OUTPUT"
       - name: Sign and attest the published Runner chart
         env:
-          CHART_REF: ghcr.io/envpilot/envpilot-runner@${{ steps.push.outputs.digest }}
+          CHART_REF: ghcr.io/EnvPlane/envpilot-runner@${{ steps.push.outputs.digest }}
           PREDICATE: ${{ steps.predicate.outputs.path }}
         run: |
           cosign sign --yes "$CHART_REF"
@@ -87,7 +87,7 @@ jobs:
       - name: Test published legacy remote upgrade
         env:
           ENVPILOT_RUNNER_UPGRADE_CONTEXT: kind-runner-chart-upgrade
-          ENVPILOT_RUNNER_UPGRADE_CHART: oci://ghcr.io/envpilot/envpilot-runner
+          ENVPILOT_RUNNER_UPGRADE_CHART: oci://ghcr.io/EnvPlane/envpilot-runner
           ENVPILOT_RUNNER_UPGRADE_VERSION: ${{ steps.chart.outputs.version }}
         run: ./scripts/test-published-runner-legacy-upgrade.sh
       - id: dispatch_auth

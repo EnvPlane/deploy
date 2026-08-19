@@ -20,7 +20,7 @@ Migration from fixed-name Agent releases:
   Older releases used the fixed envpilot-agent resource name. Preserve its
   Deployment, RBAC and auth PVC with:
 
-    helm upgrade {{ .Release.Name }} oci://ghcr.io/envpilot/envpilot-agent \
+    helm upgrade {{ .Release.Name }} oci://ghcr.io/EnvPlane/envpilot-agent \
       --namespace {{ .Release.Namespace }} --reuse-values \
       --set fullnameOverride=envpilot-agent \
       --set legacyChartName=envpilot-agent

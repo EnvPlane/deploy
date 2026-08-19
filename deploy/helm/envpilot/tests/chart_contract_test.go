@@ -337,7 +337,7 @@ func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *te
 	}
 	for _, expected := range []string{
 		"bootstrapDefaults:",
-		"chartRef: oci://ghcr.io/envpilot/envpilot-e2e-workload",
+		"chartRef: oci://ghcr.io/EnvPlane/envpilot-e2e-workload",
 		`chartVersion: "0.1.0"`,
 		"e2eWorkload:",
 		"enabled: false",
@@ -349,7 +349,7 @@ func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *te
 	rendered := renderUmbrella(t)
 	for _, expected := range []string{
 		"name: ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF",
-		`value: "oci://ghcr.io/envpilot/envpilot-e2e-workload"`,
+		`value: "oci://ghcr.io/EnvPlane/envpilot-e2e-workload"`,
 		"name: ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_VERSION",
 		`value: "0.1.0"`,
 	} {
@@ -391,13 +391,13 @@ func TestUmbrellaInjectsReleaseCompatibleAgentChartContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read values.yaml: %v", err)
 	}
-	if !strings.Contains(string(values), `ref: "oci://ghcr.io/envpilot/envpilot-agent"`) || !strings.Contains(string(values), `version: "`+agentVersion+`"`) {
+	if !strings.Contains(string(values), `ref: "oci://ghcr.io/EnvPlane/envpilot-agent"`) || !strings.Contains(string(values), `version: "`+agentVersion+`"`) {
 		t.Fatalf("umbrella values must carry the release-compatible Agent chart contract for %s:\n%s", agentVersion, values)
 	}
 	rendered := renderUmbrella(t)
 	for _, expected := range []string{
 		`name: ENVPILOT_AGENT_HELM_CHART_REF`,
-		`value: "oci://ghcr.io/envpilot/envpilot-agent"`,
+		`value: "oci://ghcr.io/EnvPlane/envpilot-agent"`,
 		`name: ENVPILOT_AGENT_HELM_CHART_VERSION`,
 		`value: "` + agentVersion + `"`,
 	} {
@@ -501,7 +501,7 @@ func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
 		"name: ENVPILOT_SAME_CLUSTER_FIXTURE_ENABLED",
 		"name: ENVPILOT_SAME_CLUSTER_FIXTURE_RECOVERY_ENABLED",
 		`value: "true"`,
-		`value: "oci://ghcr.io/envpilot/envpilot-e2e-workload"`,
+		`value: "oci://ghcr.io/EnvPlane/envpilot-e2e-workload"`,
 		`value: "envpilot-e2e-base"`,
 		`value: "envpilot-e2e-feature"`,
 		"agent-registration-token",
@@ -556,7 +556,7 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		"name: envpilot-install",
-		"ghcr.io/envpilot/install",
+		"ghcr.io/EnvPlane/install",
 		"kubectl delete namespace",
 		"kind: Ingress",
 		"kind: HTTPRoute",
@@ -1466,7 +1466,7 @@ func TestInstallationDocsQuickStartSmoke(t *testing.T) {
 	}
 	contents := string(docs)
 	for _, expected := range []string{
-		"helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot",
+		"helm upgrade --install envpilot oci://ghcr.io/EnvPlane/envpilot",
 		"--version <published-umbrella-version>", "--namespace envpilot", "--values values.yaml",
 		"auto", "managed", "existing", "disabled", "Kubernetes 1.26",
 		"Private registry", "minikube-", "not required",
@@ -1589,7 +1589,7 @@ func TestExternalDataAndImageDigestRenderWithoutProviderAssumptions(t *testing.T
 		"--set", "redis.external.existingSecret=redis-url",
 	)
 	for _, expected := range []string{
-		"ghcr.io/envpilot/api@" + digest,
+		"ghcr.io/EnvPlane/api@" + digest,
 		"name: \"postgres-url\"",
 		"key: \"database-url\"",
 		"name: \"redis-url\"",
@@ -1743,10 +1743,10 @@ func TestUmbrellaReleaseContractPinsDirectChartSet(t *testing.T) {
 	}
 	for _, expected := range []string{
 		`version: "0.3.0"`,
-		"umbrella: oci://ghcr.io/envpilot/envpilot:0.3.0",
-		"controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.3.0",
-		"frontend: oci://ghcr.io/envpilot/envpilot-frontend:0.2.0",
-		"runner: oci://ghcr.io/envpilot/envpilot-runner:0.3.0",
+		"umbrella: oci://ghcr.io/EnvPlane/envpilot:0.3.0",
+		"controlPlane: oci://ghcr.io/EnvPlane/envpilot-control-plane:0.3.0",
+		"frontend: oci://ghcr.io/EnvPlane/envpilot-frontend:0.2.0",
+		"runner: oci://ghcr.io/EnvPlane/envpilot-runner:0.3.0",
 		"installerImage: absent",
 	} {
 		if !strings.Contains(string(contract), expected) {

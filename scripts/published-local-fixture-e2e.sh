@@ -7,7 +7,7 @@ set -euo pipefail
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE_ROOT="${ENVPILOT_WORKSPACE_ROOT:-$(cd "$DEPLOY_ROOT/.." && pwd)}"
 : "${ENVPILOT_E2E_CONTEXT:?set an already-provisioned Kubernetes context}"
-: "${ENVPILOT_E2E_UMBRELLA_REF:?set the published OCI umbrella ref, e.g. oci://ghcr.io/envpilot/envpilot}"
+: "${ENVPILOT_E2E_UMBRELLA_REF:?set the published OCI umbrella ref, e.g. oci://ghcr.io/EnvPlane/envpilot}"
 : "${ENVPILOT_E2E_UMBRELLA_VERSION:?set the published immutable umbrella version}"
 
 NAMESPACE="${ENVPILOT_E2E_NAMESPACE:-envpilot}"

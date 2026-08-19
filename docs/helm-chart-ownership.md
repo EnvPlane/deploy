@@ -5,10 +5,10 @@ Helm charts. The published OCI names are stable:
 
 | Component | Canonical source | OCI reference |
 |---|---|---|
-| Control plane API | `deploy/helm/envpilot-control-plane` | `oci://ghcr.io/envpilot/envpilot-control-plane` |
-| Frontend | `deploy/helm/envpilot-frontend` | `oci://ghcr.io/envpilot/envpilot-frontend` |
-| Agent | `deploy/helm/envpilot-agent` | `oci://ghcr.io/envpilot/envpilot-agent` |
-| Runner | `deploy/helm/envpilot-runner` | `oci://ghcr.io/envpilot/envpilot-runner` |
+| Control plane API | `deploy/helm/envpilot-control-plane` | `oci://ghcr.io/EnvPlane/envpilot-control-plane` |
+| Frontend | `deploy/helm/envpilot-frontend` | `oci://ghcr.io/EnvPlane/envpilot-frontend` |
+| Agent | `deploy/helm/envpilot-agent` | `oci://ghcr.io/EnvPlane/envpilot-agent` |
+| Runner | `deploy/helm/envpilot-runner` | `oci://ghcr.io/EnvPlane/envpilot-runner` |
 
 `envpilot-runner-chart` is retired. Existing published versions remain
 installable, but no new release is published under that OCI name. The copies
@@ -23,7 +23,7 @@ immutable Deployment selector. Preserve the running Deployment, RBAC and auth
 PVC while switching to the canonical OCI chart:
 
 ```sh
-helm upgrade <release> oci://ghcr.io/envpilot/envpilot-runner \
+helm upgrade <release> oci://ghcr.io/EnvPlane/envpilot-runner \
   --version <new-version> \
   --namespace <namespace> \
   --reuse-values \
@@ -44,7 +44,7 @@ the canonical chart treats the missing block as system trust and renders no CA
 volume. Keep the remote endpoint explicit and stable:
 
 ```sh
-helm upgrade <release> oci://ghcr.io/envpilot/envpilot-runner \
+helm upgrade <release> oci://ghcr.io/EnvPlane/envpilot-runner \
   --version 0.3.4 \
   --namespace <target-namespace> \
   --reuse-values \

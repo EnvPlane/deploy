@@ -29,7 +29,7 @@ jobs:
       - name: Reject an existing OCI version
         run: |
           ./scripts/check-oci-chart-version-available.sh \
-            --repository oci://ghcr.io/envpilot/envpilot-e2e-workload \
+            --repository oci://ghcr.io/EnvPlane/envpilot-e2e-workload \
             --version "$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot-e2e-workload/Chart.yaml)"
       - name: Publish OCI chart
-        run: helm push dist/envpilot-e2e-workload-*.tgz oci://ghcr.io/envpilot
+        run: helm push dist/envpilot-e2e-workload-*.tgz oci://ghcr.io/EnvPlane

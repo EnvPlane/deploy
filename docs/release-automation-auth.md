@@ -1,7 +1,7 @@
 # Cross-repository release automation authentication
 
 Component repositories publish immutable multi-architecture images, then send a
-`repository_dispatch` event to `envpilot/deploy`. The deploy repository validates
+`repository_dispatch` event to `EnvPlane/deploy`. The deploy repository validates
 that event and opens a pull request which pins the exact image digest in the
 umbrella values. Neither path accepts mutable `main` or `latest` release pins.
 

@@ -23,7 +23,7 @@ func TestFrontendChartRendersStableStandaloneResources(t *testing.T) {
 		"kind: Deployment",
 		"name: envpilot-envpilot-frontend",
 		"kind: Service",
-		`image: "ghcr.io/envpilot/frontend:0.1.5"`,
+		`image: "ghcr.io/EnvPlane/frontend:0.1.5"`,
 		"app.kubernetes.io/component: frontend",
 	} {
 		if !strings.Contains(rendered, expected) {

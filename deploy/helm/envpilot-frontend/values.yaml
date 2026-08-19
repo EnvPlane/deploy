@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/envpilot/frontend
+  repository: ghcr.io/EnvPlane/frontend
   pullPolicy: IfNotPresent
   tag: "0.1.5"
   # Digest is preferred over tag in rendered workloads. Keep source metadata

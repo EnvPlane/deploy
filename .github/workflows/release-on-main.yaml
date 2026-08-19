@@ -164,12 +164,12 @@ jobs:
           # published release resolves the exact selected OCI archives so its
           # vendored dependencies cannot drift from the compatibility report.
           sed -i.bak \
-            -e 's#repository: file://../envpilot-control-plane#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-frontend#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-agent#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-runner#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-webhook#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-e2e-workload#repository: oci://ghcr.io/envpilot#' \
+            -e 's#repository: file://../envpilot-control-plane#repository: oci://ghcr.io/EnvPlane#' \
+            -e 's#repository: file://../envpilot-frontend#repository: oci://ghcr.io/EnvPlane#' \
+            -e 's#repository: file://../envpilot-agent#repository: oci://ghcr.io/EnvPlane#' \
+            -e 's#repository: file://../envpilot-runner#repository: oci://ghcr.io/EnvPlane#' \
+            -e 's#repository: file://../envpilot-webhook#repository: oci://ghcr.io/EnvPlane#' \
+            -e 's#repository: file://../envpilot-e2e-workload#repository: oci://ghcr.io/EnvPlane#' \
             deploy/helm/envpilot/Chart.yaml
           rm -f deploy/helm/envpilot/Chart.yaml.bak
           rm -f deploy/helm/envpilot/Chart.lock deploy/helm/envpilot/charts/*.tgz
@@ -185,7 +185,7 @@ jobs:
           # Read the registry tag set once and derive the next patch directly.
           # Probing versions one by one makes every release walk through all
           # historical tags (and can issue hundreds of registry requests).
-          published="$(oras repo tags ghcr.io/envpilot/envpilot 2>/dev/null \
+          published="$(oras repo tags ghcr.io/EnvPlane/envpilot 2>/dev/null \
             | awk '/^[0-9]+\.[0-9]+\.[0-9]+$/ {print}' \
             | sort -V | tail -n1 || true)"
           base="$(printf '%s\n' "$current" "$previous" "$published" | sort -V | tail -n1)"
@@ -243,7 +243,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          output="$(helm push "dist/envpilot-$VERSION.tgz" oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+          output="$(helm push "dist/envpilot-$VERSION.tgz" oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
           digest="$(awk '/^Digest:/{print $2; exit}' <<< "$output")"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "umbrella push did not return an immutable digest" >&2; exit 1; }
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
@@ -253,7 +253,7 @@ jobs:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           set -euo pipefail
-          ref="ghcr.io/envpilot/envpilot@$DIGEST"
+          ref="ghcr.io/EnvPlane/envpilot@$DIGEST"
           cosign sign --yes "$ref"
           cosign attest --yes --predicate "$RUNNER_TEMP/compatibility-predicate.json" \
             --type https://envpilot.dev/compatibility/v1 "$ref"
@@ -262,7 +262,7 @@ jobs:
           PREVIOUS: ${{ steps.version.outputs.previous }}
         run: |
           set -euo pipefail
-          helm pull "oci://ghcr.io/envpilot/envpilot" --version "$PREVIOUS" --destination "$RUNNER_TEMP"
+          helm pull "oci://ghcr.io/EnvPlane/envpilot" --version "$PREVIOUS" --destination "$RUNNER_TEMP"
           ./scripts/verify-umbrella-reinstall-compatibility.sh \
             "$RUNNER_TEMP/envpilot-$PREVIOUS.tgz"
       - name: Publish GitHub Release and machine-readable metadata
@@ -273,7 +273,7 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg version "$VERSION" --arg digest "$DIGEST" \
-            --arg chart "oci://ghcr.io/envpilot/envpilot:$VERSION" \
+            --arg chart "oci://ghcr.io/EnvPlane/envpilot:$VERSION" \
             --slurpfile compatibility deploy/helm/envpilot/compatibility/release.json \
             '{schemaVersion:1,chart:$chart,version:$version,digest:$digest,compatibility:$compatibility[0]}' \
             > "dist/envpilot-$VERSION-release.json"
@@ -282,4 +282,4 @@ jobs:
             deploy/helm/envpilot/compatibility/release.json \
             "dist/envpilot-$VERSION-release.json" \
             --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
-            --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"
+            --notes "OCI chart: oci://ghcr.io/EnvPlane/envpilot:$VERSION\nDigest: $DIGEST"

@@ -50,7 +50,7 @@ jobs:
       - id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/envpilot/platform-reconciler
+          images: ghcr.io/EnvPlane/platform-reconciler
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -70,7 +70,7 @@ jobs:
       - id: published
         name: Emit immutable image metadata
         env:
-          REPOSITORY: ghcr.io/envpilot/platform-reconciler
+          REPOSITORY: ghcr.io/EnvPlane/platform-reconciler
           TAG: sha-${{ github.sha }}
           DIGEST: ${{ steps.build.outputs.digest }}
           SOURCE_REVISION: ${{ github.sha }}

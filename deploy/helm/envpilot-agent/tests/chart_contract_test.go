@@ -347,7 +347,7 @@ func TestAgentChartUsesPersistentImage(t *testing.T) {
 	}
 	valuesText := string(values)
 	for _, expected := range []string{
-		"repository: ghcr.io/envpilot/agent",
+		"repository: ghcr.io/EnvPlane/agent",
 		`tag: "0.1.4"`,
 	} {
 		if !strings.Contains(valuesText, expected) {

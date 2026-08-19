@@ -30,11 +30,11 @@ jobs:
         run: |
           set -euo pipefail
           case "$COMPONENT:$CHART:$REPOSITORY:$SOURCE_REPOSITORY" in
-            control-plane:envpilot-control-plane:oci://ghcr.io/envpilot/envpilot-control-plane:EnvPlane/deploy) ;;
-            frontend:envpilot-frontend:oci://ghcr.io/envpilot/envpilot-frontend:EnvPlane/deploy) ;;
-            agent:envpilot-agent:oci://ghcr.io/envpilot/envpilot-agent:EnvPlane/deploy) ;;
-            runner:envpilot-runner:oci://ghcr.io/envpilot/envpilot-runner:EnvPlane/deploy) ;;
-            webhook:envpilot-webhook:oci://ghcr.io/envpilot/envpilot-webhook:EnvPlane/deploy) ;;
+            control-plane:envpilot-control-plane:oci://ghcr.io/EnvPlane/envpilot-control-plane:EnvPlane/deploy) ;;
+            frontend:envpilot-frontend:oci://ghcr.io/EnvPlane/envpilot-frontend:EnvPlane/deploy) ;;
+            agent:envpilot-agent:oci://ghcr.io/EnvPlane/envpilot-agent:EnvPlane/deploy) ;;
+            runner:envpilot-runner:oci://ghcr.io/EnvPlane/envpilot-runner:EnvPlane/deploy) ;;
+            webhook:envpilot-webhook:oci://ghcr.io/EnvPlane/envpilot-webhook:EnvPlane/deploy) ;;
             *) echo "chart/source/repository is not canonical" >&2; exit 1 ;;
           esac
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "invalid chart version" >&2; exit 1; }

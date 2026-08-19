@@ -68,7 +68,7 @@ jobs:
             *) echo "source repository is not canonical for component" >&2; exit 1 ;;
           esac
           case "$COMPONENT:$REPOSITORY" in
-            control-plane:ghcr.io/envpilot/api|frontend:ghcr.io/envpilot/frontend|agent:ghcr.io/envpilot/agent|runner:ghcr.io/envpilot/runner) ;;
+            control-plane:ghcr.io/EnvPlane/api|frontend:ghcr.io/EnvPlane/frontend|agent:ghcr.io/EnvPlane/agent|runner:ghcr.io/EnvPlane/runner) ;;
             *) echo "repository is not canonical for component" >&2; exit 1;;
           esac
           {
@@ -115,7 +115,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          # Canonical packages remain under ghcr.io/envpilot after the
+          # Canonical packages remain under ghcr.io/EnvPlane after the
           # repository-owner migration. Use the dedicated registry credential
           # before the repository App token, which cannot access that package
           # namespace. Digest verification below remains mandatory.

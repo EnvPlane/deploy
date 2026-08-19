@@ -9,7 +9,7 @@
 
 The published `envpilot` chart is currently a bootstrap installer, not a Helm
 umbrella chart. It renders a privileged post-install/post-upgrade Job using
-`ghcr.io/envpilot/install`. That Job invokes `helm` and `kubectl`, installs the
+`ghcr.io/EnvPlane/install`. That Job invokes `helm` and `kubectl`, installs the
 control plane, Agent and Runner as separate Helm releases, creates bootstrap
 credentials, and can clean namespaces and cluster-scoped RBAC.
 
@@ -37,7 +37,7 @@ EnvPlane must support a provider-neutral installation in a pre-existing
 Kubernetes cluster through exactly one command:
 
 ```sh
-helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
+helm upgrade --install envpilot oci://ghcr.io/EnvPlane/envpilot \
   --version <version> \
   --namespace envpilot \
   --create-namespace \

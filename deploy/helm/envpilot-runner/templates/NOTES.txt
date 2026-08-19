@@ -42,7 +42,7 @@ Migration from the retired envpilot-runner-chart OCI chart:
   envpilot-runner-chart. Preserve the existing Deployment, RBAC and
   envpilot-runner-chart-auth PVC with:
 
-    helm upgrade {{ .Release.Name }} oci://ghcr.io/envpilot/envpilot-runner \
+    helm upgrade {{ .Release.Name }} oci://ghcr.io/EnvPlane/envpilot-runner \
       --namespace {{ .Release.Namespace }} --reuse-values \
       --set fullnameOverride=envpilot-runner-chart \
       --set legacyChartName=envpilot-runner-chart

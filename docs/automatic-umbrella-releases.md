@@ -19,7 +19,7 @@ The build workspace rewrites only its copy of `values.yaml`, `Chart.yaml`,
 `Chart.lock` and vendored archives. The source chart directories remain the
 canonical development sources. The resulting chart receives the next patch
 SemVer, is linted/rendered/tested, signed with cosign, attested with a JSON
-compatibility predicate, pushed to `oci://ghcr.io/envpilot/envpilot`, and
+compatibility predicate, pushed to `oci://ghcr.io/EnvPlane/envpilot`, and
 published as a GitHub Release with machine-readable metadata.
 
 No mutable `latest` or `main` artifact is accepted. A missing package, invalid

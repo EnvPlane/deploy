@@ -122,7 +122,7 @@ For Helm Direct:
 - Release pattern: `{{ .project.id }}-{{ .environment.name }}`
 - Namespace mode: `dedicated`
 - Step 2 is prefilled with the umbrella-pinned
-  `oci://ghcr.io/envpilot/envpilot-e2e-workload` chart and its immutable
+  `oci://ghcr.io/EnvPlane/envpilot-e2e-workload` chart and its immutable
   version; it can be replaced with the application's chart before compile.
   Choose the prefilled chart for the local/demo workload, or enter the
   application's chart ref/path (for example `charts/checkout`).
@@ -228,7 +228,7 @@ For non-local installations set these control-plane environment variables to a
 published OCI chart and an address reachable from agent pods:
 
 ```text
-ENVPILOT_AGENT_HELM_CHART_REF=oci://ghcr.io/envpilot/envpilot-agent
+ENVPILOT_AGENT_HELM_CHART_REF=oci://ghcr.io/EnvPlane/envpilot-agent
 ENVPILOT_AGENT_HELM_CHART_VERSION=<version from the active umbrella compatibility manifest>
 ENVPILOT_AGENT_CONTROL_PLANE_URL=https://envpilot.example.com
 ```
@@ -418,11 +418,11 @@ still waits for the real resource scan, target-Runner Helm chart preflight and
 compile before it marks the project deploy-ready; no readiness check is bypassed.
 
 After publishing both the umbrella release and
-`oci://ghcr.io/envpilot/envpilot-e2e-workload:0.1.0`, run:
+`oci://ghcr.io/EnvPlane/envpilot-e2e-workload:0.1.0`, run:
 
 ```sh
 ENVPILOT_E2E_CONTEXT=minikube \
-ENVPILOT_E2E_UMBRELLA_REF=oci://ghcr.io/envpilot/envpilot \
+ENVPILOT_E2E_UMBRELLA_REF=oci://ghcr.io/EnvPlane/envpilot \
 ENVPILOT_E2E_UMBRELLA_VERSION=<published-version> \
 ./scripts/published-local-fixture-e2e.sh
 ```

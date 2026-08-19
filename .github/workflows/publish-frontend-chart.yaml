@@ -24,11 +24,11 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Reject an existing OCI version
-        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envpilot/envpilot-frontend --version '${{ steps.chart.outputs.version }}'
+        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/EnvPlane/envpilot-frontend --version '${{ steps.chart.outputs.version }}'
       - id: push
         run: |
           set -euo pipefail
-          output="$(helm push dist/envpilot-frontend-*.tgz oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+          output="$(helm push dist/envpilot-frontend-*.tgz oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"

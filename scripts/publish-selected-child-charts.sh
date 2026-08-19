@@ -23,7 +23,7 @@ umbrella_chart=""
 charts_dir=""
 dist=""
 output=""
-owner="envpilot"
+owner="EnvPlane"
 source_revision="${GITHUB_SHA:-}"
 while [[ $# -gt 0 ]]; do
   case "$1" in

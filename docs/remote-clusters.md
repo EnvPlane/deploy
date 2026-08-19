@@ -19,7 +19,7 @@ management-cluster EnvPlane API ── Remote Cluster Reconciler ── Kubernet
 The application installation is exactly one command against an already provisioned Kubernetes cluster. Enable the Remote Cluster Reconciler in the values file; remote targets themselves do not belong in it.
 
 ```sh
-helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
+helm upgrade --install envpilot oci://ghcr.io/EnvPlane/envpilot \
   --version <immutable-umbrella-version> \
   --namespace envpilot --create-namespace --values values.yaml --wait
 ```
@@ -94,7 +94,7 @@ Example invocation (the exact endpoint and files are platform-owned):
 ```sh
 ENVPILOT_E2E_MANAGEMENT_CONTEXT=management \
 ENVPILOT_E2E_TARGET_CONTEXT=target \
-ENVPILOT_E2E_UMBRELLA_REF=oci://ghcr.io/envpilot/envpilot \
+ENVPILOT_E2E_UMBRELLA_REF=oci://ghcr.io/EnvPlane/envpilot \
 ENVPILOT_E2E_UMBRELLA_VERSION=<immutable-version> \
 ENVPILOT_E2E_VALUES_FILE=values.yaml \
 ENVPILOT_E2E_API_URL=https://api.envpilot.platform.internal \

@@ -4,7 +4,7 @@ set -euo pipefail
 # Cluster-free published-artifact contract test. It verifies that a released
 # umbrella carries the shared registry Secret reference into every runtime
 # workload, while the chart itself never contains credential data.
-CHART_REF="${CHART_REF:-oci://ghcr.io/envpilot/envpilot}"
+CHART_REF="${CHART_REF:-oci://ghcr.io/EnvPlane/envpilot}"
 VERSION="${1:-${ENVPILOT_UMBRELLA_VERSION:-}}"
 SECRET_NAME="${REGISTRY_SECRET_NAME:-registry-credentials}"
 

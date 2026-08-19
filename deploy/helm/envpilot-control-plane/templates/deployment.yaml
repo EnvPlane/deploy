@@ -84,7 +84,7 @@
 {{- $legacyAgentBootstrapChartRef := default "" (get .Values.env "ENVPILOT_AGENT_HELM_CHART_REF") -}}
 {{- $legacyAgentBootstrapChartVersion := default "" (get .Values.env "ENVPILOT_AGENT_HELM_CHART_VERSION") -}}
 {{- $agentBootstrapEndpoint := default (printf "http://%s.%s.svc:%v" (include "envpilot-control-plane.fullname" .) .Release.Namespace .Values.service.port) (default $legacyAgentBootstrapEndpoint $agentBootstrap.controlPlaneURL) -}}
-{{- $agentBootstrapRepository := default "ghcr.io/envpilot/agent" (default $legacyAgentBootstrapRepository $agentBootstrapImage.repository) -}}
+{{- $agentBootstrapRepository := default "ghcr.io/EnvPlane/agent" (default $legacyAgentBootstrapRepository $agentBootstrapImage.repository) -}}
 {{- $agentBootstrapTag := default "0.1.4" (default $legacyAgentBootstrapTag $agentBootstrapImage.tag) -}}
 {{- $agentBootstrapChartRef := default $legacyAgentBootstrapChartRef $agentBootstrapChart.ref -}}
 {{- $agentBootstrapChartVersion := default $legacyAgentBootstrapChartVersion $agentBootstrapChart.version -}}

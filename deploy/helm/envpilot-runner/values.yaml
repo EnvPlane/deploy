@@ -10,7 +10,7 @@ serviceMonitor:
   scrapeTimeout: 10s
 
 image:
-  repository: ghcr.io/envpilot/runner
+  repository: ghcr.io/EnvPlane/runner
   pullPolicy: IfNotPresent
   tag: "0.2.0"
   digest: ""
@@ -30,7 +30,7 @@ nameOverride: ""
 #   --set legacyChartName=envpilot-runner-chart
 fullnameOverride: ""
 # The legacy chart name also preserves the immutable Deployment selector when
-# migrating from the retired oci://ghcr.io/envpilot/envpilot-runner-chart name.
+# migrating from the retired oci://ghcr.io/EnvPlane/envpilot-runner-chart name.
 legacyChartName: ""
 
 # managedRemote is populated only by the management-cluster Remote Cluster

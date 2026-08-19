@@ -220,7 +220,7 @@ func TestControlPlaneChartUsesServiceDNSForSameClusterAgentBootstrapAndAllowsRem
 		"name: ENVPILOT_AGENT_CONTROL_PLANE_URL",
 		`value: "http://envpilot-control-plane.envpilot.svc:8080"`,
 		"name: ENVPILOT_AGENT_IMAGE_REPOSITORY",
-		`value: "ghcr.io/envpilot/agent"`,
+		`value: "ghcr.io/EnvPlane/agent"`,
 		"name: ENVPILOT_AGENT_IMAGE_TAG",
 		`value: "0.1.4"`,
 	} {
@@ -562,7 +562,7 @@ func TestControlPlaneChartUsesPersistentImages(t *testing.T) {
 	}
 	valuesText := string(values)
 	for _, expected := range []string{
-		"repository: ghcr.io/envpilot/api",
+		"repository: ghcr.io/EnvPlane/api",
 		`tag: "0.1.6"`,
 	} {
 		if !strings.Contains(valuesText, expected) {

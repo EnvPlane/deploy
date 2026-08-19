@@ -18,7 +18,7 @@ expected_old_reference="$(awk '
 
 "$root/scripts/update-runtime-image-values.sh" \
   --component runner \
-  --repository ghcr.io/envpilot/runner \
+  --repository ghcr.io/EnvPlane/runner \
   --tag sha-0123456789012345678901234567890123456789 \
   --digest "sha256:$(printf 'a%.0s' {1..64})" \
   --source-revision 0123456789012345678901234567890123456789 \
@@ -40,7 +40,7 @@ for component in control-plane frontend agent; do
   cmp "$tmp/before-$component" "$tmp/after-$component"
 done
 
-grep -q 'repository: ghcr.io/envpilot/runner' "$tmp/values.yaml"
+grep -q 'repository: ghcr.io/EnvPlane/runner' "$tmp/values.yaml"
 grep -q 'tag: "sha-0123456789012345678901234567890123456789"' "$tmp/values.yaml"
 grep -q 'sourceRevision: "0123456789012345678901234567890123456789"' "$tmp/values.yaml"
 test "$(jq -r .oldReference "$tmp/report.json")" = "$expected_old_reference"

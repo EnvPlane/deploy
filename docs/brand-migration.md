@@ -2,8 +2,9 @@
 
 The canonical user-facing product name is EnvPlane. This migration does not
 rename live Kubernetes objects in place: the current `envpilot` chart names,
-release names, OCI coordinates and `envpilot.io/*` ownership labels are part of
-the compatibility contract for existing installations.
+release names and `envpilot.io/*` ownership labels remain part of the
+compatibility contract for existing installations. New OCI publication and
+consumption uses the `EnvPlane` GitHub Packages namespace.
 
 ## Inventory and ownership
 
@@ -15,7 +16,7 @@ the compatibility contract for existing installations.
 | Stateful resources | `*-postgres`, `*-redis`, `*-data` PVCs | Keep names and claims stable; backup/restore before any future rename. |
 | ServiceAccounts/RBAC | release-derived `envpilot-*` names and resourceNames | Keep stable; RBAC migration must bind old and new identities before cutover. |
 | Secrets/ConfigMaps | managed auth, registration, compatibility and status names | Keep stable; Secret data is never copied by Helm. Revision-scoped ConfigMaps remain immutable inputs. |
-| OCI charts/images | `oci://ghcr.io/envpilot/envpilot-*`, `ghcr.io/envpilot/*` | Keep published coordinates; publish any `envplane` coordinate as an additional artifact first. |
+| OCI charts/images | `oci://ghcr.io/EnvPlane/envpilot-*`, `ghcr.io/EnvPlane/*` | Canonical coordinates for all new publication and reads; old `ghcr.io/envpilot/*` remains read-only compatibility until retired. |
 | Values/env keys | `global.envpilot.*`, `ENVPILOT_*` | `global.envplane.*` and `ENVPLANE_*` are canonical; canonical values win. |
 | Human-readable docs/UI | legacy product spelling | Use EnvPlane; machine compatibility names may remain in code examples where required. |
 
@@ -55,6 +56,7 @@ It does not create, delete, or rename a Secret.
    checks fail; canonical values can be removed because legacy values remain
    accepted during the migration window.
 
-No new OCI artifact or release is published by EP-BRAND-002. A future rename
-requires a separate, explicitly approved release containing a dual-resource
-cutover and a tested rollback path.
+New OCI artifacts are published under `ghcr.io/EnvPlane`; existing chart and
+image coordinates are not rewritten in place. A future Kubernetes naming
+rename still requires a separate, explicitly approved release containing a
+dual-resource cutover and a tested rollback path.

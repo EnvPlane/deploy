@@ -9,7 +9,7 @@ following payload to `envpilot/deploy`:
   "component": "runner",
   "source_repository": "envpilot/runner",
   "source_revision": "<40 lowercase hex characters>",
-  "repository": "ghcr.io/envpilot/runner",
+  "repository": "ghcr.io/EnvPlane/runner",
   "tag": "sha-<40 lowercase hex characters>",
   "digest": "sha256:<64 lowercase hex characters>",
   "publication_id": "<component>:<source revision>:<digest>"

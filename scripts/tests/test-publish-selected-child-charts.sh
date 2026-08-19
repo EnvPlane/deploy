@@ -58,7 +58,7 @@ case "$1" in
     package="$2"
     chart="$(basename "$package" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+\.tgz$//')"
     touch "$FAKE_STATE/$chart.published"
-    printf 'Pushed: ghcr.io/envpilot/%s\nDigest: sha256:%064d\n' "$chart" 9
+    printf 'Pushed: ghcr.io/EnvPlane/%s\nDigest: sha256:%064d\n' "$chart" 9
     ;;
   show)
     ref="$3"
@@ -103,7 +103,7 @@ PATH="$bin:$PATH" FAKE_STATE="$state" "$root/scripts/publish-selected-child-char
   --charts-dir "$tmp/charts" \
   --dist "$tmp/dist" \
   --output "$tmp/selected.json" \
-  --owner envpilot \
+  --owner EnvPlane \
   --source-revision 0123456789abcdef0123456789abcdef01234567 >/dev/null
 
 jq -e '
@@ -112,7 +112,7 @@ jq -e '
     .chart == "envpilot-runner" and .version == "9.9.9" and
     .publication == "published" and (.digest | test("^sha256:[0-9]{63}9$")))
 ' "$tmp/selected.json" >/dev/null
-grep -Fq 'sign --yes ghcr.io/envpilot/envpilot-runner@sha256:' "$state/cosign.calls"
+grep -Fq 'sign --yes ghcr.io/EnvPlane/envpilot-runner@sha256:' "$state/cosign.calls"
 grep -Fq 'attest --yes --predicate' "$state/cosign.calls"
 
 perl -0pi -e 's/(name: envpilot-runner\n    version: )9\.9\.9/${1}9.9.10/' "$tmp/Chart.yaml"
@@ -121,7 +121,7 @@ if PATH="$bin:$PATH" FAKE_STATE="$state" "$root/scripts/publish-selected-child-c
   --charts-dir "$tmp/charts" \
   --dist "$tmp/mismatch-dist" \
   --output "$tmp/mismatch.json" \
-  --owner envpilot \
+  --owner EnvPlane \
   --source-revision 0123456789abcdef0123456789abcdef01234567 >"$tmp/mismatch.log" 2>&1; then
   echo "mismatched umbrella dependency unexpectedly reached chart publication" >&2
   exit 1

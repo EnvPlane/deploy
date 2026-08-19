@@ -73,12 +73,12 @@ grep -Fq 'publish-selected-child-charts.sh' "$artifact_workflow" || {
   exit 1
 }
 
-grep -Fq -- "--owner 'envpilot'" "$artifact_workflow" || {
+grep -Fq -- "--owner 'EnvPlane'" "$artifact_workflow" || {
   echo "artifact workflow must preserve the canonical lowercase EnvPlane OCI namespace" >&2
   exit 1
 }
 
-if grep -B2 -F -- "--owner 'envpilot'" "$artifact_workflow" | grep -Eq '^            #'; then
+if grep -B2 -F -- "--owner 'EnvPlane'" "$artifact_workflow" | grep -Eq '^            #'; then
   echo "workflow comments must not interrupt the continued child-chart publisher command" >&2
   exit 1
 fi
@@ -200,12 +200,12 @@ if grep -Fq 'latest_image_tag' "$resolver" || grep -Fq 'package_versions' "$reso
 fi
 
 for required in \
-  "ghcr.io/envpilot/api" \
-  "ghcr.io/envpilot/frontend" \
-  "ghcr.io/envpilot/agent" \
-  "ghcr.io/envpilot/runner" \
-  "ghcr.io/envpilot/webhook" \
-  "ghcr.io/envpilot/platform-reconciler"; do
+  "ghcr.io/EnvPlane/api" \
+  "ghcr.io/EnvPlane/frontend" \
+  "ghcr.io/EnvPlane/agent" \
+  "ghcr.io/EnvPlane/runner" \
+  "ghcr.io/EnvPlane/webhook" \
+  "ghcr.io/EnvPlane/platform-reconciler"; do
   grep -Fq "$required" "$root/deploy/helm/envpilot/values.yaml" || { echo "pinned values missing: $required" >&2; exit 1; }
 done
 

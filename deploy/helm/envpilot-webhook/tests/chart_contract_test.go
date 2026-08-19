@@ -24,7 +24,7 @@ func TestWebhookChartRendersStandaloneServiceWithSecretReferences(t *testing.T) 
 		"kind: Deployment",
 		"kind: Service",
 		"name: envpilot-envpilot-webhook",
-		`image: "ghcr.io/envpilot/webhook:0.1.0"`,
+		`image: "ghcr.io/EnvPlane/webhook:0.1.0"`,
 		"name: ENVPILOT_CONTROL_PLANE_TOKEN",
 		"name: envpilot-webhook-secrets",
 		"app.kubernetes.io/component: webhook",

@@ -32,7 +32,7 @@ minikube profiles or cloud infrastructure.
 Create `values.yaml` from one of the examples below, then run exactly:
 
 ```sh
-helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
+helm upgrade --install envpilot oci://ghcr.io/EnvPlane/envpilot \
   --version <published-umbrella-version> \
   --namespace envpilot \
   --create-namespace \
@@ -109,7 +109,7 @@ target owned by another field manager:
   --target-namespace envpilot-executors \
   --secret envpilot-ghcr
 
-helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
+helm upgrade --install envpilot oci://ghcr.io/EnvPlane/envpilot \
   --version <published-umbrella-version> \
   --namespace envpilot --create-namespace \
   --values operator-values/bethunder-local.yaml --wait
@@ -302,7 +302,7 @@ file over the new chart defaults:
 ```sh
 scripts/upgrade-umbrella.sh \
   --release envpilot \
-  --chart oci://ghcr.io/envpilot/envpilot \
+  --chart oci://ghcr.io/EnvPlane/envpilot \
   --version <new-published-umbrella-version> \
   --namespace envpilot \
   --operator-values values.yaml
