@@ -73,7 +73,7 @@ grep -Fq 'publish-selected-child-charts.sh' "$artifact_workflow" || {
   exit 1
 }
 
-grep -Fq -- "--owner 'EnvPlane'" "$artifact_workflow" || {
+grep -Fq -- "--owner 'envplane'" "$artifact_workflow" || {
   echo "artifact workflow must preserve the canonical lowercase EnvPlane OCI namespace" >&2
   exit 1
 }
