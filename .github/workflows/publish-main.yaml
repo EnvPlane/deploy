@@ -14,6 +14,7 @@ on:
       - 'scripts/resolve-latest-published-artifacts.sh'
       - 'scripts/ensure-current-compatible-artifact.sh'
       - 'scripts/verify-frontend-component-repair-controls.sh'
+      - 'scripts/update-runtime-image-values.sh'
       - 'scripts/generate-umbrella-compatibility-manifest.sh'
       - 'scripts/update-umbrella-chart-dependency.sh'
       - 'scripts/test-umbrella-chart-dependency-update.sh'
