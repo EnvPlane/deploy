@@ -533,7 +533,7 @@ envpilot-webhook:
   image:
     repository: ghcr.io/EnvPlane/webhook
     tag: "sha-bbfef36a8b981aedda6d9edd2e536f512576392c"
-    digest: "sha256:1d0799de422f6ca4747957800d2986d9a4d4017c09fc675675fbf521a90cead0"
+    digest: "sha256:80a5bf98c935f5220dfd082603c21686f705bbcca07a0c73e98b6e4160e859db"
     pullPolicy: IfNotPresent
     sourceRevision: "bbfef36a8b981aedda6d9edd2e536f512576392c"
     release: "sha-bbfef36a8b981aedda6d9edd2e536f512576392c"
