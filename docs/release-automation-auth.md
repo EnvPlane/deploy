@@ -28,6 +28,13 @@ checks permission is required. Runtime publishing continues to use its own
 short-lived `GITHUB_TOKEN` for writing the component image package only; the App
 is read-only for Packages.
 
+Umbrella chart publication makes `EnvPlane/envpilot` public after the first
+successful push. The release workflows therefore require
+`ENVPILOT_PACKAGE_ADMIN_TOKEN` (a protected token with `admin:packages`) or a
+legacy `GHCR_TOKEN` with the same permission. A GitHub App with only Packages
+read/write permission can publish and pull artifacts, but cannot change package
+visibility.
+
 Store the App credentials as Actions secrets, never in a repository file,
 values file, artifact, log or workflow output:
 
