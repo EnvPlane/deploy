@@ -120,7 +120,7 @@ jobs:
         # They remain ghcr.io/EnvPlane across GitHub repository-owner moves.
         shell: bash
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
+          GHCR_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           scripts/publish-selected-child-charts.sh \
