@@ -69,7 +69,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.ENVPILOT_PACKAGE_ADMIN_TOKEN || secrets.GHCR_TOKEN || github.token }}
+          password: ${{ github.token }}
       - name: Test deploy tooling
         run: |
           go test ./...
@@ -133,7 +133,7 @@ jobs:
       - name: Resolve and verify the published compatibility set
         env:
           GH_TOKEN: ${{ github.token }}
-          GHCR_TOKEN: ${{ secrets.ENVPILOT_PACKAGE_ADMIN_TOKEN || secrets.GHCR_TOKEN || github.token }}
+          GHCR_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           ./scripts/resolve-latest-published-artifacts.sh \
