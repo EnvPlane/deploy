@@ -399,11 +399,11 @@ envpilot-frontend:
   fullnameOverride: envpilot-frontend
   image:
     repository: ghcr.io/envpilot/frontend
-    tag: "sha-b6398687e53b579bdd9f2c68e669e76d29737140"
-    digest: "sha256:8ac0776b1296566a8e80878163a8245282d208cdd6c4a87283b1581956004497"
+    tag: "sha-51d7c7ca0b6da780cb8069c8ef60e2435fe75143"
+    digest: "sha256:d29707bc554ef3c404e8944f2b05a3cf71c61b535e527525e102e4a6e7e38ba7"
     pullPolicy: IfNotPresent
-    sourceRevision: "b6398687e53b579bdd9f2c68e669e76d29737140"
-    release: "sha-b6398687e53b579bdd9f2c68e669e76d29737140"
+    sourceRevision: "51d7c7ca0b6da780cb8069c8ef60e2435fe75143"
+    release: "sha-51d7c7ca0b6da780cb8069c8ef60e2435fe75143"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
