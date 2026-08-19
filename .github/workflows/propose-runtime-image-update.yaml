@@ -68,7 +68,7 @@ jobs:
             *) echo "source repository is not canonical for component" >&2; exit 1 ;;
           esac
           case "$COMPONENT:$REPOSITORY" in
-            control-plane:ghcr.io/EnvPlane/api|frontend:ghcr.io/EnvPlane/frontend|agent:ghcr.io/EnvPlane/agent|runner:ghcr.io/EnvPlane/runner) ;;
+            control-plane:ghcr.io/EnvPlane/api|control-plane:ghcr.io/envplane/api|frontend:ghcr.io/EnvPlane/frontend|frontend:ghcr.io/envplane/frontend|agent:ghcr.io/EnvPlane/agent|agent:ghcr.io/envplane/agent|runner:ghcr.io/EnvPlane/runner|runner:ghcr.io/envplane/runner) ;;
             *) echo "repository is not canonical for component" >&2; exit 1;;
           esac
           {
