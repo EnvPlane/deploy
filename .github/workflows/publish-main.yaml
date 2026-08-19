@@ -70,7 +70,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ github.token }}
+          password: ${{ secrets.GHCR_TOKEN || github.token }}
       - name: Test deploy tooling
         run: |
           go test ./...
@@ -84,11 +84,11 @@ jobs:
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GHCR_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
       - name: Authenticate ORAS to GHCR
         run: echo "$GHCR_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GHCR_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
       - name: Verify canonical Helm chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Require a new version for changed child chart sources
@@ -121,7 +121,7 @@ jobs:
         # They remain ghcr.io/EnvPlane across GitHub repository-owner moves.
         shell: bash
         env:
-          GHCR_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
         run: |
           set -euo pipefail
           scripts/publish-selected-child-charts.sh \
@@ -134,7 +134,7 @@ jobs:
       - name: Resolve and verify the published compatibility set
         env:
           GH_TOKEN: ${{ github.token }}
-          GHCR_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
         run: |
           set -euo pipefail
           ./scripts/resolve-latest-published-artifacts.sh \
