@@ -532,11 +532,11 @@ envpilot-webhook:
   fullnameOverride: envpilot-webhook
   image:
     repository: ghcr.io/EnvPlane/webhook
-    tag: "sha-bbfef36a8b981aedda6d9edd2e536f512576392c"
+    tag: "sha-87431f2a4ab285135768ef27dd1e6a0f83d051d8"
     digest: "sha256:80a5bf98c935f5220dfd082603c21686f705bbcca07a0c73e98b6e4160e859db"
     pullPolicy: IfNotPresent
-    sourceRevision: "bbfef36a8b981aedda6d9edd2e536f512576392c"
-    release: "sha-bbfef36a8b981aedda6d9edd2e536f512576392c"
+    sourceRevision: "87431f2a4ab285135768ef27dd1e6a0f83d051d8"
+    release: "sha-87431f2a4ab285135768ef27dd1e6a0f83d051d8"
   imagePullSecrets: []
   controlPlane:
     url: http://envpilot-control-plane:8080
