@@ -125,7 +125,8 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/verify-frontend-component-repair-controls.sh \
-            --image "$(jq -er '.images.frontend.repository + "@" + .images.frontend.digest' "$REPORT")"
+            --image "$(jq -er '.images.frontend.repository + ":" + .images.frontend.tag' "$REPORT")" \
+            --digest "$(jq -er '.images.frontend.digest' "$REPORT")"
       - name: Apply latest image pins in the ephemeral release workspace
         env:
           REPORT: ${{ steps.artifacts.outputs.report }}

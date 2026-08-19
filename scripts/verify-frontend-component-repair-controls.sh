@@ -4,17 +4,30 @@
 set -euo pipefail
 
 image=""
+expected_digest=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --image) image="${2:-}"; shift 2 ;;
+    --digest) expected_digest="${2:-}"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
-[[ "$image" =~ ^ghcr\.io/envplane/frontend@sha256:[0-9a-f]{64}$ ]] || {
+if [[ "$image" =~ ^(ghcr\.io/envplane/frontend):sha-[0-9a-f]{40}$ ]]; then
+  [[ "$expected_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+    echo "tagged frontend image requires an expected immutable digest" >&2
+    exit 2
+  }
+  docker buildx imagetools inspect "$image" | grep -Fq "$expected_digest" || {
+    echo "frontend image tag does not resolve to the expected immutable digest" >&2
+    exit 1
+  }
+elif [[ "$image" =~ ^ghcr\.io/envplane/frontend@sha256:[0-9a-f]{64}$ ]]; then
+  expected_digest="${image##*@}"
+else
   echo "image must be the immutable EnvPlane frontend digest" >&2
   exit 2
-}
+fi
 
 tmp="$(mktemp -d)"
 container=""
