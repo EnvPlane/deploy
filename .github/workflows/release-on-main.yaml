@@ -248,16 +248,6 @@ jobs:
           digest="$(awk '/^Digest:/{print $2; exit}' <<< "$output")"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "umbrella push did not return an immutable digest" >&2; exit 1; }
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
-      - name: Make umbrella chart publicly readable
-        env:
-          GH_TOKEN: ${{ secrets.ENVPILOT_PACKAGE_ADMIN_TOKEN || secrets.GHCR_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh api --method PATCH \
-            "/orgs/EnvPlane/packages/container/envpilot" \
-            -H "Accept: application/vnd.github+json" \
-            -f visibility=public >/dev/null
-          test "$(gh api "/orgs/EnvPlane/packages/container/envpilot" --jq '.visibility')" = public
       - name: Sign and attest the published umbrella
         env:
           VERSION: ${{ steps.version.outputs.version }}
