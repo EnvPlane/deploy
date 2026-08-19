@@ -69,7 +69,7 @@ jobs:
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: ${{ secrets.GHCR_USERNAME || github.actor }}
           password: ${{ secrets.GHCR_TOKEN || github.token }}
       - name: Test deploy tooling
         run: |
@@ -85,10 +85,12 @@ jobs:
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
+          GITHUB_ACTOR: ${{ secrets.GHCR_USERNAME || github.actor }}
       - name: Authenticate ORAS to GHCR
         run: echo "$GHCR_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
+          GITHUB_ACTOR: ${{ secrets.GHCR_USERNAME || github.actor }}
       - name: Verify canonical Helm chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Require a new version for changed child chart sources
