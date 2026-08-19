@@ -83,7 +83,7 @@ jobs:
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GHCR_TOKEN: ${{ secrets.ENVPILOT_PACKAGE_ADMIN_TOKEN || secrets.GHCR_TOKEN || github.token }}
+          GHCR_TOKEN: ${{ github.token }}
       - name: Authenticate ORAS to GHCR
         run: echo "$GHCR_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
@@ -133,7 +133,7 @@ jobs:
       - name: Resolve and verify the published compatibility set
         env:
           GH_TOKEN: ${{ github.token }}
-          GHCR_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.ENVPILOT_PACKAGE_ADMIN_TOKEN || secrets.GHCR_TOKEN || github.token }}
         run: |
           set -euo pipefail
           ./scripts/resolve-latest-published-artifacts.sh \
