@@ -75,7 +75,8 @@ read_image_field() {
 
 verify_image() {
   local component="$1" repository="$2" tag="$3" expected_digest="$4" revision="$5"
-  [[ "$repository" =~ ^ghcr\.io/EnvPlane/[a-z0-9-]+$ ]] || { echo "$component has invalid repository" >&2; exit 1; }
+  repository="${repository,,}"
+  [[ "$repository" =~ ^ghcr\.io/envplane/[a-z0-9-]+$ ]] || { echo "$component has invalid repository" >&2; exit 1; }
   [[ "$tag" == "sha-$revision" && "$revision" =~ ^[0-9a-f]{40}$ ]] || {
     echo "$component tag/sourceRevision mismatch" >&2; exit 1;
   }

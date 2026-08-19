@@ -140,6 +140,7 @@ jobs:
             --values-file deploy/helm/envpilot/values.yaml \
             --chart-file deploy/helm/envpilot/Chart.yaml \
             --selected-child-charts "$RUNNER_TEMP/selected-child-charts.json" \
+            --owner envplane \
             --output "$RUNNER_TEMP/latest-artifacts.json"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
