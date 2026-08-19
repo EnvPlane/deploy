@@ -24,12 +24,12 @@ jq -n \
   --arg webhookVersion "$(version_for envpilot-webhook)" \
   --arg e2eWorkloadVersion "$(version_for envpilot-e2e-workload)" \
   '{schemaVersion:1,sourceRevision:$revision,charts:{
-    controlPlane:{repository:"oci://ghcr.io/EnvPlane/envpilot-control-plane",version:$controlPlaneVersion,digest:("sha256:" + ("1" * 64)),sourceRevision:$revision},
-    frontend:{repository:"oci://ghcr.io/EnvPlane/envpilot-frontend",version:$frontendVersion,digest:("sha256:" + ("2" * 64)),sourceRevision:$revision},
-    agent:{repository:"oci://ghcr.io/EnvPlane/envpilot-agent",version:$agentVersion,digest:("sha256:" + ("3" * 64)),sourceRevision:$revision},
-    runner:{repository:"oci://ghcr.io/EnvPlane/envpilot-runner",version:$runnerVersion,digest:("sha256:" + ("4" * 64)),sourceRevision:$revision},
-    webhook:{repository:"oci://ghcr.io/EnvPlane/envpilot-webhook",version:$webhookVersion,digest:("sha256:" + ("5" * 64)),sourceRevision:$revision},
-    e2eWorkload:{repository:"oci://ghcr.io/EnvPlane/envpilot-e2e-workload",version:$e2eWorkloadVersion,digest:("sha256:" + ("6" * 64)),sourceRevision:$revision}
+    controlPlane:{repository:"oci://ghcr.io/envplane/envpilot-control-plane",version:$controlPlaneVersion,digest:("sha256:" + ("1" * 64)),sourceRevision:$revision},
+    frontend:{repository:"oci://ghcr.io/envplane/envpilot-frontend",version:$frontendVersion,digest:("sha256:" + ("2" * 64)),sourceRevision:$revision},
+    agent:{repository:"oci://ghcr.io/envplane/envpilot-agent",version:$agentVersion,digest:("sha256:" + ("3" * 64)),sourceRevision:$revision},
+    runner:{repository:"oci://ghcr.io/envplane/envpilot-runner",version:$runnerVersion,digest:("sha256:" + ("4" * 64)),sourceRevision:$revision},
+    webhook:{repository:"oci://ghcr.io/envplane/envpilot-webhook",version:$webhookVersion,digest:("sha256:" + ("5" * 64)),sourceRevision:$revision},
+    e2eWorkload:{repository:"oci://ghcr.io/envplane/envpilot-e2e-workload",version:$e2eWorkloadVersion,digest:("sha256:" + ("6" * 64)),sourceRevision:$revision}
   }}' > "$tmp/artifacts.json"
 
 "$root/scripts/generate-umbrella-compatibility-manifest.sh" \
