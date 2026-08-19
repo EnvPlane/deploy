@@ -200,12 +200,12 @@ if grep -Fq 'latest_image_tag' "$resolver" || grep -Fq 'package_versions' "$reso
 fi
 
 for required in \
-  "ghcr.io/EnvPlane/api" \
-  "ghcr.io/EnvPlane/frontend" \
-  "ghcr.io/EnvPlane/agent" \
-  "ghcr.io/EnvPlane/runner" \
-  "ghcr.io/EnvPlane/webhook" \
-  "ghcr.io/EnvPlane/platform-reconciler"; do
+  "ghcr.io/envplane/api" \
+  "ghcr.io/envplane/frontend" \
+  "ghcr.io/envplane/agent" \
+  "ghcr.io/envplane/runner" \
+  "ghcr.io/envplane/webhook" \
+  "ghcr.io/envplane/platform-reconciler"; do
   grep -Fq "$required" "$root/deploy/helm/envpilot/values.yaml" || { echo "pinned values missing: $required" >&2; exit 1; }
 done
 
