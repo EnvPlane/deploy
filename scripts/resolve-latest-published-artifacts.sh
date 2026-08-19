@@ -111,6 +111,21 @@ image_json() {
   [[ -n "$repository" && -n "$tag" && -n "$digest" && -n "$revision" ]] || {
     echo "incomplete pinned image block for $component" >&2; exit 1;
   }
+  repository="${repository,,}"
+  if [[ "$section" == "platformDependencyReconciler" ]] &&
+     awk '$0 == "platformDependencyReconciler:" {in_section=1; next}
+          in_section && $0 ~ /^[^[:space:]]/ {exit}
+          in_section && $0 == "  enabled: false" {found=1}
+          END {exit(found ? 0 : 1)}' "$values_file"; then
+    [[ "$repository" =~ ^ghcr\.io/envplane/[a-z0-9-]+$ && "$tag" =~ ^sha-[0-9a-f]{40}$ &&
+       "$digest" =~ ^sha256:[0-9a-f]{64}$ && "$revision" =~ ^[0-9a-f]{40}$ ]] || {
+      echo "$component has invalid disabled image metadata" >&2; exit 1;
+    }
+    jq -cn --arg repository "$repository" --arg tag "$tag" --arg digest "$digest" \
+      --arg sourceRevision "$revision" \
+      '{repository:$repository,tag:$tag,digest:$digest,sourceRevision:$sourceRevision}'
+    return 0
+  fi
   verify_image "$component" "$repository" "$tag" "$digest" "$revision"
 }
 
@@ -188,13 +203,19 @@ source_revision="${GITHUB_SHA:-}"
 [[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] || { echo "source revision is unavailable" >&2; exit 1; }
 umbrella_version="$(awk '/^version:/{print $2; exit}' "$chart_file")"
 previous_umbrella="$(latest_published_umbrella "$umbrella_version")"
+control_plane_image="$(image_json envpilot-control-plane control-plane)" || exit 1
+frontend_image="$(image_json envpilot-frontend frontend)" || exit 1
+agent_image="$(image_json envpilot-agent agent)" || exit 1
+runner_image="$(image_json envpilot-runner runner)" || exit 1
+webhook_image="$(image_json envpilot-webhook webhook)" || exit 1
+platform_reconciler_image="$(image_json platformDependencyReconciler platform-reconciler)" || exit 1
 images="$(jq -cn \
-  --argjson controlPlane "$(image_json envpilot-control-plane control-plane)" \
-  --argjson frontend "$(image_json envpilot-frontend frontend)" \
-  --argjson agent "$(image_json envpilot-agent agent)" \
-  --argjson runner "$(image_json envpilot-runner runner)" \
-  --argjson webhook "$(image_json envpilot-webhook webhook)" \
-  --argjson platformReconciler "$(image_json platformDependencyReconciler platform-reconciler)" \
+  --argjson controlPlane "$control_plane_image" \
+  --argjson frontend "$frontend_image" \
+  --argjson agent "$agent_image" \
+  --argjson runner "$runner_image" \
+  --argjson webhook "$webhook_image" \
+  --argjson platformReconciler "$platform_reconciler_image" \
   '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook,platformReconciler:$platformReconciler}')"
 control_plane_chart="$(chart_json envpilot-control-plane envpilot-control-plane)"
 frontend_chart="$(chart_json envpilot-frontend envpilot-frontend)"

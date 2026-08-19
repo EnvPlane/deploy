@@ -260,11 +260,11 @@ envpilot-control-plane:
     enabled: true
   image:
     repository: ghcr.io/EnvPlane/api
-    tag: "sha-4e3c29221661598d5b86cf50d13a4874995d9ad2"
-    digest: "sha256:353658e27a1f28ae9d8a022b699b3ac38dbbd3cd8dae2cbd5a8ce56986988644"
+    tag: "sha-5873ea58f23e8ca91af137dc45f6c244da028fd3"
+    digest: "sha256:d09db96549539f0847c2c4470826ffc7c36674e8510cda994653eca0e7addefb"
     pullPolicy: IfNotPresent
-    sourceRevision: "4e3c29221661598d5b86cf50d13a4874995d9ad2"
-    release: "sha-4e3c29221661598d5b86cf50d13a4874995d9ad2"
+    sourceRevision: "5873ea58f23e8ca91af137dc45f6c244da028fd3"
+    release: "sha-5873ea58f23e8ca91af137dc45f6c244da028fd3"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -399,11 +399,11 @@ envpilot-frontend:
   fullnameOverride: envpilot-frontend
   image:
     repository: ghcr.io/EnvPlane/frontend
-    tag: "sha-51d7c7ca0b6da780cb8069c8ef60e2435fe75143"
-    digest: "sha256:d29707bc554ef3c404e8944f2b05a3cf71c61b535e527525e102e4a6e7e38ba7"
+    tag: "sha-a0a9c26b3939ec0b81ad49fc0d17acf58e381663"
+    digest: "sha256:4cd0b4f6f5965553a71869c30e1b6a120b3be6b100e284eca80a379432b68136"
     pullPolicy: IfNotPresent
-    sourceRevision: "51d7c7ca0b6da780cb8069c8ef60e2435fe75143"
-    release: "sha-51d7c7ca0b6da780cb8069c8ef60e2435fe75143"
+    sourceRevision: "a0a9c26b3939ec0b81ad49fc0d17acf58e381663"
+    release: "sha-a0a9c26b3939ec0b81ad49fc0d17acf58e381663"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -423,11 +423,11 @@ envpilot-agent:
   fullnameOverride: envpilot-agent
   image:
     repository: ghcr.io/EnvPlane/agent
-    tag: "sha-bf27c80cb8f7346d74d36a2f4ef94fba1c8a4b3d"
-    digest: "sha256:5ebaea7381689aaf9eba8c49c3252bf4bd7afd2fda51a6c22a7e39830e8a79aa"
+    tag: "sha-a23afd45cae531d6fa591456998a7d85049ce394"
+    digest: "sha256:ca524ce0f4ba41d355adb4993348929d74e6f3e62337adc7df700e0d62b7d906"
     pullPolicy: IfNotPresent
-    sourceRevision: "bf27c80cb8f7346d74d36a2f4ef94fba1c8a4b3d"
-    release: "sha-bf27c80cb8f7346d74d36a2f4ef94fba1c8a4b3d"
+    sourceRevision: "a23afd45cae531d6fa591456998a7d85049ce394"
+    release: "sha-a23afd45cae531d6fa591456998a7d85049ce394"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -478,11 +478,11 @@ envpilot-runner:
   fullnameOverride: envpilot-runner
   image:
     repository: ghcr.io/EnvPlane/runner
-    tag: "sha-599713ee08a40e66c7d887588a1474b76201a677"
-    digest: "sha256:0ecc688a47fcf3a7f61a1be7a3bf408759b9d305ffbf212899dfc5475426d094"
+    tag: "sha-9347b6bb64ecef2597e0649224202e4936b55858"
+    digest: "sha256:58997f447d89ee705fc5cddf67dbeeb21ef26685fbd0d19f8eb362ff0a645517"
     pullPolicy: IfNotPresent
-    sourceRevision: "599713ee08a40e66c7d887588a1474b76201a677"
-    release: "sha-599713ee08a40e66c7d887588a1474b76201a677"
+    sourceRevision: "9347b6bb64ecef2597e0649224202e4936b55858"
+    release: "sha-9347b6bb64ecef2597e0649224202e4936b55858"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
