@@ -11,7 +11,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$image" =~ ^ghcr\.io/EnvPlane/frontend@sha256:[0-9a-f]{64}$ ]] || {
+[[ "$image" =~ ^ghcr\.io/envplane/frontend@sha256:[0-9a-f]{64}$ ]] || {
   echo "image must be the immutable EnvPlane frontend digest" >&2
   exit 2
 }
