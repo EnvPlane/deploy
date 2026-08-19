@@ -272,6 +272,10 @@ jobs:
           PREVIOUS: ${{ steps.version.outputs.previous }}
         run: |
           set -euo pipefail
+          if [[ "$PREVIOUS" == "0.0.0" ]]; then
+            echo "no predecessor umbrella exists; skipping initial-release reinstall check"
+            exit 0
+          fi
           helm pull "oci://ghcr.io/EnvPlane/envpilot" --version "$PREVIOUS" --destination "$RUNNER_TEMP"
           ./scripts/verify-umbrella-reinstall-compatibility.sh \
             "$RUNNER_TEMP/envpilot-$PREVIOUS.tgz"

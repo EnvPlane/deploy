@@ -169,7 +169,11 @@ latest_published_umbrella() {
     (( patch > 0 )) || break
     patch=$((patch - 1))
   done
-  [[ "$found" == true ]] || { echo "no published umbrella chart found near $1" >&2; exit 1; }
+  if [[ "$found" != true ]]; then
+    echo "no published umbrella chart found near $1; treating this as the initial release" >&2
+    printf '0.0.0'
+    return 0
+  fi
   for _ in $(seq 1 50); do
     next="$major.$minor.$((patch + 1))"
     if helm show chart "oci://ghcr.io/$owner/envpilot:$next" >/dev/null 2>&1; then patch=$((patch + 1)); else break; fi
