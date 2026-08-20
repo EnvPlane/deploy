@@ -42,6 +42,10 @@ done
 [[ -d "$charts_dir" ]] || { echo "canonical chart directory not found: $charts_dir" >&2; exit 2; }
 [[ -n "$dist" && -n "$output" ]] || usage
 [[ "$owner" =~ ^[A-Za-z0-9-]+$ ]] || { echo "invalid OCI owner" >&2; exit 2; }
+# OCI repository names are canonicalized to lowercase. GitHub organization
+# names are case-insensitive, but Helm and registry clients are not consistent
+# about preserving mixed-case path segments.
+owner="${owner,,}"
 if [[ ! "$source_revision" =~ ^[0-9a-f]{40}$ ]]; then
   source_revision="$(git -C "$(dirname "$umbrella_chart")/../.." rev-parse HEAD 2>/dev/null || true)"
 fi
