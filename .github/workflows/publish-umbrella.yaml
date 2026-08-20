@@ -113,7 +113,7 @@ jobs:
             tar -xOf "$package" "$manifest_path" > deploy/helm/envplane/compatibility/release.json
           else
             package="dist/envplane-$VERSION.tgz"
-            output="$(helm push "$package" oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
+            output="$(helm push "$package" oci://ghcr.io/envplane 2>&1 | tee /dev/stderr)"
           fi
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
@@ -141,7 +141,7 @@ jobs:
           PREVIOUS: ${{ steps.version.outputs.previous }}
         run: |
           set -euo pipefail
-          helm pull "oci://ghcr.io/EnvPlane/envplane" --version "$PREVIOUS" --destination /tmp
+          helm pull "oci://ghcr.io/envplane/envplane" --version "$PREVIOUS" --destination /tmp
           args=()
           if [[ "$PREVIOUS" == *-main.* ]]; then
             args+=(--allow-legacy-without-manifest)
