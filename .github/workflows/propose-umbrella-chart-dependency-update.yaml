@@ -117,6 +117,7 @@ jobs:
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          base: main
           branch: automation/umbrella-chart-dependencies
           delete-branch: false
           add-paths: |
