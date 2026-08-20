@@ -337,7 +337,7 @@ func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *te
 	}
 	for _, expected := range []string{
 		"bootstrapDefaults:",
-		"chartRef: oci://ghcr.io/EnvPlane/envpilot-e2e-workload",
+		"chartRef: oci://ghcr.io/envplane/envpilot-e2e-workload",
 		`chartVersion: "0.1.0"`,
 		"e2eWorkload:",
 		"enabled: false",
@@ -349,7 +349,7 @@ func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *te
 	rendered := renderUmbrella(t)
 	for _, expected := range []string{
 		"name: ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF",
-		`value: "oci://ghcr.io/EnvPlane/envpilot-e2e-workload"`,
+		`value: "oci://ghcr.io/envplane/envpilot-e2e-workload"`,
 		"name: ENVPILOT_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_VERSION",
 		`value: "0.1.0"`,
 	} {
@@ -501,7 +501,7 @@ func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
 		"name: ENVPILOT_SAME_CLUSTER_FIXTURE_ENABLED",
 		"name: ENVPILOT_SAME_CLUSTER_FIXTURE_RECOVERY_ENABLED",
 		`value: "true"`,
-		`value: "oci://ghcr.io/EnvPlane/envpilot-e2e-workload"`,
+		`value: "oci://ghcr.io/envplane/envpilot-e2e-workload"`,
 		`value: "envpilot-e2e-base"`,
 		`value: "envpilot-e2e-feature"`,
 		"agent-registration-token",
