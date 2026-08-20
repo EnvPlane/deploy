@@ -192,8 +192,16 @@ jobs:
             | awk '/^[0-9]+\.[0-9]+\.[0-9]+$/ {print}' \
             | sort -V | tail -n1 || true)"
           base="$(printf '%s\n' "$current" "$previous" "$published" | sort -V | tail -n1)"
-          IFS=. read -r major minor patch <<< "$base"
-          version="$major.$minor.$((patch + 1))"
+          # Start the new major-minor release line once, then keep patch
+          # increments within 0.4.x. This prevents stale 0.3.x tags from
+          # colliding with the current EnvPlane release line.
+          minimum="0.4.0"
+          if [[ "$(printf '%s\n' "$base" "$minimum" | sort -V | tail -n1)" == "$minimum" && "$base" != "$minimum" ]]; then
+            version="$minimum"
+          else
+            IFS=. read -r major minor patch <<< "$base"
+            version="$major.$minor.$((patch + 1))"
+          fi
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           sed -i.bak -E "0,/^version: .*/s//version: $version/; 0,/^appVersion: .*/s//appVersion: \"$version\"/" deploy/helm/envplane/Chart.yaml
           rm -f deploy/helm/envplane/Chart.yaml.bak

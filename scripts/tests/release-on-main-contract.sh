@@ -154,6 +154,11 @@ grep -Fq 'Verify confirmed immutable artifacts' "$workflow" || {
   exit 1
 }
 
+grep -Fq 'minimum="0.4.0"' "$workflow" || {
+  echo "release must start the EnvPlane umbrella line at 0.4.0" >&2
+  exit 1
+}
+
 grep -Fq 'Smoke-check editable Draft component controls in frontend image' "$workflow" || {
   echo "release must smoke-check the frontend image before packaging the umbrella" >&2
   exit 1
