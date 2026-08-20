@@ -46,7 +46,11 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || github.token }}
+          # The workflow token is scoped to this repository and has the
+          # packages: write permission declared above. Do not prefer the
+          # legacy GHCR_TOKEN secret: it can be stale or belong to a user
+          # without permission to create the first package in this namespace.
+          password: ${{ github.token }}
       - id: metadata
         uses: docker/metadata-action@v5
         with:
