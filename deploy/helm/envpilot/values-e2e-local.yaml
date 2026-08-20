@@ -7,6 +7,12 @@ agent:
 runner:
   enabled: true
 
+envpilot-control-plane:
+  postgres:
+    # Disposable local E2E profile: no PostgreSQL TLS CA Secret is provisioned.
+    tls:
+      enabled: false
+
 global:
   envpilot:
     firstStartRegistration:
@@ -31,7 +37,7 @@ global:
         enabled: true
       baseNamespace: envpilot-e2e-base
       featureNamespace: envpilot-e2e-feature
-      chartRef: oci://ghcr.io/EnvPlane/envpilot-e2e-workload
+      chartRef: oci://ghcr.io/envplane/envpilot-e2e-workload
       chartVersion: "0.1.0"
       appRepositoryURL: https://github.com/envpilot/envpilot-e2e-workload
       gitopsRepositoryURL: https://github.com/envpilot/deploy
@@ -40,6 +46,12 @@ global:
       gitopsDefaultBranch: main
 
 envpilot-agent:
+  dependencyWait:
+    connectivity:
+      maxAttempts: 30
+      initialBackoffSeconds: 2
+      maxBackoffSeconds: 5
+      deadlineSeconds: 300
   rbac:
     discovery:
       namespaces:
@@ -55,16 +67,22 @@ envpilot-agent:
       - envpilot-e2e-base
   agent:
     authPersistence:
-      createClaim: false
+      createClaim: true
 
 envpilot-runner:
+  dependencyWait:
+    connectivity:
+      maxAttempts: 30
+      initialBackoffSeconds: 2
+      maxBackoffSeconds: 5
+      deadlineSeconds: 300
   controlPlane:
     endpointMode: sameCluster
     serviceName: envpilot-control-plane
     namespace: envpilot
     port: 8080
     authPersistence:
-      createClaim: false
+      createClaim: true
   project:
     configUrl: http://envpilot-control-plane.envpilot.svc:8080/api/v1/projects/envpilot-e2e-fixture/runner-config
   rbac:

@@ -134,7 +134,7 @@ global:
     # included in a session.
     bootstrapDefaults:
       helmDirect:
-        chartRef: oci://ghcr.io/EnvPlane/envpilot-e2e-workload
+        chartRef: oci://ghcr.io/envplane/envpilot-e2e-workload
         chartVersion: "0.1.0"
     # Opt-in only. The local E2E profile creates a disposable base workload and
     # reconciles this reserved project through real Agent discovery, Runner
@@ -148,7 +148,7 @@ global:
         enabled: false
       baseNamespace: envpilot-e2e-base
       featureNamespace: envpilot-e2e-feature
-      chartRef: oci://ghcr.io/EnvPlane/envpilot-e2e-workload
+      chartRef: oci://ghcr.io/envplane/envpilot-e2e-workload
       chartVersion: "0.1.0"
       appRepositoryURL: https://github.com/envpilot/envpilot-e2e-workload
       gitopsRepositoryURL: https://github.com/envpilot/deploy
