@@ -26,7 +26,7 @@ for required in \
   "Publish deploy image and charts (main)" \
   "workflow_run.conclusion" \
   "actions/download-artifact@v4" \
-  "envpilot-compatible-artifacts" \
+  "envplane-compatible-artifacts" \
   "artifact_run_id" \
   "oras-project/setup-oras@v1" \
   "oras login ghcr.io" \
@@ -48,7 +48,7 @@ grep -Fq "github.repository == 'EnvPlane/deploy'" "$workflow" || {
   exit 1
 }
 
-if grep -Fq "github.repository == 'envpilot/deploy'" "$workflow"; then
+if grep -Fq "github.repository == 'envplane/deploy'" "$workflow"; then
   echo "umbrella release must not retain the retired repository gate" >&2
   exit 1
 fi
@@ -206,7 +206,7 @@ for required in \
   "ghcr.io/envplane/runner" \
   "ghcr.io/envplane/webhook" \
   "ghcr.io/envplane/platform-reconciler"; do
-  grep -Fq "$required" "$root/deploy/helm/envpilot/values.yaml" || { echo "pinned values missing: $required" >&2; exit 1; }
+  grep -Fq "$required" "$root/deploy/helm/envplane/values.yaml" || { echo "pinned values missing: $required" >&2; exit 1; }
 done
 
 if grep -Eq ':[[:space:]]*(latest|main)([[:space:]"'"'"'@]|$)|tag:[[:space:]]*(latest|main)([[:space:]"'"'"'@]|$)' "$workflow"; then

@@ -1,0 +1,90 @@
+{{- if eq (include "envplane.platformReconcilerEnabled" .) "true" }}
+{{- $r := .Values.platformDependencyReconciler -}}
+{{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
+{{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
+{{- $statusConfigMap := include "envplane.platformReconcilerStatusConfigMapName" . -}}
+{{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
+{{- if $r.image.digest }}{{ $image = printf "%s@%s" $r.image.repository $r.image.digest }}{{ end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-platform-reconciler
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+spec:
+  backoffLimit: {{ default 4 $r.backoffLimit }}
+  activeDeadlineSeconds: {{ default 600 $r.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: envplane
+        app.kubernetes.io/component: platform-reconciler
+    spec:
+      {{- $registryPullSecrets := include "envplane.registryImagePullSecrets" . -}}
+      {{- if or $r.imagePullSecrets $registryPullSecrets }}
+      imagePullSecrets:
+        {{- with $r.imagePullSecrets }}{{ toYaml . | nindent 8 }}{{- end }}
+        {{- if $registryPullSecrets }}{{ $registryPullSecrets | nindent 8 }}{{- end }}
+      {{- end }}
+      serviceAccountName: {{ $sa }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: reconciler
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ default "IfNotPresent" $r.image.pullPolicy }}
+          env:
+            # Helm's SDK writes repository/cache state during provider
+            # installation. The reconciler root filesystem is read-only, so
+            # keep all transient state on an isolated writable volume.
+            - name: HOME
+              value: /tmp/envplane-home
+            - name: XDG_CACHE_HOME
+              value: /tmp/envplane-home/.cache
+            - name: XDG_CONFIG_HOME
+              value: /tmp/envplane-home/.config
+            - name: XDG_DATA_HOME
+              value: /tmp/envplane-home/.local/share
+            - name: ENVPLANE_RECONCILE_ACTION
+              value: reconcile
+            - name: ENVPLANE_RECONCILE_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: ENVPLANE_RECONCILE_RELEASE
+              value: {{ .Release.Name | quote }}
+            - name: ENVPLANE_RECONCILE_CONFIG_MAP
+              value: {{ printf "%s-platform-dependency-reconciler" .Release.Name | quote }}
+            - name: ENVPLANE_RECONCILE_CONFIG_JSON
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ printf "%s-platform-dependency-reconciler" .Release.Name }}
+                  key: dependencies.json
+            - name: ENVPLANE_RECONCILE_STATUS_CONFIG_MAP
+              value: {{ $statusConfigMap | quote }}
+            - name: ENVPLANE_RECONCILE_CLEANUP
+              value: {{ default true $r.cleanupManagedOnUninstall | quote }}
+            {{- $storage := $dependencies.storage -}}
+            {{- $controlPlane := index .Values "envplane-control-plane" -}}
+            {{- if and (ne (default "disabled" $storage.mode) "disabled") (or $controlPlane.postgres.enabled $controlPlane.redis.enabled) }}
+            - name: ENVPLANE_RECONCILE_GATE_STORAGE
+              value: "true"
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: reconciler-tmp
+              mountPath: /tmp
+      volumes:
+        - name: reconciler-tmp
+          emptyDir: {}
+{{- end }}

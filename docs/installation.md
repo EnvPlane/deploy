@@ -32,9 +32,9 @@ minikube profiles or cloud infrastructure.
 Create `values.yaml` from one of the examples below, then run exactly:
 
 ```sh
-helm upgrade --install envpilot oci://ghcr.io/EnvPlane/envpilot \
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
   --version <published-umbrella-version> \
-  --namespace envpilot \
+  --namespace envplane \
   --create-namespace \
   --values values.yaml \
   --wait
@@ -49,7 +49,7 @@ agent:
 runner:
   enabled: true
 global:
-  envpilot:
+  envplane:
     firstStartRegistration:
       mode: managed
       cluster: {id: management-cluster}
@@ -57,14 +57,14 @@ global:
 
 `managed` retains chart-generated registration material across upgrades.
 `existing` consumes an operator-created Secret named by
-`global.envpilot.firstStartRegistration.existingSecret`. Plaintext tokens must
+`global.envplane.firstStartRegistration.existingSecret`. Plaintext tokens must
 never be put in values. Remote execution targets are configured after this
 install through the authenticated UI/API RemoteCluster flow, not values or
 manual child-chart commands. See [API-managed remote clusters](remote-clusters.md).
 
 ## Helm Direct bootstrap default
 
-The umbrella publishes and pins `envpilot-e2e-workload` alongside its normal
+The umbrella publishes and pins `envplane-e2e-workload` alongside its normal
 child charts. New Draft bootstrap sessions receive its OCI ref and version in
 Step 2, so a local/demo user can continue without typing a chart coordinate.
 The dependency is disabled as an umbrella workload; only a project Runner
@@ -76,7 +76,7 @@ registry access:
 
 ```yaml
 global:
-  envpilot:
+  envplane:
     bootstrapDefaults:
       helmDirect:
         chartRef: oci://registry.example.com/platform/application
@@ -87,10 +87,10 @@ An individual project can still replace the default before bootstrap compile.
 
 ## Same-cluster project executors and private registry access
 
-When `global.envpilot.sameClusterProjectExecutors.enabled` is true, project
+When `global.envplane.sameClusterProjectExecutors.enabled` is true, project
 Agent/Runner releases run in its dedicated executor namespace. Kubernetes image
-pull Secrets are namespace-scoped: `envpilot/envpilot-ghcr` is not visible to
-Pods in `envpilot-executors`. Materialize an identically named
+pull Secrets are namespace-scoped: `envplane/envplane-ghcr` is not visible to
+Pods in `envplane-executors`. Materialize an identically named
 `kubernetes.io/dockerconfigjson` Secret in the executor namespace before
 enabling the reconciler. The executor pull Secret is referenced only by name;
 the chart never renders it and the control plane verifies only Secret metadata,
@@ -105,13 +105,13 @@ target owned by another field manager:
 ```sh
 ./scripts/sync-namespaced-registry-secret.sh \
   --context bethunder-local \
-  --source-namespace envpilot \
-  --target-namespace envpilot-executors \
-  --secret envpilot-ghcr
+  --source-namespace envplane \
+  --target-namespace envplane-executors \
+  --secret envplane-ghcr
 
-helm upgrade --install envpilot oci://ghcr.io/EnvPlane/envpilot \
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
   --version <published-umbrella-version> \
-  --namespace envpilot --create-namespace \
+  --namespace envplane --create-namespace \
   --values operator-values/bethunder-local.yaml --wait
 ```
 
@@ -121,8 +121,8 @@ an operator must create it from a protected local Docker config, use this
 idempotent command in *each* namespace (the file must not be committed):
 
 ```sh
-kubectl --context <production-context> --namespace envpilot-executors \
-  create secret generic envpilot-ghcr \
+kubectl --context <production-context> --namespace envplane-executors \
+  create secret generic envplane-ghcr \
   --type=kubernetes.io/dockerconfigjson \
   --from-file=.dockerconfigjson=/secure/path/ghcr-dockerconfig.json \
   --dry-run=client -o yaml | kubectl --context <production-context> apply -f -
@@ -131,7 +131,7 @@ kubectl --context <production-context> --namespace envpilot-executors \
 Verify only metadata and type, never `.data`:
 
 ```sh
-kubectl --context <context> -n envpilot-executors get secret envpilot-ghcr \
+kubectl --context <context> -n envplane-executors get secret envplane-ghcr \
   -o jsonpath='{.type}{"\\n"}'
 ```
 
@@ -139,15 +139,15 @@ Keep the existing value references aligned with the target namespace:
 
 ```yaml
 global:
-  envpilot:
+  envplane:
     registry:
-      existingSecret: envpilot-ghcr # management namespace: Helm OCI client
+      existingSecret: envplane-ghcr # management namespace: Helm OCI client
     sameClusterProjectExecutors:
       enabled: true
-      namespace: envpilot-executors
+      namespace: envplane-executors
       registry:
-        existingSecret: envpilot-ghcr
-        imagePullSecret: envpilot-ghcr # executor namespace: Agent/Runner Pods
+        existingSecret: envplane-ghcr
+        imagePullSecret: envplane-ghcr # executor namespace: Agent/Runner Pods
 ```
 
 ## Remote-cluster management endpoint
@@ -160,25 +160,25 @@ or put certificate bytes in values:
 
 ```yaml
 global:
-  envpilot:
+  envplane:
     remoteControlPlane:
-      endpoint: https://api.envpilot.example.test
+      endpoint: https://api.envplane.example.test
       tls:
         # Optional: required only when target pods do not trust the endpoint's
         # issuer through their system trust store.
         caSecretRef:
-          name: envpilot-remote-ca
+          name: envplane-remote-ca
           key: ca.crt
 access:
   mode: ingress
   ingress:
-    host: api.envpilot.example.test
+    host: api.envplane.example.test
     className: nginx
     tls:
       enabled: true
       # Existing provider-managed server certificate Secret. EnvPlane never
       # reads or generates its contents.
-      secretName: envpilot-api-tls
+      secretName: envplane-api-tls
 ```
 
 For Gateway API or an external LoadBalancer, the platform owns server-certificate
@@ -186,7 +186,7 @@ attachment; configure its public HTTPS endpoint above. If `caSecretRef` is set,
 the named CA Secret/key must already exist in the remote Agent and Runner
 namespace. The Remote Clusters UI reads this safe endpoint metadata, pre-fills
 the endpoint/CA reference and shows a prerequisite diagnostic when it is
-missing or invalid. It rejects `envpilot.local`, localhost,
+missing or invalid. It rejects `envplane.local`, localhost,
 `host.minikube.internal`, port-forwards and foreign `.svc` addresses.
 
 ## Platform dependency modes
@@ -227,7 +227,7 @@ platformDependencies:
 ```yaml
 access:
   mode: ingress
-  ingress: {host: envpilot.example.test, className: nginx}
+  ingress: {host: envplane.example.test, className: nginx}
 platformDependencies:
   ingress: {mode: existing, provider: nginx, existingClassName: nginx}
 ```
@@ -238,7 +238,7 @@ platformDependencies:
 access:
   mode: ingress
   ingress:
-    host: envpilot.example.test
+    host: envplane.example.test
     className: alb
     annotations:
       alb.ingress.kubernetes.io/scheme: internal
@@ -257,26 +257,26 @@ access:
     name: shared-gateway
     namespace: gateway-system
     sectionName: https
-    hostnames: [envpilot.example.test]
+    hostnames: [envplane.example.test]
 ```
 
 ### External PostgreSQL/Redis
 
 ```yaml
-envpilot-control-plane:
+envplane-control-plane:
   postgres:
     mode: external
-    external: {existingSecret: envpilot-postgres-url, urlKey: database-url}
+    external: {existingSecret: envplane-postgres-url, urlKey: database-url}
   redis:
     mode: external
-    external: {existingSecret: envpilot-redis-url, urlKey: redis-url}
+    external: {existingSecret: envplane-redis-url, urlKey: redis-url}
 ```
 
 ### Private registry
 
 ```yaml
 global:
-  envpilot:
+  envplane:
     registry:
       mode: existing
       existingSecret: registry-credentials
@@ -301,15 +301,15 @@ file over the new chart defaults:
 
 ```sh
 scripts/upgrade-umbrella.sh \
-  --release envpilot \
-  --chart oci://ghcr.io/EnvPlane/envpilot \
+  --release envplane \
+  --chart oci://ghcr.io/envplane/envplane \
   --version <new-published-umbrella-version> \
-  --namespace envpilot \
+  --namespace envplane \
   --operator-values values.yaml
 ```
 
 This preserves operator configuration while applying the artifact pins signed
-in the selected release. An explicit `envpilot-*.image` or
+in the selected release. An explicit `envplane-*.image` or
 `platformDependencyReconciler.image` override that conflicts with the selected
 manifest is rejected before Helm mutates the release; update it to the selected
 immutable ref or remove it from the operator file. Do not put credentials in

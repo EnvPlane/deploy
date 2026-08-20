@@ -1,0 +1,47 @@
+{{- if and (default true .Values.networkPolicy.enabled) (eq (default (ternary "internal" "disabled" .Values.postgres.enabled) .Values.postgres.mode) "internal") }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-postgres
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "envplane-control-plane.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "envplane-control-plane.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.postgres.service.port }}
+{{- end }}
+{{- if and (default true .Values.networkPolicy.enabled) (eq (default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode) "internal") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-redis
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "envplane-control-plane.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "envplane-control-plane.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.service.port }}
+{{- end }}

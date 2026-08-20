@@ -4,13 +4,13 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-chart="$root/deploy/helm/envpilot-control-plane"
-rendered="$(mktemp "${TMPDIR:-/tmp}/envpilot-remote-credentials.XXXXXX")"
+chart="$root/deploy/helm/envplane-control-plane"
+rendered="$(mktemp "${TMPDIR:-/tmp}/envplane-remote-credentials.XXXXXX")"
 trap 'rm -f "$rendered"' EXIT
 
 helm dependency build --skip-refresh "$chart" >/dev/null
 
-helm template envpilot "$chart" --namespace envpilot \
+helm template envplane "$chart" --namespace envplane \
   --set rbac.remoteClusterCredentials.enabled=true \
   --set-string postgres.auth.password=ci-render-only-password \
   --set postgres.tls.enabled=false > "$rendered"
@@ -22,9 +22,9 @@ if grep -A12 -- '-remote-cluster-credentials' "$rendered" | grep -Eq 'clusterrol
   exit 1
 fi
 
-disabled="$(mktemp "${TMPDIR:-/tmp}/envpilot-remote-credentials-disabled.XXXXXX")"
+disabled="$(mktemp "${TMPDIR:-/tmp}/envplane-remote-credentials-disabled.XXXXXX")"
 trap 'rm -f "$rendered" "$disabled"' EXIT
-helm template envpilot "$chart" --namespace envpilot \
+helm template envplane "$chart" --namespace envplane \
   --set-string postgres.auth.password=ci-render-only-password \
   --set postgres.tls.enabled=false > "$disabled"
 if grep -Fq -- '-remote-cluster-credentials' "$disabled"; then

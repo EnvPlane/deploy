@@ -1,0 +1,547 @@
+# Provider-neutral EnvPlane umbrella defaults. No ingress controller, DNS
+# provider, domain, StorageClass, cloud load balancer, or Kubernetes provider is
+# assumed until an access/dependency profile explicitly requests one. When
+# access.mode=ingress and access.ingress.className=nginx, the umbrella detects a
+# healthy existing ingress-nginx controller and otherwise reconciles the pinned
+# provider chart. Other controller classes require an explicit dependency
+# provider contract.
+
+# Conditional child-chart switches. Child configuration remains under the
+# canonical chart name so immutable selectors are not rewritten by aliases.
+controlPlane:
+  enabled: true
+frontend:
+  enabled: true
+agent:
+  enabled: false
+runner:
+  enabled: false
+webhook:
+  enabled: false
+
+# Cross-child first-start registration for an Agent and Runner installed in
+# this same release/cluster. `managed` creates one Helm-owned Secret and keeps
+# its values stable across upgrades; `existing` consumes an operator-created
+# Secret. The Secret is mounted only into the control plane and the matching
+# runtime pods. It is never exposed through a bootstrap API response.
+global:
+  # Canonical configuration namespace. Values here override the legacy
+  # global.envplane tree recursively; legacy keys remain accepted for
+  # in-place upgrades and rollback.
+  envplane: {}
+  envplane:
+    publicURL: ""
+    # Runtime image registry contract. Set mode=existing and reference a
+    # Secret containing .dockerconfigjson for private images. The Secret name
+    # and pull references are safe metadata; credentials never enter values.
+    registry:
+      mode: disabled # disabled | existing
+      existingSecret: ""
+      imagePullSecrets: []
+      preflight:
+        enabled: true
+        image:
+          repository: busybox
+          tag: "1.36"
+          pullPolicy: IfNotPresent
+    # Lets the umbrella pass declared platform dependency metadata to the API
+    # capabilities endpoint. It is configuration-only and performs no probes
+    # or installation of controllers, DNS, StorageClasses or tunnels.
+    platformDependencyStatus:
+      enabled: true
+      # Defaults to a revision-scoped
+      # <release>-platform-dependency-reconciler-status-r<revision> when empty.
+      # Set an existing name only when an operator owns that observed-status
+      # ConfigMap; the umbrella will then not create it.
+      statusConfigMapName: ""
+      # The control plane watches the reconciler-owned ConfigMap and overlays
+      # observed capability state on this declarative contract. A missing map
+      # keeps the declared state; an old observation becomes explicitly stale.
+      staleAfterSeconds: 300
+    # Remote clusters are configured through the API/UI and Secret references.
+    # This flag only enables the management-cluster reconciler globally; it
+    # contains no target-cluster endpoint or credential material.
+    remoteClusterReconciler:
+      enabled: false
+    # Per-project management-cluster Agent/Runner releases. The umbrella owns
+    # and creates this namespace on the first install when enabled.
+    sameClusterProjectExecutors:
+      enabled: false
+      namespace: ""
+      # LOCAL DEVELOPMENT ONLY: permit project-owned runtimes to reach an
+      # explicitly configured HTTP control plane.
+      allowInsecureControlPlane: false
+      discovery:
+        namespaces: []
+      # Name only: mounted read-only as a Docker config for signed OCI child
+      # chart resolution. Its content never reaches EnvPlane APIs or audit.
+      registry:
+        existingSecret: ""
+      # Project Agent/Runner Pods reference this name. Registry credentials
+      # remain operator-managed; this value only references the Secret.
+        imagePullSecret: ""
+    # Interactive OAuth is disabled by default. legacy_secret is a temporary
+    # compatibility path for an operator-managed Secret in the release
+    # namespace; the umbrella never renders credential values.
+    auth:
+      mode: disabled
+      existingSecret: ""
+    # DEPRECATED bootstrap source only. At first start it seeds the persisted,
+    # API/UI-managed ManagementEndpointProfile and is never remote-cluster
+    # configuration. New installs should use managementEndpointProfile.bootstrap
+    # only for migration from an existing Helm-managed endpoint, then manage it
+    # through Settings > Remote clusters.
+    remoteControlPlane:
+      endpoint: ""
+      tls:
+        caSecretRef:
+          name: ""
+          key: ca.crt
+    # Optional one-time bootstrap source for the singleton API-managed
+    # ManagementEndpointProfile. The endpoint must be a stable private or
+    # public HTTPS DNS name reachable from target Pods. Values do not hold
+    # kubeconfig, bearer token or certificate bytes.
+    managementEndpointProfile:
+      bootstrap:
+        endpoint: ""
+        tls:
+          serverName: ""
+          caSecretRef:
+            name: ""
+            key: ca.crt
+    firstStartRegistration:
+      mode: disabled # disabled | managed | existing
+      secretName: envplane-first-start-registration
+      existingSecret: ""
+      tokenTTLSeconds: 86400
+      project:
+        id: envplane
+        name: EnvPlane
+        productId: generic
+        appRepositoryId: envplane/app
+        gitopsRepositoryId: envplane/gitops
+      cluster:
+        id: ""
+      agent:
+        id: envplane-agent
+      runner:
+        id: envplane-runner
+        # Empty resolves to the umbrella release namespace at render time.
+        namespace: ""
+        deploymentMode: helm
+    # Public OCI coordinates seeded into new Draft bootstrap sessions. A user
+    # may replace them before compilation; registry credentials are never
+    # included in a session.
+    bootstrapDefaults:
+      helmDirect:
+        chartRef: oci://ghcr.io/envplane/envplane-e2e-workload
+        chartVersion: "0.1.0"
+    # Opt-in only. The local E2E profile creates a disposable base workload and
+    # reconciles this reserved project through real Agent discovery, Runner
+    # chart preflight and bootstrap compilation. It never affects user projects.
+    e2eFixture:
+      enabled: false
+      # Test-only self-healing of a stale fixture Agent/Runner identity. This
+      # does not apply to user projects and uses only the existing Secret-held
+      # bootstrap claims; no credential is copied into session data.
+      recovery:
+        enabled: false
+      baseNamespace: envplane-e2e-base
+      featureNamespace: envplane-e2e-feature
+      chartRef: oci://ghcr.io/envplane/envplane-e2e-workload
+      chartVersion: "0.1.0"
+      appRepositoryURL: https://github.com/envplane/envplane-e2e-workload
+      gitopsRepositoryURL: https://github.com/envplane/deploy
+      scmProvider: github
+      appDefaultBranch: main
+      gitopsDefaultBranch: main
+
+# Public access is opt-in. "ingress" creates an Ingress and, for className=nginx,
+# asks the platform reconciler to detect or install ingress-nginx. "gateway"
+# creates an HTTPRoute against an existing Gateway.
+access:
+  mode: disabled # disabled | ingress | gateway
+  services:
+    controlPlaneName: envplane-control-plane
+    frontendName: envplane-frontend
+  ingress:
+    host: ""
+    className: ""
+    annotations: {}
+    # HTTP ingress is unsafe for browser sessions and must be explicitly
+    # opted into for a disposable local-development profile.
+    allowInsecureHttp: false
+    tls:
+      enabled: false
+      secretName: ""
+  gateway:
+    name: ""
+    namespace: ""
+    sectionName: ""
+    hostnames: []
+
+# External platform capability contract. EnvPlane never adopts resources owned
+# by a platform provider. `auto` detects a healthy compatible capability first
+# and may install only the explicitly configured provider when detection fails.
+platformDependencies:
+  ingress:
+    mode: disabled # auto | managed | existing | disabled
+    provider: ""
+    existingClassName: ""
+    namespace: ""
+    version: ""
+    ownership: external # external | envplane
+    credentials:
+      existingSecret: ""
+    state: ""
+    managed: {}
+
+  dns:
+    mode: disabled # auto | managed | existing | disabled
+    provider: ""
+    existingSecret: ""
+    namespace: ""
+    version: ""
+    ownership: external
+    credentials:
+      existingSecret: ""
+    state: ""
+    managed: {}
+  storage:
+    mode: disabled # auto | managed | existing | disabled
+    provider: ""
+    existingClassName: ""
+    namespace: ""
+    version: ""
+    ownership: external
+    credentials:
+      existingSecret: ""
+    state: ""
+    managed: {}
+
+# Optional chart-owned reconciler. It only handles the three external
+# capabilities above; EnvPlane core workloads remain ordinary chart children.
+platformDependencyReconciler:
+  # Opt-in only. With all platform dependency modes disabled, no reconciler
+  # hooks/RBAC or private image are rendered.
+  enabled: false
+  image:
+    repository: ghcr.io/envplane/platform-reconciler
+    tag: "sha-6adc8322c3bc3d051f19ab8407bc418c004d55d8"
+    digest: "sha256:80242aeb7e222369eed170fe7f4f64b6a0a69b45eac6bed409ae45802a9fd75d"
+    pullPolicy: IfNotPresent
+    sourceRevision: "6adc8322c3bc3d051f19ab8407bc418c004d55d8"
+    release: "sha-6adc8322c3bc3d051f19ab8407bc418c004d55d8"
+  # Required when the reconciler image is in a private registry.
+  imagePullSecrets: []
+  serviceAccount:
+    create: true
+    name: ""
+  backoffLimit: 4
+  activeDeadlineSeconds: 600
+  cleanupManagedOnUninstall: false
+  cleanupDeadlineSeconds: 120
+  cleanupTTLSeconds: 30
+
+envplane-control-plane:
+  fullnameOverride: envplane-control-plane
+  publicURL: ""
+  auth:
+    # legacy_secret enables the operator-managed compatibility Secret. Empty
+    # inherits global.envplane.auth.existingSecret when legacy mode is enabled.
+    mode: disabled
+    existingSecret: ""
+  # Keep the API startup dependency explicit at the umbrella boundary. The
+  # child chart renders a least-privilege initContainer which waits for the
+  # internal PostgreSQL/Redis readiness probes before starting migrations.
+  # Helm still creates StatefulSets and Deployments in one release; this flag
+  # prevents the API from racing the database during a cold install.
+  dependencyWait:
+    enabled: true
+  image:
+    repository: ghcr.io/envplane/api
+    tag: "sha-09b3a76839c60a84ceb9123c2eede22ba192f453"
+    digest: "sha256:83d852e5e80aa8f2800246611dfcc349a4aaeb4665a81ed12dcf74b336706cba"
+    pullPolicy: IfNotPresent
+    sourceRevision: "09b3a76839c60a84ceb9123c2eede22ba192f453"
+    release: "sha-09b3a76839c60a84ceb9123c2eede22ba192f453"
+  imagePullSecrets: []
+  replicaCount: 1
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+  rbac:
+    # Enable only when RemoteCluster credential upload/rotation is required.
+    # The chart then grants namespaced Secret get/create/update/patch, never a
+    # ClusterRole or ConfigMap write. Add non-release namespaces explicitly.
+    remoteClusterCredentials:
+      enabled: false
+      namespaces: []
+    remoteClusterReconciler:
+      enabled: false
+    sameClusterProjectExecutors:
+      enabled: false
+      namespace: ""
+      discovery:
+        namespaces: []
+  remoteClusterReconciler:
+    compatibilityConfigMapName: ""
+    leaderElection:
+      namespace: ""
+  service:
+    type: ClusterIP
+    port: 8080
+    nodePort: null
+  # Umbrella owns frontend separately; disable the standalone transitional
+  # frontend dependency and route access resources to envplane-frontend.
+  frontend:
+    enabled: false
+    serviceName: envplane-frontend
+  # Public access is rendered by templates/access.yaml, not this child chart.
+  ingress:
+    enabled: false
+    domain: ""
+    className: ""
+    annotations: {}
+  env:
+    ENVPLANE_API_CONTRACT_VERSION: "1"
+    ENVPLANE_DATA_DIR: "/var/lib/envplane/data"
+    ENVPLANE_GITOPS_DIR: "/var/lib/envplane/data/gitops"
+  commercialization:
+    billing:
+      provider: ""
+      baseURL: ""
+      apiKeySecretRef:
+        name: ""
+        key: api-key
+      webhookSecretRef:
+        name: ""
+        key: webhook-secret
+    license:
+      publicKeysJSON: "{}"
+      graceDays: 14
+  # Empty means the same-cluster Service FQDN. Set only for an Agent installed
+  # in another cluster, where the endpoint must be explicitly pod-reachable.
+  agentBootstrap:
+    controlPlaneURL: ""
+    image:
+      repository: ghcr.io/envplane/agent
+      tag: "sha-7e03dde324a6f5fd095682177f547d9ad30e7f12"
+    # This must match the envplane-agent child dependency in Chart.yaml. The
+    # release workflow signs it into compatibility/release.json and the
+    # dependency update workflow changes both fields atomically.
+    chart:
+      ref: "oci://ghcr.io/envplane/envplane-agent"
+      version: "0.2.10"
+  remoteControlPlane:
+    # Required only when Agent/Runner are installed in another cluster. Use a
+    # stable target-pod-reachable HTTPS endpoint, never a tunnel or Service
+    # DNS. For private TLS, the CA Secret/key must exist in target namespaces.
+    url: ""
+    caSecret: ""
+    caKey: ca.crt
+    clusterID: ""
+  # internal creates in-release StatefulSets. external references a Secret
+  # containing complete connection URLs. disabled leaves the corresponding
+  # application variable unset for an externally injected configuration.
+  postgres:
+    # mode: internal | external | disabled. Omitted intentionally: the legacy
+    # enabled=true contract selects internal and keeps existing values working.
+    enabled: true
+    image:
+      repository: postgres
+      tag: "16-alpine"
+      digest: "sha256:44c4ee9810eff91f7eab4d822642e01115b1a9eccce4bcbdde7604752d68eac6"
+      pullPolicy: IfNotPresent
+    auth:
+      database: envplane
+      username: envplane
+      password: "" # provide auth.existingSecret or an explicit password
+      existingSecret: ""
+      passwordKey: password
+    external:
+      existingSecret: ""
+      urlKey: database-url
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClassName: ""
+  redis:
+    # mode: internal | external | disabled. Omitted intentionally: the legacy
+    # enabled=true contract selects internal and keeps existing values working.
+    enabled: true
+    image:
+      repository: redis
+      tag: "7-alpine"
+      digest: "sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2"
+      pullPolicy: IfNotPresent
+    external:
+      existingSecret: ""
+      urlKey: redis-url
+    persistence:
+      enabled: true
+      size: 1Gi
+      storageClassName: ""
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClassName: ""
+  # Prefer existingSecret references above. secretEnv remains for compatibility
+  # with prior releases and must not contain credentials in committed values.
+  secretEnv: {}
+
+envplane-frontend:
+  fullnameOverride: envplane-frontend
+  image:
+    repository: ghcr.io/envplane/frontend
+    tag: "sha-267e2b10041c9d678c1e16e7da68d45a09d4be54"
+    digest: "sha256:78f3e01b46dc30c5b727083294dd8c9fbc8df439331392faa37df1720f7971c7"
+    pullPolicy: IfNotPresent
+    sourceRevision: "267e2b10041c9d678c1e16e7da68d45a09d4be54"
+    release: "sha-267e2b10041c9d678c1e16e7da68d45a09d4be54"
+  imagePullSecrets: []
+  replicaCount: 1
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+  service:
+    type: ClusterIP
+    port: 3000
+    nodePort: null
+
+# Same-cluster execution targets are opt-in. Use existing project-scoped
+# registration Secrets; never put bootstrap tokens into this values file.
+envplane-agent:
+  fullnameOverride: envplane-agent
+  image:
+    repository: ghcr.io/envplane/agent
+    tag: "sha-8b1309c3beaec8d2b93e44f03d900a1ddbe9333f"
+    digest: "sha256:541e18836c54c010e63fddf11938cd2fccbdfd1be38f7158ae4227ad2acc30d2"
+    pullPolicy: IfNotPresent
+    sourceRevision: "8b1309c3beaec8d2b93e44f03d900a1ddbe9333f"
+    release: "sha-8b1309c3beaec8d2b93e44f03d900a1ddbe9333f"
+  imagePullSecrets: []
+  replicaCount: 1
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+  rbac:
+    discovery:
+      # The umbrella's default child is disabled; this namespace keeps an
+      # explicit safe render contract when an operator enables it.
+      namespaces:
+        - default
+  controlPlane:
+    endpointMode: sameCluster
+    url: http://envplane-control-plane:8080
+    serviceName: envplane-control-plane
+    namespace: ""
+    port: 8080
+    existingSecret: ""
+    registrationTokenKey: registration-token
+  cluster:
+    id: ""
+  bootstrap:
+    projectId: ""
+  # Management-cluster reconciliation can opt into the strict remote contract.
+  # Keep this disabled for the regular same-cluster child release.
+  managedRemote:
+    enabled: false
+    remoteClusterId: ""
+    projectId: ""
+    authRevision: ""
+    authRotation: ""
+    compatibilityPin: ""
+    generation: 0
+    allowLegacyMigration: false
+    targetNamespaces: []
+  agent:
+    id: ""
+    authPersistence:
+      enabled: true
+      existingClaim: ""
+      existingSecret: ""
+      storageClassName: ""
+
+envplane-runner:
+  fullnameOverride: envplane-runner
+  image:
+    repository: ghcr.io/envplane/runner
+    tag: "sha-21f9cde4436f5ec19f16d92d3cb032f62a3ca0a9"
+    digest: "sha256:8981934a07a91d7d63f635e4c4002fbf409d977efe8e2161b7b973dd525eebd9"
+    pullPolicy: IfNotPresent
+    sourceRevision: "21f9cde4436f5ec19f16d92d3cb032f62a3ca0a9"
+    release: "sha-21f9cde4436f5ec19f16d92d3cb032f62a3ca0a9"
+  imagePullSecrets: []
+  replicaCount: 1
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podSecurityContext: {}
+  securityContext: {}
+  controlPlane:
+    endpointMode: sameCluster
+    url: http://envplane-control-plane:8080
+    serviceName: envplane-control-plane
+    namespace: ""
+    port: 8080
+    existingSecret: ""
+    tokenKey: token
+    configTokenKey: project-config-token
+    authPersistence:
+      enabled: true
+      existingClaim: ""
+      existingSecret: ""
+      storageClassName: ""
+  helmRegistry:
+    existingSecret: ""
+    configKey: .dockerconfigjson
+  project:
+    id: ""
+    clusterId: ""
+    namespace: ""
+    runnerId: ""
+    deploymentMode: helm
+    configUrl: ""
+  # The Remote Cluster Reconciler provides this only for a project-scoped
+  # remote Runner. It never receives raw bootstrap credentials through values.
+  managedRemote:
+    enabled: false
+    remoteClusterId: ""
+    projectId: ""
+    authRevision: ""
+    authRotation: ""
+    compatibilityPin: ""
+    generation: 0
+    allowLegacyMigration: false
+    targetNamespaces: []
+
+envplane-webhook:
+  fullnameOverride: envplane-webhook
+  image:
+    repository: ghcr.io/envplane/webhook
+    tag: "sha-d7498b49bf996342ce38958d37c441c562c4fb43"
+    digest: "sha256:cc9403518530b4b183847daf25094a86b181f8b32e72d562642528c82f6319dc"
+    pullPolicy: IfNotPresent
+    sourceRevision: "d7498b49bf996342ce38958d37c441c562c4fb43"
+    release: "sha-d7498b49bf996342ce38958d37c441c562c4fb43"
+  imagePullSecrets: []
+  controlPlane:
+    url: http://envplane-control-plane:8080
+  secrets:
+    existingSecret: envplane-webhook-secrets
+
+# This dependency exists only to publish and pin the immutable Helm Direct
+# bootstrap artifact. The umbrella never installs the workload itself.
+e2eWorkload:
+  enabled: false

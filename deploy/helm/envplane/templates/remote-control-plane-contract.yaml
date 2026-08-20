@@ -1,0 +1,49 @@
+{{/*
+Validate the provider-neutral management endpoint contract before Helm writes
+any release resources. Remote target workloads cannot use browser hosts,
+port-forwards or Service DNS; a provider-owned private or public
+ingress/Gateway/LB must expose this HTTPS endpoint instead.
+*/}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envplane := include "envplane.globalConfig" . | fromJson -}}
+{{- $remote := default (dict) (get $envplane "remoteControlPlane") -}}
+{{- $profile := default (dict) (get $envplane "managementEndpointProfile") -}}
+{{- $bootstrap := default (dict) (get $profile "bootstrap") -}}
+{{- $legacyEndpoint := lower (trim (default "" (get $remote "endpoint"))) -}}
+{{- $bootstrapEndpoint := lower (trim (default "" (get $bootstrap "endpoint"))) -}}
+{{- if and $legacyEndpoint $bootstrapEndpoint (ne $legacyEndpoint $bootstrapEndpoint) -}}
+  {{- fail "global.envplane.remoteControlPlane.endpoint and global.envplane.managementEndpointProfile.bootstrap.endpoint conflict; migrate to one bootstrap source before install" -}}
+{{- end -}}
+{{- $endpoint := default $legacyEndpoint $bootstrapEndpoint -}}
+{{- $tls := default (dict) (get $remote "tls") -}}
+{{- $bootstrapTLS := default (dict) (get $bootstrap "tls") -}}
+{{- $caRef := default (dict) (get $tls "caSecretRef") -}}
+{{- $bootstrapCARef := default (dict) (get $bootstrapTLS "caSecretRef") -}}
+{{- if $endpoint -}}
+  {{- if not (regexMatch `^https://[^/?#@]+/?$` $endpoint) -}}
+    {{- fail "management endpoint bootstrap must be a stable private or public HTTPS URL without credentials, query, fragment, or path" -}}
+  {{- end -}}
+  {{- if regexMatch `(^https://)(localhost|127\.0\.0\.1|\[::1\]|host\.minikube\.internal|envplane\.local)(:|/|$)|\.svc([.:/]|$)` $endpoint -}}
+    {{- fail "management endpoint bootstrap must be a target-pod-reachable private or public HTTPS URL; localhost, host.minikube.internal, envplane.local, and Kubernetes Service DNS are invalid for remote mode" -}}
+  {{- end -}}
+{{- end -}}
+{{- $caName := trim (default (get $caRef "name") (get $bootstrapCARef "name")) -}}
+{{- $caKey := trim (default (get $caRef "key") (get $bootstrapCARef "key")) -}}
+{{- if and $caName (not $caKey) -}}
+  {{- fail "management endpoint bootstrap TLS caSecretRef.key is required when caSecretRef.name is set" -}}
+{{- end -}}
+{{- if and (not $caName) $caKey (ne $caKey "ca.crt") -}}
+  {{- fail "management endpoint bootstrap TLS caSecretRef.name is required when a non-default CA key is set" -}}
+{{- end -}}
+{{- $access := default (dict) .Values.access -}}
+{{- $ingress := default (dict) (get $access "ingress") -}}
+{{- $ingressHost := lower (trim (default "" (get $ingress "host"))) -}}
+{{- $ingressTLS := default (dict) (get $ingress "tls") -}}
+{{- if and $endpoint (eq (default "disabled" (get $access "mode")) "ingress") (eq $endpoint (printf "https://%s" $ingressHost)) -}}
+  {{- if not (default false (get $ingressTLS "enabled")) -}}
+    {{- fail "access.ingress.tls.enabled=true and an existing access.ingress.tls.secretName are required when the remote control-plane endpoint uses this Ingress host" -}}
+  {{- end -}}
+  {{- if not (trim (default "" (get $ingressTLS "secretName"))) -}}
+    {{- fail "access.ingress.tls.secretName must reference the provider-managed certificate Secret for the remote control-plane endpoint" -}}
+  {{- end -}}
+{{- end -}}

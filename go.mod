@@ -1,4 +1,4 @@
-module github.com/envpilot/deploy
+module github.com/envplane/deploy
 
 go 1.26.6
 

@@ -3,7 +3,7 @@ set -euo pipefail
 
 report=""
 main_revision=""
-artifact_name="envpilot-compatible-artifacts"
+artifact_name="envplane-compatible-artifacts"
 owner_repo="${GITHUB_REPOSITORY:-EnvPlane/deploy}"
 
 echo_usage() {
@@ -11,7 +11,7 @@ echo_usage() {
 Usage: resolve-compatible-manifest.sh --report <path> --main-revision <sha>
   --report           Path to compatibility report JSON (latest-artifacts.json)
   --main-revision    Expected main revision SHA
-  [--artifact-name]  Artifact name to download (default envpilot-compatible-artifacts)
+  [--artifact-name]  Artifact name to download (default envplane-compatible-artifacts)
   [--repository]     Repository in OWNER/REPO form (default GITHUB_REPOSITORY)
 USAGE
 }

@@ -1,0 +1,23 @@
+{{- $globalConfig := include "envplane.globalConfig" . | fromJson -}}
+{{- $remote := default (dict) (get $globalConfig "remoteClusterReconciler") -}}
+{{- $controlPlane := default (dict) (index .Values "envplane-control-plane") -}}
+{{- $controlPlaneRemote := default (dict) (get $controlPlane "remoteClusterReconciler") -}}
+{{- $projectExecutors := default (dict) (get $globalConfig "sameClusterProjectExecutors") -}}
+{{- $reconcilerEnabled := or (default false $remote.enabled) (default false $projectExecutors.enabled) -}}
+{{- if and $reconcilerEnabled (not (.Files.Get "compatibility/release.json")) }}
+{{- fail "managed executor reconciliation requires the signed compatibility/release.json included by a published umbrella chart" }}
+{{- end }}
+{{- if and $reconcilerEnabled (.Files.Get "compatibility/release.json") (not (trim (default "" (get $controlPlaneRemote "compatibilityConfigMapName"))) ) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "envplane.remoteClusterCompatibilityConfigMapName" . }}
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    envplane.io/purpose: remote-cluster-compatibility
+immutable: true
+data:
+  release.json: |
+{{ .Files.Get "compatibility/release.json" | indent 4 }}
+{{- end }}

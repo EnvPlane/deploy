@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-version=""; source_revision="${GITHUB_SHA:-}"; values_file="deploy/helm/envpilot/values.yaml"; chart_file="deploy/helm/envpilot/Chart.yaml"; artifact_report=""; output=""
+version=""; source_revision="${GITHUB_SHA:-}"; values_file="deploy/helm/envplane/values.yaml"; chart_file="deploy/helm/envplane/Chart.yaml"; artifact_report=""; output=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version) version="${2:-}"; shift 2 ;;
@@ -51,8 +51,8 @@ dep_json() {
     --arg sourceRevision "$(jq -er '.sourceRevision' <<<"$selected")" \
     '{name:$name,version:$version,repository:$repository,digest:$digest,sourceRevision:$sourceRevision}'
 }
-images="$(printf '%s\n' "$(image_json envpilot-control-plane control-plane)" "$(image_json envpilot-frontend frontend)" "$(image_json envpilot-agent agent)" "$(image_json envpilot-runner runner)" "$(image_json envpilot-webhook webhook)" "$(image_json platformDependencyReconciler platform-reconciler)" | jq -s .)"
-charts="$(printf '%s\n' "$(dep_json envpilot-control-plane oci://ghcr.io/envplane/envpilot-control-plane controlPlane)" "$(dep_json envpilot-frontend oci://ghcr.io/envplane/envpilot-frontend frontend)" "$(dep_json envpilot-agent oci://ghcr.io/envplane/envpilot-agent agent)" "$(dep_json envpilot-runner oci://ghcr.io/envplane/envpilot-runner runner)" "$(dep_json envpilot-webhook oci://ghcr.io/envplane/envpilot-webhook webhook)" "$(dep_json envpilot-e2e-workload oci://ghcr.io/envplane/envpilot-e2e-workload e2eWorkload)" | jq -s .)"
+images="$(printf '%s\n' "$(image_json envplane-control-plane control-plane)" "$(image_json envplane-frontend frontend)" "$(image_json envplane-agent agent)" "$(image_json envplane-runner runner)" "$(image_json envplane-webhook webhook)" "$(image_json platformDependencyReconciler platform-reconciler)" | jq -s .)"
+charts="$(printf '%s\n' "$(dep_json envplane-control-plane oci://ghcr.io/envplane/envplane-control-plane controlPlane)" "$(dep_json envplane-frontend oci://ghcr.io/envplane/envplane-frontend frontend)" "$(dep_json envplane-agent oci://ghcr.io/envplane/envplane-agent agent)" "$(dep_json envplane-runner oci://ghcr.io/envplane/envplane-runner runner)" "$(dep_json envplane-webhook oci://ghcr.io/envplane/envplane-webhook webhook)" "$(dep_json envplane-e2e-workload oci://ghcr.io/envplane/envplane-e2e-workload e2eWorkload)" | jq -s .)"
 [[ "$(jq 'length' <<<"$images")" == 6 ]] || { echo "compatibility manifest requires six immutable images" >&2; exit 1; }
 [[ "$(jq 'length' <<<"$charts")" == 6 ]] || { echo "compatibility manifest requires six child charts" >&2; exit 1; }
 if [[ -n "$artifact_report" ]]; then
@@ -61,5 +61,5 @@ if [[ -n "$artifact_report" ]]; then
   }
 fi
 mkdir -p "$(dirname "$output")"
-jq -n --arg version "$version" --arg sourceRevision "$source_revision" --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson images "$images" --argjson charts "$charts" '{schemaVersion:1,umbrella:{name:"envpilot",version:$version},sourceRevision:$sourceRevision,generatedAt:$generatedAt,images:$images,childCharts:$charts}' > "$output"
+jq -n --arg version "$version" --arg sourceRevision "$source_revision" --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson images "$images" --argjson charts "$charts" '{schemaVersion:1,umbrella:{name:"envplane",version:$version},sourceRevision:$sourceRevision,generatedAt:$generatedAt,images:$images,childCharts:$charts}' > "$output"
 echo "generated compatibility manifest: $output"

@@ -30,11 +30,11 @@ jobs:
         run: |
           set -euo pipefail
           case "$COMPONENT:$CHART:$REPOSITORY:$SOURCE_REPOSITORY" in
-            control-plane:envpilot-control-plane:oci://ghcr.io/EnvPlane/envpilot-control-plane:EnvPlane/deploy) ;;
-            frontend:envpilot-frontend:oci://ghcr.io/EnvPlane/envpilot-frontend:EnvPlane/deploy) ;;
-            agent:envpilot-agent:oci://ghcr.io/EnvPlane/envpilot-agent:EnvPlane/deploy) ;;
-            runner:envpilot-runner:oci://ghcr.io/EnvPlane/envpilot-runner:EnvPlane/deploy) ;;
-            webhook:envpilot-webhook:oci://ghcr.io/EnvPlane/envpilot-webhook:EnvPlane/deploy) ;;
+            control-plane:envplane-control-plane:oci://ghcr.io/EnvPlane/envplane-control-plane:EnvPlane/deploy) ;;
+            frontend:envplane-frontend:oci://ghcr.io/EnvPlane/envplane-frontend:EnvPlane/deploy) ;;
+            agent:envplane-agent:oci://ghcr.io/EnvPlane/envplane-agent:EnvPlane/deploy) ;;
+            runner:envplane-runner:oci://ghcr.io/EnvPlane/envplane-runner:EnvPlane/deploy) ;;
+            webhook:envplane-webhook:oci://ghcr.io/EnvPlane/envplane-webhook:EnvPlane/deploy) ;;
             *) echo "chart/source/repository is not canonical" >&2; exit 1 ;;
           esac
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "invalid chart version" >&2; exit 1; }
@@ -67,9 +67,9 @@ jobs:
       - id: auth
         name: Select PR authentication
         env:
-          CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
-          APP_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
-          PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
+          CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          APP_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPLANE_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
           if [[ -n "$CLIENT_ID" && -n "$APP_KEY" ]]; then echo method=app >> "$GITHUB_OUTPUT"; elif [[ -n "$PAT" ]]; then echo method=pat >> "$GITHUB_OUTPUT"; else exit 1; fi
@@ -81,8 +81,8 @@ jobs:
         if: steps.auth.outputs.method == 'app'
         run: ./scripts/obtain-github-app-token.sh
         env:
-          ENVPILOT_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
-          ENVPILOT_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
+          ENVPLANE_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          ENVPLANE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
           GH_APP_OWNER: EnvPlane
           GH_APP_REPOSITORY: deploy
           GH_APP_TOKEN_PERMISSIONS: '{"contents":"write"}'
@@ -91,10 +91,10 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          token: ${{ steps.app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
       - name: Restore serialized dependency branch
         env:
-          TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          TOKEN: ${{ steps.app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
           git remote set-url origin "https://x-access-token:${TOKEN}@github.com/EnvPlane/deploy.git"
@@ -109,25 +109,25 @@ jobs:
         run: |
           set -euo pipefail
           scripts/update-umbrella-chart-dependency.sh --component '${{ steps.payload.outputs.component }}' --version '${{ steps.payload.outputs.version }}'
-          helm dependency build --skip-refresh deploy/helm/envpilot
+          helm dependency build --skip-refresh deploy/helm/envplane
           scripts/test-umbrella-chart-dependency-update.sh
-          helm lint deploy/helm/envpilot
-          helm template envpilot deploy/helm/envpilot \
-            --set-string envpilot-control-plane.postgres.auth.password=ci-render-only-password \
-            --set envpilot-control-plane.postgres.tls.enabled=false \
+          helm lint deploy/helm/envplane
+          helm template envplane deploy/helm/envplane \
+            --set-string envplane-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envplane-control-plane.postgres.tls.enabled=false \
             >/dev/null
       - id: pr
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          token: ${{ steps.app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
           base: main
           branch: automation/umbrella-chart-dependencies
           delete-branch: false
           add-paths: |
-            deploy/helm/envpilot/Chart.yaml
-            deploy/helm/envpilot/Chart.lock
-            deploy/helm/envpilot/values.yaml
-            deploy/helm/envpilot/charts/
+            deploy/helm/envplane/Chart.yaml
+            deploy/helm/envplane/Chart.lock
+            deploy/helm/envplane/values.yaml
+            deploy/helm/envplane/charts/
           commit-message: "chore(chart): update ${{ steps.payload.outputs.chart }} to ${{ steps.payload.outputs.version }}"
           title: "chore(chart): update ${{ steps.payload.outputs.chart }} to ${{ steps.payload.outputs.version }}"
           body: |
@@ -143,7 +143,7 @@ jobs:
       - name: Merge validated child-chart dependency pin
         if: steps.pr.outputs.pull-request-number != ''
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
         run: |
           set -euo pipefail

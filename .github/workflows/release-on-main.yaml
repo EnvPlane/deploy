@@ -19,7 +19,7 @@ permissions:
   attestations: write
 
 concurrency:
-  group: envpilot-umbrella-main-release
+  group: envplane-umbrella-main-release
   cancel-in-progress: false
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
       - name: Download confirmed compatibility manifest
         uses: actions/download-artifact@v4
         with:
-          name: envpilot-compatible-artifacts
+          name: envplane-compatible-artifacts
           path: ${{ runner.temp }}/confirmed-artifacts
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
@@ -167,36 +167,36 @@ jobs:
           # published release resolves the exact selected OCI archives so its
           # vendored dependencies cannot drift from the compatibility report.
           sed -i.bak \
-            -e 's#repository: file://../envpilot-control-plane#repository: oci://ghcr.io/envplane#' \
-            -e 's#repository: file://../envpilot-frontend#repository: oci://ghcr.io/envplane#' \
-            -e 's#repository: file://../envpilot-agent#repository: oci://ghcr.io/envplane#' \
-            -e 's#repository: file://../envpilot-runner#repository: oci://ghcr.io/envplane#' \
-            -e 's#repository: file://../envpilot-webhook#repository: oci://ghcr.io/envplane#' \
-            -e 's#repository: file://../envpilot-e2e-workload#repository: oci://ghcr.io/envplane#' \
-            deploy/helm/envpilot/Chart.yaml
-          rm -f deploy/helm/envpilot/Chart.yaml.bak
-          rm -f deploy/helm/envpilot/Chart.lock deploy/helm/envpilot/charts/*.tgz
-          helm dependency build --skip-refresh deploy/helm/envpilot
+            -e 's#repository: file://../envplane-control-plane#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-frontend#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-agent#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-runner#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-webhook#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-e2e-workload#repository: oci://ghcr.io/envplane#' \
+            deploy/helm/envplane/Chart.yaml
+          rm -f deploy/helm/envplane/Chart.yaml.bak
+          rm -f deploy/helm/envplane/Chart.lock deploy/helm/envplane/charts/*.tgz
+          helm dependency build --skip-refresh deploy/helm/envplane
       - name: Bump umbrella patch version in the build workspace
         id: version
         env:
           REPORT: ${{ steps.artifacts.outputs.report }}
         run: |
           set -euo pipefail
-          current="$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot/Chart.yaml)"
+          current="$(awk '/^version:/{print $2; exit}' deploy/helm/envplane/Chart.yaml)"
           previous="$(jq -er '.previousUmbrellaVersion' "$REPORT")"
           # Read the registry tag set once and derive the next patch directly.
           # Probing versions one by one makes every release walk through all
           # historical tags (and can issue hundreds of registry requests).
-          published="$(oras repo tags ghcr.io/envplane/envpilot 2>/dev/null \
+          published="$(oras repo tags ghcr.io/envplane/envplane 2>/dev/null \
             | awk '/^[0-9]+\.[0-9]+\.[0-9]+$/ {print}' \
             | sort -V | tail -n1 || true)"
           base="$(printf '%s\n' "$current" "$previous" "$published" | sort -V | tail -n1)"
           IFS=. read -r major minor patch <<< "$base"
           version="$major.$minor.$((patch + 1))"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          sed -i.bak -E "0,/^version: .*/s//version: $version/; 0,/^appVersion: .*/s//appVersion: \"$version\"/" deploy/helm/envpilot/Chart.yaml
-          rm -f deploy/helm/envpilot/Chart.yaml.bak
+          sed -i.bak -E "0,/^version: .*/s//version: $version/; 0,/^appVersion: .*/s//appVersion: \"$version\"/" deploy/helm/envplane/Chart.yaml
+          rm -f deploy/helm/envplane/Chart.yaml.bak
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "previous=$previous" >> "$GITHUB_OUTPUT"
       - name: Generate immutable compatibility manifest
@@ -208,27 +208,27 @@ jobs:
           ./scripts/generate-umbrella-compatibility-manifest.sh \
             --version "$VERSION" --source-revision "${{ steps.source.outputs.revision }}" \
             --artifact-report "$REPORT" \
-            --output deploy/helm/envpilot/compatibility/release.json
+            --output deploy/helm/envplane/compatibility/release.json
           jq -e --arg version "$VERSION" \
             '.umbrella.version == $version and (.images | length == 6) and (.childCharts | length == 6) and
              all(.childCharts[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and
                (.sourceRevision | test("^[0-9a-f]{40}$")))' \
-            deploy/helm/envpilot/compatibility/release.json >/dev/null
+            deploy/helm/envplane/compatibility/release.json >/dev/null
       - name: Validate and package the complete umbrella
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          go test ./deploy/helm/envpilot/tests
-          helm lint deploy/helm/envpilot
+          go test ./deploy/helm/envplane/tests
+          helm lint deploy/helm/envplane
           # This is a structural release check, not an installation. Supply
           # disposable values for credentials that remain required at runtime.
-          helm template envpilot deploy/helm/envpilot \
-            --set-string envpilot-control-plane.postgres.auth.password=ci-render-only-password \
-            --set envpilot-control-plane.postgres.tls.enabled=false \
+          helm template envplane deploy/helm/envplane \
+            --set-string envplane-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envplane-control-plane.postgres.tls.enabled=false \
             >/dev/null
           mkdir -p dist
-          helm package deploy/helm/envpilot --destination dist --version "$VERSION" --app-version "$VERSION"
+          helm package deploy/helm/envplane --destination dist --version "$VERSION" --app-version "$VERSION"
       - name: Generate JSON attestation predicate
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -236,7 +236,7 @@ jobs:
           set -euo pipefail
           jq -n --arg version "$VERSION" \
             --arg sourceRevision "$GITHUB_SHA" \
-            --slurpfile compatibility deploy/helm/envpilot/compatibility/release.json \
+            --slurpfile compatibility deploy/helm/envplane/compatibility/release.json \
             '{schemaVersion:1,releaseVersion:$version,sourceRevision:$sourceRevision,compatibility:$compatibility[0]}' \
             > "$RUNNER_TEMP/compatibility-predicate.json"
           jq -e 'has("schemaVersion") and has("compatibility")' "$RUNNER_TEMP/compatibility-predicate.json" >/dev/null
@@ -246,7 +246,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          output="$(helm push "dist/envpilot-$VERSION.tgz" oci://ghcr.io/envplane 2>&1 | tee /dev/stderr)"
+          output="$(helm push "dist/envplane-$VERSION.tgz" oci://ghcr.io/envplane 2>&1 | tee /dev/stderr)"
           digest="$(awk '/^Digest:/{print $2; exit}' <<< "$output")"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "umbrella push did not return an immutable digest" >&2; exit 1; }
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
@@ -256,10 +256,10 @@ jobs:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           set -euo pipefail
-          ref="ghcr.io/envplane/envpilot@$DIGEST"
+          ref="ghcr.io/envplane/envplane@$DIGEST"
           cosign sign --yes "$ref"
           cosign attest --yes --predicate "$RUNNER_TEMP/compatibility-predicate.json" \
-            --type https://envpilot.dev/compatibility/v1 "$ref"
+            --type https://envplane.dev/compatibility/v1 "$ref"
       - name: Verify predecessor compatibility set
         env:
           PREVIOUS: ${{ steps.version.outputs.previous }}
@@ -269,9 +269,9 @@ jobs:
             echo "no predecessor umbrella exists; skipping initial-release reinstall check"
             exit 0
           fi
-          helm pull "oci://ghcr.io/envplane/envpilot" --version "$PREVIOUS" --destination "$RUNNER_TEMP"
+          helm pull "oci://ghcr.io/envplane/envplane" --version "$PREVIOUS" --destination "$RUNNER_TEMP"
           ./scripts/verify-umbrella-reinstall-compatibility.sh \
-            "$RUNNER_TEMP/envpilot-$PREVIOUS.tgz"
+            "$RUNNER_TEMP/envplane-$PREVIOUS.tgz"
       - name: Publish GitHub Release and machine-readable metadata
         env:
           GH_TOKEN: ${{ github.token }}
@@ -280,20 +280,20 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg version "$VERSION" --arg digest "$DIGEST" \
-            --arg chart "oci://ghcr.io/envplane/envpilot:$VERSION" \
-            --slurpfile compatibility deploy/helm/envpilot/compatibility/release.json \
+            --arg chart "oci://ghcr.io/envplane/envplane:$VERSION" \
+            --slurpfile compatibility deploy/helm/envplane/compatibility/release.json \
             '{schemaVersion:1,chart:$chart,version:$version,digest:$digest,compatibility:$compatibility[0]}' \
-            > "dist/envpilot-$VERSION-release.json"
-          tag="envpilot-v$VERSION"
+            > "dist/envplane-$VERSION-release.json"
+          tag="envplane-v$VERSION"
           assets=(
-            "dist/envpilot-$VERSION.tgz"
-            "deploy/helm/envpilot/compatibility/release.json"
-            "dist/envpilot-$VERSION-release.json"
+            "dist/envplane-$VERSION.tgz"
+            "deploy/helm/envplane/compatibility/release.json"
+            "dist/envplane-$VERSION-release.json"
           )
           if gh release view "$tag" --repo EnvPlane/deploy >/dev/null 2>&1; then
             gh release upload "$tag" "${assets[@]}" --repo EnvPlane/deploy --clobber
           else
             gh release create "$tag" "${assets[@]}" \
               --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
-              --notes "OCI chart: oci://ghcr.io/envplane/envpilot:$VERSION\nDigest: $DIGEST"
+              --notes "OCI chart: oci://ghcr.io/envplane/envplane:$VERSION\nDigest: $DIGEST"
           fi

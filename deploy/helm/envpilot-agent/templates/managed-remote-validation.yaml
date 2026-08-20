@@ -1,3 +1,0 @@
-{{- /* Fail before creating resources if controller-managed remote values are
-      incomplete or unsafe. The helper emits no Kubernetes object. */ -}}
-{{- include "envpilot-agent.validateManagedRemote" . -}}

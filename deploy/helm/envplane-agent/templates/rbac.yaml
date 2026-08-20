@@ -1,0 +1,189 @@
+{{- define "envplane-agent.namespacedDiscoveryRules" -}}
+- apiGroups: [""]
+  resources:
+    - services
+    - configmaps
+    - resourcequotas
+    - limitranges
+    - persistentvolumeclaims
+    - serviceaccounts
+  verbs: ["get","list","watch"]
+{{- if .Values.rbac.discovery.readSecrets }}
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get","list","watch"]
+{{- end }}
+- apiGroups: ["apps"]
+  resources: ["deployments","daemonsets","statefulsets"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs","cronjobs"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses","networkpolicies"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["kustomize.toolkit.fluxcd.io"]
+  resources: ["kustomizations"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["helm.toolkit.fluxcd.io"]
+  resources: ["helmreleases"]
+  verbs: ["get","list","watch"]
+- apiGroups: ["source.toolkit.fluxcd.io"]
+  resources: ["gitrepositories","helmrepositories","ocirepositories","buckets"]
+  verbs: ["get","list","watch"]
+{{- end -}}
+
+{{- if .Values.rbac.create -}}
+{{- $fullName := include "envplane-agent.fullname" . -}}
+{{- $serviceAccountName := include "envplane-agent.serviceAccountName" . -}}
+{{- $scope := default "cluster" .Values.rbac.discovery.scope -}}
+{{- $namespaces := .Values.rbac.discovery.namespaces -}}
+{{- $clusterCapabilityRead := default false .Values.rbac.discovery.clusterCapabilityRead -}}
+{{- $namespaceInventoryRead := default false .Values.rbac.discovery.namespaceInventoryRead -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if eq (include "envplane-agent.managedRemoteEnabled" .) "true" -}}
+{{- $scope = "namespace" -}}
+{{- $namespaces = get $managedRemote "targetNamespaces" -}}
+{{- end -}}
+{{- if and (eq $scope "namespace") (not $namespaces) (not $namespaceInventoryRead) -}}
+{{- fail "rbac.discovery.namespaces must contain at least one namespace when rbac.discovery.scope=namespace" -}}
+{{- end -}}
+{{- if eq $scope "namespace" -}}
+{{- range $namespace := $namespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullName }}-discovery-reader
+  namespace: {{ $namespace | quote }}
+  labels:
+    {{- include "envplane-agent.labels" $ | nindent 4 }}
+  {{- with $.Values.rbac.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+{{ include "envplane-agent.namespacedDiscoveryRules" $ | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullName }}-discovery-reader
+  namespace: {{ $namespace | quote }}
+  labels:
+    {{- include "envplane-agent.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullName }}-discovery-reader
+{{- end }}
+{{- if or $clusterCapabilityRead $namespaceInventoryRead }}
+---
+# Project-owned same-cluster Agents use namespace-scoped discovery for
+# workloads. Namespace objects themselves are cluster-scoped, so permit GET
+# only for the explicit allowlist. Capability APIs remain read-only; no
+# workload, namespace-list, or write access is included in this ClusterRole.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullName }}-cluster-capability-reader
+  labels:
+    {{- include "envplane-agent.labels" . | nindent 4 }}
+rules:
+{{- if $namespaceInventoryRead }}
+  # Bootstrap inventory only: enumerate namespace names so the user can make
+  # an explicit selection. Workload discovery remains Role-scoped below.
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list"]
+{{- else }}
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames:
+{{- range $namespace := $namespaces }}
+      - {{ $namespace | quote }}
+{{- end }}
+    verbs: ["get"]
+{{- end }}
+{{- if $clusterCapabilityRead }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get","list","watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get","list","watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get","list","watch"]
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullName }}-cluster-capability-reader
+  labels:
+    {{- include "envplane-agent.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullName }}-cluster-capability-reader
+{{- end }}
+{{- else if eq $scope "cluster" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullName }}-discovery-reader
+  labels:
+    {{- include "envplane-agent.labels" . | nindent 4 }}
+  {{- with .Values.rbac.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  # Cluster-wide discovery is an explicit opt-in scope. It remains read-only.
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get","list","watch"]
+{{ include "envplane-agent.namespacedDiscoveryRules" . | nindent 2 }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get","list","watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get","list","watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get","list","watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullName }}-discovery-reader
+  labels:
+    {{- include "envplane-agent.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullName }}-discovery-reader
+{{- else }}
+{{- fail (printf "unsupported rbac.discovery.scope %q; expected namespace or cluster" $scope) }}
+{{- end }}
+{{- end }}

@@ -5,12 +5,12 @@
 # cookies for a disposable minikube cluster; never use it for shared access.
 allowInsecureLocalDevelopment: true
 global:
-  envpilot:
+  envplane:
     registry:
       mode: existing
-      existingSecret: envpilot-ghcr
+      existingSecret: envplane-ghcr
       imagePullSecrets:
-        - name: envpilot-ghcr
+        - name: envplane-ghcr
     auth:
       # OAuth is now activated in the managed authentication store. Do not
       # re-run the legacy bootstrap migration on every local restart.
@@ -24,24 +24,24 @@ global:
     # pre-created namespace. No credential material is stored in this file.
     sameClusterProjectExecutors:
       enabled: true
-      namespace: envpilot-executors
+      namespace: envplane-executors
       allowInsecureControlPlane: true
       registry:
-        existingSecret: envpilot-ghcr
-        imagePullSecret: envpilot-ghcr
+        existingSecret: envplane-ghcr
+        imagePullSecret: envplane-ghcr
 
-envpilot-control-plane:
+envplane-control-plane:
   # LOCAL DEVELOPMENT ONLY: canonical callback origin for the minikube ingress.
-  publicURL: http://envpilot.local
+  publicURL: http://envplane.local
   env:
     # LOCAL DEVELOPMENT ONLY: this profile intentionally uses HTTP on a
     # disposable minikube host. Production/operator values must omit this.
-    ENVPILOT_OAUTH_COOKIE_SECURE: "false"
-    ENVPILOT_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
+    ENVPLANE_OAUTH_COOKIE_SECURE: "false"
+    ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
   rbac:
     sameClusterProjectExecutors:
       enabled: true
-      namespace: envpilot-executors
+      namespace: envplane-executors
   postgres:
     auth:
       # The control-plane chart creates and owns this Secret on first install,
@@ -66,18 +66,18 @@ access:
   ingress:
     # LOCAL DEVELOPMENT ONLY: required by the umbrella chart when TLS is off.
     allowInsecureHttp: true
-    host: envpilot.local
+    host: envplane.local
     className: nginx
     tls:
       enabled: false
 
-envpilot-agent:
+envplane-agent:
   controlPlane:
     # LOCAL DEVELOPMENT ONLY: the disposable minikube ingress exposes the
     # control plane over HTTP. Production profiles must keep this false.
     allowInsecure: true
 
-envpilot-runner:
+envplane-runner:
   controlPlane:
     # LOCAL DEVELOPMENT ONLY: the disposable minikube ingress exposes the
     # control plane over HTTP. Production profiles must keep this false.

@@ -1,0 +1,636 @@
+{{- $postgresMode := default (ternary "internal" "disabled" .Values.postgres.enabled) .Values.postgres.mode -}}
+{{- $redisMode := default (ternary "internal" "disabled" .Values.redis.enabled) .Values.redis.mode -}}
+{{- if gt (int .Values.replicaCount) 1 }}
+{{- fail "control-plane replicaCount > 1 is unsupported while security-sensitive process state is local; keep replicaCount at 1" }}
+{{- end }}
+{{- $redisAuthSecret := printf "%s-redis-auth" (include "envplane-control-plane.fullname" .) -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $allowInsecureLocalDevelopment := default false .Values.allowInsecureLocalDevelopment -}}
+{{- $cookieSecure := default "true" (get (default (dict) .Values.env) "ENVPLANE_OAUTH_COOKIE_SECURE") -}}
+{{- if and .Values.ingress.enabled (not .Values.ingress.tls.enabled) (eq (lower (toString $cookieSecure)) "false") (not $allowInsecureLocalDevelopment) -}}
+{{- fail "refusing ingress without TLS while ENVPLANE_OAUTH_COOKIE_SECURE=false; set allowInsecureLocalDevelopment=true only for local development" -}}
+{{- end -}}
+{{- $globalEnvPlane := include "envplane-control-plane.globalConfig" . | fromJson -}}
+{{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
+{{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
+{{- $platformDependencyStatusConfigMap := include "envplane-control-plane.platformDependencyStatusConfigMapName" . -}}
+{{- $platformDependencyStatusStaleAfter := default 300 (get $platformDependencyStatus "staleAfterSeconds") -}}
+{{- $remoteClusterReconciler := default (dict) (get $globalEnvPlane "remoteClusterReconciler") -}}
+{{- $remoteClusterReconcilerEnabled := default false $remoteClusterReconciler.enabled -}}
+{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPlane "sameClusterProjectExecutors") -}}
+{{- $sameClusterProjectExecutorsEnabled := default false $sameClusterProjectExecutors.enabled -}}
+{{- $sameClusterProjectExecutorsNamespace := trim (default "" $sameClusterProjectExecutors.namespace) -}}
+{{- $sameClusterProjectExecutorsDiscovery := default (dict) $sameClusterProjectExecutors.discovery -}}
+{{- $sameClusterProjectExecutorsDiscoveryNamespaces := default (list) $sameClusterProjectExecutorsDiscovery.namespaces -}}
+{{- $sameClusterProjectExecutorsAllowInsecureControlPlane := default false $sameClusterProjectExecutors.allowInsecureControlPlane -}}
+{{- $executorReconcilerEnabled := or $remoteClusterReconcilerEnabled $sameClusterProjectExecutorsEnabled -}}
+{{- $registry := default (dict) (get $globalEnvPlane "registry") -}}
+{{- $projectExecutorRegistry := default (dict) (get $sameClusterProjectExecutors "registry") -}}
+{{- $executorRegistrySecret := trim (default (default "" (get $registry "existingSecret")) (get $projectExecutorRegistry "existingSecret")) -}}
+{{- $executorImagePullSecret := trim (default $executorRegistrySecret (get $projectExecutorRegistry "imagePullSecret")) -}}
+{{- $remoteClusterReconcilerConfig := default (dict) .Values.remoteClusterReconciler -}}
+{{- $leaderElection := default (dict) (get $remoteClusterReconcilerConfig "leaderElection") -}}
+{{- $leaderElectionNamespace := trim (default "" (get $leaderElection "namespace")) -}}
+{{- $remoteCompatibilityConfigMap := include "envplane-control-plane.remoteClusterCompatibilityConfigMapName" . -}}
+{{- $firstStart := default (dict) (get $globalEnvPlane "firstStartRegistration") -}}
+{{- $firstStartMode := default "disabled" $firstStart.mode -}}
+{{- if and $sameClusterProjectExecutorsEnabled (or (eq $firstStartMode "disabled") (not $sameClusterProjectExecutorsNamespace)) -}}
+{{- fail "sameClusterProjectExecutors requires enabled firstStartRegistration and a namespace" -}}
+{{- end -}}
+{{- if and $sameClusterProjectExecutorsEnabled (not $executorRegistrySecret) -}}
+{{- fail "sameClusterProjectExecutors requires registry.existingSecret for signed OCI child charts" -}}
+{{- end -}}
+{{- if and $sameClusterProjectExecutorsEnabled (not $executorImagePullSecret) -}}
+{{- fail "sameClusterProjectExecutors requires registry.imagePullSecret in the executor namespace" -}}
+{{- end -}}
+{{- $e2eFixture := default (dict) (get $globalEnvPlane "e2eFixture") -}}
+{{- $e2eFixtureRecovery := default (dict) (get $e2eFixture "recovery") -}}
+{{- $globalBootstrapDefaults := default (dict) (get $globalEnvPlane "bootstrapDefaults") -}}
+{{- $localBootstrapDefaults := default (dict) .Values.bootstrapDefaults -}}
+{{- $globalDefaultHelmDirect := default (dict) (get $globalBootstrapDefaults "helmDirect") -}}
+{{- $localDefaultHelmDirect := default (dict) (get $localBootstrapDefaults "helmDirect") -}}
+{{- $defaultHelmDirectChartRef := trim (default (get $localDefaultHelmDirect "chartRef") (get $globalDefaultHelmDirect "chartRef")) -}}
+{{- $defaultHelmDirectChartVersion := trim (default (get $localDefaultHelmDirect "chartVersion") (get $globalDefaultHelmDirect "chartVersion")) -}}
+{{- $firstStartSecret := "" -}}
+{{- $agentBootstrap := default (dict) .Values.agentBootstrap -}}
+{{- $agentBootstrapImage := default (dict) $agentBootstrap.image -}}
+{{- $agentBootstrapChart := default (dict) $agentBootstrap.chart -}}
+{{- $legacyRemoteControlPlane := default (dict) .Values.remoteControlPlane -}}
+{{- $globalRemoteControlPlane := default (dict) (get $globalEnvPlane "remoteControlPlane") -}}
+{{- $managementEndpointProfile := default (dict) (get $globalEnvPlane "managementEndpointProfile") -}}
+{{- $managementEndpointBootstrap := default (dict) (get $managementEndpointProfile "bootstrap") -}}
+{{- $globalRemoteTLS := default (dict) (get $globalRemoteControlPlane "tls") -}}
+{{- $globalRemoteCARef := default (dict) (get $globalRemoteTLS "caSecretRef") -}}
+{{- $bootstrapTLS := default (dict) (get $managementEndpointBootstrap "tls") -}}
+{{- $bootstrapCARef := default (dict) (get $bootstrapTLS "caSecretRef") -}}
+{{- $legacyRemoteCASecret := default "" (get $legacyRemoteControlPlane "caSecret") -}}
+{{- $remoteCASecret := default (default $legacyRemoteCASecret (get $globalRemoteCARef "name")) (get $bootstrapCARef "name") -}}
+{{- $remoteCAKey := default "ca.crt" (get $legacyRemoteControlPlane "caKey") -}}
+{{- if get $bootstrapCARef "name" -}}
+{{- $remoteCAKey = default "ca.crt" (get $bootstrapCARef "key") -}}
+{{- else if and (not $legacyRemoteCASecret) $remoteCASecret -}}
+{{- $remoteCAKey = default "ca.crt" (get $globalRemoteCARef "key") -}}
+{{- end -}}
+{{- $remoteControlPlane := dict
+  "url" (default (default (get $legacyRemoteControlPlane "url") (get $globalRemoteControlPlane "endpoint")) (get $managementEndpointBootstrap "endpoint"))
+  "caSecret" $remoteCASecret
+  "caKey" $remoteCAKey
+  "clusterID" (get $legacyRemoteControlPlane "clusterID")
+-}}
+{{- $remoteServerName := default "" (get $bootstrapTLS "serverName") -}}
+{{- $legacyAgentBootstrapEndpoint := default "" (get .Values.env "ENVPLANE_AGENT_CONTROL_PLANE_URL") -}}
+{{- $legacyAgentBootstrapRepository := default "" (get .Values.env "ENVPLANE_AGENT_IMAGE_REPOSITORY") -}}
+{{- $legacyAgentBootstrapTag := default "" (get .Values.env "ENVPLANE_AGENT_IMAGE_TAG") -}}
+{{- $legacyAgentBootstrapChartRef := default "" (get .Values.env "ENVPLANE_AGENT_HELM_CHART_REF") -}}
+{{- $legacyAgentBootstrapChartVersion := default "" (get .Values.env "ENVPLANE_AGENT_HELM_CHART_VERSION") -}}
+{{- $agentBootstrapEndpoint := default (printf "http://%s.%s.svc:%v" (include "envplane-control-plane.fullname" .) .Release.Namespace .Values.service.port) (default $legacyAgentBootstrapEndpoint $agentBootstrap.controlPlaneURL) -}}
+{{- $agentBootstrapRepository := default "ghcr.io/envplane/agent" (default $legacyAgentBootstrapRepository $agentBootstrapImage.repository) -}}
+{{- $agentBootstrapTag := default "0.1.4" (default $legacyAgentBootstrapTag $agentBootstrapImage.tag) -}}
+{{- $agentBootstrapChartRef := default $legacyAgentBootstrapChartRef $agentBootstrapChart.ref -}}
+{{- $agentBootstrapChartVersion := default $legacyAgentBootstrapChartVersion $agentBootstrapChart.version -}}
+{{- $environment := omit (deepCopy .Values.env) "ENVPLANE_AGENT_CONTROL_PLANE_URL" "ENVPLANE_AGENT_IMAGE_REPOSITORY" "ENVPLANE_AGENT_IMAGE_TAG" "ENVPLANE_AGENT_HELM_CHART_REF" "ENVPLANE_AGENT_HELM_CHART_VERSION" -}}
+{{- $auth := default (dict) .Values.auth -}}
+{{- $globalAuth := default (dict) (get $globalEnvPlane "auth") -}}
+{{- $publicURL := trim (default (get $globalEnvPlane "publicURL") .Values.publicURL) -}}
+{{- $authMode := "disabled" -}}
+{{- if or (eq (default "disabled" (get $globalAuth "mode")) "legacy_secret") (eq (default "disabled" (get $auth "mode")) "legacy_secret") -}}
+{{- $authMode = "legacy_secret" -}}
+{{- end -}}
+{{- if and (ne (default "disabled" (get $globalAuth "mode")) "disabled") (ne (default "disabled" (get $globalAuth "mode")) "legacy_secret") -}}
+{{- fail "global.envplane.auth.mode must be disabled or legacy_secret" -}}
+{{- end -}}
+{{- if and (ne (default "disabled" (get $auth "mode")) "disabled") (ne (default "disabled" (get $auth "mode")) "legacy_secret") -}}
+{{- fail "auth.mode must be disabled or legacy_secret" -}}
+{{- end -}}
+{{- $authSecret := trim (default (get $globalAuth "existingSecret") (get $auth "existingSecret")) -}}
+{{- $authGitHub := default (dict) (get $auth "github") -}}
+{{- $authGitLab := default (dict) (get $auth "gitlab") -}}
+{{- $authOIDC := default (dict) (get $auth "oidc") -}}
+{{- $authProviderConfigured := or (trim (printf "%v" (get $authGitHub "authURL"))) (trim (printf "%v" (get $authGitHub "tokenURL"))) (trim (printf "%v" (get $authGitHub "userURL"))) (trim (printf "%v" (get $authGitLab "authURL"))) (trim (printf "%v" (get $authGitLab "tokenURL"))) (trim (printf "%v" (get $authGitLab "userURL"))) (trim (printf "%v" (get $authOIDC "authURL"))) (trim (printf "%v" (get $authOIDC "tokenURL"))) (trim (printf "%v" (get $authOIDC "userURL"))) (trim (printf "%v" (get $authOIDC "scopes"))) -}}
+{{- if eq $authMode "legacy_secret" -}}
+  {{- if not $authSecret -}}
+    {{- fail "auth.existingSecret is required when auth.mode=legacy_secret" -}}
+  {{- end -}}
+{{- else -}}
+  {{- if $authSecret -}}
+    {{- fail "auth.existingSecret requires auth.mode=legacy_secret" -}}
+  {{- end -}}
+  {{- if $authProviderConfigured -}}
+    {{- fail "auth provider settings require auth.mode=legacy_secret" -}}
+  {{- end -}}
+{{- end -}}
+{{- $commercialization := default (dict) .Values.commercialization -}}
+{{- $billing := default (dict) (get $commercialization "billing") -}}
+{{- $billingAPIKeyRef := default (dict) (get $billing "apiKeySecretRef") -}}
+{{- $billingWebhookRef := default (dict) (get $billing "webhookSecretRef") -}}
+{{- $license := default (dict) (get $commercialization "license") -}}
+{{- if eq $firstStartMode "existing" -}}
+{{- $firstStartSecret = required "global.envplane.firstStartRegistration.existingSecret is required when mode=existing" $firstStart.existingSecret -}}
+{{- else if eq $firstStartMode "managed" -}}
+{{- $firstStartSecret = default (printf "%s-first-start-registration" .Release.Name) $firstStart.secretName -}}
+{{- end -}}
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envplane-control-plane.imageMetadata" . | fromYaml) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "envplane-control-plane.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "envplane-control-plane.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- toYaml $podAnnotations | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "envplane-control-plane.serviceAccountName" . }}
+      {{- $pullSecrets := include "envplane-control-plane.imagePullSecrets" . }}
+      {{- if $pullSecrets }}
+      imagePullSecrets:
+        {{ $pullSecrets | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.dependencyWait.enabled }}
+      initContainers:
+        {{- if eq $postgresMode "internal" }}
+        - name: wait-postgres
+          image: {{ include "envplane-control-plane.postgresImage" . | quote }}
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - sh
+            - -ec
+            - |
+              until pg_isready -h {{ include "envplane-control-plane.postgresName" . }} -p {{ .Values.postgres.service.port }} -U {{ .Values.postgres.auth.username | quote }} -d {{ .Values.postgres.auth.database | quote }}; do
+                echo "waiting for postgres"
+                sleep 2
+              done
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "envplane-control-plane.postgresName" .) .Values.postgres.auth.existingSecret }}
+                  key: {{ .Values.postgres.auth.passwordKey | quote }}
+        {{- end }}
+        {{- if eq $redisMode "internal" }}
+        - name: wait-redis
+          image: {{ include "envplane-control-plane.redisImage" . | quote }}
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - sh
+            - -ec
+            - |
+              until redis-cli --no-auth-warning -a "$REDIS_PASSWORD" -h {{ include "envplane-control-plane.redisName" . }} -p {{ .Values.redis.service.port }} ping | grep -q PONG; do
+                echo "waiting for redis"
+                sleep 2
+              done
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $redisAuthSecret | quote }}
+                  key: password
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: api
+          image: {{ include "envplane-control-plane.image" . | quote }}
+          imagePullPolicy: {{ include "envplane-control-plane.imagePullPolicy" . }}
+          {{- if $platformDependencyStatusEnabled }}
+          envFrom:
+            - configMapRef:
+                name: {{ printf "%s-platform-dependency-status" .Release.Name | quote }}
+          {{- end }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: GOMEMLIMIT
+              value: {{ .Values.runtime.gomemlimit | quote }}
+            {{- if $platformDependencyStatusEnabled }}
+            # The declared contract comes from envFrom above. This separate,
+            # read-only ConfigMap watch supplies observed reconciler state.
+            - name: ENVPLANE_PLATFORM_DEPENDENCY_STATUS_CONFIG_MAP
+              value: {{ $platformDependencyStatusConfigMap | quote }}
+            - name: ENVPLANE_PLATFORM_DEPENDENCY_STATUS_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: ENVPLANE_PLATFORM_DEPENDENCY_STATUS_STALE_AFTER_SECONDS
+              value: {{ $platformDependencyStatusStaleAfter | quote }}
+            {{- end }}
+            # Bootstrap Agent instructions must use a pod-reachable endpoint,
+            # never the browser ingress host. A remote target cluster sets the
+            # explicit agentBootstrap.controlPlaneURL override.
+            - name: ENVPLANE_AGENT_CONTROL_PLANE_URL
+              value: {{ $agentBootstrapEndpoint | quote }}
+            - name: ENVPLANE_PUBLIC_URL
+              value: {{ $publicURL | quote }}
+            - name: ENVPLANE_CREDENTIAL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-control-plane.credentialEncryptionSecretName" . | quote }}
+                  key: {{ .Values.credentialEncryption.key | quote }}
+            # This is the chart-owned, empty authentication material container.
+            # It is an identifier only: credential bytes never enter Helm values
+            # or this manifest.
+            - name: ENVPLANE_AUTHENTICATION_MANAGED_SECRET_NAME
+              value: {{ include "envplane-control-plane.authenticationManagedSecretName" . | quote }}
+            - name: ENVPLANE_AGENT_IMAGE_REPOSITORY
+              value: {{ $agentBootstrapRepository | quote }}
+            - name: ENVPLANE_AGENT_IMAGE_TAG
+              value: {{ $agentBootstrapTag | quote }}
+            - name: ENVPLANE_AGENT_HELM_CHART_REF
+              value: {{ $agentBootstrapChartRef | quote }}
+            - name: ENVPLANE_AGENT_HELM_CHART_VERSION
+              value: {{ $agentBootstrapChartVersion | quote }}
+            - name: ENVPLANE_RUNNER_COMMAND_LEASE_SECONDS
+              value: {{ .Values.runnerCommand.leaseSeconds | quote }}
+            - name: ENVPLANE_RUNNER_COMMAND_MAX_ATTEMPTS
+              value: {{ .Values.runnerCommand.maxAttempts | quote }}
+            {{- if get $billing "provider" }}
+            - name: ENVPLANE_BILLING_PROVIDER
+              value: {{ get $billing "provider" | quote }}
+            {{- end }}
+            {{- if get $billing "baseURL" }}
+            - name: ENVPLANE_BILLING_BASE_URL
+              value: {{ get $billing "baseURL" | quote }}
+            {{- end }}
+            {{- if get $billingAPIKeyRef "name" }}
+            - name: ENVPLANE_BILLING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ get $billingAPIKeyRef "name" | quote }}
+                  key: {{ default "api-key" (get $billingAPIKeyRef "key") | quote }}
+            {{- end }}
+            {{- if get $billingWebhookRef "name" }}
+            - name: ENVPLANE_BILLING_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ get $billingWebhookRef "name" | quote }}
+                  key: {{ default "webhook-secret" (get $billingWebhookRef "key") | quote }}
+            {{- end }}
+            - name: ENVPLANE_LICENSE_PUBLIC_KEYS_JSON
+              value: {{ default "{}" (get $license "publicKeysJSON") | quote }}
+            - name: ENVPLANE_LICENSE_GRACE_DAYS
+              value: {{ default 14 (get $license "graceDays") | quote }}
+            - name: ENVPLANE_REMOTE_CLUSTER_RECONCILER_ENABLED
+              value: {{ $remoteClusterReconcilerEnabled | quote }}
+            {{- if $remoteClusterReconcilerEnabled }}
+            # Always derive the normal leader-election namespace from the Pod,
+            # not from a hard-coded default. This keeps the Lease and its
+            # namespaced Role aligned when the umbrella is installed outside
+            # the Kubernetes default namespace.
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- if $leaderElectionNamespace }}
+            - name: ENVPLANE_REMOTE_CLUSTER_RECONCILER_NAMESPACE
+              value: {{ $leaderElectionNamespace | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if $executorReconcilerEnabled }}
+            # OCI chart resolution must use the writable cache mounted below.
+            # Same-cluster project executors use the same Helm SDK path as
+            # remote executors and cannot write the image user's home.
+            - name: HOME
+              value: /tmp/envplane-home
+            - name: XDG_CACHE_HOME
+              value: /tmp/envplane-home/cache
+            - name: XDG_CONFIG_HOME
+              value: /tmp/envplane-home/config
+            {{- if $executorRegistrySecret }}
+            # This read-only Docker config is consumed only by Helm's OCI
+            # client. Registry credentials never enter project state or API.
+            - name: HELM_REGISTRY_CONFIG
+              value: /etc/envplane/helm-registry/config.json
+            {{- end }}
+            {{- end }}
+            {{- if $sameClusterProjectExecutorsEnabled }}
+            - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ENABLED
+              value: "true"
+            - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_NAMESPACE
+              value: {{ $sameClusterProjectExecutorsNamespace | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET
+              value: {{ $executorImagePullSecret | quote }}
+            {{- if $sameClusterProjectExecutorsAllowInsecureControlPlane }}
+            - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ALLOW_INSECURE_CONTROL_PLANE
+              value: "true"
+            {{- end }}
+            - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_DISCOVERY_NAMESPACES
+              value: {{ join "," $sameClusterProjectExecutorsDiscoveryNamespaces | quote }}
+            {{- end }}
+            {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
+            - name: ENVPLANE_REMOTE_CLUSTER_COMPATIBILITY_MANIFEST
+              value: /etc/envplane/compatibility/release.json
+            {{- end }}
+            {{- if $remoteControlPlane.clusterID }}
+            - name: ENVPLANE_CONTROL_PLANE_CLUSTER_ID
+              value: {{ $remoteControlPlane.clusterID | quote }}
+            {{- end }}
+            {{- if $remoteControlPlane.url }}
+            - name: ENVPLANE_MANAGEMENT_ENDPOINT_BOOTSTRAP_URL
+              value: {{ $remoteControlPlane.url | quote }}
+            {{- if $remoteServerName }}
+            - name: ENVPLANE_MANAGEMENT_ENDPOINT_BOOTSTRAP_TLS_SERVER_NAME
+              value: {{ $remoteServerName | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if $remoteControlPlane.caSecret }}
+            - name: ENVPLANE_MANAGEMENT_ENDPOINT_BOOTSTRAP_CA_SECRET
+              value: {{ $remoteControlPlane.caSecret | quote }}
+            - name: ENVPLANE_MANAGEMENT_ENDPOINT_BOOTSTRAP_CA_KEY
+              value: {{ $remoteControlPlane.caKey | quote }}
+            {{- end }}
+            {{- if eq $postgresMode "internal" }}
+            - name: ENVPLANE_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "envplane-control-plane.postgresName" .) .Values.postgres.auth.existingSecret }}
+                  key: {{ .Values.postgres.auth.passwordKey | quote }}
+            - name: ENVPLANE_DATABASE_URL
+              value: "postgres://{{ .Values.postgres.auth.username }}:$(ENVPLANE_POSTGRES_PASSWORD)@{{ include "envplane-control-plane.postgresName" . }}:{{ .Values.postgres.service.port }}/{{ .Values.postgres.auth.database }}?sslmode={{ ternary "verify-full" "disable" .Values.postgres.tls.enabled }}{{ if .Values.postgres.tls.enabled }}&sslrootcert=/etc/envplane/postgres-ca/{{ .Values.postgres.tls.caKey }}{{ end }}"
+            {{- else if eq $postgresMode "external" }}
+            - name: ENVPLANE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "postgres.external.existingSecret is required when postgres.mode=external" .Values.postgres.external.existingSecret | quote }}
+                  key: {{ .Values.postgres.external.urlKey | quote }}
+            {{- end }}
+            {{- if eq $redisMode "internal" }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $redisAuthSecret | quote }}
+                  key: password
+            - name: ENVPLANE_REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@{{ include "envplane-control-plane.redisName" . }}:{{ .Values.redis.service.port }}/0"
+            {{- else if eq $redisMode "external" }}
+            - name: ENVPLANE_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "redis.external.existingSecret is required when redis.mode=external" .Values.redis.external.existingSecret | quote }}
+                  key: {{ .Values.redis.external.urlKey | quote }}
+            {{- end }}
+            {{- if eq $authMode "legacy_secret" }}
+            - name: ENVPLANE_OAUTH_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: oauth-session-secret
+            - name: ENVPLANE_GITHUB_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: github-client-id
+            - name: ENVPLANE_GITHUB_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: github-client-secret
+            - name: ENVPLANE_GITLAB_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: gitlab-client-id
+            - name: ENVPLANE_GITLAB_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: gitlab-client-secret
+            - name: ENVPLANE_OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: oidc-client-id
+            - name: ENVPLANE_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: oidc-client-secret
+            {{- end }}
+            {{- if eq $authMode "legacy_secret" }}
+            {{- range $name, $value := dict
+              "ENVPLANE_GITHUB_OAUTH_AUTH_URL" (get $authGitHub "authURL")
+              "ENVPLANE_GITHUB_OAUTH_TOKEN_URL" (get $authGitHub "tokenURL")
+              "ENVPLANE_GITHUB_OAUTH_USER_URL" (get $authGitHub "userURL")
+              "ENVPLANE_GITLAB_OAUTH_AUTH_URL" (get $authGitLab "authURL")
+              "ENVPLANE_GITLAB_OAUTH_TOKEN_URL" (get $authGitLab "tokenURL")
+              "ENVPLANE_GITLAB_OAUTH_USER_URL" (get $authGitLab "userURL")
+              "ENVPLANE_OIDC_AUTH_URL" (get $authOIDC "authURL")
+              "ENVPLANE_OIDC_TOKEN_URL" (get $authOIDC "tokenURL")
+              "ENVPLANE_OIDC_USER_URL" (get $authOIDC "userURL")
+              "ENVPLANE_OIDC_SCOPES" (get $authOIDC "scopes") }}
+              {{- if trim (printf "%v" $value) }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+              {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- range $key, $value := $environment }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if ne $firstStartMode "disabled" }}
+            - name: ENVPLANE_SAME_CLUSTER_REGISTRATION_ENABLED
+              value: "true"
+            - name: ENVPLANE_SAME_CLUSTER_PROJECT_ID
+              value: {{ $firstStart.project.id | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_PROJECT_NAME
+              value: {{ $firstStart.project.name | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_PRODUCT_ID
+              value: {{ $firstStart.project.productId | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_APP_REPOSITORY_ID
+              value: {{ $firstStart.project.appRepositoryId | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_GITOPS_REPOSITORY_ID
+              value: {{ $firstStart.project.gitopsRepositoryId | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_CLUSTER_ID
+              value: {{ $firstStart.cluster.id | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_AGENT_ID
+              value: {{ $firstStart.agent.id | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_RUNNER_ID
+              value: {{ $firstStart.runner.id | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_RUNNER_NAMESPACE
+              value: {{ default .Release.Namespace $firstStart.runner.namespace | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_RUNNER_DEPLOYMENT_MODE
+              value: {{ $firstStart.runner.deploymentMode | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_REGISTRATION_TOKEN_TTL_SECONDS
+              value: {{ $firstStart.tokenTTLSeconds | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $firstStartSecret | quote }}
+                  key: agent-registration-token
+            - name: ENVPLANE_SAME_CLUSTER_RUNNER_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $firstStartSecret | quote }}
+                  key: runner-registration-token
+            - name: ENVPLANE_SAME_CLUSTER_RUNNER_PROJECT_CONFIG_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $firstStartSecret | quote }}
+                  key: runner-project-config-token
+            {{- end }}
+            {{- if $e2eFixture.enabled }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_ENABLED
+              value: "true"
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_RECOVERY_ENABLED
+              value: {{ default false $e2eFixtureRecovery.enabled | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_BASE_NAMESPACE
+              value: {{ $e2eFixture.baseNamespace | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_FEATURE_NAMESPACE
+              value: {{ $e2eFixture.featureNamespace | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_CHART_REF
+              value: {{ $e2eFixture.chartRef | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_CHART_VERSION
+              value: {{ $e2eFixture.chartVersion | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_APP_REPOSITORY_URL
+              value: {{ $e2eFixture.appRepositoryURL | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_GITOPS_REPOSITORY_URL
+              value: {{ $e2eFixture.gitopsRepositoryURL | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_SCM_PROVIDER
+              value: {{ $e2eFixture.scmProvider | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_APP_DEFAULT_BRANCH
+              value: {{ $e2eFixture.appDefaultBranch | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_FIXTURE_GITOPS_DEFAULT_BRANCH
+              value: {{ $e2eFixture.gitopsDefaultBranch | quote }}
+            {{- end }}
+            {{- if and $defaultHelmDirectChartRef $defaultHelmDirectChartVersion }}
+            - name: ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF
+              value: {{ $defaultHelmDirectChartRef | quote }}
+            - name: ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_VERSION
+              value: {{ $defaultHelmDirectChartVersion | quote }}
+            {{- end }}
+            {{- if .Values.secretEnv }}
+            {{- range $key, $_ := .Values.secretEnv }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-control-plane.fullname" $ }}-env
+                  key: {{ $key }}
+            {{- end }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/envplane/data
+          {{- if and (eq $postgresMode "internal") .Values.postgres.tls.enabled }}
+            - name: postgres-ca
+              mountPath: /etc/envplane/postgres-ca
+              readOnly: true
+          {{- end }}
+          {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
+            - name: remote-cluster-compatibility
+              mountPath: /etc/envplane/compatibility
+              readOnly: true
+          {{- end }}
+          {{- if $executorReconcilerEnabled }}
+            - name: remote-cluster-helm-cache
+              mountPath: /tmp/envplane-home
+          {{- end }}
+          {{- if $executorRegistrySecret }}
+            - name: executor-registry-config
+              mountPath: /etc/envplane/helm-registry
+              readOnly: true
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        {{- if and (eq $postgresMode "internal") .Values.postgres.tls.enabled }}
+        - name: postgres-ca
+          secret:
+            secretName: {{ required "postgres.tls.caSecret is required when postgres.tls.enabled=true" .Values.postgres.tls.caSecret | quote }}
+            items:
+              - key: {{ .Values.postgres.tls.caKey | quote }}
+                path: {{ .Values.postgres.tls.caKey | quote }}
+        {{- end }}
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "envplane-control-plane.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
+        - name: remote-cluster-compatibility
+          configMap:
+            name: {{ $remoteCompatibilityConfigMap | quote }}
+      {{- end }}
+      {{- if $executorReconcilerEnabled }}
+        - name: remote-cluster-helm-cache
+          emptyDir: {}
+      {{- end }}
+      {{- if $executorRegistrySecret }}
+        - name: executor-registry-config
+          secret:
+            secretName: {{ $executorRegistrySecret | quote }}
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

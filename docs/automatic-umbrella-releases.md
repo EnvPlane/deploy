@@ -1,6 +1,6 @@
 # Automatic umbrella releases from `main`
 
-Every trusted push to `envpilot/deploy` `main` starts
+Every trusted push to `envplane/deploy` `main` starts
 `.github/workflows/release-on-main.yaml`. The workflow builds a fresh,
 immutable umbrella release; it does not commit generated pins back to the
 repository.
@@ -19,7 +19,7 @@ The build workspace rewrites only its copy of `values.yaml`, `Chart.yaml`,
 `Chart.lock` and vendored archives. The source chart directories remain the
 canonical development sources. The resulting chart receives the next patch
 SemVer, is linted/rendered/tested, signed with cosign, attested with a JSON
-compatibility predicate, pushed to `oci://ghcr.io/EnvPlane/envpilot`, and
+compatibility predicate, pushed to `oci://ghcr.io/envplane/envplane`, and
 published as a GitHub Release with machine-readable metadata.
 
 No mutable `latest` or `main` artifact is accepted. A missing package, invalid

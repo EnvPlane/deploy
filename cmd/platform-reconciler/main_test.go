@@ -35,8 +35,8 @@ func TestDetectCompatibleExistingCapabilities(t *testing.T) {
 }
 
 func TestPersistStatusWritesGenerationAwareSnapshot(t *testing.T) {
-	t.Setenv("ENVPILOT_RECONCILE_NAMESPACE", "envpilot")
-	t.Setenv("ENVPILOT_RECONCILE_STATUS_CONFIG_MAP", "envpilot-platform-dependency-reconciler-status")
+	t.Setenv("ENVPLANE_RECONCILE_NAMESPACE", "envplane")
+	t.Setenv("ENVPLANE_RECONCILE_STATUS_CONFIG_MAP", "envplane-platform-dependency-reconciler-status")
 	client := kfake.NewSimpleClientset()
 	statuses := map[string]result{
 		"ingress": {Mode: "auto", Provider: "nginx", Ownership: "external", State: "detected", UpdatedAt: "2026-08-03T00:00:00Z"},
@@ -49,7 +49,7 @@ func TestPersistStatusWritesGenerationAwareSnapshot(t *testing.T) {
 	if err := persistStatus(client, statuses); err != nil {
 		t.Fatalf("persist second status: %v", err)
 	}
-	cm, err := client.CoreV1().ConfigMaps("envpilot").Get(ctx, "envpilot-platform-dependency-reconciler-status", metav1.GetOptions{})
+	cm, err := client.CoreV1().ConfigMaps("envplane").Get(ctx, "envplane-platform-dependency-reconciler-status", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get status ConfigMap: %v", err)
 	}
@@ -84,27 +84,27 @@ func TestOrphanIngressClassIsDegradedNotReady(t *testing.T) {
 
 func TestDetectCompatibleExternalDNS(t *testing.T) {
 	objects := []runtime.Object{
-		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": "dns-credentials", "namespace": "envpilot"}, "data": map[string]any{"credentials": "redacted"}}},
-		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "external-dns", "namespace": "envpilot", "labels": map[string]any{"app.kubernetes.io/name": "external-dns"}}, "spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"name": "external-dns", "args": []any{"--domain-filter=example.test", "--txt-owner-id=envpilot", "--policy=sync"}}}}}}, "status": map[string]any{"availableReplicas": int64(1)}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": "dns-credentials", "namespace": "envplane"}, "data": map[string]any{"credentials": "redacted"}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "external-dns", "namespace": "envplane", "labels": map[string]any{"app.kubernetes.io/name": "external-dns"}}, "spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"name": "external-dns", "args": []any{"--domain-filter=example.test", "--txt-owner-id=envplane", "--policy=sync"}}}}}}, "status": map[string]any{"availableReplicas": int64(1)}}},
 	}
 	client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{
 		{Version: "v1", Resource: "secrets"}:                    "SecretList",
 		{Group: "apps", Version: "v1", Resource: "deployments"}: "DeploymentList",
 	}, objects...)
-	dep := capability{Provider: "external-dns", Namespace: "envpilot", Credentials: credentialsConfig{ExistingSecret: "dns-credentials"}, DomainFilters: []string{"example.test"}, OwnershipID: "envpilot", Policy: "sync"}
+	dep := capability{Provider: "external-dns", Namespace: "envplane", Credentials: credentialsConfig{ExistingSecret: "dns-credentials"}, DomainFilters: []string{"example.test"}, OwnershipID: "envplane", Policy: "sync"}
 	ok, ref, err := detect("dns", dep, client)
-	if err != nil || !ok || ref != "envpilot/external-dns" {
+	if err != nil || !ok || ref != "envplane/external-dns" {
 		t.Fatalf("external-dns detection = %v %q %v", ok, ref, err)
 	}
 }
 
 func TestExternalDNSScopeMismatchIsIncompatible(t *testing.T) {
 	objects := []runtime.Object{
-		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": "dns-credentials", "namespace": "envpilot"}, "data": map[string]any{"credentials": "redacted"}}},
-		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "external-dns", "namespace": "envpilot", "labels": map[string]any{"app.kubernetes.io/name": "external-dns"}}, "spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"name": "external-dns", "args": []any{"--domain-filter=other.test", "--txt-owner-id=envpilot", "--policy=sync"}}}}}}, "status": map[string]any{"availableReplicas": int64(1)}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": "dns-credentials", "namespace": "envplane"}, "data": map[string]any{"credentials": "redacted"}}},
+		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "external-dns", "namespace": "envplane", "labels": map[string]any{"app.kubernetes.io/name": "external-dns"}}, "spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{map[string]any{"name": "external-dns", "args": []any{"--domain-filter=other.test", "--txt-owner-id=envplane", "--policy=sync"}}}}}}, "status": map[string]any{"availableReplicas": int64(1)}}},
 	}
 	client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), map[schema.GroupVersionResource]string{{Version: "v1", Resource: "secrets"}: "SecretList", {Group: "apps", Version: "v1", Resource: "deployments"}: "DeploymentList"}, objects...)
-	dep := capability{Provider: "external-dns", Namespace: "envpilot", Credentials: credentialsConfig{ExistingSecret: "dns-credentials"}, DomainFilters: []string{"example.test"}, OwnershipID: "envpilot", Policy: "sync"}
+	dep := capability{Provider: "external-dns", Namespace: "envplane", Credentials: credentialsConfig{ExistingSecret: "dns-credentials"}, DomainFilters: []string{"example.test"}, OwnershipID: "envplane", Policy: "sync"}
 	if _, _, err := detect("dns", dep, client); err == nil || !strings.Contains(err.Error(), "incompatible") {
 		t.Fatalf("expected scope mismatch, got %v", err)
 	}

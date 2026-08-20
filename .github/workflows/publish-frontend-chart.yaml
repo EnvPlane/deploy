@@ -16,39 +16,39 @@ jobs:
       - uses: actions/checkout@v7
       - uses: azure/setup-helm@v4
       - id: chart
-        run: echo "version=$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot-frontend/Chart.yaml)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(awk '/^version:/{print $2; exit}' deploy/helm/envplane-frontend/Chart.yaml)" >> "$GITHUB_OUTPUT"
       - run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
-      - run: helm package deploy/helm/envpilot-frontend --destination dist
+      - run: helm package deploy/helm/envplane-frontend --destination dist
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Reject an existing OCI version
-        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/EnvPlane/envpilot-frontend --version '${{ steps.chart.outputs.version }}'
+        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/EnvPlane/envplane-frontend --version '${{ steps.chart.outputs.version }}'
       - id: push
         run: |
           set -euo pipefail
-          output="$(helm push dist/envpilot-frontend-*.tgz oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
+          output="$(helm push dist/envplane-frontend-*.tgz oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - id: dispatch_auth
         env:
-          CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
-          APP_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
-          PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
+          CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          APP_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPLANE_AUTOMATION_PAT }}
         run: |
           if [[ -n "$CLIENT_ID" && -n "$APP_KEY" ]]; then echo method=app >> "$GITHUB_OUTPUT"; elif [[ -n "$PAT" ]]; then echo method=pat >> "$GITHUB_OUTPUT"; else exit 1; fi
       - id: dispatch_app
         if: steps.dispatch_auth.outputs.method == 'app'
         run: ./scripts/obtain-github-app-token.sh
         env:
-          ENVPILOT_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
-          ENVPILOT_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
+          ENVPLANE_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          ENVPLANE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
           GH_APP_OWNER: EnvPlane
           GH_APP_REPOSITORY: deploy
           GH_APP_TOKEN_PERMISSIONS: '{"contents":"write"}'
       - name: Dispatch chart publication
         env:
-          GH_TOKEN: ${{ steps.dispatch_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
-        run: ./scripts/dispatch-chart-published.sh --component frontend --chart envpilot-frontend --version '${{ steps.chart.outputs.version }}' --digest '${{ steps.push.outputs.digest }}'
+          GH_TOKEN: ${{ steps.dispatch_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
+        run: ./scripts/dispatch-chart-published.sh --component frontend --chart envplane-frontend --version '${{ steps.chart.outputs.version }}' --digest '${{ steps.push.outputs.digest }}'

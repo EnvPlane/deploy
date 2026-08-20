@@ -15,7 +15,7 @@ usage: resolve-latest-published-artifacts.sh --output <file> \
   [--owner <owner>]
 
 Requires Docker/Buildx and Helm registry authentication for artifact checks.
-ENVPILOT_ARTIFACT_WAIT_ATTEMPTS and ENVPILOT_ARTIFACT_WAIT_SECONDS tune the
+ENVPLANE_ARTIFACT_WAIT_ATTEMPTS and ENVPLANE_ARTIFACT_WAIT_SECONDS tune the
 bounded wait for an image/chart publication still in progress. The defaults
 are intentionally short so a missing immutable artifact fails the workflow
 promptly rather than holding a runner for many minutes.
@@ -53,8 +53,8 @@ command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
 command -v oras >/dev/null || { echo "oras is required" >&2; exit 1; }
 
-wait_attempts="${ENVPILOT_ARTIFACT_WAIT_ATTEMPTS:-6}"
-wait_seconds="${ENVPILOT_ARTIFACT_WAIT_SECONDS:-10}"
+wait_attempts="${ENVPLANE_ARTIFACT_WAIT_ATTEMPTS:-6}"
+wait_seconds="${ENVPLANE_ARTIFACT_WAIT_SECONDS:-10}"
 [[ "$wait_attempts" =~ ^[1-9][0-9]*$ && "$wait_seconds" =~ ^[0-9]+$ ]] || {
   echo "artifact wait settings must be positive integers" >&2; exit 2;
 }
@@ -182,7 +182,7 @@ latest_published_umbrella() {
   IFS=. read -r major minor patch <<< "$candidate"
   for _ in $(seq 1 50); do
     candidate="$major.$minor.$patch"
-    if helm show chart "oci://ghcr.io/$owner/envpilot:$candidate" >/dev/null 2>&1; then found=true; break; fi
+    if helm show chart "oci://ghcr.io/$owner/envplane:$candidate" >/dev/null 2>&1; then found=true; break; fi
     (( patch > 0 )) || break
     patch=$((patch - 1))
   done
@@ -193,7 +193,7 @@ latest_published_umbrella() {
   fi
   for _ in $(seq 1 50); do
     next="$major.$minor.$((patch + 1))"
-    if helm show chart "oci://ghcr.io/$owner/envpilot:$next" >/dev/null 2>&1; then patch=$((patch + 1)); else break; fi
+    if helm show chart "oci://ghcr.io/$owner/envplane:$next" >/dev/null 2>&1; then patch=$((patch + 1)); else break; fi
   done
   printf '%s.%s.%s' "$major" "$minor" "$patch"
 }
@@ -203,11 +203,11 @@ source_revision="${GITHUB_SHA:-}"
 [[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] || { echo "source revision is unavailable" >&2; exit 1; }
 umbrella_version="$(awk '/^version:/{print $2; exit}' "$chart_file")"
 previous_umbrella="$(latest_published_umbrella "$umbrella_version")"
-control_plane_image="$(image_json envpilot-control-plane control-plane)" || exit 1
-frontend_image="$(image_json envpilot-frontend frontend)" || exit 1
-agent_image="$(image_json envpilot-agent agent)" || exit 1
-runner_image="$(image_json envpilot-runner runner)" || exit 1
-webhook_image="$(image_json envpilot-webhook webhook)" || exit 1
+control_plane_image="$(image_json envplane-control-plane control-plane)" || exit 1
+frontend_image="$(image_json envplane-frontend frontend)" || exit 1
+agent_image="$(image_json envplane-agent agent)" || exit 1
+runner_image="$(image_json envplane-runner runner)" || exit 1
+webhook_image="$(image_json envplane-webhook webhook)" || exit 1
 platform_reconciler_image="$(image_json platformDependencyReconciler platform-reconciler)" || exit 1
 images="$(jq -cn \
   --argjson controlPlane "$control_plane_image" \
@@ -217,12 +217,12 @@ images="$(jq -cn \
   --argjson webhook "$webhook_image" \
   --argjson platformReconciler "$platform_reconciler_image" \
   '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook,platformReconciler:$platformReconciler}')"
-control_plane_chart="$(chart_json envpilot-control-plane envpilot-control-plane)"
-frontend_chart="$(chart_json envpilot-frontend envpilot-frontend)"
-agent_chart="$(chart_json envpilot-agent envpilot-agent)"
-runner_chart="$(chart_json envpilot-runner envpilot-runner)"
-webhook_chart="$(chart_json envpilot-webhook envpilot-webhook)"
-e2e_workload_chart="$(chart_json envpilot-e2e-workload envpilot-e2e-workload)"
+control_plane_chart="$(chart_json envplane-control-plane envplane-control-plane)"
+frontend_chart="$(chart_json envplane-frontend envplane-frontend)"
+agent_chart="$(chart_json envplane-agent envplane-agent)"
+runner_chart="$(chart_json envplane-runner envplane-runner)"
+webhook_chart="$(chart_json envplane-webhook envplane-webhook)"
+e2e_workload_chart="$(chart_json envplane-e2e-workload envplane-e2e-workload)"
 charts="$(jq -cn \
   --argjson controlPlane "$control_plane_chart" \
   --argjson frontend "$frontend_chart" \

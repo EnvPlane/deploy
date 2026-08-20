@@ -7,9 +7,9 @@ umbrella values. Neither path accepts mutable `main` or `latest` release pins.
 
 ## Preferred authentication: one GitHub App
 
-Use one private GitHub App named `envpilot-release-automation`. Install it on
-`envpilot/bootstrap`, `envpilot/deploy`, `envpilot/frontend`,
-`envpilot/control-plane`, `envpilot/agent` and `envpilot/runner`.
+Use one private GitHub App named `envplane-release-automation`. Install it on
+`envplane/bootstrap`, `envplane/deploy`, `envplane/frontend`,
+`envplane/control-plane`, `envplane/agent` and `envplane/runner`.
 Control-plane and Runner also read the canonical bootstrap source. The deploy
 receiver needs access to each runtime repository's private GHCR package to
 verify a submitted immutable image digest before it changes umbrella values.
@@ -28,9 +28,9 @@ checks permission is required. Runtime publishing continues to use its own
 short-lived `GITHUB_TOKEN` for writing the component image package only; the App
 is read-only for Packages.
 
-Umbrella chart publication makes `EnvPlane/envpilot` public after the first
+Umbrella chart publication makes `EnvPlane/envplane` public after the first
 successful push. The release workflows therefore require
-`ENVPILOT_PACKAGE_ADMIN_TOKEN` (a protected token with `admin:packages`) or a
+`ENVPLANE_PACKAGE_ADMIN_TOKEN` (a protected token with `admin:packages`) or a
 legacy `GHCR_TOKEN` with the same permission. A GitHub App with only Packages
 read/write permission can publish and pull artifacts, but cannot change package
 visibility.
@@ -40,8 +40,8 @@ values file, artifact, log or workflow output:
 
 | Secret | Where stored |
 |---|---|
-| `ENVPILOT_AUTOMATION_APP_CLIENT_ID` | `frontend`, `control-plane`, `agent`, `runner` and `deploy` repositories |
-| `ENVPILOT_AUTOMATION_APP_PRIVATE_KEY` | The same five repositories |
+| `ENVPLANE_AUTOMATION_APP_CLIENT_ID` | `frontend`, `control-plane`, `agent`, `runner` and `deploy` repositories |
+| `ENVPLANE_AUTOMATION_APP_PRIVATE_KEY` | The same five repositories |
 
 Component workflows mint two short-lived tokens from this same App: a
 `contents: read` token for the additional deploy source checkout and a
@@ -53,15 +53,15 @@ fork-triggered workflows.
 
 ## Fine-grained PAT fallback
 
-Use `ENVPILOT_AUTOMATION_PAT` only while the App is unavailable. Store it in the
+Use `ENVPLANE_AUTOMATION_PAT` only while the App is unavailable. Store it in the
 same five repositories. It must belong to a dedicated bot account, expire on a
-documented schedule, be limited to `envpilot/deploy`, and have only Contents and
+documented schedule, be limited to `envplane/deploy`, and have only Contents and
 Pull requests read/write access. The workflows emit a warning whenever this
 fallback is selected. Never use a classic PAT or an account-wide token.
 
 ## App setup and rotation
 
-1. Create the private App in the `envpilot` account, grant Packages read-only,
+1. Create the private App in the `envplane` account, grant Packages read-only,
    and install it on `bootstrap`, `deploy`, `frontend`, `control-plane`,
    `agent` and `runner`.
 2. Generate a private key once, add its ID and PEM to the two named secrets in
@@ -69,7 +69,7 @@ fallback is selected. Never use a classic PAT or an account-wide token.
 3. Run a manual publish in one component and confirm that `deploy` receives a
    dispatch and creates or refreshes the corresponding PR.
 4. Rotate by generating a second App key, replacing
-   `ENVPILOT_AUTOMATION_APP_PRIVATE_KEY` in all five repositories, validating a
+   `ENVPLANE_AUTOMATION_APP_PRIVATE_KEY` in all five repositories, validating a
    manual dispatch, and revoking the old key. Rotate the fallback PAT by
    replacement then immediate revocation.
 

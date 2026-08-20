@@ -1,0 +1,92 @@
+# Test-only profile for a published one-umbrella install on an already
+# provisioned local Kubernetes cluster. It does not create a cluster, ingress,
+# DNS or StorageClass. The profile enables an idempotent disposable fixture so
+# browser/API E2E can verify a positive Full-environment lifecycle.
+agent:
+  enabled: true
+runner:
+  enabled: true
+
+envplane-control-plane:
+  postgres:
+    # Disposable local E2E profile: no PostgreSQL TLS CA Secret is provisioned.
+    tls:
+      enabled: false
+
+global:
+  envplane:
+    firstStartRegistration:
+      mode: managed
+      project:
+        id: envplane-e2e-fixture
+        name: EnvPlane E2E fixture
+        productId: generic
+        appRepositoryId: github.com/envplane/envplane-e2e-workload
+        gitopsRepositoryId: github.com/envplane/deploy
+      cluster:
+        id: local-e2e
+      agent:
+        id: envplane-e2e-agent
+      runner:
+        id: envplane-e2e-runner
+        namespace: envplane
+        deploymentMode: helm
+    e2eFixture:
+      enabled: true
+      recovery:
+        enabled: true
+      baseNamespace: envplane-e2e-base
+      featureNamespace: envplane-e2e-feature
+      chartRef: oci://ghcr.io/envplane/envplane-e2e-workload
+      chartVersion: "0.1.0"
+      appRepositoryURL: https://github.com/envplane/envplane-e2e-workload
+      gitopsRepositoryURL: https://github.com/envplane/deploy
+      scmProvider: github
+      appDefaultBranch: main
+      gitopsDefaultBranch: main
+
+envplane-agent:
+  dependencyWait:
+    connectivity:
+      maxAttempts: 30
+      initialBackoffSeconds: 2
+      maxBackoffSeconds: 5
+      deadlineSeconds: 300
+  rbac:
+    discovery:
+      namespaces:
+        - envplane-e2e-base
+        - envplane-e2e-feature
+  controlPlane:
+    endpointMode: sameCluster
+    serviceName: envplane-control-plane
+    namespace: envplane
+    port: 8080
+  watch:
+    namespaces:
+      - envplane-e2e-base
+  agent:
+    authPersistence:
+      createClaim: true
+
+envplane-runner:
+  dependencyWait:
+    connectivity:
+      maxAttempts: 30
+      initialBackoffSeconds: 2
+      maxBackoffSeconds: 5
+      deadlineSeconds: 300
+  controlPlane:
+    endpointMode: sameCluster
+    serviceName: envplane-control-plane
+    namespace: envplane
+    port: 8080
+    authPersistence:
+      createClaim: true
+  project:
+    configUrl: http://envplane-control-plane.envplane.svc:8080/api/v1/projects/envplane-e2e-fixture/runner-config
+  rbac:
+    featureEnvWriter:
+      mode: preconfiguredNamespaces
+      namespaces:
+        - envplane-e2e-feature

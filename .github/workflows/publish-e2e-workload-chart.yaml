@@ -20,8 +20,8 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
-          helm lint deploy/helm/envpilot-e2e-workload
-          helm package deploy/helm/envpilot-e2e-workload --destination dist
+          helm lint deploy/helm/envplane-e2e-workload
+          helm package deploy/helm/envplane-e2e-workload --destination dist
       - name: Authenticate to GHCR
         env:
           GHCR_TOKEN: ${{ github.token }}
@@ -29,7 +29,7 @@ jobs:
       - name: Reject an existing OCI version
         run: |
           ./scripts/check-oci-chart-version-available.sh \
-            --repository oci://ghcr.io/envplane/envpilot-e2e-workload \
-            --version "$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot-e2e-workload/Chart.yaml)"
+            --repository oci://ghcr.io/envplane/envplane-e2e-workload \
+            --version "$(awk '/^version:/{print $2; exit}' deploy/helm/envplane-e2e-workload/Chart.yaml)"
       - name: Publish OCI chart
-        run: helm push dist/envpilot-e2e-workload-*.tgz oci://ghcr.io/envplane
+        run: helm push dist/envplane-e2e-workload-*.tgz oci://ghcr.io/envplane

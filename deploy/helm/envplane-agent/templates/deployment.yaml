@@ -1,0 +1,231 @@
+{{- $global := default (dict) .Values.global -}}
+{{- $globalEnvPlane := include "envplane-agent.globalConfig" . | fromJson -}}
+{{- $firstStart := default (dict) (get $globalEnvPlane "firstStartRegistration") -}}
+{{- $firstStartEnabled := eq (include "envplane-agent.usesFirstStartRegistration" .) "true" -}}
+{{- $controlPlaneEndpoint := include "envplane-agent.controlPlaneEndpoint" . -}}
+{{- $controlPlaneTLS := default (dict) .Values.controlPlane.tls -}}
+{{- $discoveryScope := default "cluster" .Values.rbac.discovery.scope -}}
+{{- $watchNamespaces := .Values.watch.namespaces -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- $managedRemoteEnabled := eq (include "envplane-agent.managedRemoteEnabled" .) "true" -}}
+{{- if eq $discoveryScope "namespace" -}}
+{{- $watchNamespaces = .Values.rbac.discovery.namespaces -}}
+{{- end -}}
+{{- if $managedRemoteEnabled -}}
+{{- $watchNamespaces = get $managedRemote "targetNamespaces" -}}
+{{- end -}}
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envplane-agent.imageMetadata" . | fromYaml) (include "envplane-agent.managedRemoteMetadata" . | fromYaml) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "envplane-agent.fullname" . }}
+  labels:
+    {{- include "envplane-agent.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "envplane-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "envplane-agent.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- toYaml $podAnnotations | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "envplane-agent.serviceAccountName" . }}
+      {{- $pullSecrets := include "envplane-agent.imagePullSecrets" . }}
+      {{- if $pullSecrets }}
+      imagePullSecrets:
+        {{ $pullSecrets | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.dependencyWait.enabled }}
+      initContainers:
+        - name: control-plane-preflight
+          image: {{ include "envplane-agent.image" . | quote }}
+          imagePullPolicy: {{ include "envplane-agent.imagePullPolicy" . }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          args:
+            - agent-connectivity-check
+          env:
+            - name: ENVPLANE_CONTROL_PLANE_URL
+              value: {{ $controlPlaneEndpoint | quote }}
+            - name: ENVPLANE_CONTROL_PLANE_ENDPOINT_MODE
+              value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
+            {{- if .Values.controlPlane.allowInsecure }}
+            - name: ENVPLANE_ALLOW_INSECURE_CONTROL_PLANE
+              value: "true"
+            {{- end }}
+            - name: ENVPLANE_CONTROL_PLANE_CONNECTIVITY_MAX_ATTEMPTS
+              value: {{ .Values.dependencyWait.connectivity.maxAttempts | quote }}
+            - name: ENVPLANE_CONTROL_PLANE_CONNECTIVITY_INITIAL_BACKOFF_SECONDS
+              value: {{ .Values.dependencyWait.connectivity.initialBackoffSeconds | quote }}
+            - name: ENVPLANE_CONTROL_PLANE_CONNECTIVITY_MAX_BACKOFF_SECONDS
+              value: {{ .Values.dependencyWait.connectivity.maxBackoffSeconds | quote }}
+            - name: ENVPLANE_CONTROL_PLANE_CONNECTIVITY_DEADLINE_SECONDS
+              value: {{ .Values.dependencyWait.connectivity.deadlineSeconds | quote }}
+            {{- if $controlPlaneTLS.caSecret }}
+            - name: ENVPLANE_CONTROL_PLANE_CA_FILE
+              value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
+            {{- end }}
+            {{ if $controlPlaneTLS.serverName }}
+            - name: ENVPLANE_CONTROL_PLANE_TLS_SERVER_NAME
+              value: {{ $controlPlaneTLS.serverName | quote }}
+            {{ end }}
+          {{- if $controlPlaneTLS.caSecret }}
+          volumeMounts:
+            - name: control-plane-ca
+              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
+              readOnly: true
+          {{- end }}
+      {{- end }}
+      containers:
+        - name: agent
+          image: {{ include "envplane-agent.image" . | quote }}
+          imagePullPolicy: {{ include "envplane-agent.imagePullPolicy" . }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: ENVPLANE_CONTROL_PLANE_URL
+              value: {{ $controlPlaneEndpoint | quote }}
+            - name: ENVPLANE_CONTROL_PLANE_ENDPOINT_MODE
+              value: {{ default "sameCluster" .Values.controlPlane.endpointMode | quote }}
+            {{- if .Values.controlPlane.allowInsecure }}
+            - name: ENVPLANE_ALLOW_INSECURE_CONTROL_PLANE
+              value: "true"
+            {{- end }}
+            {{- if $controlPlaneTLS.caSecret }}
+            - name: ENVPLANE_CONTROL_PLANE_CA_FILE
+              value: {{ printf "%s/%s" ($controlPlaneTLS.mountPath | trimSuffix "/") $controlPlaneTLS.caKey | quote }}
+            {{- end }}
+            {{ if $controlPlaneTLS.serverName }}
+            - name: ENVPLANE_CONTROL_PLANE_TLS_SERVER_NAME
+              value: {{ $controlPlaneTLS.serverName | quote }}
+            {{ end }}
+            {{ if $managedRemoteEnabled }}
+            - name: ENVPLANE_REMOTE_GENERATION
+              value: {{ get $managedRemote "generation" | quote }}
+            {{ end }}
+            - name: ENVPLANE_CLUSTER_ID
+              value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "remoteClusterId" | quote }}{{ else }}{{ default .Release.Name .Values.cluster.id | quote }}{{ end }}
+            - name: ENVPLANE_BOOTSTRAP_PROJECT_ID
+              value: {{ if $firstStartEnabled }}{{ $firstStart.project.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "projectId" | quote }}{{ else }}{{ .Values.bootstrap.projectId | quote }}{{ end }}
+            - name: ENVPLANE_AGENT_ID
+              value: {{ if $firstStartEnabled }}{{ $firstStart.agent.id | quote }}{{ else }}{{ default (include "envplane-agent.fullname" .) .Values.agent.id | quote }}{{ end }}
+            - name: ENVPLANE_AGENT_VERSION
+              value: {{ default .Chart.AppVersion .Values.image.tag | quote }}
+            - name: ENVPLANE_AGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENVPLANE_WATCH_NAMESPACE_SELECTOR
+              value: {{ .Values.watch.namespaceLabelSelector | quote }}
+            - name: ENVPLANE_WATCH_EXCLUDED_NAMESPACES
+              value: {{ join "," .Values.watch.excludeNamespaces | quote }}
+            - name: ENVPLANE_DISCOVERY_READ_SECRETS
+              value: {{ .Values.rbac.discovery.readSecrets | quote }}
+            - name: ENVPLANE_AGENT_RESYNC_SECONDS
+              value: {{ .Values.watch.resyncSeconds | quote }}
+            - name: ENVPLANE_AGENT_REPORT_TIMEOUT_SECONDS
+              value: {{ .Values.controlPlane.reportTimeoutSeconds | quote }}
+            - name: ENVPLANE_AGENT_HEARTBEAT_SECONDS
+              value: {{ .Values.agent.heartbeatSeconds | quote }}
+            - name: ENVPLANE_FLUX_NAMESPACE
+              value: {{ .Values.flux.namespace | quote }}
+            {{- if .Values.agent.authPersistence.enabled }}
+            - name: ENVPLANE_AGENT_AUTH_TOKEN_FILE
+              value: {{ printf "%s/%s" (.Values.agent.authPersistence.mountPath | trimSuffix "/") .Values.agent.authPersistence.fileName | quote }}
+            {{- end }}
+            {{- if .Values.agent.authPersistence.existingSecret }}
+            - name: ENVPLANE_AGENT_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.agent.authPersistence.existingSecret | quote }}
+                  key: {{ .Values.agent.authPersistence.agentAuthTokenKey | quote }}
+            {{- end }}
+            {{- with $watchNamespaces }}
+            - name: ENVPLANE_WATCH_NAMESPACES
+              value: {{ join "," . | quote }}
+            {{- end }}
+            {{- if or (eq (include "envplane-agent.usesFirstStartRegistration" .) "true") .Values.controlPlane.existingSecret }}
+            - name: ENVPLANE_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-agent.tokenSecretName" . }}
+                  key: {{ if eq (include "envplane-agent.usesFirstStartRegistration" .) "true" }}agent-registration-token{{ else }}{{ .Values.controlPlane.registrationTokenKey }}{{ end }}
+            {{- else if and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens }}
+            - name: ENVPLANE_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-agent.tokenSecretName" . }}
+                  key: {{ .Values.controlPlane.registrationTokenKey }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.agent.authPersistence.enabled }}
+          volumeMounts:
+            - name: {{ .Values.agent.authPersistence.volumeName | quote }}
+              mountPath: {{ .Values.agent.authPersistence.mountPath | quote }}
+            {{- if $controlPlaneTLS.caSecret }}
+            - name: control-plane-ca
+              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
+              readOnly: true
+            {{- end }}
+          {{- else if $controlPlaneTLS.caSecret }}
+          volumeMounts:
+            - name: control-plane-ca
+              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
+              readOnly: true
+          {{- end }}
+      {{- if .Values.agent.authPersistence.enabled }}
+      volumes:
+        - name: {{ .Values.agent.authPersistence.volumeName | quote }}
+          {{- if .Values.agent.authPersistence.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.agent.authPersistence.existingClaim | quote }}
+          {{- else if .Values.agent.authPersistence.createClaim }}
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-auth" (include "envplane-agent.fullname" .)) .Values.agent.authPersistence.claimName | quote }}
+          {{- else }}
+          emptyDir:
+            {{- toYaml .Values.agent.authPersistence.emptyDir | nindent 12 }}
+          {{- end }}
+      {{- end }}
+      {{- if $controlPlaneTLS.caSecret }}
+        - name: control-plane-ca
+          secret:
+            secretName: {{ $controlPlaneTLS.caSecret | quote }}
+            items:
+              - key: {{ $controlPlaneTLS.caKey | quote }}
+                path: {{ $controlPlaneTLS.caKey | quote }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

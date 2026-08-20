@@ -6,11 +6,11 @@ runnerCommandAPI:
   version: "1"
   requestHeader: X-EnvPlane-Runner-Command-API-Version
 images:
-  api: ghcr.io/envpilot/api:0.1.3
-  frontend: ghcr.io/envpilot/frontend:0.1.3
-  agent: ghcr.io/envpilot/agent:0.1.1
-  runner: ghcr.io/envpilot/runner:0.1.3
+  api: ghcr.io/envplane/api:0.1.3
+  frontend: ghcr.io/envplane/frontend:0.1.3
+  agent: ghcr.io/envplane/agent:0.1.1
+  runner: ghcr.io/envplane/runner:0.1.3
 charts:
-  controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.1.2
-  agent: oci://ghcr.io/envpilot/envpilot-agent:0.1.1
-  runner: oci://ghcr.io/envpilot/envpilot-runner-chart:0.1.5
+  controlPlane: oci://ghcr.io/envplane/envplane-control-plane:0.1.2
+  agent: oci://ghcr.io/envplane/envplane-agent:0.1.1
+  runner: oci://ghcr.io/envplane/envplane-runner-chart:0.1.5

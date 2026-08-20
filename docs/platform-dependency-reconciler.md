@@ -38,7 +38,7 @@ the claim after it reaches `Bound`; a failed or timed-out claim is reported as
 `degraded` and must not be used to back bundled PostgreSQL or Redis.
 
 The pre-delete hook runs cleanup only for managed providers with
-`ownership: envpilot` and `managed.cleanupPolicy: delete`. External providers
+`ownership: envplane` and `managed.cleanupPolicy: delete`. External providers
 are always retained. Re-running install/upgrade is idempotent: Helm SDK install
 is attempted first and an existing owned release is upgraded with the same
 pinned chart and values. The hook Job is recreated by Helm on each retry or
@@ -53,7 +53,7 @@ The post-upgrade Job writes only to that fresh object. This avoids a
 server-side-apply conflict with a previous Job's `status.json` field while
 keeping each observed status constrained by named RBAC and removed by Helm on
 upgrade/uninstall. An explicitly configured
-`global.envpilot.platformDependencyStatus.statusConfigMapName` is an
+`global.envplane.platformDependencyStatus.statusConfigMapName` is an
 operator-owned external map and is not created by the umbrella.
 
 The signed remote-cluster compatibility manifest follows the same lifecycle:
@@ -73,7 +73,7 @@ external providers.
 
 ## Provisioned-cluster E2E matrix
 
-`deploy/helm/envpilot/tests/platform-dependency-matrix.sh` runs the same
+`deploy/helm/envplane/tests/platform-dependency-matrix.sh` runs the same
 umbrella release against contexts supplied in `PLATFORM_E2E_CONTEXT`, covering
 `empty`, `existing`, `mixed` and `degraded` dependency fixtures. It verifies
 the reconciler status ConfigMap, repeats `helm upgrade --install` for
@@ -83,7 +83,7 @@ The degraded fixture is expected to fail the hook and must retain an actionable
 diagnostic in the status ConfigMap.
 
 The fast umbrella contract matrix is
-`deploy/helm/envpilot/tests/umbrella-contract-matrix.sh`. It runs lint, Helm
+`deploy/helm/envplane/tests/umbrella-contract-matrix.sh`. It runs lint, Helm
 JSON-schema validation, template policy checks and kubeconform for Kubernetes
 1.26, 1.29 and 1.32 across minimal, all-enabled, external database, Ingress,
 Gateway API, private registry and existing-secret profiles. It is intentionally
@@ -98,7 +98,7 @@ Agent/Runner readiness, project/environment creation and terminal Runner
 execution, then exercises upgrade, rollback and uninstall ownership. Port
 forwarding is test-harness-only; the chart has no cluster-provider or minikube
 special cases. Existing dependency resources can be listed with
-`ENVPILOT_E2E_EXISTING_RESOURCES` and must survive uninstall.
+`ENVPLANE_E2E_EXISTING_RESOURCES` and must survive uninstall.
 
 `scripts/published-configmap-upgrade-e2e.sh` is the focused published N-1 to N
 regression. It runs a server-side Helm upgrade, simulates a reconciler-owned

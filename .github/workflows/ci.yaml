@@ -61,14 +61,14 @@ jobs:
           fi
           exit "$status"
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      - run: helm lint deploy/helm/envpilot
-      - run: helm lint deploy/helm/envpilot-control-plane
-      - run: helm lint deploy/helm/envpilot-agent
-      - run: helm lint deploy/helm/envpilot-runner
+      - run: helm lint deploy/helm/envplane
+      - run: helm lint deploy/helm/envplane-control-plane
+      - run: helm lint deploy/helm/envplane-agent
+      - run: helm lint deploy/helm/envplane-runner
       - run: bash scripts/check-vendored-chart-drift.sh
       - name: Check environment parity
         run: |
-          helm dependency build --skip-refresh deploy/helm/envpilot
+          helm dependency build --skip-refresh deploy/helm/envplane
           bash scripts/check-env-parity.sh
       - run: bash scripts/check-base-image-digests.sh
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'

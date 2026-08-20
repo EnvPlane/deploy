@@ -10,54 +10,54 @@
 set -euo pipefail
 
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE_ROOT="${ENVPILOT_WORKSPACE_ROOT:-$(cd "$DEPLOY_ROOT/.." && pwd)}"
-API_URL="${ENVPILOT_E2E_API_URL:-http://127.0.0.1:18080}"
+WORKSPACE_ROOT="${ENVPLANE_WORKSPACE_ROOT:-$(cd "$DEPLOY_ROOT/.." && pwd)}"
+API_URL="${ENVPLANE_E2E_API_URL:-http://127.0.0.1:18080}"
 # Context variables retain the old names as fallbacks only. The harness neither
 # creates nor probes a minikube profile and works against any two kube-contexts.
-CONTROL_PROFILE="${ENVPILOT_E2E_CONTROL_CONTEXT:-${ENVPILOT_CONTROL_MINIKUBE_PROFILE:-envpilot}}"
-TARGET_PROFILE="${ENVPILOT_E2E_TARGET_CONTEXT:-${ENVPILOT_E2E_TARGET_MINIKUBE_PROFILE:-bethunder-local}}"
-CLUSTER_ID="${ENVPILOT_E2E_CLUSTER_ID:-$TARGET_PROFILE}"
+CONTROL_PROFILE="${ENVPLANE_E2E_CONTROL_CONTEXT:-${ENVPLANE_CONTROL_MINIKUBE_PROFILE:-envplane}}"
+TARGET_PROFILE="${ENVPLANE_E2E_TARGET_CONTEXT:-${ENVPLANE_E2E_TARGET_MINIKUBE_PROFILE:-bethunder-local}}"
+CLUSTER_ID="${ENVPLANE_E2E_CLUSTER_ID:-$TARGET_PROFILE}"
 
-PROJECT_ID="${ENVPILOT_E2E_PROJECT_ID:-envpilot-e2e-fixture}"
-PROJECT_NAME="${ENVPILOT_E2E_PROJECT_NAME:-EnvPlane local E2E fixture}"
-BASE_NAMESPACE="${ENVPILOT_E2E_BASE_NAMESPACE:-envpilot-e2e-base}"
-PR_NUMBER="${ENVPILOT_E2E_PR_NUMBER:-101}"
-FEATURE_NAMESPACE="${ENVPILOT_E2E_FEATURE_NAMESPACE:-envpilot-pr-${PR_NUMBER}}"
-ENVIRONMENT_ID="${ENVPILOT_E2E_ENVIRONMENT_ID:-envpilot-e2e-full-${PR_NUMBER}}"
-AGENT_NAMESPACE="${ENVPILOT_E2E_AGENT_NAMESPACE:-envpilot}"
-RUNNER_NAMESPACE="${ENVPILOT_E2E_RUNNER_NAMESPACE:-envpilot}"
-AGENT_ID="${ENVPILOT_E2E_AGENT_ID:-envpilot-e2e-agent}"
-AGENT_RELEASE="${ENVPILOT_E2E_AGENT_RELEASE:-envpilot-e2e-agent}"
-RUNNER_RELEASE="${ENVPILOT_E2E_RUNNER_RELEASE:-envpilot-e2e-runner}"
-REMOTE_CONTROL_PLANE_URL="${ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL:-}"
-REMOTE_CONTROL_PLANE_CA_SECRET="${ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_SECRET:-}"
-REMOTE_CONTROL_PLANE_CA_KEY="${ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_KEY:-ca.crt}"
+PROJECT_ID="${ENVPLANE_E2E_PROJECT_ID:-envplane-e2e-fixture}"
+PROJECT_NAME="${ENVPLANE_E2E_PROJECT_NAME:-EnvPlane local E2E fixture}"
+BASE_NAMESPACE="${ENVPLANE_E2E_BASE_NAMESPACE:-envplane-e2e-base}"
+PR_NUMBER="${ENVPLANE_E2E_PR_NUMBER:-101}"
+FEATURE_NAMESPACE="${ENVPLANE_E2E_FEATURE_NAMESPACE:-envplane-pr-${PR_NUMBER}}"
+ENVIRONMENT_ID="${ENVPLANE_E2E_ENVIRONMENT_ID:-envplane-e2e-full-${PR_NUMBER}}"
+AGENT_NAMESPACE="${ENVPLANE_E2E_AGENT_NAMESPACE:-envplane}"
+RUNNER_NAMESPACE="${ENVPLANE_E2E_RUNNER_NAMESPACE:-envplane}"
+AGENT_ID="${ENVPLANE_E2E_AGENT_ID:-envplane-e2e-agent}"
+AGENT_RELEASE="${ENVPLANE_E2E_AGENT_RELEASE:-envplane-e2e-agent}"
+RUNNER_RELEASE="${ENVPLANE_E2E_RUNNER_RELEASE:-envplane-e2e-runner}"
+REMOTE_CONTROL_PLANE_URL="${ENVPLANE_E2E_REMOTE_CONTROL_PLANE_URL:-}"
+REMOTE_CONTROL_PLANE_CA_SECRET="${ENVPLANE_E2E_REMOTE_CONTROL_PLANE_CA_SECRET:-}"
+REMOTE_CONTROL_PLANE_CA_KEY="${ENVPLANE_E2E_REMOTE_CONTROL_PLANE_CA_KEY:-ca.crt}"
 # The chart must be resolvable by a Runner pod. A host-served archive is not a
 # stable remote-cluster contract; use an OCI or HTTPS artifact instead.
-E2E_CHART_REF="${ENVPILOT_E2E_CHART_REF:-}"
-AGENT_CHART_REF="${ENVPILOT_E2E_AGENT_CHART_REF:-oci://ghcr.io/EnvPlane/envpilot-agent}"
-AGENT_CHART_VERSION="${ENVPILOT_E2E_AGENT_CHART_VERSION:-}"
-RUNNER_CHART_REF="${ENVPILOT_E2E_RUNNER_CHART_REF:-oci://ghcr.io/EnvPlane/envpilot-runner}"
-RUNNER_CHART_VERSION="${ENVPILOT_E2E_RUNNER_CHART_VERSION:-}"
-AGENT_IMAGE_REPOSITORY="${ENVPILOT_E2E_AGENT_IMAGE_REPOSITORY:-ghcr.io/EnvPlane/agent}"
-AGENT_IMAGE_TAG="${ENVPILOT_E2E_AGENT_IMAGE_TAG:-}"
-RUNNER_IMAGE_REPOSITORY="${ENVPILOT_E2E_RUNNER_IMAGE_REPOSITORY:-ghcr.io/EnvPlane/runner}"
-RUNNER_IMAGE_TAG="${ENVPILOT_E2E_RUNNER_IMAGE_TAG:-}"
-IMAGE_PULL_POLICY="${ENVPILOT_E2E_IMAGE_PULL_POLICY:-IfNotPresent}"
-SCM_PROVIDER="${ENVPILOT_E2E_SCM_PROVIDER:-gitlab}"
+E2E_CHART_REF="${ENVPLANE_E2E_CHART_REF:-}"
+AGENT_CHART_REF="${ENVPLANE_E2E_AGENT_CHART_REF:-oci://ghcr.io/envplane/envplane-agent}"
+AGENT_CHART_VERSION="${ENVPLANE_E2E_AGENT_CHART_VERSION:-}"
+RUNNER_CHART_REF="${ENVPLANE_E2E_RUNNER_CHART_REF:-oci://ghcr.io/envplane/envplane-runner}"
+RUNNER_CHART_VERSION="${ENVPLANE_E2E_RUNNER_CHART_VERSION:-}"
+AGENT_IMAGE_REPOSITORY="${ENVPLANE_E2E_AGENT_IMAGE_REPOSITORY:-ghcr.io/envplane/agent}"
+AGENT_IMAGE_TAG="${ENVPLANE_E2E_AGENT_IMAGE_TAG:-}"
+RUNNER_IMAGE_REPOSITORY="${ENVPLANE_E2E_RUNNER_IMAGE_REPOSITORY:-ghcr.io/envplane/runner}"
+RUNNER_IMAGE_TAG="${ENVPLANE_E2E_RUNNER_IMAGE_TAG:-}"
+IMAGE_PULL_POLICY="${ENVPLANE_E2E_IMAGE_PULL_POLICY:-IfNotPresent}"
+SCM_PROVIDER="${ENVPLANE_E2E_SCM_PROVIDER:-gitlab}"
 # These are the canonical repositories reachable by the local E2E GitLab
 # credential. The old bh/... aliases return 404 for that credential. Keep both
 # values overridable so a different installation can inject its own pair.
-APP_REPOSITORY_URL="${ENVPILOT_E2E_APP_REPOSITORY_URL:-https://gitlab.com/betario/cms-team/cms.git}"
-GITOPS_REPOSITORY_URL="${ENVPILOT_E2E_GITOPS_REPOSITORY_URL:-https://gitlab.com/betario/devops/gitops/fluxcd/clusters.git}"
-APP_DEFAULT_BRANCH="${ENVPILOT_E2E_APP_DEFAULT_BRANCH:-develop}"
-GITOPS_DEFAULT_BRANCH="${ENVPILOT_E2E_GITOPS_DEFAULT_BRANCH:-main}"
-SCM_TOKEN="${ENVPILOT_E2E_SCM_TOKEN:-}"
-SCM_TOKEN_FILE="${ENVPILOT_E2E_SCM_TOKEN_FILE:-}"
-USE_UI="${ENVPILOT_E2E_USE_UI:-false}"
-UI_BASE_URL="${ENVPILOT_E2E_UI_BASE_URL:-}"
+APP_REPOSITORY_URL="${ENVPLANE_E2E_APP_REPOSITORY_URL:-https://gitlab.com/betario/cms-team/cms.git}"
+GITOPS_REPOSITORY_URL="${ENVPLANE_E2E_GITOPS_REPOSITORY_URL:-https://gitlab.com/betario/devops/gitops/fluxcd/clusters.git}"
+APP_DEFAULT_BRANCH="${ENVPLANE_E2E_APP_DEFAULT_BRANCH:-develop}"
+GITOPS_DEFAULT_BRANCH="${ENVPLANE_E2E_GITOPS_DEFAULT_BRANCH:-main}"
+SCM_TOKEN="${ENVPLANE_E2E_SCM_TOKEN:-}"
+SCM_TOKEN_FILE="${ENVPLANE_E2E_SCM_TOKEN_FILE:-}"
+USE_UI="${ENVPLANE_E2E_USE_UI:-false}"
+UI_BASE_URL="${ENVPLANE_E2E_UI_BASE_URL:-}"
 KEEP_ENVIRONMENT=false
-HEARTBEAT_STABILITY_WAIT_SECONDS="${ENVPILOT_E2E_HEARTBEAT_STABILITY_WAIT_SECONDS:-35}"
+HEARTBEAT_STABILITY_WAIT_SECONDS="${ENVPLANE_E2E_HEARTBEAT_STABILITY_WAIT_SECONDS:-35}"
 
 for arg in "$@"; do
   case "$arg" in
@@ -83,27 +83,27 @@ if [[ -z "$SCM_TOKEN" && -n "$SCM_TOKEN_FILE" ]]; then
       ;;
   esac
 fi
-[[ -n "$SCM_TOKEN" ]] || die "set ENVPILOT_E2E_SCM_TOKEN or ENVPILOT_E2E_SCM_TOKEN_FILE for the normal SCM validation path"
-[[ "$SCM_PROVIDER" == "github" || "$SCM_PROVIDER" == "gitlab" ]] || die "ENVPILOT_E2E_SCM_PROVIDER must be github or gitlab"
-[[ -n "$REMOTE_CONTROL_PLANE_URL" ]] || die "set ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL to a stable HTTPS endpoint reachable from target pods"
-[[ "$REMOTE_CONTROL_PLANE_URL" =~ ^https://[^/?#]+ ]] || die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL must use a stable https:// endpoint"
-[[ "$REMOTE_CONTROL_PLANE_URL" != *"@"* && "$REMOTE_CONTROL_PLANE_URL" != *"?"* && "$REMOTE_CONTROL_PLANE_URL" != *"#"* ]] || die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL must not include credentials, query parameters, or fragments"
+[[ -n "$SCM_TOKEN" ]] || die "set ENVPLANE_E2E_SCM_TOKEN or ENVPLANE_E2E_SCM_TOKEN_FILE for the normal SCM validation path"
+[[ "$SCM_PROVIDER" == "github" || "$SCM_PROVIDER" == "gitlab" ]] || die "ENVPLANE_E2E_SCM_PROVIDER must be github or gitlab"
+[[ -n "$REMOTE_CONTROL_PLANE_URL" ]] || die "set ENVPLANE_E2E_REMOTE_CONTROL_PLANE_URL to a stable HTTPS endpoint reachable from target pods"
+[[ "$REMOTE_CONTROL_PLANE_URL" =~ ^https://[^/?#]+ ]] || die "ENVPLANE_E2E_REMOTE_CONTROL_PLANE_URL must use a stable https:// endpoint"
+[[ "$REMOTE_CONTROL_PLANE_URL" != *"@"* && "$REMOTE_CONTROL_PLANE_URL" != *"?"* && "$REMOTE_CONTROL_PLANE_URL" != *"#"* ]] || die "ENVPLANE_E2E_REMOTE_CONTROL_PLANE_URL must not include credentials, query parameters, or fragments"
 remote_control_plane_host="${REMOTE_CONTROL_PLANE_URL#*://}"
 remote_control_plane_host="${remote_control_plane_host%%/*}"
 remote_control_plane_host="${remote_control_plane_host%%:*}"
 remote_control_plane_host="$(printf '%s' "$remote_control_plane_host" | tr '[:upper:]' '[:lower:]')"
 case "$remote_control_plane_host" in
-  localhost|127.0.0.1|::1|envpilot.local|host.minikube.internal|*.svc|*.svc.*)
-    die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL must be target-pod-reachable, not host-local or Kubernetes Service DNS"
+  localhost|127.0.0.1|::1|envplane.local|host.minikube.internal|*.svc|*.svc.*)
+    die "ENVPLANE_E2E_REMOTE_CONTROL_PLANE_URL must be target-pod-reachable, not host-local or Kubernetes Service DNS"
     ;;
 esac
 if [[ -n "$REMOTE_CONTROL_PLANE_CA_SECRET" && -z "$REMOTE_CONTROL_PLANE_CA_KEY" ]]; then
-  die "ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_SECRET requires ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_KEY"
+  die "ENVPLANE_E2E_REMOTE_CONTROL_PLANE_CA_SECRET requires ENVPLANE_E2E_REMOTE_CONTROL_PLANE_CA_KEY"
 fi
-[[ -n "$E2E_CHART_REF" ]] || die "set ENVPILOT_E2E_CHART_REF to an OCI or HTTPS chart reference reachable from the target Runner pod"
-[[ "$E2E_CHART_REF" == oci://* || "$E2E_CHART_REF" == https://* ]] || die "ENVPILOT_E2E_CHART_REF must be oci:// or https://; host-local HTTP chart servers are unsupported"
-[[ -n "$AGENT_CHART_VERSION" && -n "$RUNNER_CHART_VERSION" ]] || die "set immutable ENVPILOT_E2E_AGENT_CHART_VERSION and ENVPILOT_E2E_RUNNER_CHART_VERSION"
-[[ -n "$AGENT_IMAGE_TAG" && -n "$RUNNER_IMAGE_TAG" ]] || die "set immutable ENVPILOT_E2E_AGENT_IMAGE_TAG and ENVPILOT_E2E_RUNNER_IMAGE_TAG"
+[[ -n "$E2E_CHART_REF" ]] || die "set ENVPLANE_E2E_CHART_REF to an OCI or HTTPS chart reference reachable from the target Runner pod"
+[[ "$E2E_CHART_REF" == oci://* || "$E2E_CHART_REF" == https://* ]] || die "ENVPLANE_E2E_CHART_REF must be oci:// or https://; host-local HTTP chart servers are unsupported"
+[[ -n "$AGENT_CHART_VERSION" && -n "$RUNNER_CHART_VERSION" ]] || die "set immutable ENVPLANE_E2E_AGENT_CHART_VERSION and ENVPLANE_E2E_RUNNER_CHART_VERSION"
+[[ -n "$AGENT_IMAGE_TAG" && -n "$RUNNER_IMAGE_TAG" ]] || die "set immutable ENVPLANE_E2E_AGENT_IMAGE_TAG and ENVPLANE_E2E_RUNNER_IMAGE_TAG"
 [[ "$AGENT_IMAGE_TAG" == sha-* && "$RUNNER_IMAGE_TAG" == sha-* ]] || die "E2E Agent/Runner image tags must be immutable full-commit sha-* tags"
 
 cleanup() {
@@ -185,7 +185,7 @@ ensure_project_and_session() {
     '{id:$id,name:$name,product_id:"generic",cluster_id:$cluster,
       git_repo:{provider:$provider,url:$app,default_branch:$appBranch},
       gitops_repo:{provider:$provider,url:$gitops,default_branch:$gitopsBranch,path:"clusters"},
-      base_env_config:{environment_id:"envpilot-e2e-base",namespace:$base,services:[{name:"e2e-base-workload",namespace:$base}]},
+      base_env_config:{environment_id:"envplane-e2e-base",namespace:$base,services:[{name:"e2e-base-workload",namespace:$base}]},
       cost_policy:{default_ttl_hours:1}}')"
   api_json PUT "/api/v1/projects/$PROJECT_ID" "$project_payload" >/dev/null
   api_json POST "/api/projects/$PROJECT_ID/bootstrap-session" '{}' >/dev/null
@@ -197,7 +197,7 @@ install_agent() {
   payload="$(jq -n --arg cluster "$CLUSTER_ID" --arg agent "$AGENT_ID" --arg ns "$AGENT_NAMESPACE" --arg release "$AGENT_RELEASE" '{clusterId:$cluster,agentId:$agent,agentNamespace:$ns,releaseName:$release}')"
   token="$(api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/agent-token" "$payload" | jq -er '.registrationToken')"
   kubectl --context "$TARGET_PROFILE" create namespace "$AGENT_NAMESPACE" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
-  kubectl --context "$TARGET_PROFILE" -n "$AGENT_NAMESPACE" create secret generic envpilot-e2e-agent-bootstrap \
+  kubectl --context "$TARGET_PROFILE" -n "$AGENT_NAMESPACE" create secret generic envplane-e2e-agent-bootstrap \
     --from-literal=registration-token="$token" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
   local -a remote_args=(--set-string "controlPlane.endpointMode=remote" --set-string "controlPlane.url=$REMOTE_CONTROL_PLANE_URL")
   if [[ -n "$REMOTE_CONTROL_PLANE_CA_SECRET" ]]; then
@@ -209,7 +209,7 @@ install_agent() {
     --set-string fullnameOverride="$AGENT_ID" \
     --set-string image.repository="$AGENT_IMAGE_REPOSITORY" --set-string image.tag="$AGENT_IMAGE_TAG" --set-string image.pullPolicy="$IMAGE_PULL_POLICY" \
     "${remote_args[@]}" \
-    --set-string controlPlane.existingSecret=envpilot-e2e-agent-bootstrap \
+    --set-string controlPlane.existingSecret=envplane-e2e-agent-bootstrap \
     --set-string cluster.id="$CLUSTER_ID" --set-string bootstrap.projectId="$PROJECT_ID" --set-string agent.id="$AGENT_ID" \
     --set-string "watch.namespaces[0]=$BASE_NAMESPACE" \
     --set agent.authPersistence.createClaim=false --set installValidation.enabled=false >/dev/null
@@ -242,7 +242,7 @@ install_runner() {
   runner_id="${PROJECT_ID}-runner"
   kubectl --context "$TARGET_PROFILE" create namespace "$RUNNER_NAMESPACE" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
   kubectl --context "$TARGET_PROFILE" create namespace "$FEATURE_NAMESPACE" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
-  kubectl --context "$TARGET_PROFILE" -n "$RUNNER_NAMESPACE" create secret generic envpilot-e2e-runner-bootstrap \
+  kubectl --context "$TARGET_PROFILE" -n "$RUNNER_NAMESPACE" create secret generic envplane-e2e-runner-bootstrap \
     --from-literal=token="$token" --from-literal=project-config-token="$config" --dry-run=client -o yaml | kubectl --context "$TARGET_PROFILE" apply -f - >/dev/null
   local -a remote_args=(--set-string "controlPlane.endpointMode=remote" --set-string "controlPlane.url=$REMOTE_CONTROL_PLANE_URL")
   if [[ -n "$REMOTE_CONTROL_PLANE_CA_SECRET" ]]; then
@@ -254,7 +254,7 @@ install_runner() {
     --set-string fullnameOverride="$RUNNER_RELEASE" \
     --set-string image.repository="$RUNNER_IMAGE_REPOSITORY" --set-string image.tag="$RUNNER_IMAGE_TAG" --set-string image.pullPolicy="$IMAGE_PULL_POLICY" \
     "${remote_args[@]}" \
-    --set-string controlPlane.existingSecret=envpilot-e2e-runner-bootstrap \
+    --set-string controlPlane.existingSecret=envplane-e2e-runner-bootstrap \
     --set-string project.id="$PROJECT_ID" --set-string project.clusterId="$CLUSTER_ID" \
     --set-string project.runnerId="$runner_id" --set-string project.namespace="$RUNNER_NAMESPACE" \
     --set-string project.deploymentMode=helm --set-string project.configUrl="$REMOTE_CONTROL_PLANE_URL/api/v1/projects/$PROJECT_ID/runner-config" \
@@ -275,7 +275,7 @@ complete_bootstrap() {
   log "Configuring bootstrap through the supported session API"
   patch="$(jq -n \
     --arg base "$BASE_NAMESPACE" --arg ref "$E2E_CHART_REF" \
-    '{current_step:10,step_data:{selectedBaseNamespaces:[$base],deployment:{backend:"helm_direct",helmDirect:{chartRef:$ref,namespaceMode:"shared",releaseNamePattern:"envpilot-e2e",namespacePattern:"envpilot-pr-{{ .PRNumber }}",timeout:120,wait:true,createNamespace:false,valuesOverrideStrategy:"merge",imageTagValuePath:"image.tag"}}}}')"
+    '{current_step:10,step_data:{selectedBaseNamespaces:[$base],deployment:{backend:"helm_direct",helmDirect:{chartRef:$ref,namespaceMode:"shared",releaseNamePattern:"envplane-e2e",namespacePattern:"envplane-pr-{{ .PRNumber }}",timeout:120,wait:true,createNamespace:false,valuesOverrideStrategy:"merge",imageTagValuePath:"image.tag"}}}}')"
   api_json PATCH "/api/projects/$PROJECT_ID/bootstrap-session" "$patch" >/dev/null
   scan_start="$(api_json POST "/api/projects/$PROJECT_ID/bootstrap-session/resource-scan/start" '{}')"
   if [[ "$(jq -r '.data.resourceScanStatus // empty' <<<"$scan_start")" != "pending" ]]; then
@@ -322,19 +322,19 @@ assert_remote_heartbeats_remain_fresh() {
 }
 
 create_environment_through_ui() {
-  [[ -n "$UI_BASE_URL" ]] || die "set ENVPILOT_E2E_UI_BASE_URL when ENVPILOT_E2E_USE_UI=true"
+  [[ -n "$UI_BASE_URL" ]] || die "set ENVPLANE_E2E_UI_BASE_URL when ENVPLANE_E2E_USE_UI=true"
   log "Creating the environment through the browser UI"
   (
     cd "$WORKSPACE_ROOT/frontend"
     PLAYWRIGHT_SKIP_WEBSERVER=1 \
       PLAYWRIGHT_TEST_DIR=./tests/e2e-real \
       PLAYWRIGHT_BASE_URL="$UI_BASE_URL" \
-      ENVPILOT_E2E_API_URL="$API_URL" \
-      ENVPILOT_E2E_REAL_CLUSTER=1 \
-      ENVPILOT_E2E_RUN_LIFECYCLE=1 \
-      ENVPILOT_E2E_KEEP_ENVIRONMENT=1 \
-      ENVPILOT_E2E_PROJECT_ID="$PROJECT_ID" \
-      ENVPILOT_E2E_ENVIRONMENT_ID="$ENVIRONMENT_ID" \
+      ENVPLANE_E2E_API_URL="$API_URL" \
+      ENVPLANE_E2E_REAL_CLUSTER=1 \
+      ENVPLANE_E2E_RUN_LIFECYCLE=1 \
+      ENVPLANE_E2E_KEEP_ENVIRONMENT=1 \
+      ENVPLANE_E2E_PROJECT_ID="$PROJECT_ID" \
+      ENVPLANE_E2E_ENVIRONMENT_ID="$ENVIRONMENT_ID" \
       npm run test:e2e -- --grep "creates a real full environment through the UI"
   )
 }
@@ -347,7 +347,7 @@ create_and_verify_environment() {
   else
     payload="$(jq -n \
       --arg id "$ENVIRONMENT_ID" --arg project "$PROJECT_ID" --arg provider "$SCM_PROVIDER" --arg repository "$APP_REPOSITORY_URL" --arg prNumber "$PR_NUMBER" \
-      '{id:$id,project:$project,product:"generic",mode:"full",ttlHours:1,source:{provider:$provider,repository:$repository,pullRequestId:$prNumber,branch:("feature/envpilot-e2e-" + $prNumber),commit:"",author:"envpilot-e2e"}}')"
+      '{id:$id,project:$project,product:"generic",mode:"full",ttlHours:1,source:{provider:$provider,repository:$repository,pullRequestId:$prNumber,branch:("feature/envplane-e2e-" + $prNumber),commit:"",author:"envplane-e2e"}}')"
     created="$(api_json POST /api/v1/environments "$payload")"
     [[ "$(jq -r .status <<<"$created")" == creating ]] || die "environment was not reserved in creating state"
     wait_for "Runner create result" 120 "[[ \$(api_get /api/v1/environments/$ENVIRONMENT_ID | jq -r .status) == ready ]]" >/dev/null

@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "envplane-webhook.fullname" . }}
+  labels:
+    {{- include "envplane-webhook.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "envplane-webhook.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "envplane-webhook.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- toYaml .Values.podAnnotations | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: webhook
+          image: {{ include "envplane-webhook.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          env:
+            - name: ENVPLANE_WEBHOOK_ADDR
+              value: {{ printf ":%d" (.Values.service.port | int) | quote }}
+            - name: ENVPLANE_WEBHOOK_REQUEST_TIMEOUT
+              value: {{ .Values.requestTimeout | quote }}
+            - name: ENVPLANE_WEBHOOK_READY_STALE_AFTER
+              value: {{ .Values.readyStaleAfter | quote }}
+            - name: ENVPLANE_CONTROL_PLANE_URL
+              value: {{ required "controlPlane.url is required" .Values.controlPlane.url | quote }}
+            - name: ENVPLANE_CONTROL_PLANE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-webhook.secretName" . }}
+                  key: {{ .Values.secrets.controlPlaneTokenKey }}
+            - name: ENVPLANE_GITHUB_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-webhook.secretName" . }}
+                  key: {{ .Values.secrets.githubWebhookSecretKey }}
+                  optional: true
+            - name: ENVPLANE_GITLAB_WEBHOOK_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-webhook.secretName" . }}
+                  key: {{ .Values.secrets.gitlabWebhookTokenKey }}
+                  optional: true
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

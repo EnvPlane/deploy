@@ -18,17 +18,17 @@ check_chart() {
     --set postgres.auth.existingSecret=parity-postgres \
     --set postgres.tls.enabled=false >"$rendered"
   if command -v rg >/dev/null 2>&1; then
-    source="$(rg -o 'ENVPILOT_[A-Z0-9_]+' "$repo_root/../$source_dir" --glob '*.go' --glob '*.ts' --glob '*.tsx' --glob '!**/*_test.go' --glob '!**/*.test.ts' --glob '!**/*.test.tsx' | sed 's/.*://' | sort -u || true)"
-    rendered_vars="$(rg -o 'name:[[:space:]]+ENVPILOT_[A-Z0-9_]+' "$rendered" | sed -E 's/.*name:[[:space:]]+//' | sort -u || true)"
+    source="$(rg -o 'ENVPLANE_[A-Z0-9_]+' "$repo_root/../$source_dir" --glob '*.go' --glob '*.ts' --glob '*.tsx' --glob '!**/*_test.go' --glob '!**/*.test.ts' --glob '!**/*.test.tsx' | sed 's/.*://' | sort -u || true)"
+    rendered_vars="$(rg -o 'name:[[:space:]]+ENVPLANE_[A-Z0-9_]+' "$rendered" | sed -E 's/.*name:[[:space:]]+//' | sort -u || true)"
   else
-    source="$(find "$repo_root/../$source_dir" -type f \( -name '*.go' -o -name '*.ts' -o -name '*.tsx' \) ! -name '*_test.go' ! -name '*.test.ts' ! -name '*.test.tsx' -print0 | xargs -0 grep -Eho 'ENVPILOT_[A-Z0-9_]+' | sort -u || true)"
-    rendered_vars="$(grep -Eho 'name:[[:space:]]+ENVPILOT_[A-Z0-9_]+' "$rendered" | sed -E 's/.*name:[[:space:]]+//' | sort -u || true)"
+    source="$(find "$repo_root/../$source_dir" -type f \( -name '*.go' -o -name '*.ts' -o -name '*.tsx' \) ! -name '*_test.go' ! -name '*.test.ts' ! -name '*.test.tsx' -print0 | xargs -0 grep -Eho 'ENVPLANE_[A-Z0-9_]+' | sort -u || true)"
+    rendered_vars="$(grep -Eho 'name:[[:space:]]+ENVPLANE_[A-Z0-9_]+' "$rendered" | sed -E 's/.*name:[[:space:]]+//' | sort -u || true)"
   fi
   echo "[$service]"
   while IFS= read -r name; do
     [[ -z "$name" ]] && continue
     case "$name" in
-      ENVPILOT_POSTGRES_PASSWORD) continue ;;
+      ENVPLANE_POSTGRES_PASSWORD) continue ;;
     esac
     if ! grep -Fxq "$name" <<< "$source"; then
       echo "  rendered but not declared by production code: $name"
@@ -37,10 +37,10 @@ check_chart() {
   done <<< "$rendered_vars"
 }
 
-check_chart runner envpilot-runner runner
-check_chart webhook envpilot-webhook webhook
-check_chart control-plane envpilot-control-plane control-plane
-check_chart agent envpilot-agent agent
+check_chart runner envplane-runner runner
+check_chart webhook envplane-webhook webhook
+check_chart control-plane envplane-control-plane control-plane
+check_chart agent envplane-agent agent
 
 if [[ "$strict" == "1" && "$failures" -gt 0 ]]; then
   echo "environment parity failed: $failures missing rendered variables" >&2
