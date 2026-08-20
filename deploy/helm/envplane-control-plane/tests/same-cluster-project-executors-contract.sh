@@ -68,6 +68,8 @@ rg -Fq 'resources: ["pods", "services", "endpoints", "events", "configmaps", "re
 rg -Fq 'resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]' "$rendered"
 rg -Fq 'resources: ["jobs", "cronjobs"]' "$rendered"
 rg -Fq 'resources: ["ingresses", "networkpolicies"]' "$rendered"
+rg -Fq 'resources: ["horizontalpodautoscalers"]' "$rendered"
+rg -Fq 'resources: ["poddisruptionbudgets"]' "$rendered"
 rg -Fq 'resources: ["kustomizations"]' "$rendered"
 rg -Fq 'resources: ["helmreleases"]' "$rendered"
 rg -Fq 'resources: ["gitrepositories", "helmrepositories", "ocirepositories", "buckets"]' "$rendered"
