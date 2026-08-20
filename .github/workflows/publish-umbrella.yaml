@@ -121,7 +121,7 @@ jobs:
           echo "package=$package" >> "$GITHUB_OUTPUT"
       - name: Sign and attest published chart
         env:
-          CHART_REF: ghcr.io/EnvPlane/envplane@${{ steps.push.outputs.digest }}
+          CHART_REF: ghcr.io/envplane/envplane@${{ steps.push.outputs.digest }}
           MANIFEST: deploy/helm/envplane/compatibility/release.json
         run: |
           cosign sign --yes "$CHART_REF"
