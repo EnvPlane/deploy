@@ -8,7 +8,7 @@ usage() {
   cat <<'EOF'
 Usage: update-runtime-image-values.sh \
   --component <control-plane|frontend|agent|runner|webhook|platform-reconciler> \
-  --repository <ghcr.io/EnvPlane/...> \
+  --repository <ghcr.io/envplane/...> \
   --tag <sha-40-hex> \
   --digest <sha256:64-hex> \
   --source-revision <40-hex> \
@@ -28,7 +28,7 @@ tag=""
 digest=""
 source_revision=""
 release=""
-values_file="deploy/helm/envpilot/values.yaml"
+values_file="deploy/helm/envplane/values.yaml"
 release_file=""
 report_file=""
 
@@ -49,11 +49,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$component" in
-  control-plane) section="envpilot-control-plane"; expected_repository="ghcr.io/envplane/api" ;;
-  frontend) section="envpilot-frontend"; expected_repository="ghcr.io/envplane/frontend" ;;
-  agent) section="envpilot-agent"; expected_repository="ghcr.io/envplane/agent" ;;
-  runner) section="envpilot-runner"; expected_repository="ghcr.io/envplane/runner" ;;
-  webhook) section="envpilot-webhook"; expected_repository="ghcr.io/envplane/webhook" ;;
+  control-plane) section="envplane-control-plane"; expected_repository="ghcr.io/envplane/api" ;;
+  frontend) section="envplane-frontend"; expected_repository="ghcr.io/envplane/frontend" ;;
+  agent) section="envplane-agent"; expected_repository="ghcr.io/envplane/agent" ;;
+  runner) section="envplane-runner"; expected_repository="ghcr.io/envplane/runner" ;;
+  webhook) section="envplane-webhook"; expected_repository="ghcr.io/envplane/webhook" ;;
   platform-reconciler) section="platformDependencyReconciler"; expected_repository="ghcr.io/envplane/platform-reconciler" ;;
   *) die "unsupported component: $component" ;;
 esac

@@ -3,19 +3,19 @@ set -euo pipefail
 
 # Published-artifact lifecycle E2E for API-managed remote clusters. Both
 # Kubernetes clusters must already be provisioned. This harness never creates a cluster, opens a tunnel, or receives raw kubeconfig/bootstrap credentials.
-: "${ENVPILOT_REMOTE_E2E_API_URL:?set management control-plane API URL}"
-: "${ENVPILOT_REMOTE_E2E_CLUSTER_ID:?set the RemoteCluster ID}"
-: "${ENVPILOT_REMOTE_E2E_REMOTE_CONTEXT:?set the target cluster kube context}"
-: "${ENVPILOT_REMOTE_E2E_AGENT_RELEASE:?set target Agent release name}"
-: "${ENVPILOT_REMOTE_E2E_AGENT_NAMESPACE:?set target Agent namespace}"
-: "${ENVPILOT_REMOTE_E2E_RUNNER_RELEASE:?set target Runner release name}"
-: "${ENVPILOT_REMOTE_E2E_RUNNER_NAMESPACE:?set target Runner namespace}"
+: "${ENVPLANE_REMOTE_E2E_API_URL:?set management control-plane API URL}"
+: "${ENVPLANE_REMOTE_E2E_CLUSTER_ID:?set the RemoteCluster ID}"
+: "${ENVPLANE_REMOTE_E2E_REMOTE_CONTEXT:?set the target cluster kube context}"
+: "${ENVPLANE_REMOTE_E2E_AGENT_RELEASE:?set target Agent release name}"
+: "${ENVPLANE_REMOTE_E2E_AGENT_NAMESPACE:?set target Agent namespace}"
+: "${ENVPLANE_REMOTE_E2E_RUNNER_RELEASE:?set target Runner release name}"
+: "${ENVPLANE_REMOTE_E2E_RUNNER_NAMESPACE:?set target Runner namespace}"
 
-api="${ENVPILOT_REMOTE_E2E_API_URL%/}"
-cluster_id="$ENVPILOT_REMOTE_E2E_CLUSTER_ID"
+api="${ENVPLANE_REMOTE_E2E_API_URL%/}"
+cluster_id="$ENVPLANE_REMOTE_E2E_CLUSTER_ID"
 auth_header=()
-if [[ -n "${ENVPILOT_REMOTE_E2E_API_TOKEN:-}" ]]; then
-  auth_header=(-H "Authorization: Bearer ${ENVPILOT_REMOTE_E2E_API_TOKEN}")
+if [[ -n "${ENVPLANE_REMOTE_E2E_API_TOKEN:-}" ]]; then
+  auth_header=(-H "Authorization: Bearer ${ENVPLANE_REMOTE_E2E_API_TOKEN}")
 fi
 
 request_action() {
@@ -52,7 +52,7 @@ jq -e --argjson prior "$(jq '.status.observed_generation' <<<"$n_minus_1")" '.st
 # A manually installed legacy release must remain unmanaged until the explicit
 # audited API action. The fixture setup creates it with the same release/PVC
 # names but without EnvPlane ownership values.
-if [[ "${ENVPILOT_REMOTE_E2E_VERIFY_LEGACY_MIGRATION:-false}" == "true" ]]; then
+if [[ "${ENVPLANE_REMOTE_E2E_VERIFY_LEGACY_MIGRATION:-false}" == "true" ]]; then
   request_action migrate
   migrated="$(wait_for_phase healthy)"
   jq -e '.status.migration.completed_at != null and (.status.installed_artifacts | all(.[]; .compatibility_fingerprint != ""))' <<<"$migrated" >/dev/null
@@ -69,11 +69,11 @@ for _ in $(seq 1 90); do
 done
 [[ "${status:-}" == "404" ]]
 
-for release_namespace in "$ENVPILOT_REMOTE_E2E_AGENT_RELEASE:$ENVPILOT_REMOTE_E2E_AGENT_NAMESPACE" "$ENVPILOT_REMOTE_E2E_RUNNER_RELEASE:$ENVPILOT_REMOTE_E2E_RUNNER_NAMESPACE"; do
+for release_namespace in "$ENVPLANE_REMOTE_E2E_AGENT_RELEASE:$ENVPLANE_REMOTE_E2E_AGENT_NAMESPACE" "$ENVPLANE_REMOTE_E2E_RUNNER_RELEASE:$ENVPLANE_REMOTE_E2E_RUNNER_NAMESPACE"; do
   release="${release_namespace%%:*}"
   namespace="${release_namespace#*:}"
-  ! helm --kube-context "$ENVPILOT_REMOTE_E2E_REMOTE_CONTEXT" -n "$namespace" status "$release" >/dev/null 2>&1
-  kubectl --context "$ENVPILOT_REMOTE_E2E_REMOTE_CONTEXT" -n "$namespace" get pvc -l envpilot.io/managed-remote=true >/dev/null
+  ! helm --kube-context "$ENVPLANE_REMOTE_E2E_REMOTE_CONTEXT" -n "$namespace" status "$release" >/dev/null 2>&1
+  kubectl --context "$ENVPLANE_REMOTE_E2E_REMOTE_CONTEXT" -n "$namespace" get pvc -l envplane.io/managed-remote=true >/dev/null
 done
 
 echo "published remote-cluster lifecycle E2E passed"

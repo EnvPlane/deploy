@@ -16,7 +16,7 @@ fixtures for [EnvPlane](https://envplane.dev).
 The supported same-cluster installation uses one umbrella release:
 
 ```bash
-helm upgrade --install envplane oci://ghcr.io/EnvPlane/envpilot \
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
   --version <version> \
   --namespace envplane \
   --create-namespace \

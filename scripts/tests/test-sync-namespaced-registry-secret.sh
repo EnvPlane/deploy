@@ -16,6 +16,6 @@ grep -Fq -- '--secret' <<<"$help"
 ! grep -Fq -- '-o yaml' "$script"
 ! grep -Fq -- '--force-conflicts' "$script"
 grep -Fq -- 'get secret "$secret_name" -o json' "$script"
-grep -Fq -- 'apply --server-side --field-manager=envpilot-registry-secret-sync -f - >/dev/null' "$script"
+grep -Fq -- 'apply --server-side --field-manager=envplane-registry-secret-sync -f - >/dev/null' "$script"
 
 echo "namespaced registry Secret sync script contract passed"

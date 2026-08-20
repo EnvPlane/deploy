@@ -2,14 +2,14 @@
 
 `.github/workflows/propose-runtime-image-update.yaml` is the only receiver for
 `component-image-published` events. Component release workflows dispatch the
-following payload to `envpilot/deploy`:
+following payload to `envplane/deploy`:
 
 ```json
 {
   "component": "runner",
-  "source_repository": "envpilot/runner",
+  "source_repository": "envplane/runner",
   "source_revision": "<40 lowercase hex characters>",
-  "repository": "ghcr.io/EnvPlane/runner",
+  "repository": "ghcr.io/envplane/runner",
   "tag": "sha-<40 lowercase hex characters>",
   "digest": "sha256:<64 lowercase hex characters>",
   "publication_id": "<component>:<source revision>:<digest>"
@@ -22,7 +22,7 @@ read-only workflow token and verifies that the immutable tag resolves to the
 submitted manifest digest before changing the checkout.
 
 Updates are applied to only the selected child image block in
-`deploy/helm/envpilot/values.yaml` and the matching `imagePins` entry plus
+`deploy/helm/envplane/values.yaml` and the matching `imagePins` entry plus
 image reference in the current `release/<umbrella-version>.yaml` manifest. The
 old reference, new digest/tag and source commit are included in the bot PR.
 

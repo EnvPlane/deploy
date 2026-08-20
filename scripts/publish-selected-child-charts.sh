@@ -74,12 +74,12 @@ is_auth_error() {
 mkdir -p "$dist" "$(dirname "$output")"
 entries=()
 for mapping in \
-  control-plane:envpilot-control-plane \
-  frontend:envpilot-frontend \
-  agent:envpilot-agent \
-  runner:envpilot-runner \
-  webhook:envpilot-webhook \
-  e2eWorkload:envpilot-e2e-workload; do
+  control-plane:envplane-control-plane \
+  frontend:envplane-frontend \
+  agent:envplane-agent \
+  runner:envplane-runner \
+  webhook:envplane-webhook \
+  e2eWorkload:envplane-e2e-workload; do
   component="${mapping%%:*}"
   chart="${mapping##*:}"
   selected_version="$(dependency_version "$chart")"
@@ -133,7 +133,7 @@ for mapping in \
       '{schemaVersion:1,artifactType:"helm-chart",chart:$chart,version:$version,digest:$digest,sourceRevision:$sourceRevision}' \
       > "$predicate"
     cosign sign --yes "$oras_repository@$digest"
-    cosign attest --yes --predicate "$predicate" --type https://envpilot.dev/chart/v1 "$oras_repository@$digest"
+    cosign attest --yes --predicate "$predicate" --type https://envplane.dev/chart/v1 "$oras_repository@$digest"
   else
     digest="$(jq -er '.digest' <<<"$descriptor")"
     [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {

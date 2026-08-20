@@ -1,0 +1,51 @@
+EnvPlane runner has been installed.
+
+Release:
+  Name: {{ .Release.Name }}
+  Namespace: {{ .Release.Namespace }}
+
+Control plane:
+  URL: {{ include "envplane-runner.controlPlaneEndpoint" . }}
+  Project: {{ default "not configured" .Values.project.id }}
+
+Auth persistence:
+  Bootstrap tokens are one-time credentials. The chart persists the runnerAuthToken
+  returned by registration on a PVC by default so rollout-created pods do not
+  reuse bootstrap tokens.
+
+  To use an externally managed Secret instead, configure:
+
+    controlPlane.authPersistence.existingSecret
+    controlPlane.authPersistence.runnerAuthTokenKey
+
+  On restart the runner should load ENVPLANE_RUNNER_AUTH_TOKEN from that Secret
+  and skip bootstrap registration. For a controller-managed remote Runner,
+  rotate/reissue through Remote Clusters API/UI; do not edit bootstrap tokens
+  or generate a replacement OCI command manually.
+
+Controller-managed remote installation:
+  Set managedRemote.enabled=true only through the management-cluster Remote
+  Cluster Reconciler. It requires an explicit target-pod-reachable HTTPS URL,
+  an existing bootstrap Secret, safe auth revision/rotation values, and exact
+  project feature namespaces. The chart rejects localhost,
+  host.minikube.internal and Kubernetes Service DNS in this mode.
+
+Remote Environment lifecycle:
+  Helm create/status/recreate/delete and audited force-clean operations are
+  dispatched only by the fresh managed Runner. Force clean remains label-owned:
+  it may remove a dedicated namespace only when envplane.io/managed=true and
+  its project/environment labels match. Missing releases or namespaces are
+  idempotent success; the control plane never uses its kubeconfig for cleanup.
+
+Migration from the retired envplane-runner-chart OCI chart:
+  Older releases used the fixed resource name and immutable selector
+  envplane-runner-chart. Preserve the existing Deployment, RBAC and
+  envplane-runner-chart-auth PVC with:
+
+    helm upgrade {{ .Release.Name }} oci://ghcr.io/envplane/envplane-runner \
+      --namespace {{ .Release.Namespace }} --reuse-values \
+      --set fullnameOverride=envplane-runner-chart \
+      --set legacyChartName=envplane-runner-chart
+
+  New releases intentionally receive independent names and auth PVCs. Do not
+  assign either legacy setting to a second release in the same namespace.

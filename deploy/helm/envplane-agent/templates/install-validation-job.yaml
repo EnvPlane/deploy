@@ -1,0 +1,84 @@
+{{- if and .Values.installValidation.enabled (eq (include "envplane-agent.usesFirstStartRegistration" .) "false") -}}
+{{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.installValidation.podAnnotations)) (include "envplane-agent.imageMetadata" . | fromYaml) -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "envplane-agent.fullname" . }}-install-check
+  labels:
+    {{- include "envplane-agent.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  {{- if gt (int .Values.installValidation.timeoutSeconds) 0 }}
+  activeDeadlineSeconds: {{ .Values.installValidation.timeoutSeconds }}
+  {{- end }}
+  backoffLimit: {{ .Values.installValidation.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "envplane-agent.selectorLabels" . | nindent 8 }}
+        {{- with .Values.installValidation.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- toYaml $podAnnotations | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "envplane-agent.serviceAccountName" . }}
+      {{- $pullSecrets := include "envplane-agent.imagePullSecrets" . }}
+      {{- if $pullSecrets }}
+      imagePullSecrets:
+        {{ $pullSecrets | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: install-check
+          image: {{ include "envplane-agent.image" . | quote }}
+          imagePullPolicy: {{ include "envplane-agent.imagePullPolicy" . }}
+          args:
+            - agent-install-check
+          env:
+            - name: ENVPLANE_CONTROL_PLANE_URL
+              value: {{ include "envplane-agent.controlPlaneEndpoint" . | quote }}
+            - name: ENVPLANE_CLUSTER_ID
+              value: {{ default .Release.Name .Values.cluster.id | quote }}
+            - name: ENVPLANE_BOOTSTRAP_PROJECT_ID
+              value: {{ .Values.bootstrap.projectId | quote }}
+            - name: ENVPLANE_AGENT_ID
+              value: {{ printf "%s-install-check" (default (include "envplane-agent.fullname" .) .Values.agent.id) | quote }}
+            - name: ENVPLANE_AGENT_VERSION
+              value: {{ default .Chart.AppVersion .Values.image.tag | quote }}
+            - name: ENVPLANE_AGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENVPLANE_WATCH_NAMESPACE_SELECTOR
+              value: {{ .Values.watch.namespaceLabelSelector | quote }}
+            - name: ENVPLANE_WATCH_EXCLUDED_NAMESPACES
+              value: {{ join "," .Values.watch.excludeNamespaces | quote }}
+            - name: ENVPLANE_AGENT_REPORT_TIMEOUT_SECONDS
+              value: {{ .Values.controlPlane.reportTimeoutSeconds | quote }}
+            - name: ENVPLANE_AGENT_HEARTBEAT_SECONDS
+              value: {{ .Values.agent.heartbeatSeconds | quote }}
+            - name: ENVPLANE_FLUX_NAMESPACE
+              value: {{ .Values.flux.namespace | quote }}
+            {{- if or (eq (include "envplane-agent.usesFirstStartRegistration" .) "true") .Values.controlPlane.existingSecret }}
+            - name: ENVPLANE_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-agent.tokenSecretName" . }}
+                  key: {{ if eq (include "envplane-agent.usesFirstStartRegistration" .) "true" }}agent-registration-token{{ else }}{{ .Values.controlPlane.registrationTokenKey }}{{ end }}
+            {{- else if and .Values.controlPlane.token .Values.controlPlane.allowUnsafePlaintextTokens }}
+            - name: ENVPLANE_AGENT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-agent.tokenSecretName" . }}
+                  key: {{ .Values.controlPlane.registrationTokenKey }}
+            {{- end }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.installValidation.resources | nindent 12 }}
+{{- end }}

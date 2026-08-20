@@ -3,9 +3,9 @@
 # Usage: ./scripts/minikube-verify.sh
 set -uo pipefail
 
-PROFILE="${MINIKUBE_PROFILE:-envpilot}"
-NAMESPACE="${ENVPILOT_NAMESPACE:-envpilot}"
-LOCAL_PORT="${ENVPILOT_LOCAL_PORT:-8080}"
+PROFILE="${MINIKUBE_PROFILE:-envplane}"
+NAMESPACE="${ENVPLANE_NAMESPACE:-envplane}"
+LOCAL_PORT="${ENVPLANE_LOCAL_PORT:-8080}"
 BASE="http://127.0.0.1:${LOCAL_PORT}"
 
 fail=0
@@ -22,8 +22,8 @@ kubectl -n "$NAMESPACE" get pods -o wide
 kubectl -n "$NAMESPACE" get svc,ingress,pvc
 
 log "Readiness"
-for res in deploy/envpilot-control-plane deploy/envpilot-control-plane-frontend \
-           statefulset/envpilot-control-plane-postgres statefulset/envpilot-control-plane-redis; do
+for res in deploy/envplane-control-plane deploy/envplane-control-plane-frontend \
+           statefulset/envplane-control-plane-postgres statefulset/envplane-control-plane-redis; do
   if kubectl -n "$NAMESPACE" rollout status "$res" --timeout=120s >/dev/null 2>&1; then
     ok "$res ready"
   else
@@ -32,14 +32,14 @@ for res in deploy/envpilot-control-plane deploy/envpilot-control-plane-frontend 
 done
 
 log "Port-forwarding API to ${BASE}"
-kubectl -n "$NAMESPACE" port-forward svc/envpilot-control-plane "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
+kubectl -n "$NAMESPACE" port-forward svc/envplane-control-plane "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
 PF_PID=$!
 trap 'kill $PF_PID >/dev/null 2>&1' EXIT
 sleep 4
 
 check() { # check <path> [expected-http-code]
   local path="$1" want="${2:-200}" code
-  code="$(curl -s -o /tmp/envpilot-check.out -w '%{http_code}' "${BASE}${path}")"
+  code="$(curl -s -o /tmp/envplane-check.out -w '%{http_code}' "${BASE}${path}")"
   if [[ "$code" == "$want" ]]; then ok "GET $path -> $code"; else bad "GET $path -> $code (want $want)"; fi
 }
 
@@ -65,24 +65,24 @@ else
 fi
 
 log "Postgres connectivity"
-if kubectl -n "$NAMESPACE" exec statefulset/envpilot-control-plane-postgres -- \
-     pg_isready -U envpilot -d envpilot >/dev/null 2>&1; then
+if kubectl -n "$NAMESPACE" exec statefulset/envplane-control-plane-postgres -- \
+     pg_isready -U envplane -d envplane >/dev/null 2>&1; then
   ok "postgres accepting connections"
-  kubectl -n "$NAMESPACE" exec statefulset/envpilot-control-plane-postgres -- \
-    psql -U envpilot -d envpilot -c '\dt' 2>/dev/null | head -20
+  kubectl -n "$NAMESPACE" exec statefulset/envplane-control-plane-postgres -- \
+    psql -U envplane -d envplane -c '\dt' 2>/dev/null | head -20
 else
   bad "postgres not ready"
 fi
 
 log "Redis connectivity"
-if [[ "$(kubectl -n "$NAMESPACE" exec statefulset/envpilot-control-plane-redis -- redis-cli ping 2>/dev/null)" == "PONG" ]]; then
+if [[ "$(kubectl -n "$NAMESPACE" exec statefulset/envplane-control-plane-redis -- redis-cli ping 2>/dev/null)" == "PONG" ]]; then
   ok "redis PONG"
 else
   bad "redis not responding"
 fi
 
 log "Recent API logs"
-kubectl -n "$NAMESPACE" logs deploy/envpilot-control-plane --tail=20
+kubectl -n "$NAMESPACE" logs deploy/envplane-control-plane --tail=20
 
 if [[ $fail -eq 0 ]]; then
   log "All checks passed. UI: ${BASE}"

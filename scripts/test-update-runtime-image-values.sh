@@ -6,11 +6,11 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-cp "$root/deploy/helm/envpilot/values.yaml" "$tmp/values.before.yaml"
-cp "$root/deploy/helm/envpilot/values.yaml" "$tmp/values.yaml"
+cp "$root/deploy/helm/envplane/values.yaml" "$tmp/values.before.yaml"
+cp "$root/deploy/helm/envplane/values.yaml" "$tmp/values.yaml"
 expected_old_reference="$(awk '
-  $0 == "envpilot-runner:" { in_section=1 }
-  in_section && $0 != "envpilot-runner:" && $0 ~ /^[^[:space:]]/ { exit }
+  $0 == "envplane-runner:" { in_section=1 }
+  in_section && $0 != "envplane-runner:" && $0 ~ /^[^[:space:]]/ { exit }
   in_section && $0 ~ /^    repository:/ { sub(/^    repository:[[:space:]]*/, ""); repository=$0 }
   in_section && $0 ~ /^    tag:/ { sub(/^    tag:[[:space:]]*/, ""); gsub(/"/, ""); tag=$0 }
   END { print repository ":" tag }
@@ -26,7 +26,7 @@ expected_old_reference="$(awk '
   --report-file "$tmp/report.json" >/dev/null
 
 for component in control-plane frontend agent; do
-  section="envpilot-$component"
+  section="envplane-$component"
   awk -v section="$section" '
     $0 == section ":" { in_section=1 }
     in_section && $0 != section ":" && $0 ~ /^[^[:space:]]/ { exit }

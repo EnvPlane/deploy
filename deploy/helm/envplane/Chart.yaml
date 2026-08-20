@@ -1,0 +1,34 @@
+apiVersion: v2
+name: envplane
+description: EnvPlane same-cluster umbrella chart.
+type: application
+version: 0.3.48
+appVersion: "0.3.48"
+dependencies:
+  - name: envplane-control-plane
+    version: 0.3.42
+    repository: file://../envplane-control-plane
+    condition: controlPlane.enabled
+  - name: envplane-frontend
+    version: 0.2.1
+    repository: file://../envplane-frontend
+    condition: frontend.enabled
+  - name: envplane-agent
+    version: 0.2.10
+    repository: file://../envplane-agent
+    condition: agent.enabled
+  - name: envplane-runner
+    version: 0.4.1
+    repository: file://../envplane-runner
+    condition: runner.enabled
+  - name: envplane-webhook
+    version: 0.1.0
+    repository: file://../envplane-webhook
+    condition: webhook.enabled
+  # Published and pinned with the umbrella so Helm Direct bootstrap defaults
+  # always point at an attested OCI artifact. It is disabled as a workload:
+  # project Runners, not the umbrella, install it.
+  - name: envplane-e2e-workload
+    version: 0.1.0
+    repository: file://../envplane-e2e-workload
+    condition: e2eWorkload.enabled

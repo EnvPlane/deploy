@@ -2,7 +2,7 @@
 # Bring up the EnvPlane control plane (API + frontend + Postgres + Redis)
 # in a local minikube cluster, from the multi-repo workspace layout:
 #
-#   PROJECTS/envpilot/
+#   PROJECTS/envplane/
 #     control-plane/   <- API image source
 #     frontend/        <- UI image source
 #     deploy/          <- this repo (helm charts + scripts)
@@ -11,16 +11,16 @@
 set -euo pipefail
 
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE_ROOT="${ENVPILOT_WORKSPACE_ROOT:-$(cd "$DEPLOY_ROOT/.." && pwd)}"
-CONTROL_PLANE_DIR="${ENVPILOT_CONTROL_PLANE_DIR:-$WORKSPACE_ROOT/control-plane}"
-FRONTEND_DIR="${ENVPILOT_FRONTEND_DIR:-$WORKSPACE_ROOT/frontend}"
-AGENT_DIR="${ENVPILOT_AGENT_DIR:-$WORKSPACE_ROOT/agent}"
-RUNNER_DIR="${ENVPILOT_RUNNER_DIR:-$WORKSPACE_ROOT/runner}"
+WORKSPACE_ROOT="${ENVPLANE_WORKSPACE_ROOT:-$(cd "$DEPLOY_ROOT/.." && pwd)}"
+CONTROL_PLANE_DIR="${ENVPLANE_CONTROL_PLANE_DIR:-$WORKSPACE_ROOT/control-plane}"
+FRONTEND_DIR="${ENVPLANE_FRONTEND_DIR:-$WORKSPACE_ROOT/frontend}"
+AGENT_DIR="${ENVPLANE_AGENT_DIR:-$WORKSPACE_ROOT/agent}"
+RUNNER_DIR="${ENVPLANE_RUNNER_DIR:-$WORKSPACE_ROOT/runner}"
 
-PROFILE="${MINIKUBE_PROFILE:-envpilot}"
-NAMESPACE="${ENVPILOT_NAMESPACE:-envpilot}"
-RELEASE="${ENVPILOT_RELEASE:-envpilot}"
-CHART="$DEPLOY_ROOT/deploy/helm/envpilot-control-plane"
+PROFILE="${MINIKUBE_PROFILE:-envplane}"
+NAMESPACE="${ENVPLANE_NAMESPACE:-envplane}"
+RELEASE="${ENVPLANE_RELEASE:-envplane}"
+CHART="$DEPLOY_ROOT/deploy/helm/envplane-control-plane"
 VALUES="$CHART/values-minikube.yaml"
 
 log() { printf '\n==> %s\n' "$*"; }
@@ -47,17 +47,17 @@ fi
 log "Switching docker context to minikube"
 eval "$(minikube -p "$PROFILE" docker-env)"
 
-log "Building API image envpilot/api:local from $CONTROL_PLANE_DIR"
-docker build -t envpilot/api:local "$CONTROL_PLANE_DIR"
+log "Building API image envplane/api:local from $CONTROL_PLANE_DIR"
+docker build -t envplane/api:local "$CONTROL_PLANE_DIR"
 
-log "Building frontend image envpilot/frontend:local from $FRONTEND_DIR"
-docker build -t envpilot/frontend:local "$FRONTEND_DIR"
+log "Building frontend image envplane/frontend:local from $FRONTEND_DIR"
+docker build -t envplane/frontend:local "$FRONTEND_DIR"
 
-log "Building agent image envpilot/agent:local from $AGENT_DIR"
-docker build -t envpilot/agent:local "$AGENT_DIR"
+log "Building agent image envplane/agent:local from $AGENT_DIR"
+docker build -t envplane/agent:local "$AGENT_DIR"
 
-log "Building runner image envpilot/runner:local from $RUNNER_DIR"
-docker build -t envpilot/runner:local "$RUNNER_DIR"
+log "Building runner image envplane/runner:local from $RUNNER_DIR"
+docker build -t envplane/runner:local "$RUNNER_DIR"
 
 # --- deploy ----------------------------------------------------------------
 log "Installing helm release '$RELEASE' into namespace '$NAMESPACE'"
@@ -70,11 +70,11 @@ helm upgrade --install "$RELEASE" "$CHART" \
 # Local images retain the :local tag. Helm does not change the pod template
 # when only the image bytes change, so force the workloads to pick up the
 # newly built images on every local rebuild.
-kubectl --context "$PROFILE" -n "$NAMESPACE" rollout restart deployment/envpilot-control-plane deployment/envpilot-control-plane-frontend
+kubectl --context "$PROFILE" -n "$NAMESPACE" rollout restart deployment/envplane-control-plane deployment/envplane-control-plane-frontend
 
 log "Waiting for rollout"
-kubectl --context "$PROFILE" -n "$NAMESPACE" rollout status deployment/envpilot-control-plane --timeout=5m
-kubectl --context "$PROFILE" -n "$NAMESPACE" rollout status deployment/envpilot-control-plane-frontend --timeout=5m
+kubectl --context "$PROFILE" -n "$NAMESPACE" rollout status deployment/envplane-control-plane --timeout=5m
+kubectl --context "$PROFILE" -n "$NAMESPACE" rollout status deployment/envplane-control-plane-frontend --timeout=5m
 kubectl --context "$PROFILE" -n "$NAMESPACE" get pods,svc,ingress,pvc
 
 # --- access ----------------------------------------------------------------
@@ -82,8 +82,8 @@ cat <<EOF
 
 EnvPlane control plane is deployed.
 
-Local agent and runner images are available as envpilot/agent:local and
-envpilot/runner:local. Enable same-cluster Agent and Runner in the direct
+Local agent and runner images are available as envplane/agent:local and
+envplane/runner:local. Enable same-cluster Agent and Runner in the direct
 umbrella chart only after supplying their project-scoped bootstrap Secrets.
 The published install contract is one `helm upgrade --install` command; no
 installer script or in-cluster nested Helm execution is used.

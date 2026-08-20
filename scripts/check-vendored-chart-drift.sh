@@ -5,7 +5,7 @@ set -euo pipefail
 # to the canonical chart source used to build it.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 deploy_root="$(cd "$script_dir/.." && pwd)"
-umbrella="$deploy_root/deploy/helm/envpilot"
+umbrella="$deploy_root/deploy/helm/envplane"
 vendor_dir="$umbrella/charts"
 
 command -v tar >/dev/null || { echo "tar is required" >&2; exit 1; }

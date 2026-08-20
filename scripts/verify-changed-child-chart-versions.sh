@@ -29,12 +29,12 @@ chart_version_at() {
 }
 
 for chart in \
-  envpilot-control-plane \
-  envpilot-frontend \
-  envpilot-agent \
-  envpilot-runner \
-  envpilot-webhook \
-  envpilot-e2e-workload; do
+  envplane-control-plane \
+  envplane-frontend \
+  envplane-agent \
+  envplane-runner \
+  envplane-webhook \
+  envplane-e2e-workload; do
   chart_dir="deploy/helm/$chart"
   changed="$(git diff --name-only "$base" "$head" -- "$chart_dir")"
   [[ -n "$changed" ]] || continue

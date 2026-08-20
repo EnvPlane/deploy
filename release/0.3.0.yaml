@@ -8,44 +8,44 @@ runnerCommandAPI:
   version: "1"
   requestHeader: X-EnvPlane-Runner-Command-API-Version
 images:
-  api: ghcr.io/EnvPlane/api:0.1.6
-  frontend: ghcr.io/EnvPlane/frontend:0.1.5
-  agent: ghcr.io/EnvPlane/agent:sha-3e7e9f26ffcae4dbc3a0a352d8760a46d89c85aa
-  runner: ghcr.io/EnvPlane/runner:0.1.4
+  api: ghcr.io/envplane/api:0.1.6
+  frontend: ghcr.io/envplane/frontend:0.1.5
+  agent: ghcr.io/envplane/agent:sha-3e7e9f26ffcae4dbc3a0a352d8760a46d89c85aa
+  runner: ghcr.io/envplane/runner:0.1.4
 imagePins:
   api:
-    repository: ghcr.io/EnvPlane/api
+    repository: ghcr.io/envplane/api
     tag: ""
     digest: ""
     sourceRevision: ""
   frontend:
-    repository: ghcr.io/EnvPlane/frontend
+    repository: ghcr.io/envplane/frontend
     tag: ""
     digest: ""
     sourceRevision: ""
   agent:
-    repository: ghcr.io/EnvPlane/agent
+    repository: ghcr.io/envplane/agent
     tag: "sha-3e7e9f26ffcae4dbc3a0a352d8760a46d89c85aa"
     digest: "sha256:77de18aee07124dd313446c1080d05480c9808284642fc0bf7cfb1b2eecc7ef7"
     sourceRevision: "3e7e9f26ffcae4dbc3a0a352d8760a46d89c85aa"
   runner:
-    repository: ghcr.io/EnvPlane/runner
+    repository: ghcr.io/envplane/runner
     tag: ""
     digest: ""
     sourceRevision: ""
 charts:
-  umbrella: oci://ghcr.io/EnvPlane/envpilot:0.3.0
-  controlPlane: oci://ghcr.io/EnvPlane/envpilot-control-plane:0.3.0
-  frontend: oci://ghcr.io/EnvPlane/envpilot-frontend:0.2.0
-  agent: oci://ghcr.io/EnvPlane/envpilot-agent:0.2.0
-  runner: oci://ghcr.io/EnvPlane/envpilot-runner:0.3.0
+  umbrella: oci://ghcr.io/envplane/envplane:0.3.0
+  controlPlane: oci://ghcr.io/envplane/envplane-control-plane:0.3.0
+  frontend: oci://ghcr.io/envplane/envplane-frontend:0.2.0
+  agent: oci://ghcr.io/envplane/envplane-agent:0.2.0
+  runner: oci://ghcr.io/envplane/envplane-runner:0.3.0
 sameCluster:
-  namespace: envpilot
+  namespace: envplane
   agentRunnerDefault: disabled
   installerImage: absent
 valuesContract:
   providerNeutral: true
-  schema: deploy/helm/envpilot/values.schema.json
+  schema: deploy/helm/envplane/values.schema.json
   platformDependencyModes: [auto, managed, existing, disabled]
 releaseGate:
   contractVersion: "1"

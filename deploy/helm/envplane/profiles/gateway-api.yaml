@@ -1,0 +1,16 @@
+# Uses an existing Gateway API Gateway; it does not install CRDs or a controller.
+access:
+  mode: gateway
+  gateway:
+    name: shared-gateway
+    namespace: gateway-system
+    sectionName: https
+    hostnames:
+      - envplane.example.invalid
+platformDependencies:
+  ingress:
+    mode: existing
+    provider: gateway-api
+    existingClassName: shared-gateway
+  dns: { mode: disabled }
+  storage: { mode: disabled }

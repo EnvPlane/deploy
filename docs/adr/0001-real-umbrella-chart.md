@@ -7,9 +7,9 @@
 
 ## Context
 
-The published `envpilot` chart is currently a bootstrap installer, not a Helm
+The published `envplane` chart is currently a bootstrap installer, not a Helm
 umbrella chart. It renders a privileged post-install/post-upgrade Job using
-`ghcr.io/EnvPlane/install`. That Job invokes `helm` and `kubectl`, installs the
+`ghcr.io/envplane/install`. That Job invokes `helm` and `kubectl`, installs the
 control plane, Agent and Runner as separate Helm releases, creates bootstrap
 credentials, and can clean namespaces and cluster-scoped RBAC.
 
@@ -37,9 +37,9 @@ EnvPlane must support a provider-neutral installation in a pre-existing
 Kubernetes cluster through exactly one command:
 
 ```sh
-helm upgrade --install envpilot oci://ghcr.io/EnvPlane/envpilot \
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
   --version <version> \
-  --namespace envpilot \
+  --namespace envplane \
   --create-namespace \
   -f values.yaml
 ```
@@ -51,18 +51,18 @@ controller, DNS integration and dynamic StorageClass provisioner.
 
 ## Decision
 
-### 1. `envpilot` becomes a real Helm v2 umbrella chart
+### 1. `envplane` becomes a real Helm v2 umbrella chart
 
-`deploy/deploy/helm/envpilot/Chart.yaml` will declare canonical EnvPlane child
+`deploy/deploy/helm/envplane/Chart.yaml` will declare canonical EnvPlane child
 charts as Helm dependencies. The umbrella directly renders the core workload
 resources and owns their lifecycle through one Helm release.
 
 The same-cluster component graph is:
 
 ```text
-helm upgrade --install envpilot
+helm upgrade --install envplane
             |
-            +-- envpilot umbrella release
+            +-- envplane umbrella release
                  |
                  +-- control-plane chart
                  |    +-- API Deployment
@@ -191,8 +191,8 @@ The management-cluster control plane hosts a bounded Remote Cluster Reconciler.
 It reads `RemoteCluster` and project-scoped Agent/Runner desired state from the
 control-plane API/database, obtains remote Kubernetes access only from an
 operator-provisioned referenced Secret, and uses Kubernetes clients plus the
-Helm Go SDK to reconcile **only** the canonical `envpilot-agent` and
-`envpilot-runner` releases in that remote cluster. It never shells out to
+Helm Go SDK to reconcile **only** the canonical `envplane-agent` and
+`envplane-runner` releases in that remote cluster. It never shells out to
 `helm` or `kubectl`.
 
 Remote cluster configuration is created and changed through authenticated UI/API
@@ -212,7 +212,7 @@ The reconciler validates before it creates or upgrades a release:
 2. the configured control-plane URL is explicit HTTPS and passes a health/TLS
    preflight from the remote Agent/Runner Pod context;
 3. the endpoint is not loopback, a port-forward address, `host.minikube.internal`,
-   `envpilot.local`, or a Kubernetes Service DNS name that belongs to another
+   `envplane.local`, or a Kubernetes Service DNS name that belongs to another
    cluster; and
 4. the selected immutable Agent/Runner chart and image compatibility set is
    available before reconciliation begins.

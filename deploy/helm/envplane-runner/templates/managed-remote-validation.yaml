@@ -1,0 +1,3 @@
+{{- /* This template intentionally produces no object. It rejects incomplete
+      controller-managed remote contracts before Helm creates any resource. */ -}}
+{{- include "envplane-runner.validateManagedRemote" . -}}

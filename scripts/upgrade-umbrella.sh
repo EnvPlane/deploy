@@ -11,9 +11,9 @@ set -euo pipefail
 # image override before Helm changes the release.
 
 release=""
-chart="oci://ghcr.io/EnvPlane/envpilot"
+chart="oci://ghcr.io/envplane/envplane"
 version=""
-namespace="envpilot"
+namespace="envplane"
 operator_values=""
 kube_context=""
 timeout="15m"

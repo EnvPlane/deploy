@@ -1,6 +1,0 @@
-dependencies:
-- name: envpilot-frontend
-  repository: file://../envpilot-frontend
-  version: 0.2.1
-digest: sha256:4be71ab58ed6e7f92157a29d2b5a1de5294679fef50d7bfbd44b6c88a3fc16bc
-generated: "2026-08-03T18:35:07.011776+02:00"

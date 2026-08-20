@@ -1,0 +1,38 @@
+{{- if eq (include "envplane.platformReconcilerEnabled" .) "true" }}
+{{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
+{{- $statusConfigMap := include "envplane.platformReconcilerStatusConfigMapName" . -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $envplane := include "envplane.globalConfig" . | fromJson -}}
+{{- $platformStatus := default (dict) (get $envplane "platformDependencyStatus") -}}
+{{- $externalStatusConfigMap := trim (default "" (get $platformStatus "statusConfigMapName")) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-platform-dependency-reconciler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
+data:
+  dependencies.json: {{ $dependencies | toJson | quote }}
+{{- if not $externalStatusConfigMap }}
+---
+# This map is release-owned and revision-scoped. The reconciler updates its
+# payload only after Helm has created it; later upgrades use a new map so Helm
+# never server-side-applies over controller-owned status.json.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $statusConfigMap }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: platform-reconciler
+    app.kubernetes.io/managed-by: Helm
+data:
+  status.json: ""
+{{- end }}
+{{- end }}

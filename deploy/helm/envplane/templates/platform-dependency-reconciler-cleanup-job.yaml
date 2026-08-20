@@ -1,0 +1,53 @@
+{{- if and (eq (include "envplane.platformReconcilerEnabled" .) "true") .Values.platformDependencyReconciler.cleanupManagedOnUninstall }}
+{{- $r := .Values.platformDependencyReconciler -}}
+{{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
+{{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
+{{- if $r.image.digest }}{{ $image = printf "%s@%s" $r.image.repository $r.image.digest }}{{ end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-platform-reconciler-cleanup
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+spec:
+  backoffLimit: {{ default 4 $r.backoffLimit }}
+  activeDeadlineSeconds: {{ default 120 $r.cleanupDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ default 30 $r.cleanupTTLSeconds }}
+  template:
+    spec:
+      {{- $registryPullSecrets := include "envplane.registryImagePullSecrets" . }}
+      {{- if or $r.imagePullSecrets $registryPullSecrets }}
+      imagePullSecrets:
+        {{- with $r.imagePullSecrets }}{{ toYaml . | nindent 8 }}{{- end }}
+        {{- if $registryPullSecrets }}{{ $registryPullSecrets | nindent 8 }}{{- end }}
+      {{- end }}
+      serviceAccountName: {{ $sa }}
+      restartPolicy: Never
+      activeDeadlineSeconds: {{ default 120 $r.cleanupDeadlineSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: reconciler
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ default "IfNotPresent" $r.image.pullPolicy }}
+          env:
+            - name: ENVPLANE_RECONCILE_ACTION
+              value: cleanup
+            - name: ENVPLANE_RECONCILE_CONFIG_MAP
+              value: {{ printf "%s-platform-dependency-reconciler" .Release.Name | quote }}
+            - name: ENVPLANE_RECONCILE_CONFIG_JSON
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ printf "%s-platform-dependency-reconciler" .Release.Name }}
+                  key: dependencies.json
+            - name: ENVPLANE_RECONCILE_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: ENVPLANE_RECONCILE_RELEASE
+              value: {{ .Release.Name | quote }}
+            - name: ENVPLANE_RECONCILE_CLEANUP
+              value: "true"
+{{- end }}

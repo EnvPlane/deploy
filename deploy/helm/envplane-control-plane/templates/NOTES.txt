@@ -1,0 +1,5 @@
+EnvPlane control plane has been installed.
+
+Service:
+  {{ include "envplane-control-plane.fullname" . }}:{{ .Values.service.port }}
+

@@ -1,0 +1,12 @@
+apiVersion: v2
+name: envplane-control-plane
+description: EnvPlane control-plane API
+type: application
+version: 0.3.42
+appVersion: "0.1.6"
+dependencies:
+  - name: envplane-frontend
+    alias: frontend
+    version: 0.2.1
+    repository: file://../envplane-frontend
+    condition: frontend.enabled

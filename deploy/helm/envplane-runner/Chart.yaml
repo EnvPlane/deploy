@@ -1,0 +1,15 @@
+apiVersion: v2
+name: envplane-runner
+description: EnvPlane runner that compiles and applies feature environments for a single project.
+type: application
+version: 0.4.1
+appVersion: "0.2.0"
+keywords:
+  - envplane
+  - runner
+  - feature-environments
+home: https://envplane.local
+sources:
+  - https://envplane.local
+maintainers:
+  - name: EnvPlane Platform Team

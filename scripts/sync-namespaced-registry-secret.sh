@@ -6,9 +6,9 @@ set -euo pipefail
 # operation: EnvPlane charts and the control plane consume only Secret names.
 
 context=""
-source_namespace="envpilot"
-target_namespace="envpilot-executors"
-secret_name="envpilot-ghcr"
+source_namespace="envplane"
+target_namespace="envplane-executors"
+secret_name="envplane-ghcr"
 
 usage() {
   cat <<'EOF'
@@ -20,9 +20,9 @@ printed or written to disk.
 
 Options:
   --context NAME             Kubernetes context (default: current context)
-  --source-namespace NAME    Source namespace (default: envpilot)
-  --target-namespace NAME    Target namespace (default: envpilot-executors)
-  --secret NAME              Secret name in both namespaces (default: envpilot-ghcr)
+  --source-namespace NAME    Source namespace (default: envplane)
+  --target-namespace NAME    Target namespace (default: envplane-executors)
+  --secret NAME              Secret name in both namespaces (default: envplane-ghcr)
   -h, --help                 Show this help
 EOF
 }
@@ -67,8 +67,8 @@ kubectl "${kubectl_args[@]}" -n "$source_namespace" get secret "$secret_name" -o
           name: $name,
           namespace: $namespace,
           labels: {
-            "app.kubernetes.io/managed-by": "envpilot-registry-secret-sync",
-            "envpilot.io/source-secret": $source
+            "app.kubernetes.io/managed-by": "envplane-registry-secret-sync",
+            "envplane.io/source-secret": $source
           }
         },
         type: .type,
@@ -76,6 +76,6 @@ kubectl "${kubectl_args[@]}" -n "$source_namespace" get secret "$secret_name" -o
       }
     end
   ' |
-  kubectl "${kubectl_args[@]}" apply --server-side --field-manager=envpilot-registry-secret-sync -f - >/dev/null
+  kubectl "${kubectl_args[@]}" apply --server-side --field-manager=envplane-registry-secret-sync -f - >/dev/null
 
 echo "synchronized $source_namespace/$secret_name to $target_namespace/$secret_name without printing credential data"

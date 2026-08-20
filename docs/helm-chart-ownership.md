@@ -5,30 +5,30 @@ Helm charts. The published OCI names are stable:
 
 | Component | Canonical source | OCI reference |
 |---|---|---|
-| Control plane API | `deploy/helm/envpilot-control-plane` | `oci://ghcr.io/EnvPlane/envpilot-control-plane` |
-| Frontend | `deploy/helm/envpilot-frontend` | `oci://ghcr.io/EnvPlane/envpilot-frontend` |
-| Agent | `deploy/helm/envpilot-agent` | `oci://ghcr.io/EnvPlane/envpilot-agent` |
-| Runner | `deploy/helm/envpilot-runner` | `oci://ghcr.io/EnvPlane/envpilot-runner` |
+| Control plane API | `deploy/helm/envplane-control-plane` | `oci://ghcr.io/envplane/envplane-control-plane` |
+| Frontend | `deploy/helm/envplane-frontend` | `oci://ghcr.io/envplane/envplane-frontend` |
+| Agent | `deploy/helm/envplane-agent` | `oci://ghcr.io/envplane/envplane-agent` |
+| Runner | `deploy/helm/envplane-runner` | `oci://ghcr.io/envplane/envplane-runner` |
 
-`envpilot-runner-chart` is retired. Existing published versions remain
+`envplane-runner-chart` is retired. Existing published versions remain
 installable, but no new release is published under that OCI name. The copies
-previously located in `runner/deploy/helm/envpilot-runner` and
-`control-plane/charts/envpilot-runner` are removed; their former publishing
+previously located in `runner/deploy/helm/envplane-runner` and
+`control-plane/charts/envplane-runner` are removed; their former publishing
 workflows no longer package charts.
 
 ## Runner migration
 
-The retired chart used `envpilot-runner-chart` as both resource name and the
+The retired chart used `envplane-runner-chart` as both resource name and the
 immutable Deployment selector. Preserve the running Deployment, RBAC and auth
 PVC while switching to the canonical OCI chart:
 
 ```sh
-helm upgrade <release> oci://ghcr.io/EnvPlane/envpilot-runner \
+helm upgrade <release> oci://ghcr.io/envplane/envplane-runner \
   --version <new-version> \
   --namespace <namespace> \
   --reuse-values \
-  --set fullnameOverride=envpilot-runner-chart \
-  --set legacyChartName=envpilot-runner-chart
+  --set fullnameOverride=envplane-runner-chart \
+  --set legacyChartName=envplane-runner-chart
 ```
 
 Do not apply the two legacy settings to a new, second Runner release in the same
@@ -44,12 +44,12 @@ the canonical chart treats the missing block as system trust and renders no CA
 volume. Keep the remote endpoint explicit and stable:
 
 ```sh
-helm upgrade <release> oci://ghcr.io/EnvPlane/envpilot-runner \
+helm upgrade <release> oci://ghcr.io/envplane/envplane-runner \
   --version 0.3.4 \
   --namespace <target-namespace> \
   --reuse-values \
   --set controlPlane.endpointMode=remote \
-  --set controlPlane.url=https://api.envpilot.example.com
+  --set controlPlane.url=https://api.envplane.example.com
 ```
 
 For a private CA, additionally set `controlPlane.tls.caSecret` and
@@ -61,14 +61,14 @@ the installer process exits.
 
 ## Control-plane frontend migration
 
-`envpilot-control-plane` 0.2.0 consumes the canonical frontend chart as a local
+`envplane-control-plane` 0.2.0 consumes the canonical frontend chart as a local
 dependency. Its defaults retain:
 
 ```yaml
 frontend:
-  fullnameOverride: envpilot-control-plane-frontend
+  fullnameOverride: envplane-control-plane-frontend
   legacyControlPlaneSelector: true
-  serviceName: envpilot-control-plane-frontend
+  serviceName: envplane-control-plane-frontend
 ```
 
 Consequently an in-place upgrade from control-plane <= 0.1.x retains the
@@ -91,6 +91,6 @@ frontend:
 `scripts/check-canonical-chart-sources.sh` is run by the publish workflows. It
 rejects any core component chart source outside `deploy/deploy/helm`; it also
 fails when an OCI chart name is duplicated. The embedded
-`control-plane/charts/envpilot-smoke` fixture is not a distributable runtime
+`control-plane/charts/envplane-smoke` fixture is not a distributable runtime
 component and remains a documented exception until its runtime-bundle migration
 is completed.

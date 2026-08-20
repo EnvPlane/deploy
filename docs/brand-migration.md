@@ -1,8 +1,8 @@
 # EP-BRAND-002: Helm and Kubernetes naming migration
 
 The canonical user-facing product name is EnvPlane. This migration does not
-rename live Kubernetes objects in place: the current `envpilot` chart names,
-release names and `envpilot.io/*` ownership labels remain part of the
+rename live Kubernetes objects in place: the current `envplane` chart names,
+release names and `envplane.io/*` ownership labels remain part of the
 compatibility contract for existing installations. New OCI publication and
 consumption uses the `EnvPlane` GitHub Packages namespace.
 
@@ -10,20 +10,20 @@ consumption uses the `EnvPlane` GitHub Packages namespace.
 
 | Surface | Current compatibility identifier | Migration rule |
 | --- | --- | --- |
-| Umbrella chart/release | `envpilot`, `envpilot-*` | Keep stable for in-place upgrade; a future `envplane` chart is a separately versioned migration. |
-| Namespaces | `envpilot`, `envpilot-executors` | Never rename automatically; create a new namespace only through an explicit migration. |
-| Workload selectors | `app.kubernetes.io/name=envpilot-*`, component selectors | Immutable in place; changing them would orphan Deployments/Services. |
+| Umbrella chart/release | `envplane`, `envplane-*` | Keep stable for in-place upgrade; a future `envplane` chart is a separately versioned migration. |
+| Namespaces | `envplane`, `envplane-executors` | Never rename automatically; create a new namespace only through an explicit migration. |
+| Workload selectors | `app.kubernetes.io/name=envplane-*`, component selectors | Immutable in place; changing them would orphan Deployments/Services. |
 | Stateful resources | `*-postgres`, `*-redis`, `*-data` PVCs | Keep names and claims stable; backup/restore before any future rename. |
-| ServiceAccounts/RBAC | release-derived `envpilot-*` names and resourceNames | Keep stable; RBAC migration must bind old and new identities before cutover. |
+| ServiceAccounts/RBAC | release-derived `envplane-*` names and resourceNames | Keep stable; RBAC migration must bind old and new identities before cutover. |
 | Secrets/ConfigMaps | managed auth, registration, compatibility and status names | Keep stable; Secret data is never copied by Helm. Revision-scoped ConfigMaps remain immutable inputs. |
-| OCI charts/images | `oci://ghcr.io/EnvPlane/envpilot-*`, `ghcr.io/EnvPlane/*` | Canonical coordinates for all new publication and reads; old `ghcr.io/envpilot/*` remains read-only compatibility until retired. |
-| Values/env keys | `global.envpilot.*`, `ENVPILOT_*` | `global.envplane.*` and `ENVPLANE_*` are canonical; canonical values win. |
+| OCI charts/images | `oci://ghcr.io/envplane/envplane-*`, `ghcr.io/envplane/*` | Canonical coordinates for all new publication and reads; old `ghcr.io/envplane/*` remains read-only compatibility until retired. |
+| Values/env keys | `global.envplane.*`, `ENVPLANE_*` | `global.envplane.*` and `ENVPLANE_*` are canonical; canonical values win. |
 | Human-readable docs/UI | legacy product spelling | Use EnvPlane; machine compatibility names may remain in code examples where required. |
 
 ## Values compatibility
 
 The umbrella and child charts accept a canonical `global.envplane` tree. It is
-recursively merged over the legacy `global.envpilot` tree, so a value supplied
+recursively merged over the legacy `global.envplane` tree, so a value supplied
 in both places is taken from `global.envplane`. Existing values files continue
 to render unchanged. The same rule applies to runtime `ENVPLANE_*` aliases in
 the control-plane image.
@@ -32,7 +32,7 @@ Example:
 
 ```yaml
 global:
-  envpilot:
+  envplane:
     auth:
       mode: legacy_secret
       existingSecret: old-auth
@@ -48,7 +48,7 @@ It does not create, delete, or rename a Secret.
 
 1. Render and diff the target chart; verify selectors, PVC names, Secret names,
    ServiceAccounts and RBAC `resourceNames` are unchanged.
-2. Upgrade the existing `envpilot` release with canonical values. Helm owns the
+2. Upgrade the existing `envplane` release with canonical values. Helm owns the
    same objects and can roll back to the prior chart revision.
 3. Keep the prior OCI chart and compatibility manifest available until the new
    revision is Ready. Do not delete old resources as part of branding work.
@@ -56,7 +56,7 @@ It does not create, delete, or rename a Secret.
    checks fail; canonical values can be removed because legacy values remain
    accepted during the migration window.
 
-New OCI artifacts are published under `ghcr.io/EnvPlane`; existing chart and
+New OCI artifacts are published under `ghcr.io/envplane`; existing chart and
 image coordinates are not rewritten in place. A future Kubernetes naming
 rename still requires a separate, explicitly approved release containing a
 dual-resource cutover and a tested rollback path.

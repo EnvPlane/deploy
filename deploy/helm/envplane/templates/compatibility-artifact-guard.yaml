@@ -1,0 +1,40 @@
+{{/*
+Published umbrella archives include compatibility/release.json. Helm's
+--reuse-values carries the previous release's nested image maps forward, which
+would otherwise silently replace the immutable image pins selected by the new
+archive. Do not render a Kubernetes object here: fail before Helm mutates the
+release instead.
+*/}}
+{{- $manifestRaw := .Files.Get "compatibility/release.json" -}}
+{{- if $manifestRaw -}}
+{{- $manifest := $manifestRaw | fromJson -}}
+{{- if or (not $manifest) (not (get $manifest "images")) -}}
+{{- fail "published umbrella compatibility/release.json is malformed or has no image pins" -}}
+{{- end -}}
+{{- $valueKeys := dict
+  "control-plane" "envplane-control-plane"
+  "frontend" "envplane-frontend"
+  "agent" "envplane-agent"
+  "runner" "envplane-runner"
+  "webhook" "envplane-webhook"
+  "platform-reconciler" "platformDependencyReconciler"
+-}}
+{{- range $expected := (get $manifest "images") -}}
+{{- $component := default "" (get $expected "name") -}}
+{{- $valueKey := get $valueKeys $component -}}
+{{- if not $valueKey -}}
+{{- fail (printf "published umbrella compatibility manifest contains an unknown image component %q" $component) -}}
+{{- end -}}
+{{- $componentValues := default (dict) (get $.Values $valueKey) -}}
+{{- $actual := default (dict) (get $componentValues "image") -}}
+{{- $expectedRepository := default "" (get $expected "repository") -}}
+{{- $expectedTag := default "" (get $expected "tag") -}}
+{{- $expectedDigest := default "" (get $expected "digest") -}}
+{{- $actualRepository := default "" (get $actual "repository") -}}
+{{- $actualTag := default "" (get $actual "tag") -}}
+{{- $actualDigest := default "" (get $actual "digest") -}}
+{{- if or (ne $actualRepository $expectedRepository) (ne $actualTag $expectedTag) (ne $actualDigest $expectedDigest) -}}
+{{- fail (printf "image override for %s conflicts with this umbrella release's signed compatibility manifest (expected %s:%s@%s, got %s:%s@%s). Do not use --reuse-values for an EnvPlane umbrella upgrade. Re-run scripts/upgrade-umbrella.sh with the durable operator values file, or update the explicit image override to this release's immutable pin." $component $expectedRepository $expectedTag $expectedDigest $actualRepository $actualTag $actualDigest) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

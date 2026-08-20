@@ -25,8 +25,8 @@ done
 [[ -n "$deploy_root" && -d "$deploy_root/deploy/helm" ]] || usage
 
 canonical_root="$deploy_root/deploy/helm"
-core_names=$'envpilot-control-plane\nenvpilot-frontend\nenvpilot-agent\nenvpilot-runner\nenvpilot-webhook'
-expected_names=$'envpilot-control-plane\nenvpilot-frontend\nenvpilot-agent\nenvpilot-runner\nenvpilot-webhook'
+core_names=$'envplane-control-plane\nenvplane-frontend\nenvplane-agent\nenvplane-runner\nenvplane-webhook'
+expected_names=$'envplane-control-plane\nenvplane-frontend\nenvplane-agent\nenvplane-runner\nenvplane-webhook'
 
 contains_line() {
   local values="$1"
@@ -66,7 +66,7 @@ for item in "${declare_paths[@]}"; do
     fi
     # This runtime-bundled fixture is intentionally not published as a component
     # chart. Its removal is tracked separately from this source consolidation.
-    if [[ "$name" == "control-plane" && "$chart_name" == "envpilot-smoke" && "$chart" == "$root/charts/envpilot-smoke/Chart.yaml" ]]; then
+    if [[ "$name" == "control-plane" && "$chart_name" == "envplane-smoke" && "$chart" == "$root/charts/envplane-smoke/Chart.yaml" ]]; then
       continue
     fi
     if contains_line "$core_names" "$chart_name"; then

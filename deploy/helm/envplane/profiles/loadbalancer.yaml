@@ -1,0 +1,7 @@
+# Requests provider-managed Kubernetes Services of type LoadBalancer.
+access:
+  mode: disabled
+envplane-control-plane:
+  service: { type: LoadBalancer, port: 8080 }
+envplane-frontend:
+  service: { type: LoadBalancer, port: 3000 }

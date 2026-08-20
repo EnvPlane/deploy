@@ -1,0 +1,367 @@
+{{- if .Values.rbac.create -}}
+{{- $serviceAccountName := include "envplane-control-plane.serviceAccountName" . -}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-authentication-managed-secret
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+rules:
+  # create cannot safely be constrained by resourceNames. Helm creates this
+  # one empty Secret, so the application needs only named read/CAS mutation.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ include "envplane-control-plane.authenticationManagedSecretName" . | quote }}]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-authentication-managed-secret
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-control-plane.fullname" . }}-authentication-managed-secret
+{{- $namespaces := .Values.rbac.secretReader.namespaces -}}
+{{- if not $namespaces -}}
+{{- $namespaces = list .Release.Namespace -}}
+{{- end -}}
+{{- if .Values.rbac.secretReader.enabled -}}
+{{- range $namespace := $namespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-control-plane.fullname" $ }}-secret-reader
+  namespace: {{ $namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" $ | nindent 4 }}
+  {{- with $.Values.rbac.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  # The control plane resolves a configured Kubernetes Secret by name. It does
+  # not create, list, watch or mutate Kubernetes resources.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-control-plane.fullname" $ }}-secret-reader
+  namespace: {{ $namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-control-plane.fullname" $ }}-secret-reader
+{{- end }}
+{{- end }}
+{{- $credentialNamespaces := .Values.rbac.remoteClusterCredentials.namespaces -}}
+{{- if not $credentialNamespaces -}}
+{{- $credentialNamespaces = list .Release.Namespace -}}
+{{- end -}}
+{{- if .Values.rbac.remoteClusterCredentials.enabled -}}
+{{- range $namespace := $credentialNamespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-control-plane.fullname" $ }}-remote-cluster-credentials
+  namespace: {{ $namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" $ | nindent 4 }}
+rules:
+  # The RemoteCluster API uses named Secret references only. No list/watch,
+  # ConfigMap, or cluster-wide permission is needed to rotate an upload.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-control-plane.fullname" $ }}-remote-cluster-credentials
+  namespace: {{ $namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-control-plane.fullname" $ }}-remote-cluster-credentials
+{{- end }}
+{{- end }}
+{{- $globalEnvPlane := include "envplane-control-plane.globalConfig" . | fromJson -}}
+{{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
+{{- $remoteClusterReconciler := default (dict) (get $globalEnvPlane "remoteClusterReconciler") -}}
+{{- $remoteClusterReconcilerConfig := default (dict) .Values.remoteClusterReconciler -}}
+{{- $leaderElection := default (dict) (get $remoteClusterReconcilerConfig "leaderElection") -}}
+{{- $leaderElectionNamespace := default .Release.Namespace (trim (default "" (get $leaderElection "namespace"))) -}}
+{{- if (default false $platformDependencyStatus.enabled) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-platform-dependency-status-reader
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+rules:
+  # Watch is constrained by the client to this exact ConfigMap name. No write,
+  # Secret, or broad ConfigMap list permission is granted.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ include "envplane-control-plane.platformDependencyStatusConfigMapName" . | quote }}]
+    verbs: ["get", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-platform-dependency-status-reader
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-control-plane.fullname" . }}-platform-dependency-status-reader
+{{- end }}
+{{- if or .Values.rbac.remoteClusterReconciler.enabled (default false $remoteClusterReconciler.enabled) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-remote-cluster-reconciler
+  namespace: {{ $leaderElectionNamespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-remote-cluster-reconciler
+  namespace: {{ $leaderElectionNamespace | quote }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-control-plane.fullname" . }}-remote-cluster-reconciler
+{{- end }}
+{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPlane "sameClusterProjectExecutors") -}}
+{{- $sameClusterProjectExecutorsRBAC := default (dict) .Values.rbac.sameClusterProjectExecutors -}}
+{{- $sameClusterProjectExecutorsEnabled := or (default false $sameClusterProjectExecutors.enabled) (default false $sameClusterProjectExecutorsRBAC.enabled) -}}
+{{- $sameClusterProjectExecutorsNamespace := trim (default (default "" $sameClusterProjectExecutors.namespace) $sameClusterProjectExecutorsRBAC.namespace) -}}
+{{- if $sameClusterProjectExecutorsEnabled }}
+{{- if not $sameClusterProjectExecutorsNamespace }}{{- fail "sameClusterProjectExecutors RBAC requires a namespace" }}{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executors
+  namespace: {{ $sameClusterProjectExecutorsNamespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+rules:
+  # Helm SDK state and the project bootstrap Secrets live only in this
+  # chart-owned executor namespace. This deliberately grants no cluster-wide
+  # or feature-namespace wildcard access.
+  - apiGroups: [""]
+    resources: ["secrets", "serviceaccounts", "pods", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Kubernetes RBAC refuses a Role/RoleBinding that grants permissions the
+  # reconciler itself does not hold. The write rules below are exactly the
+  # project Runner's feature-env-writer contract. They apply only in the
+  # dedicated executor namespace; feature namespaces and Secrets outside it
+  # remain inaccessible to the control plane.
+  - apiGroups: [""]
+    resources: ["configmaps", "endpoints", "events", "limitranges", "resourcequotas", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["configmaps", "events", "limitranges", "resourcequotas", "services"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["helm.toolkit.fluxcd.io"]
+    resources: ["helmreleases"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
+    resources: ["kustomizations"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["buckets", "gitrepositories", "helmrepositories", "ocirepositories"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executors
+  namespace: {{ $sameClusterProjectExecutorsNamespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executors
+---
+# Helm creates project-owned Agent and Runner charts dynamically. Kubernetes
+# allows that only when the reconciler already holds every permission it is
+# delegating, including the Agent's cluster-scoped capability reads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Project-owned Agent releases create their discovery Role and RoleBinding
+  # in a dynamically named project-base namespace. These are namespaced
+  # permissions; they do not grant access to workload resources there.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Kubernetes RBAC prevents the reconciler from creating the Agent's
+  # namespace-scoped discovery Role unless the reconciler itself holds the
+  # delegated read contract. Keep this read-only and omit Secrets: project
+  # Agent discovery is workload metadata only.
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "events", "configmaps", "resourcequotas", "limitranges", "persistentvolumeclaims", "serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
+    resources: ["kustomizations"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["helm.toolkit.fluxcd.io"]
+    resources: ["helmreleases"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["gitrepositories", "helmrepositories", "ocirepositories", "buckets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  # The Runner Helm chart creates a namespace-scoped feature-env writer Role
+  # in the concrete target namespace. Kubernetes requires the reconciler to
+  # hold every permission it delegates in that Role; keep this list identical
+  # to the Runner writer contract and avoid wildcard resources.
+  - apiGroups: [""]
+    resources: ["configmaps", "events", "limitranges", "resourcequotas", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Project-owned Agents use namespaceInventoryRead during bootstrap so the
+  # UI can offer an explicit non-system namespace selection. The reconciler
+  # must hold the same read permission before Helm can create that Agent
+  # ClusterRole (Kubernetes rejects delegated RBAC escalation otherwise).
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+{{- end }}
+{{- end }}

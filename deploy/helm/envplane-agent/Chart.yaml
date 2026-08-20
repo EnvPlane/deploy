@@ -1,0 +1,16 @@
+apiVersion: v2
+name: envplane-agent
+description: EnvPlane Kubernetes cluster agent for FluxCD and namespace status collection.
+type: application
+version: 0.2.10
+appVersion: "0.1.4"
+keywords:
+  - envplane
+  - fluxcd
+  - kubernetes
+  - feature-environments
+home: https://envplane.local
+sources:
+  - https://envplane.local
+maintainers:
+  - name: EnvPlane Platform Team

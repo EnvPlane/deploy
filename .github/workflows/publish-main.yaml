@@ -23,8 +23,8 @@ on:
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
       - 'scripts/tests/release-on-main-contract.sh'
       - 'scripts/tests/test-current-compatible-artifact.sh'
-      - 'deploy/helm/envpilot/values.yaml'
-      - 'deploy/helm/envpilot/Chart.yaml'
+      - 'deploy/helm/envplane/values.yaml'
+      - 'deploy/helm/envplane/Chart.yaml'
       - '.github/workflows/publish-main.yaml'
       - '.github/workflows/release-on-main.yaml'
   workflow_dispatch:
@@ -127,7 +127,7 @@ jobs:
         run: |
           set -euo pipefail
           scripts/publish-selected-child-charts.sh \
-            --umbrella-chart deploy/helm/envpilot/Chart.yaml \
+            --umbrella-chart deploy/helm/envplane/Chart.yaml \
             --charts-dir deploy/helm \
             --dist dist \
             --output "$RUNNER_TEMP/selected-child-charts.json" \
@@ -140,8 +140,8 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/resolve-latest-published-artifacts.sh \
-            --values-file deploy/helm/envpilot/values.yaml \
-            --chart-file deploy/helm/envpilot/Chart.yaml \
+            --values-file deploy/helm/envplane/values.yaml \
+            --chart-file deploy/helm/envplane/Chart.yaml \
             --selected-child-charts "$RUNNER_TEMP/selected-child-charts.json" \
             --owner envplane \
             --output "$RUNNER_TEMP/latest-artifacts.json"
@@ -157,7 +157,7 @@ jobs:
       - name: Upload confirmed compatibility manifest
         uses: actions/upload-artifact@v7
         with:
-          name: envpilot-compatible-artifacts
+          name: envplane-compatible-artifacts
           path: ${{ runner.temp }}/latest-artifacts.json
           if-no-files-found: error
           retention-days: 14

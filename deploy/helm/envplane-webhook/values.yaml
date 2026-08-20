@@ -1,0 +1,76 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/envplane/webhook
+  tag: "0.1.0"
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+controlPlane:
+  url: "http://envplane-control-plane:8080"
+
+secrets:
+  # Existing Secret is the production path. It must contain the control-plane
+  # token and at least one provider secret/token under the configured keys.
+  existingSecret: "envplane-webhook-secrets"
+  controlPlaneTokenKey: control-plane-token
+  githubWebhookSecretKey: github-webhook-secret
+  gitlabWebhookTokenKey: gitlab-webhook-token
+  # Local-rendering escape hatch only; never commit live values.
+  allowUnsafePlaintext: false
+  controlPlaneToken: ""
+  githubWebhookSecret: ""
+  gitlabWebhookToken: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+requestTimeout: 10s
+readyStaleAfter: 2m
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: webhook.envplane.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # Public webhook ingress must always declare its TLS secret.
+  tls:
+    - hosts:
+        - webhook.envplane.local
+      secretName: envplane-webhook-tls
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
