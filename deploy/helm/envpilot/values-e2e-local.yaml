@@ -46,6 +46,12 @@ global:
       gitopsDefaultBranch: main
 
 envpilot-agent:
+  dependencyWait:
+    connectivity:
+      maxAttempts: 30
+      initialBackoffSeconds: 2
+      maxBackoffSeconds: 5
+      deadlineSeconds: 300
   rbac:
     discovery:
       namespaces:
@@ -61,16 +67,22 @@ envpilot-agent:
       - envpilot-e2e-base
   agent:
     authPersistence:
-      createClaim: false
+      createClaim: true
 
 envpilot-runner:
+  dependencyWait:
+    connectivity:
+      maxAttempts: 30
+      initialBackoffSeconds: 2
+      maxBackoffSeconds: 5
+      deadlineSeconds: 300
   controlPlane:
     endpointMode: sameCluster
     serviceName: envpilot-control-plane
     namespace: envpilot
     port: 8080
     authPersistence:
-      createClaim: false
+      createClaim: true
   project:
     configUrl: http://envpilot-control-plane.envpilot.svc:8080/api/v1/projects/envpilot-e2e-fixture/runner-config
   rbac:
