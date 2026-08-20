@@ -66,7 +66,7 @@ for item in "${declare_paths[@]}"; do
     fi
     # This runtime-bundled fixture is intentionally not published as a component
     # chart. Its removal is tracked separately from this source consolidation.
-    if [[ "$name" == "control-plane" && "$chart_name" == "envplane-smoke" && "$chart" == "$root/charts/envplane-smoke/Chart.yaml" ]]; then
+    if [[ "$name" == "control-plane" && "$chart_name" == "envplane-smoke" && "$chart" == */charts/envplane-smoke/Chart.yaml ]]; then
       continue
     fi
     if contains_line "$core_names" "$chart_name"; then
