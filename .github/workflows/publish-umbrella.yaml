@@ -73,7 +73,13 @@ jobs:
           helm dependency build --skip-refresh deploy/helm/envpilot
           go test ./deploy/helm/envpilot/tests
           helm lint deploy/helm/envpilot
-          helm template envpilot deploy/helm/envpilot >/dev/null
+          # Render with disposable CI-only values for credentials that are
+          # intentionally required by the production chart. Keep PostgreSQL
+          # TLS enabled by default; this validation profile has no CA Secret.
+          helm template envpilot deploy/helm/envpilot \
+            --set-string envpilot-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envpilot-control-plane.postgres.tls.enabled=false \
+            >/dev/null
       - name: Authenticate to GHCR
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}

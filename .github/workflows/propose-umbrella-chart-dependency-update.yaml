@@ -112,7 +112,10 @@ jobs:
           helm dependency build --skip-refresh deploy/helm/envpilot
           scripts/test-umbrella-chart-dependency-update.sh
           helm lint deploy/helm/envpilot
-          helm template envpilot deploy/helm/envpilot >/dev/null
+          helm template envpilot deploy/helm/envpilot \
+            --set-string envpilot-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envpilot-control-plane.postgres.tls.enabled=false \
+            >/dev/null
       - id: pr
         uses: peter-evans/create-pull-request@v8
         with:
