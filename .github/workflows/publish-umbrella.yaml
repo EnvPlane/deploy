@@ -119,16 +119,6 @@ jobs:
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           echo "package=$package" >> "$GITHUB_OUTPUT"
-      - name: Make umbrella chart publicly readable
-        env:
-          GH_TOKEN: ${{ secrets.ENVPLANE_PACKAGE_ADMIN_TOKEN || secrets.GHCR_TOKEN }}
-        run: |
-          set -euo pipefail
-          gh api --method PATCH \
-            "/orgs/EnvPlane/packages/container/envplane" \
-            -H "Accept: application/vnd.github+json" \
-            -f visibility=public >/dev/null
-          test "$(gh api "/orgs/EnvPlane/packages/container/envplane" --jq '.visibility')" = public
       - name: Sign and attest published chart
         env:
           CHART_REF: ghcr.io/EnvPlane/envplane@${{ steps.push.outputs.digest }}
