@@ -7,6 +7,12 @@ agent:
 runner:
   enabled: true
 
+envpilot-control-plane:
+  postgres:
+    # Disposable local E2E profile: no PostgreSQL TLS CA Secret is provisioned.
+    tls:
+      enabled: false
+
 global:
   envpilot:
     firstStartRegistration:
@@ -31,7 +37,7 @@ global:
         enabled: true
       baseNamespace: envpilot-e2e-base
       featureNamespace: envpilot-e2e-feature
-      chartRef: oci://ghcr.io/EnvPlane/envpilot-e2e-workload
+      chartRef: oci://ghcr.io/envplane/envpilot-e2e-workload
       chartVersion: "0.1.0"
       appRepositoryURL: https://github.com/envpilot/envpilot-e2e-workload
       gitopsRepositoryURL: https://github.com/envpilot/deploy
