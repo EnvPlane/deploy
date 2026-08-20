@@ -140,6 +140,10 @@ spec:
               value: {{ join "," .Values.watch.excludeNamespaces | quote }}
             - name: ENVPLANE_DISCOVERY_READ_SECRETS
               value: {{ .Values.rbac.discovery.readSecrets | quote }}
+            {{- if .Values.rbac.discovery.namespaceInventoryRead }}
+            - name: ENVPLANE_NAMESPACE_INVENTORY_ONLY
+              value: "true"
+            {{- end }}
             - name: ENVPLANE_AGENT_RESYNC_SECONDS
               value: {{ .Values.watch.resyncSeconds | quote }}
             - name: ENVPLANE_AGENT_REPORT_TIMEOUT_SECONDS

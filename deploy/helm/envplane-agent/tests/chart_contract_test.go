@@ -305,6 +305,25 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 		}
 	}
 
+	inventoryOnly := renderAgentChart(t,
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.clusterCapabilityRead=true",
+		"--set", "rbac.discovery.namespaceInventoryRead=true",
+	)
+	for _, expected := range []string{
+		"name: ENVPLANE_NAMESPACE_INVENTORY_ONLY",
+		"value: \"true\"",
+		"resources: [\"namespaces\"]",
+		"verbs: [\"list\"]",
+	} {
+		if !strings.Contains(inventoryOnly, expected) {
+			t.Fatalf("inventory-only discovery missing %q:\n%s", expected, inventoryOnly)
+		}
+	}
+	if strings.Contains(inventoryOnly, "resourceNames:") {
+		t.Fatalf("inventory-only discovery must not render an explicit namespace allowlist:\n%s", inventoryOnly)
+	}
+
 	external := renderAgentChart(t,
 		"--set", "serviceAccount.create=false",
 		"--set", "serviceAccount.name=platform-agent",
