@@ -311,6 +311,17 @@ envplane-control-plane:
     ENVPLANE_DATA_DIR: "/var/lib/envplane/data"
     ENVPLANE_GITOPS_DIR: "/var/lib/envplane/data/gitops"
   commercialization:
+    ai:
+      enabled: false
+      provider: openai
+      model: ""
+      apiKeySecretRef:
+        name: ""
+        key: api-key
+      maxContextBytes: 65536
+      maxOutputTokens: 512
+      timeoutSeconds: 10
+      maxRetries: 2
     billing:
       provider: ""
       baseURL: ""

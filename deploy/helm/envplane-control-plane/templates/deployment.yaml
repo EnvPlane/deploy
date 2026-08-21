@@ -123,6 +123,8 @@
 {{- $billing := default (dict) (get $commercialization "billing") -}}
 {{- $billingAPIKeyRef := default (dict) (get $billing "apiKeySecretRef") -}}
 {{- $billingWebhookRef := default (dict) (get $billing "webhookSecretRef") -}}
+{{- $ai := default (dict) (get $commercialization "ai") -}}
+{{- $aiAPIKeyRef := default (dict) (get $ai "apiKeySecretRef") -}}
 {{- $license := default (dict) (get $commercialization "license") -}}
 {{- if eq $firstStartMode "existing" -}}
 {{- $firstStartSecret = required "global.envplane.firstStartRegistration.existingSecret is required when mode=existing" $firstStart.existingSecret -}}
@@ -294,6 +296,31 @@ spec:
                   name: {{ get $billingAPIKeyRef "name" | quote }}
                   key: {{ default "api-key" (get $billingAPIKeyRef "key") | quote }}
             {{- end }}
+            - name: ENVPLANE_AI_ENABLED
+              value: {{ default false (get $ai "enabled") | quote }}
+            {{- if get $ai "provider" }}
+            - name: ENVPLANE_AI_PROVIDER
+              value: {{ get $ai "provider" | quote }}
+            {{- end }}
+            {{- if get $ai "model" }}
+            - name: ENVPLANE_AI_MODEL
+              value: {{ get $ai "model" | quote }}
+            {{- end }}
+            {{- if get $aiAPIKeyRef "name" }}
+            - name: ENVPLANE_AI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ get $aiAPIKeyRef "name" | quote }}
+                  key: {{ default "api-key" (get $aiAPIKeyRef "key") | quote }}
+            {{- end }}
+            - name: ENVPLANE_AI_MAX_CONTEXT_BYTES
+              value: {{ default 65536 (get $ai "maxContextBytes") | quote }}
+            - name: ENVPLANE_AI_MAX_OUTPUT_TOKENS
+              value: {{ default 512 (get $ai "maxOutputTokens") | quote }}
+            - name: ENVPLANE_AI_TIMEOUT_SECONDS
+              value: {{ default 10 (get $ai "timeoutSeconds") | quote }}
+            - name: ENVPLANE_AI_MAX_RETRIES
+              value: {{ default 2 (get $ai "maxRetries") | quote }}
             {{- if get $billingWebhookRef "name" }}
             - name: ENVPLANE_BILLING_WEBHOOK_SECRET
               valueFrom:
