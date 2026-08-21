@@ -115,6 +115,20 @@ func TestControlPlaneChartUsesWritableDataAndGitOpsPathsFromEnv(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartUsesCanonicalEnvironmentNamesOnly(t *testing.T) {
+	rendered := renderControlPlaneChart(t)
+	for _, name := range []string{"ENVPLANE_ADDR", "ENVPLANE_DATA_DIR", "ENVPLANE_GITOPS_DIR"} {
+		if !strings.Contains(rendered, "name: "+name) && !strings.Contains(rendered, name+":") {
+			t.Fatalf("canonical environment name %q is not rendered:\n%s", name, rendered)
+		}
+	}
+	for _, legacy := range []string{"ENVPILOT_ADDR", "ENVPILOT_DATA_DIR", "ENVPILOT_GITOPS_DIR", "ENVPILOT_DOMAIN_ROOT", "ENVPILOT_METRICS_ADDR", "ENVPILOT_DEPLOYMENT_BACKEND"} {
+		if strings.Contains(rendered, legacy) {
+			t.Fatalf("legacy environment name %q must not be emitted by Helm", legacy)
+		}
+	}
+}
+
 func TestControlPlaneChartUsesValidGoMemoryLimit(t *testing.T) {
 	values, err := os.ReadFile("../values.yaml")
 	if err != nil {
@@ -322,8 +336,8 @@ func TestControlPlaneChartUsesNamespaceScopedSecretReaderInsteadOfClusterAdmin(t
 
 func TestControlPlaneChartCreatesNameScopedAuthenticationManagedSecret(t *testing.T) {
 	for _, test := range []struct {
-		name string
-		args []string
+		name       string
+		args       []string
 		secretName string
 	}{
 		{name: "default", args: []string{"--namespace", "management-system"}, secretName: "envplane-control-plane-authentication"},
