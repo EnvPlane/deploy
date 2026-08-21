@@ -57,6 +57,7 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	valuesText := string(values)
 	for _, expected := range []string{
 		"ENVPLANE_ADDR",
+		"ENVPLANE_PRODUCT_TELEMETRY_EXPORT_ENABLED",
 		"ENVPLANE_DATA_DIR",
 		"ENVPLANE_GITOPS_DIR",
 		"ENVPLANE_POSTGRES_MIGRATIONS_DIR",

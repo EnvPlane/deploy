@@ -71,6 +71,7 @@ ingress:
 
 env:
   ENVPLANE_API_CONTRACT_VERSION: "1"
+  ENVPLANE_PRODUCT_TELEMETRY_EXPORT_ENABLED: "false"
   ENVPLANE_ADDR: ":8080"
   ENVPLANE_DATA_DIR: "/var/lib/envplane/data"
   ENVPLANE_GITOPS_DIR: "/var/lib/envplane/data/gitops"
