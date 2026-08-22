@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
       - id: chart
         run: echo "version=$(awk '/^version:/{print $2; exit}' deploy/helm/envplane-agent/Chart.yaml)" >> "$GITHUB_OUTPUT"
       - name: Verify canonical chart sources
