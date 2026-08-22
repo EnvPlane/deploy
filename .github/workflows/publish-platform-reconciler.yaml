@@ -52,7 +52,7 @@ jobs:
           # without permission to create the first package in this namespace.
           password: ${{ github.token }}
       - id: metadata
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/EnvPlane/platform-reconciler
           labels: |
