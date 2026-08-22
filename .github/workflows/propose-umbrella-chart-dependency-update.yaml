@@ -42,7 +42,7 @@ jobs:
           [[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source revision" >&2; exit 1; }
           printf 'component=%s\nchart=%s\nversion=%s\nrepository=%s\ndigest=%s\nsource_revision=%s\n' \
             "$COMPONENT" "$CHART" "$VERSION" "$REPOSITORY" "$DIGEST" "$SOURCE_REVISION" >> "$GITHUB_OUTPUT"
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
       - uses: oras-project/setup-oras@v1
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
