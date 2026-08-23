@@ -25,10 +25,10 @@ for required in \
   "workflow_run:" \
   "Publish deploy image and charts (main)" \
   "workflow_run.conclusion" \
-  "actions/download-artifact@v4" \
+  "actions/download-artifact@v8" \
   "envplane-compatible-artifacts" \
   "artifact_run_id" \
-  "oras-project/setup-oras@v1" \
+  "oras-project/setup-oras@v2" \
   "oras login ghcr.io" \
   "helm dependency build" \
   "helm package" \
