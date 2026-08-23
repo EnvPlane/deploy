@@ -23,7 +23,7 @@ jobs:
           ./scripts/ensure-go.sh
       - name: Select module Go toolchain
         run: echo "GOTOOLCHAIN=go$(awk '/^go[[:space:]]/ {print $2; exit}' go.mod)" >> "$GITHUB_ENV"
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
       - uses: sigstore/cosign-installer@v3
       - id: chart
         run: echo "version=$(awk '/^version:/{print $2; exit}' deploy/helm/envplane-runner/Chart.yaml)" >> "$GITHUB_OUTPUT"
