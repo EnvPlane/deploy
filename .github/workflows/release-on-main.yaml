@@ -81,7 +81,7 @@ jobs:
           echo "report=$REPORT" >> "$GITHUB_OUTPUT"
           echo "revision=$source_revision" >> "$GITHUB_OUTPUT"
       - uses: azure/setup-helm@v5
-      - uses: oras-project/setup-oras@v1
+      - uses: oras-project/setup-oras@v2
       - uses: sigstore/cosign-installer@v3
       - uses: docker/setup-buildx-action@v4
       - name: Authenticate to GHCR
