@@ -34,7 +34,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Download confirmed compatibility manifest
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: envplane-compatible-artifacts
           path: ${{ runner.temp }}/confirmed-artifacts
