@@ -23,6 +23,7 @@ on:
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
       - 'scripts/tests/release-on-main-contract.sh'
       - 'scripts/tests/test-current-compatible-artifact.sh'
+      - 'scripts/tests/platform-reconciler-publication-contract.sh'
       - 'deploy/helm/envplane/values.yaml'
       - 'deploy/helm/envplane/Chart.yaml'
       - '.github/workflows/publish-main.yaml'
@@ -75,6 +76,7 @@ jobs:
         run: |
           go test ./...
           ./scripts/tests/test-current-compatible-artifact.sh
+          ./scripts/tests/platform-reconciler-publication-contract.sh
           ./scripts/tests/test-publish-selected-child-charts.sh
           ./scripts/tests/test-generate-umbrella-compatibility-manifest.sh
           ./scripts/tests/test-verify-changed-child-chart-versions.sh

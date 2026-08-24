@@ -9,7 +9,7 @@ on:
         description: Runtime component
         required: true
         type: choice
-        options: [control-plane, frontend, agent, runner]
+        options: [control-plane, frontend, agent, runner, platform-reconciler]
       repository:
         description: Canonical GHCR repository
         required: true
@@ -59,16 +59,18 @@ jobs:
           SOURCE_REPOSITORY: ${{ github.event.client_payload.source_repository || inputs.source_repository }}
         run: |
           set -euo pipefail
-          case "$COMPONENT" in control-plane|frontend|agent|runner) ;; *) echo "invalid component" >&2; exit 1;; esac
+          case "$COMPONENT" in control-plane|frontend|agent|runner|platform-reconciler) ;; *) echo "invalid component" >&2; exit 1;; esac
           [[ "$TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "invalid immutable tag" >&2; exit 1; }
           [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "invalid digest" >&2; exit 1; }
           [[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source revision" >&2; exit 1; }
           case "$COMPONENT:$SOURCE_REPOSITORY" in
             control-plane:envplane/control-plane|control-plane:EnvPlane/control-plane|frontend:envplane/frontend|frontend:EnvPlane/frontend|agent:envplane/agent|agent:EnvPlane/agent|runner:envplane/runner|runner:EnvPlane/runner) ;;
+            platform-reconciler:envplane/deploy|platform-reconciler:EnvPlane/deploy) ;;
             *) echo "source repository is not canonical for component" >&2; exit 1 ;;
           esac
           case "$COMPONENT:$REPOSITORY" in
             control-plane:ghcr.io/EnvPlane/api|control-plane:ghcr.io/envplane/api|frontend:ghcr.io/EnvPlane/frontend|frontend:ghcr.io/envplane/frontend|agent:ghcr.io/EnvPlane/agent|agent:ghcr.io/envplane/agent|runner:ghcr.io/EnvPlane/runner|runner:ghcr.io/envplane/runner) ;;
+            platform-reconciler:ghcr.io/EnvPlane/platform-reconciler|platform-reconciler:ghcr.io/envplane/platform-reconciler) ;;
             *) echo "repository is not canonical for component" >&2; exit 1;;
           esac
           {

@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   attestations: write
   id-token: write
@@ -101,3 +101,22 @@ jobs:
           name: platform-reconciler-image-metadata
           path: platform-reconciler-image-metadata.json
           if-no-files-found: error
+      - name: Request automatic umbrella image pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_REVISION: ${{ github.sha }}
+          REPOSITORY: ${{ steps.published.outputs.repository }}
+          TAG: ${{ steps.published.outputs.tag }}
+          DIGEST: ${{ steps.published.outputs.digest }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/dispatches" \
+            --method POST \
+            -f event_type=component-image-published \
+            -f 'client_payload[component]=platform-reconciler' \
+            -f "client_payload[repository]=$REPOSITORY" \
+            -f "client_payload[tag]=$TAG" \
+            -f "client_payload[digest]=$DIGEST" \
+            -f "client_payload[source_revision]=$SOURCE_REVISION" \
+            -f "client_payload[source_repository]=$SOURCE_REPOSITORY"
