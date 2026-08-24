@@ -38,6 +38,11 @@ envplane-control-plane:
     # disposable minikube host. Production/operator values must omit this.
     ENVPLANE_OAUTH_COOKIE_SECURE: "false"
     ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
+    # The local GitLab-backed Flux project uses direct commit mode. Keep the
+    # repository writer enabled so rendered environment manifests are pushed
+    # for Flux to reconcile.
+    ENVPLANE_ENABLE_GIT_COMMIT: "true"
+    ENVPLANE_ENABLE_GIT_PUSH: "true"
   rbac:
     sameClusterProjectExecutors:
       enabled: true
