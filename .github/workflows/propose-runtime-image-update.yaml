@@ -131,7 +131,8 @@ jobs:
           DIGEST: ${{ steps.payload.outputs.digest }}
         run: |
           set -euo pipefail
-          docker buildx imagetools inspect "$REPOSITORY:$TAG" | tee /tmp/image-inspect.txt
+          repository_normalized="${REPOSITORY,,}"
+          docker buildx imagetools inspect "$repository_normalized:$TAG" | tee /tmp/image-inspect.txt
           grep -Fq "$DIGEST" /tmp/image-inspect.txt || {
             echo "GHCR tag exists but does not resolve to the supplied digest" >&2
             exit 1
