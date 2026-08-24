@@ -351,6 +351,7 @@ defaults. They are not carried into the direct umbrella automatically.
 | `images.agent.*` | `envplane-agent.image.*` |
 | `images.runner.*` | `envplane-runner.image.*` |
 | `registry.token` | Create Kubernetes image pull Secrets and reference them through each component's `imagePullSecrets`. |
+| `commercialization.ai.allowedHosts` | Installation allowlist for AI provider hosts; tenant self-hosted endpoints cannot exceed it. Defaults to `api.openai.com`. |
 | `project.endpointDomain`, `loadBalancerType`, `ingressAnnotations` | Choose `access.mode=ingress` or `gateway`; set host/class/annotations explicitly. |
 | `storage.className` | Set the exact internal persistence `storageClassName` fields, or use external data services. |
 | `postgres.password` | Prefer `envplane-control-plane.postgres.auth.existingSecret`; the plaintext field exists only for compatibility. |

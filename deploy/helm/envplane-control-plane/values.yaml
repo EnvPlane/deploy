@@ -181,8 +181,12 @@ secretEnv: {}
 commercialization:
   ai:
     enabled: false
+    airGap: false
+    offlineModelBundle: ""
     provider: openai
     model: ""
+    allowedHosts:
+      - api.openai.com
     apiKeySecretRef:
       name: ""
       key: api-key
@@ -190,6 +194,15 @@ commercialization:
     maxOutputTokens: 512
     timeoutSeconds: 10
     maxRetries: 2
+    # Zero disables the monthly reservation guard. Set explicitly for production.
+    maxMonthlyTokens: 0
+    routing:
+      # Routing remains fail-closed until an evaluated model/schema pin is set.
+      requiredEvalGateVersion: ""
+      schemaVersionPin: ""
+      allowedRegions: []
+      maxFallbacks: 0
+      probeTimeoutSeconds: 3
   billing:
     provider: ""
     baseURL: ""

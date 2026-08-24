@@ -298,6 +298,10 @@ spec:
             {{- end }}
             - name: ENVPLANE_AI_ENABLED
               value: {{ default false (get $ai "enabled") | quote }}
+            - name: ENVPLANE_AI_AIRGAP
+              value: {{ default false (get $ai "airGap") | quote }}
+            - name: ENVPLANE_AI_OFFLINE_MODEL_BUNDLE
+              value: {{ default "" (get $ai "offlineModelBundle") | quote }}
             {{- if get $ai "provider" }}
             - name: ENVPLANE_AI_PROVIDER
               value: {{ get $ai "provider" | quote }}
@@ -306,6 +310,8 @@ spec:
             - name: ENVPLANE_AI_MODEL
               value: {{ get $ai "model" | quote }}
             {{- end }}
+            - name: ENVPLANE_AI_ALLOWED_HOSTS
+              value: {{ join "," (default (list "api.openai.com") (get $ai "allowedHosts")) | quote }}
             {{- if get $aiAPIKeyRef "name" }}
             - name: ENVPLANE_AI_API_KEY
               valueFrom:
@@ -321,6 +327,8 @@ spec:
               value: {{ default 10 (get $ai "timeoutSeconds") | quote }}
             - name: ENVPLANE_AI_MAX_RETRIES
               value: {{ default 2 (get $ai "maxRetries") | quote }}
+            - name: ENVPLANE_AI_MAX_MONTHLY_TOKENS
+              value: {{ default 0 (get $ai "maxMonthlyTokens") | quote }}
             {{- if get $billingWebhookRef "name" }}
             - name: ENVPLANE_BILLING_WEBHOOK_SECRET
               valueFrom:

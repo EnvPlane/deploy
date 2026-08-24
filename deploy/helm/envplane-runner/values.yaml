@@ -200,6 +200,23 @@ securityContext:
   readOnlyRootFilesystem: true
   runAsNonRoot: true
 
+# AI analysis sandboxes are opt-in and isolated from the ordinary Runner pod.
+# Jobs must use the immutable image and the exact egress CIDRs configured here.
+aiSandbox:
+  enabled: false
+  image:
+    repository: ""
+    digest: ""
+  networkPolicy:
+    enabled: true
+    egressCIDRs: []
+  resources:
+    cpuMillis: 500
+    memoryMiB: 256
+    pids: 32
+    timeoutSeconds: 60
+    maxOutputBytes: 65536
+
 resources:
   requests:
     cpu: 50m

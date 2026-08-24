@@ -245,6 +245,22 @@ platformDependencyReconciler:
 
 envplane-control-plane:
   fullnameOverride: envplane-control-plane
+  commercialization:
+    ai:
+      enabled: false
+      airGap: false
+      offlineModelBundle: ""
+      provider: openai
+      model: ""
+      allowedHosts:
+        - api.openai.com
+      apiKeySecretRef:
+        name: ""
+        key: api-key
+      maxContextBytes: 65536
+      maxOutputTokens: 512
+      timeoutSeconds: 10
+      maxRetries: 2
   publicURL: ""
   auth:
     # legacy_secret enables the operator-managed compatibility Secret. Empty
@@ -313,8 +329,12 @@ envplane-control-plane:
   commercialization:
     ai:
       enabled: false
+      airGap: false
+      offlineModelBundle: ""
       provider: openai
       model: ""
+      allowedHosts:
+        - api.openai.com
       apiKeySecretRef:
         name: ""
         key: api-key
