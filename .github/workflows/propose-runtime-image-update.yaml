@@ -77,7 +77,7 @@ jobs:
           esac
           {
             echo "component=$COMPONENT"
-            echo "repository=$REPOSITORY"
+            echo "repository=$repository_normalized"
             echo "tag=$TAG"
             echo "digest=$DIGEST"
             echo "source_revision=$SOURCE_REVISION"
