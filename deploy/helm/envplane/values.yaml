@@ -452,11 +452,11 @@ envplane-agent:
   fullnameOverride: envplane-agent
   image:
     repository: ghcr.io/envplane/agent
-    tag: "sha-ec2661cb1e5c237262ac6491b2d2511fc7beb6a5"
-    digest: "sha256:c392a5f87cb248ef973a20a1b8e65861848cf4ba93f079ead8f9f3a892046b08"
+    tag: "sha-7ff4627a4fc7473c96b7c1da29b9f883fedf5cf5"
+    digest: "sha256:3b13403bbd8a4b921a3937887fd9457abed6c2eab3c9c53e1681c7cddaa246a2"
     pullPolicy: IfNotPresent
-    sourceRevision: "ec2661cb1e5c237262ac6491b2d2511fc7beb6a5"
-    release: "sha-ec2661cb1e5c237262ac6491b2d2511fc7beb6a5"
+    sourceRevision: "7ff4627a4fc7473c96b7c1da29b9f883fedf5cf5"
+    release: "sha-7ff4627a4fc7473c96b7c1da29b9f883fedf5cf5"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
