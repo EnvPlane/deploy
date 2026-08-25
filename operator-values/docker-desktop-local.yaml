@@ -1,0 +1,79 @@
+# Durable operator configuration for the disposable Docker Desktop cluster.
+# Image references are intentionally absent: the published umbrella release
+# supplies the signed immutable compatibility set.
+allowInsecureLocalDevelopment: true
+
+global:
+  envplane:
+    publicURL: http://envplane.local
+    registry:
+      mode: existing
+      existingSecret: envplane-ghcr
+      imagePullSecrets:
+        - name: envplane-ghcr
+    auth:
+      mode: disabled
+      existingSecret: ""
+    firstStartRegistration:
+      mode: managed
+      cluster:
+        id: docker-desktop
+    sameClusterProjectExecutors:
+      enabled: true
+      namespace: envplane-executors
+      allowInsecureControlPlane: true
+      registry:
+        existingSecret: envplane-ghcr
+        imagePullSecret: envplane-ghcr
+
+envplane-control-plane:
+  allowInsecureLocalDevelopment: true
+  env:
+    ENVPLANE_OAUTH_COOKIE_SECURE: "false"
+    ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
+    ENVPLANE_ENABLE_GIT_COMMIT: "true"
+    ENVPLANE_ENABLE_GIT_PUSH: "true"
+  rbac:
+    sameClusterProjectExecutors:
+      enabled: true
+      namespace: envplane-executors
+  postgres:
+    auth:
+      existingSecret: ""
+    tls:
+      enabled: false
+
+agent:
+  enabled: true
+  controlPlane:
+    allowInsecure: true
+
+envplane-agent:
+  controlPlane:
+    allowInsecure: true
+
+runner:
+  enabled: true
+  controlPlane:
+    allowInsecure: true
+
+envplane-runner:
+  controlPlane:
+    allowInsecure: true
+
+access:
+  mode: ingress
+  ingress:
+    allowInsecureHttp: true
+    host: envplane.local
+    className: nginx
+    tls:
+      enabled: false
+
+platformDependencies:
+  ingress:
+    mode: existing
+    provider: nginx
+    existingClassName: nginx
+    namespace: ingress-nginx
+    ownership: external
