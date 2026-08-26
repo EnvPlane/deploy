@@ -268,6 +268,14 @@ jobs:
             >/dev/null
           mkdir -p dist
           helm package deploy/helm/envplane --destination dist --version "$VERSION" --app-version "$VERSION"
+      - name: Run disposable private-registry Secret materialization release gate
+        env:
+          ENVPLANE_SM09_CHART: dist/envplane-${{ steps.version.outputs.version }}.tgz
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/kind" https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64
+          install -m 0755 "$RUNNER_TEMP/kind" /usr/local/bin/kind
+          ./scripts/private-registry-secret-materialization-e2e.sh
       - name: Generate JSON attestation predicate
         env:
           VERSION: ${{ steps.version.outputs.version }}

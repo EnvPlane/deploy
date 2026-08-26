@@ -166,6 +166,16 @@ grep -Fq "TestSecretMaterializationReleaseGate" "$workflow" || {
   exit 1
 }
 
+grep -Fq "Run disposable private-registry Secret materialization release gate" "$workflow" || {
+  echo "release must run the mandatory clean-cluster private-registry Secret lifecycle gate" >&2
+  exit 1
+}
+
+test -x "scripts/private-registry-secret-materialization-e2e.sh" || {
+  echo "private-registry lifecycle harness must be executable" >&2
+  exit 1
+}
+
 grep -Fq 'minimum="0.4.0"' "$workflow" || {
   echo "release must start the EnvPlane umbrella line at 0.4.0" >&2
   exit 1
