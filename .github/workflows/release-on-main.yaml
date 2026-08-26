@@ -104,6 +104,32 @@ jobs:
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Verify automatic release workflow contract
         run: ./scripts/tests/release-on-main-contract.sh
+      - name: Select Secret materialization lifecycle gate source
+        id: secret_lifecycle
+        env:
+          REPORT: ${{ steps.source.outputs.report }}
+        run: |
+          set -euo pipefail
+          revision="$(jq -er '.images.agent.sourceRevision' "$REPORT")"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "agent_revision=$revision" >> "$GITHUB_OUTPUT"
+      - name: Checkout release-compatible Agent source
+        uses: actions/checkout@v7
+        with:
+          repository: EnvPlane/agent
+          ref: ${{ steps.secret_lifecycle.outputs.agent_revision }}
+          path: release-gate-agent
+          token: ${{ github.token }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: release-gate-agent/go.mod
+          cache-dependency-path: release-gate-agent/go.sum
+      - name: Run Secret materialization executor lifecycle gate
+        working-directory: release-gate-agent
+        run: |
+          set -euo pipefail
+          go mod edit -dropreplace=github.com/envplane/contracts
+          go test ./agent -run '^TestSecretMaterializationReleaseGate$' -count=1
       - name: Verify confirmed immutable artifacts
         id: artifacts
         run: |

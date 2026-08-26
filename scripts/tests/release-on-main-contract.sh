@@ -31,6 +31,8 @@ for required in \
   "oras-project/setup-oras@v2" \
   "oras login ghcr.io" \
   "helm dependency build" \
+  "Run Secret materialization executor lifecycle gate" \
+  "release-gate-agent" \
   "helm package" \
   "helm push" \
   "cosign attest" \
@@ -151,6 +153,16 @@ done
 
 grep -Fq 'Verify confirmed immutable artifacts' "$workflow" || {
   echo "release must validate the downloaded compatibility manifest" >&2
+  exit 1
+}
+
+grep -Fq '.images.agent.sourceRevision' "$workflow" || {
+  echo "release must test the Agent revision selected by the compatibility report" >&2
+  exit 1
+}
+
+grep -Fq "TestSecretMaterializationReleaseGate" "$workflow" || {
+  echo "release must run the required Secret materialization lifecycle test" >&2
   exit 1
 }
 
