@@ -8,12 +8,11 @@ configuration, Runner writer RBAC, same-cluster endpoints, Runner config URL,
 and first-start registration. Helm attempted to create Runner RBAC in the stale
 `envplane-e2e-feature` namespace, which no longer existed.
 
-Failed run: [Publish latest compatible EnvPlane umbrella release run
-32996004531](https://github.com/EnvPlane/deploy/actions/runs/32996004531).
+Failed run: [Publish latest compatible envplane umbrella release run
+32996004531](https://github.com/envplane/deploy/actions/runs/32996004531).
 
 ## Resolution
 
 Override every namespace-dependent consumer together with the fixture
 namespaces. Keep the release namespace, Agent and Runner endpoints, Runner
 registration/config URL, watch scope, and feature writer RBAC consistent.
-
