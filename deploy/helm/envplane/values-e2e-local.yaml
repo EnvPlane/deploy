@@ -46,11 +46,6 @@ global:
       gitopsDefaultBranch: main
 
 envplane-agent:
-  # The disposable fixture is the chart-managed same-cluster executor. Enable
-  # the explicit mode so the Agent consumes the first-start registration
-  # claim and can exchange it for its persisted runtime identity.
-  managedSameCluster:
-    enabled: true
   dependencyWait:
     connectivity:
       maxAttempts: 30
@@ -75,10 +70,6 @@ envplane-agent:
       createClaim: true
 
 envplane-runner:
-  # Keep the runner on the same chart-managed registration path as the Agent;
-  # otherwise it has no bootstrap claim in the disposable release.
-  managedSameCluster:
-    enabled: true
   dependencyWait:
     connectivity:
       maxAttempts: 30
