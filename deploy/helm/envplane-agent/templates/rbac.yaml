@@ -7,6 +7,9 @@
     - limitranges
     - persistentvolumeclaims
     - serviceaccounts
+    # The Agent includes recent Warning events in environment diagnostics.
+    # Keep access read-only, alongside the workload discovery resources.
+    - events
   verbs: ["get","list","watch"]
 {{- if .Values.rbac.discovery.readSecrets }}
 - apiGroups: [""]
