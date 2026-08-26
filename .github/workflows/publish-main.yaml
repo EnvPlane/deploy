@@ -81,6 +81,7 @@ jobs:
           ./scripts/tests/test-publish-selected-child-charts.sh
           ./scripts/tests/test-generate-umbrella-compatibility-manifest.sh
           ./scripts/tests/test-verify-changed-child-chart-versions.sh
+          ./scripts/test-umbrella-chart-dependency-update.sh
       - uses: azure/setup-helm@v5
       - uses: oras-project/setup-oras@v2
       - uses: sigstore/cosign-installer@v3
