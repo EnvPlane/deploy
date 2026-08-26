@@ -7,6 +7,8 @@
     - limitranges
     - persistentvolumeclaims
     - serviceaccounts
+    # Workload readiness is calculated from Pod phases and container status.
+    - pods
     # The Agent includes recent Warning events in environment diagnostics.
     # Keep access read-only, alongside the workload discovery resources.
     - events

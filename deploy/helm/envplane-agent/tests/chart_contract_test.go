@@ -239,6 +239,7 @@ func TestAgentChartGrantsEveryCapabilityScannerRead(t *testing.T) {
 		"- limitranges",
 		"- persistentvolumeclaims",
 		"- serviceaccounts",
+		"- pods",
 		"- events",
 		"resources: [\"deployments\",\"daemonsets\",\"statefulsets\"]",
 		"resources: [\"horizontalpodautoscalers\"]",
@@ -256,7 +257,7 @@ func TestAgentChartGrantsEveryCapabilityScannerRead(t *testing.T) {
 	if strings.Contains(rbacText, "resources: [\"secrets\"]") && !strings.Contains(rbacText, "rbac.discovery.readSecrets") {
 		t.Fatalf("Secret API read must remain an explicit opt-in")
 	}
-	for _, forbidden := range []string{"resources: [\"pods\"]", "resources: [\"replicasets\"]", "resources: [\"endpoints\"]"} {
+	for _, forbidden := range []string{"resources: [\"replicasets\"]", "resources: [\"endpoints\"]"} {
 		if strings.Contains(rbacText, forbidden) { t.Fatalf("runtime child or event RBAC must not be granted: %s", forbidden) }
 	}
 }
