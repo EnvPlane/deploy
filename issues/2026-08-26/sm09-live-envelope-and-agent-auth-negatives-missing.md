@@ -1,4 +1,8 @@
-# SM-09 live envelope and Agent-auth negative cases are not executable
+# SM-09 live envelope and Agent-auth negative cases
+
+## Status
+
+Resolved on 2026-08-26.
 
 ## Problem
 
@@ -13,9 +17,12 @@ Agent. The other requested live negatives cannot yet be truthfully exercised:
 - Bootstrap compilation does not retain a signed scan allowlist that can
   reject a source-namespace escape at dispatch time.
 
-## Required follow-up
+## Resolution
 
-Wire `encrypted_clone` through the SM-04 envelope store, persist the scanned
-source allowlist with the signed plan, and provide a non-secret Agent-auth
-lease test control. Then add wrong-tenant, expired-lease, tampered-envelope,
-and namespace-escape assertions to this harness.
+The v2 shared command contract carries metadata-only, audience-bound envelope
+leases with signed digests and expiry. The control plane issues and validates
+them, encrypted-clone source namespaces are part of the canonical signed plan,
+and the Agent revalidates leases at execution time. Explicit release-test
+faults are disabled by default and enabled only in the disposable harness.
+The atomic gate now covers wrong tenant, expired lease, tampered envelope,
+namespace escape, foreign target, and Agent restart.

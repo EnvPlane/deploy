@@ -97,6 +97,9 @@ envplane-agent:
           sourceName: application-source
           targetNamespace: $target_namespace
           targetName: application-config
+envplane-control-plane:
+  env:
+    ENVPLANE_ENABLE_RELEASE_TEST_CONTROLS: "1"
 EOF
 helm upgrade --install "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" --create-namespace --values "$values" --wait --timeout 15m
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-control-plane --timeout=5m
@@ -115,6 +118,18 @@ curl -fsS -X POST "$api/api/v1/projects/$project/bootstrap-session/compile" >"$t
 curl -fsS -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project_id\":\"$project\",\"cluster_id\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}" >"$tmp/environment.json"
 project_config="$(curl -fsS "$api/api/v1/projects/$project/config")"
 plan_id="$(jq -er '.secretMaterializationPlan.planId // .config.secretMaterializationPlan.planId' <<<"$project_config")"
+
+assert_rejected_fault() {
+  local fault="$1" output="$tmp/fault-$1.json" status_code
+  status_code="$(curl -sS -o "$output" -w '%{http_code}' -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\",\"testFault\":\"$fault\"}")"
+  [[ "$status_code" == "409" ]]
+  jq -e '.error | type == "string"' "$output" >/dev/null
+}
+
+assert_rejected_fault wrong_tenant
+assert_rejected_fault namespace_escape
+assert_rejected_fault expired_lease
+assert_rejected_fault tampered_envelope
 
 # A private image must fail before its pull credential exists.
 kubectl --context "kind-$cluster" -n "$target_namespace" run before-materialization --image="$registry/envplane/sm09:1" --restart=Never >/dev/null
