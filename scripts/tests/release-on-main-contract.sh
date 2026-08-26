@@ -226,6 +226,10 @@ grep -Fq 'SM-09 API request failed:' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must emit redacted Bootstrap API diagnostics" >&2
   exit 1
 }
+grep -Fq -- "-w '%{http_code}'" "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must preserve Bootstrap API error responses" >&2
+  exit 1
+}
 
 grep -Fq 'minimum="0.4.0"' "$workflow" || {
   echo "release must start the EnvPlane umbrella line at 0.4.0" >&2

@@ -161,12 +161,13 @@ api_curl() {
   curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" "$@"
 }
 api_call() {
-  local output="$1" label="$2"
+  local output="$1" label="$2" status_code
   shift 2
-  if api_curl "$@" >"$output"; then
+  status_code="$(curl --noproxy '*' --silent --show-error -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" "$@")"
+  if [[ "$status_code" =~ ^2[0-9]{2}$ ]]; then
     return 0
   fi
-  jq -c '{code: (.code // ""), field: (.field // ""), error: (.error // "")}' "$output" >&2 || true
+  jq -c --arg status "$status_code" '{status: $status, code: (.code // ""), field: (.field // ""), error: (.error // "")}' "$output" >&2 || true
   echo "SM-09 API request failed: $label" >&2
   return 1
 }
