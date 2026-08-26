@@ -72,10 +72,17 @@ values="$tmp/sm09-values.yaml"
 cat >"$values" <<EOF
 global:
   envplane:
+    firstStartRegistration:
+      runner:
+        namespace: $namespace
     e2eFixture:
       baseNamespace: $base_namespace
       featureNamespace: $target_namespace
 envplane-agent:
+  controlPlane:
+    namespace: $namespace
+  watch:
+    namespaces: [$base_namespace]
   rbac:
     discovery:
       namespaces: [$base_namespace, $target_namespace]
@@ -95,6 +102,14 @@ envplane-agent:
 envplane-control-plane:
   env:
     ENVPLANE_ENABLE_RELEASE_TEST_CONTROLS: "1"
+envplane-runner:
+  controlPlane:
+    namespace: $namespace
+  project:
+    configUrl: http://envplane-control-plane.$namespace.svc:8080/api/v1/projects/$project/runner-config
+  rbac:
+    featureEnvWriter:
+      namespaces: [$target_namespace]
 EOF
 helm upgrade --install "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" --create-namespace --values "$base_values" --values "$values" --wait --timeout 15m
 kubectl --context "kind-$cluster" -n "$base_namespace" create secret docker-registry registry-source --docker-server="$registry" --docker-username="$registry_user" --docker-password="$registry_password" >/dev/null

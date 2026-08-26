@@ -185,6 +185,17 @@ if grep -Fq 'create namespace "$base_namespace"' "$secret_lifecycle_harness" ||
   exit 1
 fi
 
+for namespace_binding in \
+  'namespace: $namespace' \
+  'namespaces: [$base_namespace]' \
+  'namespaces: [$target_namespace]' \
+  'envplane-control-plane.$namespace.svc'; do
+  grep -Fq "$namespace_binding" "$secret_lifecycle_harness" || {
+    echo "private-registry lifecycle harness is missing namespace binding: $namespace_binding" >&2
+    exit 1
+  }
+done
+
 grep -Fq 'minimum="0.4.0"' "$workflow" || {
   echo "release must start the EnvPlane umbrella line at 0.4.0" >&2
   exit 1
