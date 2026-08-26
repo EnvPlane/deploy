@@ -179,6 +179,12 @@ grep -Fq -- '--values "$base_values" --values "$values"' "$secret_lifecycle_harn
   exit 1
 }
 
+if grep -Fq 'create namespace "$base_namespace"' "$secret_lifecycle_harness" ||
+   grep -Fq 'create namespace "$target_namespace"' "$secret_lifecycle_harness"; then
+  echo "private-registry lifecycle harness must let the umbrella release own fixture namespaces" >&2
+  exit 1
+fi
+
 grep -Fq 'minimum="0.4.0"' "$workflow" || {
   echo "release must start the EnvPlane umbrella line at 0.4.0" >&2
   exit 1

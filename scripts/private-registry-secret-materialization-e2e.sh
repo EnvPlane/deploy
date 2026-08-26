@@ -67,11 +67,6 @@ printf '%s' "$registry_password" | docker login "$registry" --username "$registr
 docker push "$registry/envplane/sm09:1" >/dev/null
 docker logout "$registry" >/dev/null
 
-kubectl --context "kind-$cluster" create namespace "$base_namespace"
-kubectl --context "kind-$cluster" create namespace "$target_namespace"
-kubectl --context "kind-$cluster" -n "$base_namespace" create secret docker-registry registry-source --docker-server="$registry" --docker-username="$registry_user" --docker-password="$registry_password" >/dev/null
-kubectl --context "kind-$cluster" -n "$base_namespace" create secret generic application-source --from-literal=config="$application_secret" >/dev/null
-
 base_values="$(dirname "$0")/../deploy/helm/envplane/values-e2e-local.yaml"
 values="$tmp/sm09-values.yaml"
 cat >"$values" <<EOF
@@ -102,6 +97,8 @@ envplane-control-plane:
     ENVPLANE_ENABLE_RELEASE_TEST_CONTROLS: "1"
 EOF
 helm upgrade --install "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" --create-namespace --values "$base_values" --values "$values" --wait --timeout 15m
+kubectl --context "kind-$cluster" -n "$base_namespace" create secret docker-registry registry-source --docker-server="$registry" --docker-username="$registry_user" --docker-password="$registry_password" >/dev/null
+kubectl --context "kind-$cluster" -n "$base_namespace" create secret generic application-source --from-literal=config="$application_secret" >/dev/null
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-control-plane --timeout=5m
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-agent --timeout=5m
 
