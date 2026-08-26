@@ -30,6 +30,9 @@ cleanup() {
       echo "SM-09 Agent preflight diagnostics" >&2
       kubectl --context "kind-$cluster" -n "$namespace" logs "$agent_pod" -c control-plane-preflight --previous 2>/dev/null |
         jq -Rr 'fromjson? | select(.msg == "agent control-plane connectivity check failed") | "message=\(.msg) error=\(.error) retryable=\(.retryable) maxAttempts=\(.maxAttempts)"' >&2 || true
+      echo "SM-09 Agent runtime diagnostics" >&2
+      kubectl --context "kind-$cluster" -n "$namespace" logs "$agent_pod" -c agent --tail=100 2>/dev/null |
+        jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN") | "level=\(.level) message=\(.msg) error=\(.error // "")"' >&2 || true
     fi
   fi
   for pid in "${pids[@]:-}"; do kill "$pid" >/dev/null 2>&1 || true; done
@@ -179,14 +182,22 @@ for _ in $(seq 1 120); do
   jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null 2>&1 && break
   sleep 2
 done
-jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null
+if ! jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null; then
+  jq -c '{status: (.status // ""), effectiveStatus: (.effectiveStatus // ""), error: (.error // ""), lastSeenAt: (.lastSeenAt // "")}' <<<"$agent_status" >&2
+  echo "SM-09 Agent did not report a usable status" >&2
+  exit 1
+fi
 api_call "$tmp/resource-scan.json" "start Agent resource scan" -X POST "$api/api/v1/projects/$project/bootstrap-session/resource-scan/start"
 for _ in $(seq 1 120); do
   agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"
   jq -e '.resourceScanStatus == "completed"' <<<"$agent_status" >/dev/null 2>&1 && break
   sleep 2
 done
-jq -e '.resourceScanStatus == "completed"' <<<"$agent_status" >/dev/null
+if ! jq -e '.resourceScanStatus == "completed"' <<<"$agent_status" >/dev/null; then
+  jq -c '{status: (.status // ""), resourceScanStatus: (.resourceScanStatus // ""), resourceScanError: (.resourceScanError // ""), resourceScanDeadlineAt: (.resourceScanDeadlineAt // "")}' <<<"$agent_status" >&2
+  echo "SM-09 Agent resource scan did not complete" >&2
+  exit 1
+fi
 
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
