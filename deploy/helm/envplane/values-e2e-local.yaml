@@ -66,6 +66,9 @@ envplane-agent:
     serviceName: envplane-control-plane
     namespace: envplane
     port: 8080
+    # The disposable Kind profile reaches the in-cluster HTTP Service. Remote
+    # Agent installations retain the chart's HTTPS-only default.
+    allowInsecure: true
   watch:
     namespaces:
       - envplane-e2e-base
