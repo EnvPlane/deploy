@@ -453,7 +453,7 @@ envplane-agent:
   image:
     repository: ghcr.io/envplane/agent
     tag: "sha-276f091f2497e4cc3e770f31b9016cc7cccc0815"
-    digest: "sha256:140e503aa571959b739a370671aa6fd9551769b3897cec6fb038bb2e02b09bf4"
+    digest: "sha256:f86e208b6a53a80eb9fcec7d23b1713ca5970c9ef00a819eb7bd3aaa6864abeb"
     pullPolicy: IfNotPresent
     sourceRevision: "276f091f2497e4cc3e770f31b9016cc7cccc0815"
     release: "sha-276f091f2497e4cc3e770f31b9016cc7cccc0815"
