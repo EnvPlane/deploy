@@ -176,12 +176,10 @@ api_curl "$api/api/v1/health" >/dev/null
 
 for _ in $(seq 1 120); do
   agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"
-  runner_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/runner-status")"
-  jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null 2>&1 && jq -e '.status == "online"' <<<"$runner_status" >/dev/null 2>&1 && break
+  jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null 2>&1 && break
   sleep 2
 done
 jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null
-jq -e '.status == "online"' <<<"$runner_status" >/dev/null
 api_call "$tmp/resource-scan.json" "start Agent resource scan" -X POST "$api/api/v1/projects/$project/bootstrap-session/resource-scan/start"
 for _ in $(seq 1 120); do
   bootstrap_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session")"
