@@ -51,6 +51,12 @@ agent:
 envplane-agent:
   controlPlane:
     allowInsecure: true
+  # This is the management-cluster Agent. Feature namespaces are created
+  # dynamically, so a fixed namespace list would leave their status stuck at
+  # Creating even when Flux and workloads are healthy.
+  rbac:
+    discovery:
+      scope: cluster
 
 runner:
   enabled: true
