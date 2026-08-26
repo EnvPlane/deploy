@@ -174,6 +174,13 @@ api_call() {
 for _ in $(seq 1 90); do api_curl "$api/api/v1/health" >/dev/null 2>&1 && break; sleep 1; done
 api_curl "$api/api/v1/health" >/dev/null
 
+for _ in $(seq 1 120); do
+  bootstrap_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session")"
+  jq -e '.data.resourceScanStatus == "completed"' <<<"$bootstrap_status" >/dev/null 2>&1 && break
+  sleep 2
+done
+jq -e '.data.resourceScanStatus == "completed"' <<<"$bootstrap_status" >/dev/null
+
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
 api_call "$tmp/bootstrap.json" "save secret strategies" -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}"
