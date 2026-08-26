@@ -33,6 +33,7 @@ for bin in docker kind kubectl helm curl jq; do command -v "$bin" >/dev/null || 
 # Neither `set -x` nor an echo of these values is permitted in this harness.
 registry_user="envplane"
 registry_password="$(openssl rand -hex 24)"
+application_secret="$(openssl rand -hex 24)"
 umask 077
 mkdir -p "$tmp/auth"
 docker run --rm --entrypoint htpasswd httpd:2.4 -Bbn "$registry_user" "$registry_password" >"$tmp/auth/htpasswd"
@@ -69,6 +70,7 @@ docker logout "$registry" >/dev/null
 kubectl --context "kind-$cluster" create namespace "$base_namespace"
 kubectl --context "kind-$cluster" create namespace "$target_namespace"
 kubectl --context "kind-$cluster" -n "$base_namespace" create secret docker-registry registry-source --docker-server="$registry" --docker-username="$registry_user" --docker-password="$registry_password" >/dev/null
+kubectl --context "kind-$cluster" -n "$base_namespace" create secret generic application-source --from-literal=config="$application_secret" >/dev/null
 
 values="$tmp/values.yaml"
 cp "$(dirname "$0")/../deploy/helm/envplane/values-e2e-local.yaml" "$values"
@@ -90,6 +92,11 @@ envplane-agent:
           sourceName: registry-source
           targetNamespace: $target_namespace
           targetName: registry-pull
+        - id: application
+          sourceNamespace: $base_namespace
+          sourceName: application-source
+          targetNamespace: $target_namespace
+          targetName: application-config
 EOF
 helm upgrade --install "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" --create-namespace --values "$values" --wait --timeout 15m
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-control-plane --timeout=5m
@@ -103,10 +110,11 @@ curl -fsS "$api/api/v1/health" >/dev/null
 
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
-curl -fsS -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24}}}}" >"$tmp/bootstrap.json"
+curl -fsS -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}" >"$tmp/bootstrap.json"
 curl -fsS -X POST "$api/api/v1/projects/$project/bootstrap-session/compile" >"$tmp/compiled.json"
 curl -fsS -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project_id\":\"$project\",\"cluster_id\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}" >"$tmp/environment.json"
-plan_id="$(jq -er '.secretMaterializationPlan.planId // .config.secretMaterializationPlan.planId' "$tmp/compiled.json")"
+project_config="$(curl -fsS "$api/api/v1/projects/$project/config")"
+plan_id="$(jq -er '.secretMaterializationPlan.planId // .config.secretMaterializationPlan.planId' <<<"$project_config")"
 
 # A private image must fail before its pull credential exists.
 kubectl --context "kind-$cluster" -n "$target_namespace" run before-materialization --image="$registry/envplane/sm09:1" --restart=Never >/dev/null
@@ -122,6 +130,7 @@ done
 jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$status" >/dev/null
 ! grep -Fq "$registry_password" "$tmp"/*.json "$tmp"/*.log 2>/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null
+kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" run after-materialization --image="$registry/envplane/sm09:1" --restart=Never --overrides='{"spec":{"imagePullSecrets":[{"name":"registry-pull"}]}}' >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" wait --for=condition=Ready pod/after-materialization --timeout=120s
 
@@ -129,8 +138,19 @@ kubectl --context "kind-$cluster" -n "$target_namespace" wait --for=condition=Re
 # mutation. Restarting Agent validates lease/queue recovery before the command.
 kubectl --context "kind-$cluster" -n "$namespace" rollout restart deployment/envplane-agent
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-agent --timeout=5m
+before_rotation="$(kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config -o jsonpath='{.metadata.resourceVersion}')"
+rotated_application_secret="$(openssl rand -hex 24)"
+kubectl --context "kind-$cluster" -n "$base_namespace" delete secret application-source >/dev/null
+kubectl --context "kind-$cluster" -n "$base_namespace" create secret generic application-source --from-literal=config="$rotated_application_secret" >/dev/null
 curl -fsS -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/rotation.json"
+for _ in $(seq 1 120); do
+  after_rotation="$(kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config -o jsonpath='{.metadata.resourceVersion}')"
+  [[ "$after_rotation" != "$before_rotation" ]] && break
+  sleep 2
+done
+[[ "$after_rotation" != "$before_rotation" ]]
 curl -fsS -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"cleanup\"}" >"$tmp/cleanup.json"
 for _ in $(seq 1 120); do kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null 2>&1 || break; sleep 2; done
 ! kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null 2>&1
+! kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config >/dev/null 2>&1
 echo "SM-09 private-registry lifecycle gate passed"
