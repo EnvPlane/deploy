@@ -50,6 +50,7 @@
 {{- $scope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $namespaces := .Values.rbac.discovery.namespaces -}}
 {{- $clusterCapabilityRead := default false .Values.rbac.discovery.clusterCapabilityRead -}}
+{{- $namespaceMetadataRead := default false .Values.rbac.discovery.namespaceMetadataRead -}}
 {{- $namespaceInventoryRead := default false .Values.rbac.discovery.namespaceInventoryRead -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- if eq (include "envplane-agent.managedRemoteEnabled" .) "true" -}}
@@ -92,12 +93,12 @@ roleRef:
   kind: Role
   name: {{ $fullName }}-discovery-reader
 {{- end }}
-{{- if or $clusterCapabilityRead $namespaceInventoryRead }}
+{{- if or $clusterCapabilityRead $namespaceMetadataRead $namespaceInventoryRead }}
 ---
 # Project-owned same-cluster Agents use namespace-scoped discovery for
 # workloads. Namespace objects themselves are cluster-scoped, so permit GET
-# only for the explicit allowlist. Capability APIs remain read-only; no
-# workload, namespace-list, or write access is included in this ClusterRole.
+# only for the explicit allowlist. Capability APIs remain opt-in; no workload,
+# namespace-list, or write access is included in this ClusterRole.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

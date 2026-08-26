@@ -54,6 +54,10 @@ envplane-agent:
       deadlineSeconds: 300
   rbac:
     discovery:
+      # Namespace objects are cluster-scoped. Permit only metadata GETs for
+      # the selected namespaces; the Agent never receives namespace list or
+      # watch access in this disposable profile.
+      namespaceMetadataRead: true
       namespaces:
         - envplane-e2e-base
         - envplane-e2e-feature

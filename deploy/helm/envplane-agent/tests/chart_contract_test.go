@@ -133,7 +133,7 @@ func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	cmd.Dir = "."
 	output, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(output), "controlPlane.url is required") {
-		 t.Fatalf("remote Agent endpoint without URL must fail, err=%v output=%s", err, output)
+		t.Fatalf("remote Agent endpoint without URL must fail, err=%v output=%s", err, output)
 	}
 	cmd = exec.Command("helm", "template", "envplane-agent", "..", "--set", "controlPlane.endpointMode=remote", "--set", "controlPlane.url=http://api.remote.example")
 	cmd.Dir = "."
@@ -258,7 +258,9 @@ func TestAgentChartGrantsEveryCapabilityScannerRead(t *testing.T) {
 		t.Fatalf("Secret API read must remain an explicit opt-in")
 	}
 	for _, forbidden := range []string{"resources: [\"replicasets\"]", "resources: [\"endpoints\"]"} {
-		if strings.Contains(rbacText, forbidden) { t.Fatalf("runtime child or event RBAC must not be granted: %s", forbidden) }
+		if strings.Contains(rbacText, forbidden) {
+			t.Fatalf("runtime child or event RBAC must not be granted: %s", forbidden)
+		}
 	}
 }
 
@@ -304,6 +306,28 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 	for _, forbidden := range []string{"verbs: [\"create\"", "verbs: [\"update\"", "verbs: [\"patch\"", "verbs: [\"delete\"", "resources: [\"namespaces\"]\n    verbs: [\"get\",\"list\",\"watch\"]"} {
 		if strings.Contains(projectOwned, forbidden) {
 			t.Fatalf("project-owned capability reader must stay minimal/read-only, found %q:\n%s", forbidden, projectOwned)
+		}
+	}
+
+	namespaceMetadataOnly := renderAgentChart(t,
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.namespaces[0]=envplane-executors",
+		"--set", "rbac.discovery.namespaceMetadataRead=true",
+	)
+	for _, expected := range []string{
+		"kind: ClusterRole",
+		`resources: ["namespaces"]`,
+		"resourceNames:",
+		`- "envplane-executors"`,
+		`verbs: ["get"]`,
+	} {
+		if !strings.Contains(namespaceMetadataOnly, expected) {
+			t.Fatalf("namespace metadata RBAC missing %q:\n%s", expected, namespaceMetadataOnly)
+		}
+	}
+	for _, forbidden := range []string{"ingressclasses", "customresourcedefinitions", "storageclasses", `verbs: ["list"]`, `verbs: ["watch"]`} {
+		if strings.Contains(namespaceMetadataOnly, forbidden) {
+			t.Fatalf("namespace metadata RBAC must stay allowlisted and read-only, found %q:\n%s", forbidden, namespaceMetadataOnly)
 		}
 	}
 

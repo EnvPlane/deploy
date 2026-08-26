@@ -163,6 +163,10 @@ rbac:
     namespaces:
       - default
     clusterCapabilityRead: false
+    # Enables metadata GETs for only the explicit workload namespace
+    # allowlist. Namespace objects are cluster-scoped, so namespaced Roles
+    # cannot authorize the Agent's selected-namespace sync path.
+    namespaceMetadataRead: false
     # Allows a bootstrap Agent to list Namespace objects before the user has
     # selected the finite set of namespaces whose workloads it may discover.
     # This does not grant workload or Secret access outside selected namespaces.
