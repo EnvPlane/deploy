@@ -14,7 +14,7 @@ dependencies:
     repository: file://../envplane-frontend
     condition: frontend.enabled
   - name: envplane-agent
-    version: 0.2.11
+    version: 0.2.12
     repository: file://../envplane-agent
     condition: agent.enabled
   - name: envplane-runner
