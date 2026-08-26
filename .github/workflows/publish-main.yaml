@@ -22,6 +22,7 @@ on:
       - 'scripts/tests/test-publish-selected-child-charts.sh'
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
       - 'scripts/tests/release-on-main-contract.sh'
+      - 'scripts/private-registry-secret-materialization-e2e.sh'
       - 'scripts/tests/test-current-compatible-artifact.sh'
       - 'scripts/tests/platform-reconciler-publication-contract.sh'
       - 'deploy/helm/envplane/values.yaml'
