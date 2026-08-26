@@ -160,14 +160,24 @@ api="http://127.0.0.1:$api_port"
 api_curl() {
   curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" "$@"
 }
+api_call() {
+  local output="$1" label="$2"
+  shift 2
+  if api_curl "$@" >"$output"; then
+    return 0
+  fi
+  jq -c '{code: (.code // ""), field: (.field // ""), error: (.error // "")}' "$output" >&2 || true
+  echo "SM-09 API request failed: $label" >&2
+  return 1
+}
 for _ in $(seq 1 90); do api_curl "$api/api/v1/health" >/dev/null 2>&1 && break; sleep 1; done
 api_curl "$api/api/v1/health" >/dev/null
 
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
-api_curl -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}" >"$tmp/bootstrap.json"
-api_curl -X POST "$api/api/v1/projects/$project/bootstrap-session/compile" >"$tmp/compiled.json"
-api_curl -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project_id\":\"$project\",\"cluster_id\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}" >"$tmp/environment.json"
+api_call "$tmp/bootstrap.json" "save secret strategies" -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}"
+api_call "$tmp/compiled.json" "compile Bootstrap session" -X POST "$api/api/v1/projects/$project/bootstrap-session/compile"
+api_call "$tmp/environment.json" "create environment" -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project_id\":\"$project\",\"cluster_id\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}"
 project_config="$(api_curl "$api/api/v1/projects/$project/config")"
 plan_id="$(jq -er '.secretMaterializationPlan.planId // .config.secretMaterializationPlan.planId' <<<"$project_config")"
 
