@@ -226,7 +226,7 @@ grep -Fq 'SM-09 API request failed:' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must emit redacted Bootstrap API diagnostics" >&2
   exit 1
 }
-grep -Fq '.data.resourceScanStatus == "completed"' "$secret_lifecycle_harness" || {
+grep -Fq '.resourceScanStatus == "completed"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must wait for the Agent resource scan before compilation" >&2
   exit 1
 }

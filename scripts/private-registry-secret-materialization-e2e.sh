@@ -182,11 +182,11 @@ done
 jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null
 api_call "$tmp/resource-scan.json" "start Agent resource scan" -X POST "$api/api/v1/projects/$project/bootstrap-session/resource-scan/start"
 for _ in $(seq 1 120); do
-  bootstrap_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session")"
-  jq -e '.data.resourceScanStatus == "completed"' <<<"$bootstrap_status" >/dev/null 2>&1 && break
+  agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"
+  jq -e '.resourceScanStatus == "completed"' <<<"$agent_status" >/dev/null 2>&1 && break
   sleep 2
 done
-jq -e '.data.resourceScanStatus == "completed"' <<<"$bootstrap_status" >/dev/null
+jq -e '.resourceScanStatus == "completed"' <<<"$agent_status" >/dev/null
 
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
