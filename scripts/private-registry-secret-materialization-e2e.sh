@@ -121,6 +121,18 @@ kubectl --context "kind-$cluster" -n "$target_namespace" run before-materializat
 sleep 8
 ! kubectl --context "kind-$cluster" -n "$target_namespace" get pod before-materialization -o jsonpath='{.status.phase}' | grep -qx Running
 
+# A foreign Secret at an approved target name must never be adopted. This is
+# metadata-only and is deleted before the retry below.
+kubectl --context "kind-$cluster" -n "$target_namespace" create secret generic registry-pull --from-literal=owner=foreign >/dev/null
+curl -fsS -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/foreign-dispatch.json"
+for _ in $(seq 1 120); do
+  status="$(curl -fsS "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
+  jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .errorCode == "conflict")' <<<"$status" >/dev/null 2>&1 && break
+  sleep 2
+done
+jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .errorCode == "conflict")' <<<"$status" >/dev/null
+kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull >/dev/null
+
 curl -fsS -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/dispatch.json"
 for _ in $(seq 1 120); do
   status="$(curl -fsS "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
