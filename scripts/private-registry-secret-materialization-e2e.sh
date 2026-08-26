@@ -92,6 +92,7 @@ kubectl --context "kind-$cluster" -n "$namespace" create secret generic release-
 
 base_values="$(dirname "$0")/../deploy/helm/envplane/values-e2e-local.yaml"
 values="$tmp/sm09-values.yaml"
+api_token="$(openssl rand -hex 32)"
 cat >"$values" <<EOF
 global:
   envplane:
@@ -129,6 +130,7 @@ envplane-control-plane:
     - name: release-registry-pull
   env:
     ENVPLANE_ENABLE_RELEASE_TEST_CONTROLS: "1"
+    ENVPLANE_API_WRITE_TOKEN: $api_token
 envplane-frontend:
   imagePullSecrets:
     - name: release-registry-pull
@@ -156,7 +158,7 @@ api_port=18080
 kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane "$api_port:8080" >"$tmp/port-forward.log" 2>&1 & pids+=("$!")
 api="http://127.0.0.1:$api_port"
 api_curl() {
-  curl --noproxy '*' --fail --silent --show-error "$@"
+  curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" "$@"
 }
 for _ in $(seq 1 90); do api_curl "$api/api/v1/health" >/dev/null 2>&1 && break; sleep 1; done
 api_curl "$api/api/v1/health" >/dev/null
@@ -171,7 +173,7 @@ plan_id="$(jq -er '.secretMaterializationPlan.planId // .config.secretMaterializ
 
 assert_rejected_fault() {
   local fault="$1" output="$tmp/fault-$1.json" status_code
-  status_code="$(curl --noproxy '*' -sS -o "$output" -w '%{http_code}' -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\",\"testFault\":\"$fault\"}")"
+  status_code="$(curl --noproxy '*' -sS -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\",\"testFault\":\"$fault\"}")"
   [[ "$status_code" == "409" ]]
   jq -e '.error | type == "string"' "$output" >/dev/null
 }

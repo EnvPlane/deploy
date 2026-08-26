@@ -216,6 +216,12 @@ grep -Fq "curl --noproxy '*' --fail --silent --show-error" "$secret_lifecycle_ha
   exit 1
 }
 
+grep -Fq 'ENVPLANE_API_WRITE_TOKEN: $api_token' "$secret_lifecycle_harness" &&
+  grep -Fq 'Authorization: Bearer $api_token' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must use its disposable authenticated API client" >&2
+  exit 1
+}
+
 grep -Fq 'minimum="0.4.0"' "$workflow" || {
   echo "release must start the EnvPlane umbrella line at 0.4.0" >&2
   exit 1
