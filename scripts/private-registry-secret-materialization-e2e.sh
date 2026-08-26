@@ -25,6 +25,12 @@ cleanup() {
     kubectl --context "kind-$cluster" get pods --all-namespaces -o wide >&2 || true
     echo "SM-09 warning events" >&2
     kubectl --context "kind-$cluster" get events --all-namespaces --field-selector type=Warning >&2 || true
+    agent_pod="$(kubectl --context "kind-$cluster" -n "$namespace" get pod -l app.kubernetes.io/name=envplane-agent -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+    if [[ -n "$agent_pod" ]]; then
+      echo "SM-09 Agent preflight diagnostics" >&2
+      kubectl --context "kind-$cluster" -n "$namespace" logs "$agent_pod" -c control-plane-preflight --previous 2>/dev/null |
+        jq -Rr 'fromjson? | select(.msg == "agent control-plane connectivity check failed") | "message=\(.msg) error=\(.error) retryable=\(.retryable) maxAttempts=\(.maxAttempts)"' >&2 || true
+    fi
   fi
   for pid in "${pids[@]:-}"; do kill "$pid" >/dev/null 2>&1 || true; done
   kind delete cluster --name "$cluster" >/dev/null 2>&1 || true
