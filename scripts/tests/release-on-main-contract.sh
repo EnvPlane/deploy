@@ -196,6 +196,16 @@ for namespace_binding in \
   }
 done
 
+grep -Fq -- '--type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$docker_config"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must provide namespaced GHCR pull credentials to the clean node" >&2
+  exit 1
+}
+
+[[ "$(grep -Fc 'name: release-registry-pull' "$secret_lifecycle_harness")" -ge 5 ]] || {
+  echo "private-registry lifecycle harness must bind GHCR pull credentials to every platform subchart" >&2
+  exit 1
+}
+
 grep -Fq 'minimum="0.4.0"' "$workflow" || {
   echo "release must start the EnvPlane umbrella line at 0.4.0" >&2
   exit 1

@@ -19,6 +19,13 @@ tmp="$(mktemp -d)"
 pids=()
 
 cleanup() {
+  exit_status=$?
+  if (( exit_status != 0 )) && kubectl --context "kind-$cluster" cluster-info >/dev/null 2>&1; then
+    echo "SM-09 redacted pod diagnostics" >&2
+    kubectl --context "kind-$cluster" get pods --all-namespaces -o wide >&2 || true
+    echo "SM-09 warning events" >&2
+    kubectl --context "kind-$cluster" get events --all-namespaces --field-selector type=Warning >&2 || true
+  fi
   for pid in "${pids[@]:-}"; do kill "$pid" >/dev/null 2>&1 || true; done
   kind delete cluster --name "$cluster" >/dev/null 2>&1 || true
   docker rm -f "$registry_name" >/dev/null 2>&1 || true
@@ -67,6 +74,16 @@ printf '%s' "$registry_password" | docker login "$registry" --username "$registr
 docker push "$registry/envplane/sm09:1" >/dev/null
 docker logout "$registry" >/dev/null
 
+docker_config="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
+[[ -f "$docker_config" ]] || { echo "Docker config with GHCR credentials is missing" >&2; exit 2; }
+jq -e '.auths["ghcr.io"] | type == "object"' "$docker_config" >/dev/null || {
+  echo "Docker config does not contain GHCR credentials" >&2
+  exit 2
+}
+kubectl --context "kind-$cluster" create namespace "$namespace"
+kubectl --context "kind-$cluster" -n "$namespace" create secret generic release-registry-pull \
+  --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$docker_config" >/dev/null
+
 base_values="$(dirname "$0")/../deploy/helm/envplane/values-e2e-local.yaml"
 values="$tmp/sm09-values.yaml"
 cat >"$values" <<EOF
@@ -79,6 +96,8 @@ global:
       baseNamespace: $base_namespace
       featureNamespace: $target_namespace
 envplane-agent:
+  imagePullSecrets:
+    - name: release-registry-pull
   controlPlane:
     namespace: $namespace
   watch:
@@ -100,9 +119,16 @@ envplane-agent:
           targetNamespace: $target_namespace
           targetName: application-config
 envplane-control-plane:
+  imagePullSecrets:
+    - name: release-registry-pull
   env:
     ENVPLANE_ENABLE_RELEASE_TEST_CONTROLS: "1"
+envplane-frontend:
+  imagePullSecrets:
+    - name: release-registry-pull
 envplane-runner:
+  imagePullSecrets:
+    - name: release-registry-pull
   controlPlane:
     namespace: $namespace
   project:
@@ -110,6 +136,9 @@ envplane-runner:
   rbac:
     featureEnvWriter:
       namespaces: [$target_namespace]
+envplane-webhook:
+  imagePullSecrets:
+    - name: release-registry-pull
 EOF
 helm upgrade --install "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" --create-namespace --values "$base_values" --values "$values" --wait --timeout 15m
 kubectl --context "kind-$cluster" -n "$base_namespace" create secret docker-registry registry-source --docker-server="$registry" --docker-username="$registry_user" --docker-password="$registry_password" >/dev/null
