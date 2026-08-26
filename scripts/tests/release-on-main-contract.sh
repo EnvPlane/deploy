@@ -8,6 +8,7 @@ resolver="$root/scripts/resolve-latest-published-artifacts.sh"
 child_publisher="$root/scripts/publish-selected-child-charts.sh"
 freshness_gate="$root/scripts/ensure-current-compatible-artifact.sh"
 frontend_smoke="$root/scripts/verify-frontend-component-repair-controls.sh"
+secret_lifecycle_harness="$root/scripts/private-registry-secret-materialization-e2e.sh"
 runtime_receiver="$root/.github/workflows/propose-runtime-image-update.yaml"
 chart_receiver="$root/.github/workflows/propose-umbrella-chart-dependency-update.yaml"
 
@@ -16,10 +17,12 @@ chart_receiver="$root/.github/workflows/propose-umbrella-chart-dependency-update
 [[ -x "$child_publisher" ]] || { echo "selected child-chart publisher is not executable" >&2; exit 1; }
 [[ -x "$freshness_gate" ]] || { echo "compatibility freshness gate is not executable" >&2; exit 1; }
 [[ -x "$frontend_smoke" ]] || { echo "frontend image smoke check is not executable" >&2; exit 1; }
+[[ -x "$secret_lifecycle_harness" ]] || { echo "private-registry lifecycle harness must be executable" >&2; exit 1; }
 bash -n "$resolver"
 bash -n "$child_publisher"
 bash -n "$freshness_gate"
 bash -n "$frontend_smoke"
+bash -n "$secret_lifecycle_harness"
 
 for required in \
   "workflow_run:" \
@@ -171,8 +174,8 @@ grep -Fq "Run disposable private-registry Secret materialization release gate" "
   exit 1
 }
 
-test -x "scripts/private-registry-secret-materialization-e2e.sh" || {
-  echo "private-registry lifecycle harness must be executable" >&2
+grep -Fq -- '--values "$base_values" --values "$values"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must layer its SM-09 values over the canonical E2E profile" >&2
   exit 1
 }
 
