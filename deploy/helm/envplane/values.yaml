@@ -276,11 +276,11 @@ envplane-control-plane:
     enabled: true
   image:
     repository: ghcr.io/envplane/api
-    tag: "sha-c53f29da735caac7bb409260164eac8186cb8652"
-    digest: "sha256:7ea8288f82d625ceba3b5ed8e6e54355b98ac0a725fbadcb2d9b48e0f9a8fd2b"
+    tag: "sha-eb886bc483a8def862030e53a6d06416dacc61ed"
+    digest: "sha256:a8d8a49952b46caa308ba5e249b97ddfc66c442abd2bf3ee8f912c02f7dc2993"
     pullPolicy: IfNotPresent
-    sourceRevision: "c53f29da735caac7bb409260164eac8186cb8652"
-    release: "sha-c53f29da735caac7bb409260164eac8186cb8652"
+    sourceRevision: "eb886bc483a8def862030e53a6d06416dacc61ed"
+    release: "sha-eb886bc483a8def862030e53a6d06416dacc61ed"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -366,7 +366,7 @@ envplane-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envplane/envplane-agent"
-      version: "0.2.13"
+      version: "0.2.14"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
     # stable target-pod-reachable HTTPS endpoint, never a tunnel or Service
@@ -452,11 +452,11 @@ envplane-agent:
   fullnameOverride: envplane-agent
   image:
     repository: ghcr.io/envplane/agent
-    tag: "sha-95dee6ca65c412f2f4dedfa24745498e7ec93a12"
-    digest: "sha256:2ab903533bb77fe6cdc348a1b5ba574258dfb38e0bb35b570aa5e35cdb243670"
+    tag: "sha-f70c347ab69c5bf65d6e03e3a6d19f51c0e959fd"
+    digest: "sha256:2aa627071a230fa33a4c12afbcc3c0df89391d1832e0936d3d2caca950d59d25"
     pullPolicy: IfNotPresent
-    sourceRevision: "95dee6ca65c412f2f4dedfa24745498e7ec93a12"
-    release: "sha-95dee6ca65c412f2f4dedfa24745498e7ec93a12"
+    sourceRevision: "f70c347ab69c5bf65d6e03e3a6d19f51c0e959fd"
+    release: "sha-f70c347ab69c5bf65d6e03e3a6d19f51c0e959fd"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
