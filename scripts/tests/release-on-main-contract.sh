@@ -211,6 +211,11 @@ grep -Fq 'SM-09 Agent preflight diagnostics' "$secret_lifecycle_harness" || {
   exit 1
 }
 
+grep -Fq "curl --noproxy '*' --fail --silent --show-error" "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must bypass ambient proxies for local API port-forward requests" >&2
+  exit 1
+}
+
 grep -Fq 'minimum="0.4.0"' "$workflow" || {
   echo "release must start the EnvPlane umbrella line at 0.4.0" >&2
   exit 1

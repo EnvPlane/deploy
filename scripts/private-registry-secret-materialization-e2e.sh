@@ -155,20 +155,23 @@ kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envp
 api_port=18080
 kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane "$api_port:8080" >"$tmp/port-forward.log" 2>&1 & pids+=("$!")
 api="http://127.0.0.1:$api_port"
-for _ in $(seq 1 90); do curl -fsS "$api/api/v1/health" >/dev/null 2>&1 && break; sleep 1; done
-curl -fsS "$api/api/v1/health" >/dev/null
+api_curl() {
+  curl --noproxy '*' --fail --silent --show-error "$@"
+}
+for _ in $(seq 1 90); do api_curl "$api/api/v1/health" >/dev/null 2>&1 && break; sleep 1; done
+api_curl "$api/api/v1/health" >/dev/null
 
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
-curl -fsS -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}" >"$tmp/bootstrap.json"
-curl -fsS -X POST "$api/api/v1/projects/$project/bootstrap-session/compile" >"$tmp/compiled.json"
-curl -fsS -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project_id\":\"$project\",\"cluster_id\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}" >"$tmp/environment.json"
-project_config="$(curl -fsS "$api/api/v1/projects/$project/config")"
+api_curl -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}" >"$tmp/bootstrap.json"
+api_curl -X POST "$api/api/v1/projects/$project/bootstrap-session/compile" >"$tmp/compiled.json"
+api_curl -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project_id\":\"$project\",\"cluster_id\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}" >"$tmp/environment.json"
+project_config="$(api_curl "$api/api/v1/projects/$project/config")"
 plan_id="$(jq -er '.secretMaterializationPlan.planId // .config.secretMaterializationPlan.planId' <<<"$project_config")"
 
 assert_rejected_fault() {
   local fault="$1" output="$tmp/fault-$1.json" status_code
-  status_code="$(curl -sS -o "$output" -w '%{http_code}' -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\",\"testFault\":\"$fault\"}")"
+  status_code="$(curl --noproxy '*' -sS -o "$output" -w '%{http_code}' -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\",\"testFault\":\"$fault\"}")"
   [[ "$status_code" == "409" ]]
   jq -e '.error | type == "string"' "$output" >/dev/null
 }
@@ -186,18 +189,18 @@ sleep 8
 # A foreign Secret at an approved target name must never be adopted. This is
 # metadata-only and is deleted before the retry below.
 kubectl --context "kind-$cluster" -n "$target_namespace" create secret generic registry-pull --from-literal=owner=foreign >/dev/null
-curl -fsS -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/foreign-dispatch.json"
+api_curl -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/foreign-dispatch.json"
 for _ in $(seq 1 120); do
-  status="$(curl -fsS "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
+  status="$(api_curl "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
   jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .errorCode == "conflict")' <<<"$status" >/dev/null 2>&1 && break
   sleep 2
 done
 jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .errorCode == "conflict")' <<<"$status" >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull >/dev/null
 
-curl -fsS -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/dispatch.json"
+api_curl -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/dispatch.json"
 for _ in $(seq 1 120); do
-  status="$(curl -fsS "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
+  status="$(api_curl "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
   jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$status" >/dev/null 2>&1 && break
   sleep 2
 done
@@ -216,14 +219,14 @@ before_rotation="$(kubectl --context "kind-$cluster" -n "$target_namespace" get 
 rotated_application_secret="$(openssl rand -hex 24)"
 kubectl --context "kind-$cluster" -n "$base_namespace" delete secret application-source >/dev/null
 kubectl --context "kind-$cluster" -n "$base_namespace" create secret generic application-source --from-literal=config="$rotated_application_secret" >/dev/null
-curl -fsS -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/rotation.json"
+api_curl -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/rotation.json"
 for _ in $(seq 1 120); do
   after_rotation="$(kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config -o jsonpath='{.metadata.resourceVersion}')"
   [[ "$after_rotation" != "$before_rotation" ]] && break
   sleep 2
 done
 [[ "$after_rotation" != "$before_rotation" ]]
-curl -fsS -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"cleanup\"}" >"$tmp/cleanup.json"
+api_curl -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"cleanup\"}" >"$tmp/cleanup.json"
 for _ in $(seq 1 120); do kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null 2>&1 || break; sleep 2; done
 ! kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null 2>&1
 ! kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config >/dev/null 2>&1
