@@ -1,0 +1,72 @@
+{{- if and .Values.rbac.create .Values.rbac.materialization.enabled -}}
+{{- $fullName := include "envplane-agent.fullname" . -}}
+{{- $serviceAccountName := include "envplane-agent.serviceAccountName" . -}}
+{{- range $index, $item := .Values.rbac.materialization.items }}
+{{- if or (not $item.id) (not $item.sourceNamespace) (not $item.sourceName) (not $item.targetNamespace) (not $item.targetName) -}}
+{{- fail "every rbac.materialization.items entry requires id, sourceNamespace, sourceName, targetNamespace, and targetName" -}}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ printf "%s-secret-source-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+  namespace: {{ $item.sourceNamespace | quote }}
+  labels:
+    {{- include "envplane-agent.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ $item.sourceName | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ printf "%s-secret-source-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+  namespace: {{ $item.sourceNamespace | quote }}
+  labels:
+    {{- include "envplane-agent.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ printf "%s-secret-source-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ printf "%s-secret-target-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+  namespace: {{ $item.targetNamespace | quote }}
+  labels:
+    {{- include "envplane-agent.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ $item.targetName | quote }}]
+    verbs: ["get", "patch", "update", "delete"]
+  # Kubernetes authorization cannot restrict create by resourceNames. This is
+  # therefore isolated in the exact target namespace and dedicated Agent SA.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ printf "%s-secret-target-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+  namespace: {{ $item.targetNamespace | quote }}
+  labels:
+    {{- include "envplane-agent.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ printf "%s-secret-target-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}

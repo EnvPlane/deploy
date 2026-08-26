@@ -170,6 +170,16 @@ rbac:
     # Secret reads are sensitive and disabled by default. Set true only when
     # manifest discovery must include Secret metadata for selected namespaces.
     readSecrets: false
+  materialization:
+    # Opt-in exact Secret capability generated from an approved persisted plan.
+    # Each item renders namespaced Roles only; no ClusterRole can write Secrets.
+    enabled: false
+    items: []
+    # - id: registry
+    #   sourceNamespace: base
+    #   sourceName: registry
+    #   targetNamespace: feature
+    #   targetName: registry
 
 podAnnotations: {}
 podLabels: {}
