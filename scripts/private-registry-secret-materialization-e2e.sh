@@ -34,6 +34,12 @@ cleanup() {
       kubectl --context "kind-$cluster" -n "$namespace" logs "$agent_pod" -c agent --tail=100 2>/dev/null |
         jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN") | "level=\(.level) message=\(.msg) error=\(.error // "")"' >&2 || true
     fi
+    runner_pod="$(kubectl --context "kind-$cluster" -n "$namespace" get pod -l app.kubernetes.io/name=envplane-runner -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+    if [[ -n "$runner_pod" ]]; then
+      echo "SM-09 Runner runtime diagnostics" >&2
+      kubectl --context "kind-$cluster" -n "$namespace" logs "$runner_pod" --tail=100 2>/dev/null |
+        jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN") | "level=\(.level) message=\(.msg) error=\(.error // "")"' >&2 || true
+    fi
   fi
   for pid in "${pids[@]:-}"; do kill "$pid" >/dev/null 2>&1 || true; done
   kind delete cluster --name "$cluster" >/dev/null 2>&1 || true
@@ -165,13 +171,21 @@ api_curl() {
   curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@"
 }
 api_call() {
-  local output="$1" label="$2" status_code
+  local output="$1" label="$2" response_meta status_code content_type body_bytes
   shift 2
-  status_code="$(curl --noproxy '*' --silent --show-error -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@")"
+  response_meta="$(curl --noproxy '*' --silent --show-error -o "$output" -w $'%{http_code}\t%{content_type}' -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@")"
+  status_code="${response_meta%%$'\t'*}"
+  content_type="${response_meta#*$'\t'}"
   if [[ "$status_code" =~ ^2[0-9]{2}$ ]]; then
     return 0
   fi
-  jq -c --arg status "$status_code" '{status: $status, code: (.code // ""), field: (.field // ""), error: (.error // "")}' "$output" >&2 || true
+  if jq -e 'type == "object"' "$output" >/dev/null 2>&1; then
+    jq -c --arg status "$status_code" '{status: $status, code: (.code // ""), field: (.field // ""), error: (.error // "")}' "$output" >&2
+  else
+    body_bytes="$(wc -c <"$output" | tr -d '[:space:]')"
+    jq -cn --arg status "$status_code" --arg contentType "$content_type" --argjson bodyBytes "$body_bytes" \
+      '{status: $status, code: "non_json_http_response", contentType: $contentType, bodyBytes: $bodyBytes}' >&2
+  fi
   echo "SM-09 API request failed: $label" >&2
   return 1
 }
