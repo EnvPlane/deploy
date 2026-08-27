@@ -230,6 +230,18 @@ grep -Fq '.resourceScanStatus == "completed"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must wait for the Agent resource scan before compilation" >&2
   exit 1
 }
+grep -Fq 'deployment\":{\"backend\":\"helm_direct' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must persist the Helm Direct deployment contract before compilation" >&2
+  exit 1
+}
+grep -Fq '/bootstrap-session/helm-direct/preflight' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must exercise Runner Helm chart preflight before compilation" >&2
+  exit 1
+}
+grep -Fq '.data.helmDirectChartValidation | .status == "succeeded"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must wait for the matching Runner chart validation" >&2
+  exit 1
+}
 grep -Fq -- "-w '%{http_code}'" "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must preserve Bootstrap API error responses" >&2
   exit 1

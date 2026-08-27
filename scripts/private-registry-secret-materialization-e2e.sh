@@ -15,6 +15,8 @@ target_namespace="${ENVPLANE_SM09_TARGET_NAMESPACE:-envplane-sm09-target}"
 project="${ENVPLANE_SM09_PROJECT:-envplane-e2e-fixture}"
 environment="${ENVPLANE_SM09_ENVIRONMENT:-sm09-private-registry}"
 release="${ENVPLANE_SM09_RELEASE:-envplane-sm09}"
+workload_chart_ref="${ENVPLANE_SM09_WORKLOAD_CHART_REF:-oci://ghcr.io/envplane/envplane-e2e-workload}"
+workload_chart_version="${ENVPLANE_SM09_WORKLOAD_CHART_VERSION:-0.1.0}"
 tmp="$(mktemp -d)"
 pids=()
 
@@ -218,7 +220,22 @@ fi
 
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
-api_call "$tmp/bootstrap.json" "save secret strategies and final review" -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"current_step\":10,\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}"
+api_call "$tmp/bootstrap.json" "save deployment, secret strategies, and final review" -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"current_step\":10,\"stepData\":{\"deployment\":{\"backend\":\"helm_direct\",\"helmDirect\":{\"chartRef\":\"$workload_chart_ref\",\"chartVersion\":\"$workload_chart_version\",\"namespaceMode\":\"shared\",\"namespacePattern\":\"$target_namespace\",\"releaseNamePattern\":\"{{ .project.id }}-{{ .environment.name }}\",\"timeout\":180,\"wait\":true,\"createNamespace\":false,\"valuesOverrideStrategy\":\"merge\",\"imageTagValuePath\":\"image.tag\"}},\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}"
+api_call "$tmp/chart-preflight.json" "start Runner Helm chart preflight" -X POST "$api/api/v1/projects/$project/bootstrap-session/helm-direct/preflight"
+for _ in $(seq 1 120); do
+  bootstrap_session="$(api_curl "$api/api/v1/projects/$project/bootstrap-session")"
+  jq -e --arg chartRef "$workload_chart_ref" --arg chartVersion "$workload_chart_version" \
+    '.data.helmDirectChartValidation | .status == "succeeded" and .chartRef == $chartRef and .chartVersion == $chartVersion' \
+    <<<"$bootstrap_session" >/dev/null 2>&1 && break
+  sleep 2
+done
+if ! jq -e --arg chartRef "$workload_chart_ref" --arg chartVersion "$workload_chart_version" \
+  '.data.helmDirectChartValidation | .status == "succeeded" and .chartRef == $chartRef and .chartVersion == $chartVersion' \
+  <<<"$bootstrap_session" >/dev/null; then
+  jq -c '{status: (.status // ""), chartValidation: (.data.helmDirectChartValidation // {} | {status: (.status // ""), errorCode: (.errorCode // ""), error: (.error // "")})}' <<<"$bootstrap_session" >&2
+  echo "SM-09 Runner Helm chart preflight did not complete" >&2
+  exit 1
+fi
 api_call "$tmp/compiled.json" "compile Bootstrap session" -X POST "$api/api/v1/projects/$project/bootstrap-session/compile"
 api_call "$tmp/environment.json" "create environment" -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project\":\"$project\",\"clusterId\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}"
 project_config="$(api_curl "$api/api/v1/projects/$project/config")"
