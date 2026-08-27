@@ -206,6 +206,12 @@ grep -Fq -- '--type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson
   exit 1
 }
 
+grep -A4 -F 'envplane-runner:' "$secret_lifecycle_harness" | grep -Fq 'helmRegistry:' &&
+  grep -A5 -F 'helmRegistry:' "$secret_lifecycle_harness" | grep -Fq 'existingSecret: release-registry-pull' || {
+  echo "private-registry lifecycle harness must bind the disposable registry config to Runner Helm OCI operations" >&2
+  exit 1
+}
+
 grep -Fq 'SM-09 Agent preflight diagnostics' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must emit redacted Agent preflight diagnostics" >&2
   exit 1

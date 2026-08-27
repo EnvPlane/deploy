@@ -148,6 +148,8 @@ envplane-frontend:
 envplane-runner:
   imagePullSecrets:
     - name: release-registry-pull
+  helmRegistry:
+    existingSecret: release-registry-pull
   controlPlane:
     namespace: $namespace
   project:
