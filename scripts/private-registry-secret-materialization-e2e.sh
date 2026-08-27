@@ -160,13 +160,14 @@ kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envp
 api_port=18080
 kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane "$api_port:8080" >"$tmp/port-forward.log" 2>&1 & pids+=("$!")
 api="http://127.0.0.1:$api_port"
+tenant_id="${ENVPLANE_SM09_TENANT_ID:-default}"
 api_curl() {
-  curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" "$@"
+  curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" -H "X-EnvPlane-Tenant: $tenant_id" "$@"
 }
 api_call() {
   local output="$1" label="$2" status_code
   shift 2
-  status_code="$(curl --noproxy '*' --silent --show-error -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" "$@")"
+  status_code="$(curl --noproxy '*' --silent --show-error -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" -H "X-EnvPlane-Tenant: $tenant_id" "$@")"
   if [[ "$status_code" =~ ^2[0-9]{2}$ ]]; then
     return 0
   fi
@@ -210,7 +211,7 @@ plan_id="$(jq -er '.secretMaterializationPlan.planId // .config.secretMaterializ
 
 assert_rejected_fault() {
   local fault="$1" output="$tmp/fault-$1.json" status_code
-  status_code="$(curl --noproxy '*' -sS -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\",\"testFault\":\"$fault\"}")"
+  status_code="$(curl --noproxy '*' -sS -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" -H "X-EnvPlane-Tenant: $tenant_id" -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\",\"testFault\":\"$fault\"}")"
   [[ "$status_code" == "409" ]]
   jq -e '.error | type == "string"' "$output" >/dev/null
 }
