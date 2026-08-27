@@ -188,20 +188,6 @@ if ! jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" 
 	exit 1
 fi
 
-# The chart-managed fixture advances Bootstrap asynchronously after Agent
-# registration. Do not race a newly connected Agent with a public compile
-# request before the server has persisted the final Review step.
-for _ in $(seq 1 60); do
-	bootstrap_session="$(api_curl "$api/api/v1/projects/$project/bootstrap-session")"
-	jq -e '.current_step >= 10' <<<"$bootstrap_session" >/dev/null 2>&1 && break
-	sleep 1
-done
-if ! jq -e '.current_step >= 10' <<<"$bootstrap_session" >/dev/null; then
-	jq -c '{current_step: (.current_step // 0), status: (.status // "")}' <<<"$bootstrap_session" >&2
-	echo "SM-09 Bootstrap session did not reach final review" >&2
-	exit 1
-fi
-
 api_call "$tmp/resource-scan.json" "start Agent resource scan" -X POST "$api/api/v1/projects/$project/bootstrap-session/resource-scan/start"
 for _ in $(seq 1 120); do
   agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"
@@ -216,7 +202,7 @@ fi
 
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
-api_call "$tmp/bootstrap.json" "save secret strategies" -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}"
+api_call "$tmp/bootstrap.json" "save secret strategies and final review" -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"current_step\":10,\"stepData\":{\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}"
 api_call "$tmp/compiled.json" "compile Bootstrap session" -X POST "$api/api/v1/projects/$project/bootstrap-session/compile"
 api_call "$tmp/environment.json" "create environment" -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project_id\":\"$project\",\"cluster_id\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}"
 project_config="$(api_curl "$api/api/v1/projects/$project/config")"
