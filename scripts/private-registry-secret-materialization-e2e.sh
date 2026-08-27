@@ -185,8 +185,23 @@ done
 if ! jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null; then
   jq -c '{status: (.status // ""), effectiveStatus: (.effectiveStatus // ""), error: (.error // ""), lastSeenAt: (.lastSeenAt // "")}' <<<"$agent_status" >&2
   echo "SM-09 Agent did not report a usable status" >&2
-  exit 1
+	exit 1
 fi
+
+# The chart-managed fixture advances Bootstrap asynchronously after Agent
+# registration. Do not race a newly connected Agent with a public compile
+# request before the server has persisted the final Review step.
+for _ in $(seq 1 60); do
+	bootstrap_session="$(api_curl "$api/api/v1/projects/$project/bootstrap-session")"
+	jq -e '.current_step >= 10' <<<"$bootstrap_session" >/dev/null 2>&1 && break
+	sleep 1
+done
+if ! jq -e '.current_step >= 10' <<<"$bootstrap_session" >/dev/null; then
+	jq -c '{current_step: (.current_step // 0), status: (.status // "")}' <<<"$bootstrap_session" >&2
+	echo "SM-09 Bootstrap session did not reach final review" >&2
+	exit 1
+fi
+
 api_call "$tmp/resource-scan.json" "start Agent resource scan" -X POST "$api/api/v1/projects/$project/bootstrap-session/resource-scan/start"
 for _ in $(seq 1 120); do
   agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"
