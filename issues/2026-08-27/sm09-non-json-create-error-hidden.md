@@ -12,6 +12,7 @@ has switched from local execution to Runner command dispatch.
 
 ## Expected behavior
 
-The harness must report status, content type, and body size for non-JSON
+The harness must report status, content type, body size, and the safe `Allow`
+header for non-JSON
 responses without printing the body. It must include only structured,
 redacted Runner warnings and errors in failure diagnostics.

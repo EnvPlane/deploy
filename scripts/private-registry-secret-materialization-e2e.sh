@@ -171,9 +171,9 @@ api_curl() {
   curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@"
 }
 api_call() {
-  local output="$1" label="$2" response_meta status_code content_type body_bytes
+  local output="$1" label="$2" response_headers="$1.headers" response_meta status_code content_type body_bytes allow_methods
   shift 2
-  response_meta="$(curl --noproxy '*' --silent --show-error -o "$output" -w $'%{http_code}\t%{content_type}' -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@")"
+  response_meta="$(curl --noproxy '*' --silent --show-error -D "$response_headers" -o "$output" -w $'%{http_code}\t%{content_type}' -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@")"
   status_code="${response_meta%%$'\t'*}"
   content_type="${response_meta#*$'\t'}"
   if [[ "$status_code" =~ ^2[0-9]{2}$ ]]; then
@@ -183,8 +183,9 @@ api_call() {
     jq -c --arg status "$status_code" '{status: $status, code: (.code // ""), field: (.field // ""), error: (.error // "")}' "$output" >&2
   else
     body_bytes="$(wc -c <"$output" | tr -d '[:space:]')"
-    jq -cn --arg status "$status_code" --arg contentType "$content_type" --argjson bodyBytes "$body_bytes" \
-      '{status: $status, code: "non_json_http_response", contentType: $contentType, bodyBytes: $bodyBytes}' >&2
+    allow_methods="$(awk 'BEGIN {IGNORECASE=1} /^allow:/ {sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit}' "$response_headers")"
+    jq -cn --arg status "$status_code" --arg contentType "$content_type" --arg allow "$allow_methods" --argjson bodyBytes "$body_bytes" \
+      '{status: $status, code: "non_json_http_response", contentType: $contentType, bodyBytes: $bodyBytes, allow: $allow}' >&2
   fi
   echo "SM-09 API request failed: $label" >&2
   return 1
