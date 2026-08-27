@@ -234,6 +234,18 @@ grep -Fq -- "-w '%{http_code}'" "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must preserve Bootstrap API error responses" >&2
   exit 1
 }
+grep -Fq '\"project\":\"$project\"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must bind the canonical environment project field" >&2
+  exit 1
+}
+grep -Fq '\"clusterId\":\"local-e2e\"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must bind the canonical environment cluster field" >&2
+  exit 1
+}
+if grep -Fq '\"project_id\":\"$project\"' "$secret_lifecycle_harness" || grep -Fq '\"cluster_id\":\"local-e2e\"' "$secret_lifecycle_harness"; then
+  echo "private-registry lifecycle harness must not use unsupported environment request aliases" >&2
+  exit 1
+fi
 
 grep -Fq 'minimum="0.4.0"' "$workflow" || {
   echo "release must start the EnvPlane umbrella line at 0.4.0" >&2
