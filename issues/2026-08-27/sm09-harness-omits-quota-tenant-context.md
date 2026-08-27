@@ -8,5 +8,5 @@ mutations without an explicit tenant context.
 
 ## Resolution
 
-Send the default tenant through `X-EnvPlane-Tenant` on every authenticated
+Send the default tenant through `x-envplane-tenant` on every authenticated
 harness request, with an override for a dedicated SM-09 tenant.
