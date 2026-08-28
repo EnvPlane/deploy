@@ -240,8 +240,8 @@ if ! jq -e --arg chartRef "$workload_chart_ref" --arg chartVersion "$workload_ch
 fi
 api_call "$tmp/compiled.json" "compile Bootstrap session" -X POST "$api/api/v1/projects/$project/bootstrap-session/compile"
 api_call "$tmp/environment.json" "create environment" -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project\":\"$project\",\"clusterId\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}"
-project_config="$(api_curl "$api/api/v1/projects/$project/config")"
-plan_id="$(jq -er '.secretMaterializationPlan.planId // .config.secretMaterializationPlan.planId' <<<"$project_config")"
+materialization_status="$(api_curl "$api/api/v1/environments/$environment/secret-materialization")"
+plan_id="$(jq -er '.planId' <<<"$materialization_status")"
 
 assert_rejected_fault() {
   local fault="$1" output="$tmp/fault-$1.json" status_code
