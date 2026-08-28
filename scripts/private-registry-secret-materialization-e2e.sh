@@ -93,8 +93,8 @@ docker logout "$registry" >/dev/null
 
 docker_config="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
 [[ -f "$docker_config" ]] || { echo "Docker config with GHCR credentials is missing" >&2; exit 2; }
-jq -e '.auths["ghcr.io"] | type == "object"' "$docker_config" >/dev/null || {
-  echo "Docker config does not contain GHCR credentials" >&2
+jq -e '.auths["ghcr.io"].auth | type == "string" and length > 0' "$docker_config" >/dev/null || {
+  echo "Docker config must contain inline GHCR credentials for Kubernetes imagePullSecrets" >&2
   exit 2
 }
 kubectl --context "kind-$cluster" create namespace "$namespace"
