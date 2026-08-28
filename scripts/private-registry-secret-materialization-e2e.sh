@@ -269,7 +269,11 @@ for _ in $(seq 1 120); do
   jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .errorCode == "conflict")' <<<"$status" >/dev/null 2>&1 && break
   sleep 2
 done
-jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .errorCode == "conflict")' <<<"$status" >/dev/null
+if ! jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .errorCode == "conflict")' <<<"$status" >/dev/null; then
+  jq -c '{state: (.state // ""), items: [.items[]? | {id: (.id // ""), state: (.state // ""), errorCode: (.errorCode // "")} ]}' <<<"$status" >&2
+  echo "SM-09 foreign target conflict was not reported" >&2
+  exit 1
+fi
 kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull >/dev/null
 
 api_curl -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/dispatch.json"
@@ -278,7 +282,11 @@ for _ in $(seq 1 120); do
   jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$status" >/dev/null 2>&1 && break
   sleep 2
 done
-jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$status" >/dev/null
+if ! jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$status" >/dev/null; then
+  jq -c '{state: (.state // ""), items: [.items[]? | {id: (.id // ""), state: (.state // ""), errorCode: (.errorCode // "")} ]}' <<<"$status" >&2
+  echo "SM-09 materialization did not reach ready" >&2
+  exit 1
+fi
 ! grep -Fq "$registry_password" "$tmp"/*.json "$tmp"/*.log 2>/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config >/dev/null
