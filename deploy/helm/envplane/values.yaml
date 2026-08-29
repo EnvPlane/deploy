@@ -73,11 +73,12 @@ global:
       allowInsecureControlPlane: false
       discovery:
         namespaces: []
-      # Name only: mounted read-only as a Docker config for signed OCI child
-      # chart resolution. Its content never reaches EnvPlane APIs or audit.
+      # Optional private-registry override. Leave both fields empty for public
+      # EnvPlane OCI artifacts; no image-pull or Helm registry Secret is then
+      # required in either management or executor namespaces.
       registry:
         existingSecret: ""
-      # Project Agent/Runner Pods reference this name. Registry credentials
+      # Optional image-pull Secret for project Agent/Runner Pods. Credentials
       # remain operator-managed; this value only references the Secret.
         imagePullSecret: ""
     # Interactive OAuth is disabled by default. legacy_secret is a temporary

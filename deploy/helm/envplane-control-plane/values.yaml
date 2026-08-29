@@ -322,7 +322,8 @@ rbac:
     enabled: false
   # Allows the control plane to reconcile project-owned Agent/Runner releases
   # only inside this chart-owned executor namespace. It never creates a
-  # ClusterRole.
+  # ClusterRole. Public EnvPlane OCI artifacts need no registry Secret; supply
+  # one only for a private mirror or private project workload.
   sameClusterProjectExecutors:
     enabled: false
     namespace: ""

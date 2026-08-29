@@ -9,6 +9,7 @@ child_publisher="$root/scripts/publish-selected-child-charts.sh"
 freshness_gate="$root/scripts/ensure-current-compatible-artifact.sh"
 frontend_smoke="$root/scripts/verify-frontend-component-repair-controls.sh"
 secret_lifecycle_harness="$root/scripts/private-registry-secret-materialization-e2e.sh"
+anonymous_oci_harness="$root/scripts/verify-anonymous-oci-artifacts.sh"
 runtime_receiver="$root/.github/workflows/propose-runtime-image-update.yaml"
 chart_receiver="$root/.github/workflows/propose-umbrella-chart-dependency-update.yaml"
 
@@ -18,11 +19,13 @@ chart_receiver="$root/.github/workflows/propose-umbrella-chart-dependency-update
 [[ -x "$freshness_gate" ]] || { echo "compatibility freshness gate is not executable" >&2; exit 1; }
 [[ -x "$frontend_smoke" ]] || { echo "frontend image smoke check is not executable" >&2; exit 1; }
 [[ -x "$secret_lifecycle_harness" ]] || { echo "private-registry lifecycle harness must be executable" >&2; exit 1; }
+[[ -x "$anonymous_oci_harness" ]] || { echo "anonymous OCI harness must be executable" >&2; exit 1; }
 bash -n "$resolver"
 bash -n "$child_publisher"
 bash -n "$freshness_gate"
 bash -n "$frontend_smoke"
 bash -n "$secret_lifecycle_harness"
+bash -n "$anonymous_oci_harness"
 
 for required in \
   "workflow_run:" \
@@ -39,9 +42,22 @@ for required in \
   "helm package" \
   "helm push" \
   "cosign attest" \
+  "Verify anonymous OCI pulls for the complete release" \
   "gh release create"; do
   grep -Fq "$required" "$workflow" || { echo "workflow missing: $required" >&2; exit 1; }
 done
+
+grep -Fq 'verify-anonymous-oci-artifacts.sh' "$workflow" || {
+  echo "release must verify anonymous OCI pulls after publication" >&2; exit 1;
+}
+
+grep -Fq 'docker pull --platform' "$anonymous_oci_harness" || {
+  echo "anonymous OCI harness must pull both image architectures" >&2; exit 1;
+}
+
+grep -Fq 'helm pull oci://ghcr.io/envplane/envplane' "$anonymous_oci_harness" || {
+  echo "anonymous OCI harness must pull the umbrella without login" >&2; exit 1;
+}
 
 if grep -Eq '^  push:' "$workflow"; then
   echo "umbrella release must not run directly on push" >&2

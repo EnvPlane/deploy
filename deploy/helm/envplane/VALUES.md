@@ -35,8 +35,10 @@ than embedding credentials in values.
 
 ### Private runtime registry
 
-Use the shared registry contract when any pinned runtime or dependency image is
-private. The Secret must already exist in the release namespace and contain a
+Use the shared registry contract only when an operator-selected mirror or
+dependency image is private. Public EnvPlane runtime and dependency artifacts
+pull anonymously by default. The Secret must already exist in the release
+namespace and contain a
 standard `.dockerconfigjson`; the chart stores and renders only its name:
 
 ```yaml

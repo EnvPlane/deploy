@@ -40,6 +40,6 @@ jq -n \
   --artifact-report "$tmp/artifacts.json" \
   --output "$tmp/release.json" >/dev/null
 
-jq -e '(.childCharts | length == 6) and all(.childCharts[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and (.sourceRevision | test("^[0-9a-f]{40}$")))' "$tmp/release.json" >/dev/null
+jq -e '(.images | length == 6) and (.childCharts | length == 6) and all((.images + .childCharts)[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and .attestations.sbom.required == true and .attestations.provenance.required == true) and all(.childCharts[]; (.sourceRevision | test("^[0-9a-f]{40}$")))' "$tmp/release.json" >/dev/null
 
 echo "immutable child-chart compatibility manifest regression is valid"

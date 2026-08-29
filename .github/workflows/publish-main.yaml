@@ -19,6 +19,7 @@ on:
       - 'scripts/update-umbrella-chart-dependency.sh'
       - 'scripts/test-umbrella-chart-dependency-update.sh'
       - 'scripts/verify-umbrella-reinstall-compatibility.sh'
+      - 'scripts/verify-anonymous-oci-artifacts.sh'
       - 'scripts/tests/test-publish-selected-child-charts.sh'
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
       - 'scripts/tests/release-on-main-contract.sh'

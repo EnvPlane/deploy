@@ -80,9 +80,12 @@ rg -Fq 'resources: ["customresourcedefinitions"]' "$rendered"
 rg -Fq 'resources: ["storageclasses"]' "$rendered"
 ! rg -q 'resources: \["\*"\]|verbs: \["\*"\]' "$rendered"
 
-# A project executor must never silently fall back to an anonymous OCI pull.
-# The Registry Secret name is configuration only; its contents stay write-only.
-if helm template missing-registry "$chart_dir" \
+# Public EnvPlane OCI artifacts are the default: a project executor must render
+# without a registry Secret in either namespace. Private registry credentials
+# remain an explicit optional override covered by the render above.
+public_rendered="$(mktemp)"
+trap 'rm -f "$rendered" "$agent_rendered" "$runner_rendered" "$public_rendered"' EXIT
+helm template public-oci "$chart_dir" \
   --set 'postgres.tls.enabled=false' \
   --set 'global.envplane.firstStartRegistration.mode=managed' \
   --set 'global.envplane.firstStartRegistration.project.id=envplane' \
@@ -92,10 +95,9 @@ if helm template missing-registry "$chart_dir" \
   --set 'global.envplane.firstStartRegistration.runner.deploymentMode=helm' \
   --set 'global.envplane.firstStartRegistration.cluster.id=bethunder-local' \
   --set 'global.envplane.sameClusterProjectExecutors.enabled=true' \
-  --set 'global.envplane.sameClusterProjectExecutors.namespace=envplane-executors' >/dev/null 2>&1; then
-  echo 'expected signed OCI registry Secret requirement to fail rendering' >&2
-  exit 1
-fi
+  --set 'global.envplane.sameClusterProjectExecutors.namespace=envplane-executors' \
+  >"$public_rendered"
+! rg -q 'ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET|executor-registry-config|HELM_REGISTRY_CONFIG' "$public_rendered"
 
 helm template project-agent "$chart_dir/../envplane-agent" \
   --set 'global.envplane.firstStartRegistration.mode=managed' \

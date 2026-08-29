@@ -1092,17 +1092,17 @@ func TestPlatformReconcilerIsOptInWhenNoProvidersAreConfigured(t *testing.T) {
 	}
 }
 
-func TestPlatformReconcilerRequiresRegistryCredentialsBeforeHooks(t *testing.T) {
-	chartPath := umbrellaChartPath(t)
-	cmd := exec.Command("helm", append([]string{"template", "envplane", chartPath}, withFixturePostgres([]string{
+func TestPlatformReconcilerUsesPublicArtifactsWithoutRegistryCredentials(t *testing.T) {
+	rendered := renderUmbrella(t, withFixturePostgres([]string{
 		"--set", "platformDependencyReconciler.enabled=true",
 		"--set", "platformDependencies.ingress.mode=existing",
 		"--set", "platformDependencies.ingress.existingClassName=ingress-nginx",
-	})...)...)
-	cmd.Dir = chartPath
-	output, err := cmd.CombinedOutput()
-	if err == nil || !strings.Contains(string(output), "platformDependencyReconciler requires") {
-		t.Fatalf("reconciler must fail with an actionable registry requirement, err=%v output=%s", err, output)
+	})...)
+	if !strings.Contains(rendered, "name: envplane-platform-reconciler") {
+		t.Fatalf("public reconciler artifacts must render without a registry Secret:\n%s", rendered)
+	}
+	if strings.Contains(rendered, "imagePullSecrets:") || strings.Contains(rendered, "registry-preflight") {
+		t.Fatalf("public reconciler render must not reference a registry Secret:\n%s", rendered)
 	}
 }
 

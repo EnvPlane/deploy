@@ -37,12 +37,6 @@
 {{- if and $sameClusterProjectExecutorsEnabled (or (eq $firstStartMode "disabled") (not $sameClusterProjectExecutorsNamespace)) -}}
 {{- fail "sameClusterProjectExecutors requires enabled firstStartRegistration and a namespace" -}}
 {{- end -}}
-{{- if and $sameClusterProjectExecutorsEnabled (not $executorRegistrySecret) -}}
-{{- fail "sameClusterProjectExecutors requires registry.existingSecret for signed OCI child charts" -}}
-{{- end -}}
-{{- if and $sameClusterProjectExecutorsEnabled (not $executorImagePullSecret) -}}
-{{- fail "sameClusterProjectExecutors requires registry.imagePullSecret in the executor namespace" -}}
-{{- end -}}
 {{- $e2eFixture := default (dict) (get $globalEnvPlane "e2eFixture") -}}
 {{- $e2eFixtureRecovery := default (dict) (get $e2eFixture "recovery") -}}
 {{- $globalBootstrapDefaults := default (dict) (get $globalEnvPlane "bootstrapDefaults") -}}
@@ -378,8 +372,10 @@ spec:
               value: "true"
             - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_NAMESPACE
               value: {{ $sameClusterProjectExecutorsNamespace | quote }}
+            {{- if $executorImagePullSecret }}
             - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET
               value: {{ $executorImagePullSecret | quote }}
+            {{- end }}
             {{- if $sameClusterProjectExecutorsAllowInsecureControlPlane }}
             - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ALLOW_INSECURE_CONTROL_PLANE
               value: "true"

@@ -307,6 +307,11 @@ jobs:
           cosign sign --yes "$ref"
           cosign attest --yes --predicate "$RUNNER_TEMP/compatibility-predicate.json" \
             --type https://envplane.dev/compatibility/v1 "$ref"
+      - name: Verify anonymous OCI pulls for the complete release
+        run: |
+          set -euo pipefail
+          ./scripts/verify-anonymous-oci-artifacts.sh \
+            --manifest deploy/helm/envplane/compatibility/release.json
       - name: Verify predecessor compatibility set
         env:
           PREVIOUS: ${{ steps.version.outputs.previous }}

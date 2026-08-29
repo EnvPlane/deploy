@@ -15,9 +15,10 @@ The operator must provide:
   bundled PostgreSQL/Redis or persistence is enabled;
 - an existing healthy Ingress controller, Gateway API implementation, DNS
   integration and/or storage provisioner when their mode is `existing`;
-- image-pull access to GHCR (or a private registry Secret) for every enabled
-  component;
-- existing Secret references for external PostgreSQL/Redis, registry pulls and
+- anonymous image pulls for every enabled EnvPlane component; or, only when an
+  operator deliberately selects a private mirror/workload, an existing registry
+  Secret in each required namespace;
+- existing Secret references for external PostgreSQL/Redis, optional registry pulls and
   provider credentials. Secret values are never placed in Git, values files or
   bootstrap sessions.
 
@@ -85,15 +86,16 @@ global:
 
 An individual project can still replace the default before bootstrap compile.
 
-## Same-cluster project executors and private registry access
+## Same-cluster project executors and optional private registry access
 
 When `global.envplane.sameClusterProjectExecutors.enabled` is true, project
-Agent/Runner releases run in its dedicated executor namespace. Kubernetes image
-pull Secrets are namespace-scoped: `envplane/envplane-ghcr` is not visible to
-Pods in `envplane-executors`. Materialize an identically named
-`kubernetes.io/dockerconfigjson` Secret in the executor namespace before
-enabling the reconciler. The executor pull Secret is referenced only by name;
-the chart never renders it and the control plane verifies only Secret metadata,
+Agent/Runner releases run in their dedicated executor namespace. Public
+EnvPlane OCI charts and runtime images pull anonymously by default, so neither
+the management nor executor namespace needs `envplane-ghcr`. Kubernetes image
+pull Secrets are namespace-scoped only for an operator-selected private mirror
+or private workload: materialize an identically named
+`kubernetes.io/dockerconfigjson` Secret in the executor namespace. The chart
+references only its name and the control plane verifies only Secret metadata,
 never credential data, through the Kubernetes API.
 
 For a local Minikube installation whose management registry Secret already

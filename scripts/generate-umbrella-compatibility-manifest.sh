@@ -29,7 +29,9 @@ image_json() {
   digest="$(awk -v s="$section" '$0==s":"{in_s=1} in_s&&$0!=s":"&&$0~/^[^[:space:]]/{exit} in_s&&$0~/^    digest:/{sub(/^    digest:[[:space:]]*/,""); gsub(/"/,""); print; exit}' "$values_file")"
   [[ "$tag" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "mutable/missing tag for $name" >&2; exit 1; }
   [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "missing digest for $name" >&2; exit 1; }
-  jq -cn --arg name "$name" --arg repository "$repository" --arg tag "$tag" --arg digest "$digest" '{name:$name,repository:$repository,tag:$tag,digest:$digest}'
+  jq -cn --arg name "$name" --arg repository "$repository" --arg tag "$tag" --arg digest "$digest" \
+    '{name:$name,repository:$repository,tag:$tag,digest:$digest,
+      attestations:{sbom:{required:true,mediaType:"application/spdx+json",subject:($repository+"@"+$digest)},provenance:{required:true,subject:($repository+"@"+$digest)}}}'
 }
 dep_json() {
   local name="$1" chart_repo="$2" report_key="$3" v selected
@@ -49,7 +51,8 @@ dep_json() {
   jq -cn --arg name "$name" --arg version "$v" --arg repository "$chart_repo" \
     --arg digest "$(jq -er '.digest' <<<"$selected")" \
     --arg sourceRevision "$(jq -er '.sourceRevision' <<<"$selected")" \
-    '{name:$name,version:$version,repository:$repository,digest:$digest,sourceRevision:$sourceRevision}'
+    '{name:$name,version:$version,repository:$repository,digest:$digest,sourceRevision:$sourceRevision,
+      attestations:{sbom:{required:true,mediaType:"application/spdx+json",subject:($repository+"@"+$digest)},provenance:{required:true,subject:($repository+"@"+$digest)}}}'
 }
 images="$(printf '%s\n' "$(image_json envplane-control-plane control-plane)" "$(image_json envplane-frontend frontend)" "$(image_json envplane-agent agent)" "$(image_json envplane-runner runner)" "$(image_json envplane-webhook webhook)" "$(image_json platformDependencyReconciler platform-reconciler)" | jq -s .)"
 charts="$(printf '%s\n' "$(dep_json envplane-control-plane oci://ghcr.io/envplane/envplane-control-plane controlPlane)" "$(dep_json envplane-frontend oci://ghcr.io/envplane/envplane-frontend frontend)" "$(dep_json envplane-agent oci://ghcr.io/envplane/envplane-agent agent)" "$(dep_json envplane-runner oci://ghcr.io/envplane/envplane-runner runner)" "$(dep_json envplane-webhook oci://ghcr.io/envplane/envplane-webhook webhook)" "$(dep_json envplane-e2e-workload oci://ghcr.io/envplane/envplane-e2e-workload e2eWorkload)" | jq -s .)"

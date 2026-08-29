@@ -104,14 +104,7 @@ private optional image when no external platform provider is configured.
     {{- $dependency := index $dependencies $name -}}
     {{- if ne (default "disabled" $dependency.mode) "disabled" }}{{- $configured = true -}}{{- end -}}
   {{- end -}}
-  {{- if not $configured -}}false{{- else -}}
-    {{- $registry := default (dict) (get (include "envplane.globalConfig" $ | fromJson) "registry") -}}
-    {{- $explicitPullSecrets := default (list) $.Values.platformDependencyReconciler.imagePullSecrets -}}
-    {{- if and (ne (default "disabled" $registry.mode) "existing") (eq (len $explicitPullSecrets) 0) -}}
-      {{- fail "platformDependencyReconciler requires global.envplane.registry.mode=existing with existingSecret, or platformDependencyReconciler.imagePullSecrets" -}}
-    {{- end -}}
-    true
-  {{- end -}}
+  {{- if not $configured -}}false{{- else -}}true{{- end -}}
 {{- end -}}
 {{- end -}}
 
