@@ -338,7 +338,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     --output "$activation_code_file" \
     --installation-id "$installation_id" \
     --tenant-id "$activation_tenant_id" \
-    --expires-in 12s
+    --expires-in 20s
   activation_code="$(<"$activation_code_file")"
   (
     cd "$frontend_dir"
