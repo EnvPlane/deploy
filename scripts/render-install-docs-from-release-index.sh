@@ -35,7 +35,7 @@ EOF
 
 cat > "$tmp/links" <<EOF
 <!-- envplane:stable-release-links:start -->
-Stable release: \`$version\` · [versioned installation guide](https://github.com/EnvPlane/deploy/blob/$revision/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
+Stable release: \`$version\` · [versioned installation guide](https://github.com/envplane/deploy/blob/$revision/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
 <!-- envplane:stable-release-links:end -->
 EOF
 

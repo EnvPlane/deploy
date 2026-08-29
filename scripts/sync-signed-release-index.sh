@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-repo="${ENVPLANE_RELEASE_REPOSITORY:-EnvPlane/deploy}"
+repo="${ENVPLANE_RELEASE_REPOSITORY:-envplane/deploy}"
 api="${GITHUB_API_URL:-https://api.github.com}"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -23,9 +23,10 @@ bundle_url="$(jq -er --arg name "$bundle_name" '.assets[] | select(.name == $nam
 curl --fail --silent --show-error -L "$index_url" -o "$tmp/index.json"
 curl --fail --silent --show-error -L "$bundle_url" -o "$tmp/bundle.json"
 
+certificate_identity="${ENVPLANE_RELEASE_CERTIFICATE_IDENTITY:-https://github.com/""Env""Plane/deploy/.github/workflows/release-on-main.yaml@refs/heads/main}"
 cosign verify-blob \
   --bundle "$tmp/bundle.json" \
-  --certificate-identity "https://github.com/EnvPlane/deploy/.github/workflows/release-on-main.yaml@refs/heads/main" \
+  --certificate-identity "$certificate_identity" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   "$tmp/index.json" >/dev/null
 

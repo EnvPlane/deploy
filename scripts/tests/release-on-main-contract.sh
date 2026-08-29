@@ -43,7 +43,10 @@ for required in \
   "helm push" \
   "cosign attest" \
   "Verify anonymous OCI pulls for the complete release" \
-  "gh release create"; do
+  "gh release create" \
+  "Update stable installation documentation" \
+  "render-install-docs-from-release-index.sh" \
+  'git -C "$docs_tree" push origin HEAD:refs/heads/main'; do
   grep -Fq "$required" "$workflow" || { echo "workflow missing: $required" >&2; exit 1; }
 done
 

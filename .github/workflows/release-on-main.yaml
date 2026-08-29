@@ -366,3 +366,24 @@ jobs:
               --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
               --notes "OCI chart: oci://ghcr.io/envplane/envplane:$VERSION\nDigest: $DIGEST"
           fi
+      - name: Update stable installation documentation
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          docs_tree="$RUNNER_TEMP/install-docs"
+          git fetch origin main
+          git worktree add --detach "$docs_tree" origin/main
+          mkdir -p "$docs_tree/docs/generated"
+          cp "dist/envplane-$VERSION-release-index.json" \
+            "$docs_tree/docs/generated/stable-release-index.json"
+          "$docs_tree/scripts/render-install-docs-from-release-index.sh"
+          git -C "$docs_tree" config user.name "envplane-release-bot"
+          git -C "$docs_tree" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$docs_tree" add README.md docs/installation.md docs/generated/stable-release-index.json
+          if git -C "$docs_tree" diff --cached --quiet; then
+            echo "stable installation documentation is already current"
+            exit 0
+          fi
+          git -C "$docs_tree" commit -m "Update stable installation documentation to $VERSION"
+          git -C "$docs_tree" push origin HEAD:refs/heads/main

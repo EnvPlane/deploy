@@ -16,7 +16,7 @@ helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.13
 <!-- envplane:canonical-install-command:end -->
 
 <!-- envplane:stable-release-links:start -->
-Stable release: `0.4.138` · [versioned installation guide](https://github.com/EnvPlane/deploy/blob/f61abe425c44e41abbbf3da3650ee5bd861b9d8f/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
+Stable release: `0.4.138` · [versioned installation guide](https://github.com/envplane/deploy/blob/f61abe425c44e41abbbf3da3650ee5bd861b9d8f/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
 <!-- envplane:stable-release-links:end -->
 
 Then verify the workloads and open first-run:
