@@ -33,13 +33,15 @@ minikube profiles or cloud infrastructure.
 On a support-matrix cluster with a default StorageClass, the safe baseline is
 one command and needs no values file or pre-created Secret:
 
-```sh
+<!-- envplane:canonical-install-command:start -->
+```bash
 helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
   --version <published-umbrella-version> \
   --namespace envplane \
   --create-namespace \
   --wait
 ```
+<!-- envplane:canonical-install-command:end -->
 
 The chart installs API, frontend, internal PostgreSQL/Redis, same-cluster Agent
 and Runner, retained PVCs, and a Helm-managed registration Secret. It creates no
@@ -60,6 +62,46 @@ envplane-control-plane:
 never be put in values. Remote execution targets are configured after this
 install through the authenticated UI/API RemoteCluster flow, not values or
 manual child-chart commands. See [API-managed remote clusters](remote-clusters.md).
+
+## Preflight and post-install handoff
+
+Before installing, run the idempotent diagnostic helper. It checks Kubernetes
+API access, the default StorageClass, the Helm caller's required RBAC, and an
+anonymous pull of the selected immutable chart. It neither reads nor prints
+Secret data, and it never creates cluster resources:
+
+```sh
+scripts/envplane-install-preflight.sh \
+  --version <published-umbrella-version> \
+  --namespace envplane \
+  --output envplane-preflight-values.yaml
+```
+
+If it reports a missing StorageClass, ask the platform owner to configure one
+or select a supported class in an operator values file. If it reports RBAC,
+grant exactly the displayed permission to the Helm caller, then rerun. If the
+anonymous pull fails, fix outbound registry access or choose a published version;
+do not add a registry Secret for public EnvPlane artifacts.
+
+The canonical command stays unchanged. If you deliberately generated an
+explicit StorageClass override, add only this flag to it:
+
+```sh
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
+  --version <published-umbrella-version> \
+  --namespace envplane --create-namespace --wait \
+  --values envplane-preflight-values.yaml
+```
+
+After Helm reports success, use the same commands printed in NOTES:
+
+```sh
+kubectl -n envplane rollout status deployment/envplane-control-plane --timeout=10m
+kubectl -n envplane rollout status deployment/envplane-frontend --timeout=10m
+kubectl -n envplane port-forward svc/envplane-frontend 3000:3000
+```
+
+Open <http://127.0.0.1:3000> to start first-run onboarding.
 
 ## Helm Direct bootstrap default
 
@@ -319,6 +361,22 @@ Helm owns the core release and its child resources; external detected
 capabilities are never adopted or deleted. Managed providers are removed only
 when their configured ownership and cleanup policy permit it. Back up
 database/PVC data before rollback or uninstall.
+
+For a failed published upgrade, inspect the release and restore a known-good
+revision without changing values or deleting data:
+
+```sh
+helm status envplane --namespace envplane
+helm history envplane --namespace envplane
+helm rollback envplane <known-good-revision> --namespace envplane --wait --timeout 15m
+```
+
+To remove the product workloads, use the same release and namespace. This does
+not delete retained PVC data, external dependencies or operator-managed Secrets:
+
+```sh
+helm uninstall envplane --namespace envplane --wait
+```
 
 The repository's `scripts/minikube-*.sh` and clean-install scripts are retained solely for
 automated test fixtures. They are not required for, or part of, the production

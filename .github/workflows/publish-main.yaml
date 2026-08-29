@@ -20,6 +20,8 @@ on:
       - 'scripts/test-umbrella-chart-dependency-update.sh'
       - 'scripts/verify-umbrella-reinstall-compatibility.sh'
       - 'scripts/verify-anonymous-oci-artifacts.sh'
+      - 'scripts/envplane-install-preflight.sh'
+      - 'scripts/tests/install-command-contract.sh'
       - 'scripts/tests/test-publish-selected-child-charts.sh'
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
       - 'scripts/tests/release-on-main-contract.sh'
@@ -82,6 +84,7 @@ jobs:
           ./scripts/tests/test-publish-selected-child-charts.sh
           ./scripts/tests/test-generate-umbrella-compatibility-manifest.sh
           ./scripts/tests/test-verify-changed-child-chart-versions.sh
+          ./scripts/tests/install-command-contract.sh
           ./scripts/test-umbrella-chart-dependency-update.sh
       - uses: azure/setup-helm@v5
       - uses: oras-project/setup-oras@v2

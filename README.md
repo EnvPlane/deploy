@@ -13,20 +13,25 @@ fixtures for [EnvPlane](https://envplane.dev).
 
 ## Installation
 
-The supported same-cluster installation uses one umbrella release:
+The supported same-cluster installation uses one immutable umbrella release;
+`latest` is never a supported version selector:
 
+<!-- envplane:canonical-install-command:start -->
 ```bash
 helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
-  --version <version> \
+  --version <published-umbrella-version> \
   --namespace envplane \
   --create-namespace \
-  -f values.yaml
+  --wait
 ```
+<!-- envplane:canonical-install-command:end -->
 
-The existing OCI coordinates are retained for compatibility with the current
-release pipeline. Review values and use a versioned chart before installing.
-See [`deploy/helm`](deploy/helm) and
-[`docs/remote-clusters.md`](docs/remote-clusters.md) for configuration.
+Helm prints the next step: run its `kubectl port-forward` command, then open
+`http://127.0.0.1:3000` for first-run. For a preflight that only diagnoses the
+cluster and writes a non-secret StorageClass override, run
+`scripts/envplane-install-preflight.sh --version <published-umbrella-version>`.
+See [`docs/installation.md`](docs/installation.md) for preflight, upgrade,
+rollback and recovery commands.
 
 ## Local validation
 

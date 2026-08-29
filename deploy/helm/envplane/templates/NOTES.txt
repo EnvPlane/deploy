@@ -7,6 +7,15 @@ Job, nested Helm invocation, or cluster-wide installer RBAC is created.
 Frontend service:
   envplane-frontend (or envplane-frontend.fullnameOverride when configured)
 
+Release readiness:
+
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "envplane-control-plane.fullname" . }} --timeout=10m
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "envplane-frontend.fullname" . }} --timeout=10m
+
+First-run URL:
+
+  http://127.0.0.1:3000
+
 The zero-values release enables same-cluster Agent and Runner with Helm-managed
 registration credentials. Remote execution clusters are created and repaired
 through the authenticated Remote Clusters API/UI; the management-cluster
