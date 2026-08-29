@@ -64,5 +64,27 @@ if [[ -n "$artifact_report" ]]; then
   }
 fi
 mkdir -p "$(dirname "$output")"
-jq -n --arg version "$version" --arg sourceRevision "$source_revision" --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson images "$images" --argjson charts "$charts" '{schemaVersion:1,umbrella:{name:"envplane",version:$version},sourceRevision:$sourceRevision,generatedAt:$generatedAt,images:$images,childCharts:$charts}' > "$output"
+# installFlow is part of the signed umbrella predicate. It is intentionally
+# additive to schemaVersion 1 so older consumers continue to use immutable
+# image/chart pins while new install runtimes can reject incompatible flow
+# contracts before mutating persisted onboarding or activation state.
+jq -n --arg version "$version" --arg sourceRevision "$source_revision" --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson images "$images" --argjson charts "$charts" '
+  {
+    schemaVersion:1,
+    umbrella:{name:"envplane",version:$version},
+    sourceRevision:$sourceRevision,
+    generatedAt:$generatedAt,
+    installFlow:{
+      schemaVersion:"v1",
+      firstRun:{contractVersion:"v1",existingInstallPolicy:"preserve_without_reonboarding"},
+      activation:{contractVersion:"v1",legacyPolicy:"migrate_or_report_typed_error"},
+      rollout:{defaultMode:"legacy",canaryTelemetry:true,rollbackMode:"legacy"},
+      deprecations:[
+        {path:"global.envplane.auth.existingSecret",replacement:"settings.authentication",removal:"next_major"},
+        {path:"global.envplane.remoteControlPlane",replacement:"managementEndpointProfile",removal:"next_major"}
+      ]
+    },
+    images:$images,
+    childCharts:$charts
+  }' > "$output"
 echo "generated compatibility manifest: $output"

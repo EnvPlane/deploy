@@ -40,6 +40,20 @@ jq -n \
   --artifact-report "$tmp/artifacts.json" \
   --output "$tmp/release.json" >/dev/null
 
-jq -e '(.images | length == 6) and (.childCharts | length == 6) and all((.images + .childCharts)[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and .attestations.sbom.required == true and .attestations.provenance.required == true) and all(.childCharts[]; (.sourceRevision | test("^[0-9a-f]{40}$")))' "$tmp/release.json" >/dev/null
+jq -e '
+  (.images | length == 6) and
+  (.childCharts | length == 6) and
+  .installFlow.schemaVersion == "v1" and
+  .installFlow.firstRun.contractVersion == "v1" and
+  .installFlow.firstRun.existingInstallPolicy == "preserve_without_reonboarding" and
+  .installFlow.activation.contractVersion == "v1" and
+  .installFlow.activation.legacyPolicy == "migrate_or_report_typed_error" and
+  .installFlow.rollout.defaultMode == "legacy" and
+  .installFlow.rollout.canaryTelemetry == true and
+  .installFlow.rollout.rollbackMode == "legacy" and
+  (.installFlow.deprecations | length == 2) and
+  all((.images + .childCharts)[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and .attestations.sbom.required == true and .attestations.provenance.required == true) and
+  all(.childCharts[]; (.sourceRevision | test("^[0-9a-f]{40}$")))
+' "$tmp/release.json" >/dev/null
 
 echo "immutable child-chart compatibility manifest regression is valid"
