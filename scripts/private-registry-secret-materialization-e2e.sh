@@ -287,6 +287,21 @@ if ! jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$s
   echo "SM-09 materialization did not reach ready" >&2
   exit 1
 fi
+environment_release="default-$environment"
+for _ in $(seq 1 180); do
+  environment_status="$(api_curl "$api/api/v1/environments/$environment")"
+  jq -e '.status == "running" and (.url | type == "string" and length > 0)' <<<"$environment_status" >/dev/null 2>&1 && break
+  sleep 2
+done
+if ! jq -e '.status == "running" and (.url | type == "string" and length > 0)' <<<"$environment_status" >/dev/null; then
+  jq -c '{status: (.status // ""), url: (.url // ""), error: (.error // "")}' <<<"$environment_status" >&2
+  echo "SM-11 clean-install environment did not reach Running with a URL" >&2
+  exit 1
+fi
+kubectl --context "kind-$cluster" -n "$target_namespace" rollout status deployment -l "app.kubernetes.io/instance=$environment_release" --timeout=5m
+kubectl --context "kind-$cluster" -n "$target_namespace" get pods -l "app.kubernetes.io/instance=$environment_release" -o json |
+  jq -e '.items | length > 0 and all(.[]; .status.phase == "Running")' >/dev/null
+echo "SM-11 clean-install environment running: $(jq -r '.url' <<<"$environment_status")"
 ! grep -Fq "$registry_password" "$tmp"/*.json "$tmp"/*.log 2>/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config >/dev/null
