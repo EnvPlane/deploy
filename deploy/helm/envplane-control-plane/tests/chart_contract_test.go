@@ -399,6 +399,25 @@ func TestControlPlaneChartCreatesNameScopedAuthenticationManagedSecret(t *testin
 	}
 }
 
+func TestControlPlaneChartMountsOnlyPublicActivationVerificationConfiguration(t *testing.T) {
+	rendered := renderControlPlaneChart(t)
+	for _, expected := range []string{
+		"name: ENVPLANE_ACTIVATION_PUBLIC_KEYS_JSON",
+		`value: "[]"`,
+		"name: ENVPLANE_ACTIVATION_ISSUER_URL",
+		`value: ""`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("activation verification configuration missing %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{"ENVPLANE_ACTIVATION_PRIVATE_KEY", "ISSUER_SIGNER_URL", "privateKey"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("control-plane chart must not mount issuer signing material %q:\n%s", forbidden, rendered)
+		}
+	}
+}
+
 func TestControlPlaneChartUsesPodNamespaceForRemoteClusterLeaderElection(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
 		"--namespace", "management-system",

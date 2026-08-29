@@ -214,6 +214,10 @@ commercialization:
       key: webhook-secret
   license:
     publicKeysJSON: "{}"
+    # Activation verification keys are public issuer metadata. Private signing
+    # keys never belong in this chart or in the control-plane runtime.
+    activationPublicKeysJSON: "[]"
+    activationIssuerURL: ""
     graceDays: 14
 
 postgres:

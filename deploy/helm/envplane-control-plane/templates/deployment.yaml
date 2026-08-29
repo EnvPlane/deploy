@@ -355,6 +355,10 @@ spec:
             {{- end }}
             - name: ENVPLANE_LICENSE_PUBLIC_KEYS_JSON
               value: {{ default "{}" (get $license "publicKeysJSON") | quote }}
+            - name: ENVPLANE_ACTIVATION_PUBLIC_KEYS_JSON
+              value: {{ default "[]" (get $license "activationPublicKeysJSON") | quote }}
+            - name: ENVPLANE_ACTIVATION_ISSUER_URL
+              value: {{ default "" (get $license "activationIssuerURL") | quote }}
             - name: ENVPLANE_LICENSE_GRACE_DAYS
               value: {{ default 14 (get $license "graceDays") | quote }}
             - name: ENVPLANE_REMOTE_CLUSTER_RECONCILER_ENABLED

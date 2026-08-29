@@ -376,6 +376,8 @@ envplane-control-plane:
         key: webhook-secret
     license:
       publicKeysJSON: "{}"
+      activationPublicKeysJSON: "[]"
+      activationIssuerURL: ""
       graceDays: 14
   # Empty means the same-cluster Service FQDN. Set only for an Agent installed
   # in another cluster, where the endpoint must be explicitly pod-reachable.
