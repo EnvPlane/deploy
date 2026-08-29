@@ -305,6 +305,10 @@ grep -Fq 'deployment\":{\"backend\":\"helm_direct' "$secret_lifecycle_harness" |
   echo "private-registry lifecycle harness must persist the Helm Direct deployment contract before compilation" >&2
   exit 1
 }
+if grep -Eq '^envplane-(frontend|webhook):[[:space:]]*$' "$secret_lifecycle_harness"; then
+  echo "private-registry lifecycle harness must not erase signed component image pins with empty values" >&2
+  exit 1
+fi
 grep -Fq '/bootstrap-session/helm-direct/preflight' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must exercise Runner Helm chart preflight before compilation" >&2
   exit 1

@@ -156,7 +156,6 @@ envplane-control-plane:
   license:
     activationPublicKeysJSON: '$activation_public_keys_json'
     graceDays: 0
-envplane-frontend:
 envplane-runner:
   controlPlane:
     namespace: $namespace
@@ -165,7 +164,6 @@ envplane-runner:
   rbac:
     featureEnvWriter:
       namespaces: [$target_namespace]
-envplane-webhook:
 EOF
 helm upgrade --install "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" --create-namespace --values "$base_values" --values "$values" --wait --timeout 15m
 if kubectl --context "kind-$cluster" -n "$namespace" get secret release-registry-pull >/dev/null 2>&1; then

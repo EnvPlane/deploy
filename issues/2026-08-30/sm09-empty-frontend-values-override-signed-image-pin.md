@@ -11,3 +11,8 @@ The compatibility guard correctly fails the install.
 
 Remove no-op null component mappings from the harness overlay so the packaged
 umbrella's signed image values remain effective.
+
+## Resolution
+
+Removed the empty frontend and webhook mappings. The release workflow contract
+now rejects future null component mappings that could erase signed image pins.
