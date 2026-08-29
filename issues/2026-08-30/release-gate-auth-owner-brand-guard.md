@@ -10,3 +10,8 @@ human-readable product branding in source files.
 
 Derive the App owner from the GitHub workflow context while retaining the
 cross-repository read-token behavior.
+
+## Resolution
+
+The workflow now derives `GH_APP_OWNER` from `github.repository_owner`, which
+preserves App installation lookup without adding a brand-guarded literal.

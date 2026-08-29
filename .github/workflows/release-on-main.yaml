@@ -128,7 +128,7 @@ jobs:
         env:
           ENVPLANE_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
           ENVPLANE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
-          GH_APP_OWNER: EnvPlane
+          GH_APP_OWNER: ${{ github.repository_owner }}
           GH_APP_REPOSITORY: deploy
           GH_APP_TOKEN_PERMISSIONS: '{"contents":"read"}'
         run: ./scripts/obtain-github-app-token.sh
