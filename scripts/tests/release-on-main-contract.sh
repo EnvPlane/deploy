@@ -283,7 +283,8 @@ grep -Fq 'ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE' "$secret_lifecycle_harness" &&
   exit 1
 }
 grep -Fq 'cmd/e2e-activation-fixture sign' "$secret_lifecycle_harness" &&
-  grep -Fq 'activationPublicKeysJSON:' "$secret_lifecycle_harness" || {
+  grep -Fq 'activationPublicKeysJSON:' "$secret_lifecycle_harness" &&
+  grep -Fq 'graceDays: 0' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must use an ephemeral public-key-bound activation fixture" >&2
   exit 1
 }

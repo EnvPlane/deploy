@@ -155,6 +155,7 @@ envplane-control-plane:
     ENVPLANE_API_WRITE_TOKEN: $api_token
   license:
     activationPublicKeysJSON: '$activation_public_keys_json'
+    graceDays: 0
 envplane-frontend:
 envplane-runner:
   controlPlane:
