@@ -17,8 +17,18 @@ environment="${ENVPLANE_SM09_ENVIRONMENT:-sm09-private-registry}"
 release="${ENVPLANE_SM09_RELEASE:-envplane-sm09}"
 workload_chart_ref="${ENVPLANE_SM09_WORKLOAD_CHART_REF:-oci://ghcr.io/envplane/envplane-e2e-workload}"
 workload_chart_version="${ENVPLANE_SM09_WORKLOAD_CHART_VERSION:-0.1.0}"
+first_run_browser_gate="${ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE:-0}"
+frontend_dir="${ENVPLANE_SM09_FRONTEND_DIR:-}"
 tmp="$(mktemp -d)"
 pids=()
+
+case "$first_run_browser_gate" in
+  0|1) ;;
+  *) echo "ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE must be 0 or 1" >&2; exit 2 ;;
+esac
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  [[ -n "$frontend_dir" && -f "$frontend_dir/package.json" ]] || { echo "ENVPLANE_SM09_FRONTEND_DIR must contain the compatible frontend source" >&2; exit 2; }
+fi
 
 cleanup() {
   exit_status=$?
@@ -52,6 +62,9 @@ trap cleanup EXIT
 
 for bin in docker kind kubectl helm curl jq; do command -v "$bin" >/dev/null || { echo "missing $bin" >&2; exit 2; }; done
 [[ -f "$ENVPLANE_SM09_CHART" ]] || { echo "packaged umbrella chart is missing" >&2; exit 2; }
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  command -v go >/dev/null || { echo "missing go required for the ephemeral activation fixture" >&2; exit 2; }
+fi
 
 # Credentials are generated only in memory/files with restrictive permissions.
 # Neither `set -x` nor an echo of these values is permitted in this harness.
@@ -96,6 +109,16 @@ kubectl --context "kind-$cluster" create namespace "$namespace"
 base_values="$(dirname "$0")/../deploy/helm/envplane/values-e2e-local.yaml"
 values="$tmp/sm09-values.yaml"
 api_token="$(openssl rand -hex 32)"
+activation_public_keys_json="[]"
+activation_private_key=""
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  activation_private_key="$tmp/activation-private-key"
+  activation_public_keys="$tmp/activation-public-keys.json"
+  go run ./cmd/e2e-activation-fixture generate \
+    --private-key-output "$activation_private_key" \
+    --public-keys-output "$activation_public_keys"
+  activation_public_keys_json="$(<"$activation_public_keys")"
+fi
 cat >"$values" <<EOF
 global:
   envplane:
@@ -130,6 +153,8 @@ envplane-control-plane:
   env:
     ENVPLANE_ENABLE_RELEASE_TEST_CONTROLS: "1"
     ENVPLANE_API_WRITE_TOKEN: $api_token
+  license:
+    activationPublicKeysJSON: '$activation_public_keys_json'
 envplane-frontend:
 envplane-runner:
   controlPlane:
@@ -159,6 +184,11 @@ kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envp
 api_port=18080
 kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane "$api_port:8080" >"$tmp/port-forward.log" 2>&1 & pids+=("$!")
 api="http://127.0.0.1:$api_port"
+frontend_port=13000
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-frontend --timeout=5m
+  kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-frontend "$frontend_port:3000" >"$tmp/frontend-port-forward.log" 2>&1 & pids+=("$!")
+fi
 tenant_id="${ENVPLANE_SM09_TENANT_ID:-default}"
 api_curl() {
   curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@"
@@ -291,6 +321,39 @@ kubectl --context "kind-$cluster" -n "$target_namespace" rollout status deployme
 kubectl --context "kind-$cluster" -n "$target_namespace" get pods -l "app.kubernetes.io/instance=$environment_release" -o json |
   jq -e '.items | length > 0 and all(.[]; .status.phase == "Running")' >/dev/null
 echo "SM-11 clean-install environment running: $(jq -r '.url' <<<"$environment_status")"
+
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  for _ in $(seq 1 60); do
+    setup_token="$(kubectl --context "kind-$cluster" -n "$namespace" get secret -l envplane.io/managed-secret=authentication -o jsonpath='{.items[0].data.setup-token}' 2>/dev/null | base64 --decode 2>/dev/null || true)"
+    [[ -n "$setup_token" ]] && break
+    sleep 1
+  done
+  [[ -n "${setup_token:-}" ]] || { echo "clean-install setup credential was not created" >&2; exit 1; }
+  activation_identity="$(api_curl "$api/api/v1/license/activation/identity")"
+  installation_id="$(jq -er '.installationId' <<<"$activation_identity")"
+  activation_tenant_id="$(jq -er '.tenantId' <<<"$activation_identity")"
+  activation_code_file="$tmp/first-run-activation-code"
+  go run ./cmd/e2e-activation-fixture sign \
+    --private-key "$activation_private_key" \
+    --output "$activation_code_file" \
+    --installation-id "$installation_id" \
+    --tenant-id "$activation_tenant_id" \
+    --expires-in 12s
+  activation_code="$(<"$activation_code_file")"
+  (
+    cd "$frontend_dir"
+    ENVPLANE_DISABLE_WEB_SERVER=1 \
+    ENVPLANE_E2E_REAL_CLUSTER=1 \
+    ENVPLANE_E2E_FIRST_RUN=1 \
+    ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token" \
+    ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code" \
+    ENVPLANE_E2E_FIRST_RUN_EXPECT_EXPIRED=1 \
+    ENVPLANE_E2E_FIRST_RUN_ASSERT_FAIL_CLOSED=1 \
+    ENVPLANE_E2E_BASE_URL="http://127.0.0.1:$frontend_port" \
+    ENVPLANE_E2E_API_URL="$api" \
+    npm run test:e2e:real -- --grep "claims, resumes, verifies lifecycle evidence"
+  )
+fi
 ! grep -Fq "$registry_password" "$tmp"/*.json "$tmp"/*.log 2>/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config >/dev/null
