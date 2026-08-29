@@ -10,3 +10,9 @@ drift gate correctly blocks release publication.
 
 Bump the changed child chart version, update the umbrella dependency and lock,
 and rebuild the vendored archive from the canonical chart source.
+
+## Resolution
+
+Bumped the control-plane chart to 0.3.45, updated the umbrella dependency and
+lock, and regenerated its vendored archive. The vendored drift gate and both
+affected chart contract test suites pass.

@@ -6,7 +6,7 @@ version: 0.3.49
 appVersion: "0.3.49"
 dependencies:
   - name: envplane-control-plane
-    version: 0.3.44
+    version: 0.3.45
     repository: file://../envplane-control-plane
     condition: controlPlane.enabled
   - name: envplane-frontend
