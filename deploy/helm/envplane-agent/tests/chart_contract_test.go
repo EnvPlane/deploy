@@ -275,6 +275,9 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 			t.Fatalf("namespace-scoped discovery missing %q:\n%s", expected, namespaceScoped)
 		}
 	}
+	if strings.Count(namespaceScoped, "name: envplane-agent-discovery-reader-binding") != 2 {
+		t.Fatalf("namespace-scoped discovery must render one uniquely named RoleBinding per namespace:\n%s", namespaceScoped)
+	}
 	for _, forbidden := range []string{"kind: ClusterRole", "kind: ClusterRoleBinding", "ingressclasses", "customresourcedefinitions", "storageclasses"} {
 		if strings.Contains(namespaceScoped, forbidden) {
 			t.Fatalf("namespace-scoped discovery must omit cluster RBAC %q:\n%s", forbidden, namespaceScoped)
