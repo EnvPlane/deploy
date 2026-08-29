@@ -15,6 +15,6 @@ GitHub Release and signed stable index.
 
 ## Resolution
 
-Set the existing `EnvPlane/envplane` container package visibility to public in
+Set the existing `envplane/envplane` container package visibility to public in
 GitHub Packages. Keep `verify-anonymous-oci-artifacts.sh` after publication so
 future releases fail closed if public access regresses.
