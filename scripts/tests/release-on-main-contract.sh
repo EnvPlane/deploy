@@ -51,6 +51,17 @@ grep -Fq 'verify-anonymous-oci-artifacts.sh' "$workflow" || {
   echo "release must verify anonymous OCI pulls after publication" >&2; exit 1;
 }
 
+for signed_index_contract in \
+  'generate-public-release-index.sh' \
+  'cosign sign-blob --yes' \
+  'release-index.json' \
+  'release-index.sigstore.json'; do
+  grep -Fq "$signed_index_contract" "$workflow" || {
+    echo "release workflow is missing signed public index contract: $signed_index_contract" >&2
+    exit 1
+  }
+done
+
 grep -Fq 'docker pull --platform' "$anonymous_oci_harness" || {
   echo "anonymous OCI harness must pull both image architectures" >&2; exit 1;
 }

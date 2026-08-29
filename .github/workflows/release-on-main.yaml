@@ -307,6 +307,19 @@ jobs:
           cosign sign --yes "$ref"
           cosign attest --yes --predicate "$RUNNER_TEMP/compatibility-predicate.json" \
             --type https://envplane.dev/compatibility/v1 "$ref"
+      - name: Generate and sign public stable release index
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          ./scripts/generate-public-release-index.sh \
+            --version "$VERSION" --digest "$DIGEST" \
+            --source-revision "$GITHUB_SHA" \
+            --output "dist/envplane-$VERSION-release-index.json"
+          cosign sign-blob --yes \
+            --bundle "dist/envplane-$VERSION-release-index.sigstore.json" \
+            "dist/envplane-$VERSION-release-index.json"
       - name: Verify anonymous OCI pulls for the complete release
         run: |
           set -euo pipefail
@@ -341,6 +354,8 @@ jobs:
             "dist/envplane-$VERSION.tgz"
             "deploy/helm/envplane/compatibility/release.json"
             "dist/envplane-$VERSION-release.json"
+            "dist/envplane-$VERSION-release-index.json"
+            "dist/envplane-$VERSION-release-index.sigstore.json"
           )
           if gh release view "$tag" --repo EnvPlane/deploy >/dev/null 2>&1; then
             gh release upload "$tag" "${assets[@]}" --repo EnvPlane/deploy --clobber
