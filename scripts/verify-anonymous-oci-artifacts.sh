@@ -45,6 +45,10 @@ done < <(jq -r '.childCharts[] | [.repository, .version] | @tsv' "$manifest")
 while IFS=$'\t' read -r repository digest; do
   for platform in linux/amd64 linux/arm64; do
     docker pull --platform "$platform" "$repository@$digest" >/dev/null
+    # A manifest-list digest resolves to a platform-specific image in the
+    # classic Docker store. Remove that disposable reference so the next
+    # architecture can be pulled under the same immutable digest.
+    docker image rm --force "$repository@$digest" >/dev/null
   done
 done < <(jq -r '.images[] | [.repository, .digest] | @tsv' "$manifest")
 

@@ -66,6 +66,10 @@ grep -Fq 'docker pull --platform' "$anonymous_oci_harness" || {
   echo "anonymous OCI harness must pull both image architectures" >&2; exit 1;
 }
 
+grep -Fq 'docker image rm --force' "$anonymous_oci_harness" || {
+  echo "anonymous OCI harness must isolate platform pulls in the local image store" >&2; exit 1;
+}
+
 grep -Fq 'helm pull oci://ghcr.io/envplane/envplane' "$anonymous_oci_harness" || {
   echo "anonymous OCI harness must pull the umbrella without login" >&2; exit 1;
 }
