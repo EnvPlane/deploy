@@ -278,6 +278,9 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 	if strings.Count(namespaceScoped, "name: envplane-agent-discovery-reader-binding") != 2 {
 		t.Fatalf("namespace-scoped discovery must render one uniquely named RoleBinding per namespace:\n%s", namespaceScoped)
 	}
+	if strings.Contains(namespaceScoped, "discovery-reader---") {
+		t.Fatalf("namespace-scoped discovery must preserve YAML document boundaries:\n%s", namespaceScoped)
+	}
 	for _, forbidden := range []string{"kind: ClusterRole", "kind: ClusterRoleBinding", "ingressclasses", "customresourcedefinitions", "storageclasses"} {
 		if strings.Contains(namespaceScoped, forbidden) {
 			t.Fatalf("namespace-scoped discovery must omit cluster RBAC %q:\n%s", forbidden, namespaceScoped)
@@ -360,6 +363,35 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 	)
 	if !strings.Contains(external, "serviceAccountName: platform-agent") || strings.Contains(external, "kind: ClusterRole") || strings.Contains(external, "kind: ServiceAccount") {
 		t.Fatalf("existing ServiceAccount/external RBAC render is incorrect:\n%s", external)
+	}
+}
+
+func TestAgentChartPreservesMaterializationRBACDocumentBoundaries(t *testing.T) {
+	rendered := renderAgentChart(t,
+		"--set", "rbac.materialization.enabled=true",
+		"--set", "rbac.materialization.items[0].id=registry",
+		"--set", "rbac.materialization.items[0].sourceNamespace=base",
+		"--set", "rbac.materialization.items[0].sourceName=registry-source",
+		"--set", "rbac.materialization.items[0].targetNamespace=target",
+		"--set", "rbac.materialization.items[0].targetName=registry-pull",
+		"--set", "rbac.materialization.items[1].id=application",
+		"--set", "rbac.materialization.items[1].sourceNamespace=base",
+		"--set", "rbac.materialization.items[1].sourceName=application-source",
+		"--set", "rbac.materialization.items[1].targetNamespace=target",
+		"--set", "rbac.materialization.items[1].targetName=application-config",
+	)
+	for _, expected := range []string{
+		"name: envplane-agent-secret-source-registry-binding",
+		"name: envplane-agent-secret-target-registry-binding",
+		"name: envplane-agent-secret-source-application-binding",
+		"name: envplane-agent-secret-target-application-binding",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("materialization RBAC missing uniquely named binding %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "secret-target-registry---") {
+		t.Fatalf("materialization RBAC must preserve YAML document boundaries:\n%s", rendered)
 	}
 }
 

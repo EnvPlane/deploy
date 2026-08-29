@@ -93,7 +93,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ $fullName }}-discovery-reader
-{{- end }}
+{{ end }}
 {{- if or $clusterCapabilityRead $namespaceMetadataRead $namespaceInventoryRead }}
 ---
 # Project-owned same-cluster Agents use namespace-scoped discovery for
