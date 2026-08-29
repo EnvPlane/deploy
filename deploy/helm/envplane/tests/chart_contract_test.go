@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -1493,15 +1494,37 @@ func TestInstallationDocsQuickStartSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	advanced, err := os.ReadFile("../../../../docs/installation-advanced.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexBytes, err := os.ReadFile("../../../../docs/generated/stable-release-index.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var releaseIndex struct {
+		Install struct {
+			Command string `json:"command"`
+		} `json:"install"`
+	}
+	if err := json.Unmarshal(indexBytes, &releaseIndex); err != nil {
+		t.Fatal(err)
+	}
+	if releaseIndex.Install.Command == "" || !strings.Contains(string(docs), releaseIndex.Install.Command) {
+		t.Fatal("installation docs do not contain the signed release-index command")
+	}
 	contents := string(docs)
 	for _, expected := range []string{
-		"helm upgrade --install envplane oci://ghcr.io/envplane/envplane",
-		"--version <published-umbrella-version>", "--namespace envplane", "one command",
-		"auto", "managed", "existing", "disabled", "Kubernetes 1.26",
-		"Private registry", "minikube-", "not required",
+		"Kubernetes 1.26", "Free limits and activation", "## Upgrade", "## Uninstall",
+		"## Troubleshooting", "does not require", "manual child-chart assembly",
 	} {
 		if !strings.Contains(contents, expected) {
 			t.Fatalf("installation docs missing %q", expected)
+		}
+	}
+	for _, expected := range []string{"Production hardening", "Private registry or mirror", "External PostgreSQL and Redis", "auto", "managed", "existing"} {
+		if !strings.Contains(string(advanced), expected) {
+			t.Fatalf("advanced installation docs missing %q", expected)
 		}
 	}
 	for _, forbidden := range []string{"helm install envplane-control-plane", "installer Job is required"} {

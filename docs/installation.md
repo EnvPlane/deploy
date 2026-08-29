@@ -83,7 +83,8 @@ Installing or upgrading the chart never silently changes the active plan.
 
 Read the target release's versioned guide and back up retained database/PVC
 data. Keep non-secret operator choices in one values file, then use the wrapper,
-which resets chart defaults before applying the new signed artifact set:
+which resets chart defaults before applying the signed compatibility manifest
+and its immutable artifact set:
 
 ```bash
 scripts/upgrade-umbrella.sh \
@@ -94,8 +95,9 @@ scripts/upgrade-umbrella.sh \
   --operator-values values.yaml
 ```
 
-Do not use `--reuse-values`; it can retain stale nested image selections. If no
-operator values are needed, use an empty, non-secret YAML document (`{}`).
+The wrapper always passes `--reset-values`. Do not replace it with
+`--reuse-values`; that can retain stale nested image selections. If no operator
+values are needed, use an empty, non-secret YAML document (`{}`).
 
 For rollback:
 
