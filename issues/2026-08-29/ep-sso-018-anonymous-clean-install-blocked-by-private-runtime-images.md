@@ -5,17 +5,15 @@ The existing disposable clean-cluster harness
 GHCR credential from `~/.docker/config.json` and creates the
 `release-registry-pull` Secret for every umbrella runtime.
 
-This violates EP-SSO-018's anonymous Helm-install acceptance criterion. A
-repository-only change cannot make the required GHCR packages public or move
-their immutable runtime images to a public anonymous registry.
+This violated EP-SSO-018's anonymous Helm-install acceptance criterion.
 
-## Required external remediation
+## Resolved
 
-- Make every image selected by the signed umbrella compatibility manifest
-  anonymously pullable, including both supported architectures; or
-- publish the signed immutable release set to an equivalent public registry
-  and update the release manifest/index to that public location.
+On 2026-08-29, `ghcr.io/envplane/envplane:0.4.140` and every selected signed
+child/image artifact were pulled with an isolated empty Docker and Helm
+credential store. The SM-09 harness no longer creates a GHCR
+`imagePullSecrets` object or reads a host Docker config; it retains only the
+generated disposable source Secret needed to test encrypted clone.
 
-After this is complete, replace the GHCR Docker-config precondition in the
-clean-cluster harness with `verify-anonymous-oci-artifacts.sh` and prove a
-fresh node pulls all runtime images without `imagePullSecrets`.
+The release gate now proves a fresh node pulls all runtime images without
+`imagePullSecrets`.

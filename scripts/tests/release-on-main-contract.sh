@@ -234,19 +234,19 @@ for namespace_binding in \
   }
 done
 
-grep -Fq -- '--type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$docker_config"' "$secret_lifecycle_harness" || {
-  echo "private-registry lifecycle harness must provide namespaced GHCR pull credentials to the clean node" >&2
+if grep -Eq 'docker_config|imagePullSecrets:' "$secret_lifecycle_harness" ||
+  grep -Eq 'create secret .*release-registry-pull' "$secret_lifecycle_harness"; then
+  echo "private-registry lifecycle harness must install public runtime artifacts without hidden GHCR image-pull credentials" >&2
+  exit 1
+fi
+
+grep -Fq 'create secret docker-registry registry-source' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must retain the disposable source Secret used by encrypted-clone coverage" >&2
   exit 1
 }
 
-[[ "$(grep -Fc 'name: release-registry-pull' "$secret_lifecycle_harness")" -ge 5 ]] || {
-  echo "private-registry lifecycle harness must bind GHCR pull credentials to every platform subchart" >&2
-  exit 1
-}
-
-grep -A4 -F 'envplane-runner:' "$secret_lifecycle_harness" | grep -Fq 'helmRegistry:' &&
-  grep -A5 -F 'helmRegistry:' "$secret_lifecycle_harness" | grep -Fq 'existingSecret: release-registry-pull' || {
-  echo "private-registry lifecycle harness must bind the disposable registry config to Runner Helm OCI operations" >&2
+grep -Fq 'SM-09 runtime Deployments must pull public artifacts without imagePullSecrets' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must assert that platform Deployments do not use imagePullSecrets" >&2
   exit 1
 }
 
