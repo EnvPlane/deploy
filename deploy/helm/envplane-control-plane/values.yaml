@@ -304,6 +304,10 @@ serviceAccount:
 rbac:
   create: true
   annotations: {}
+  # Explicit opt-in for guided current-cluster discovery. This grants only
+  # read-only metadata discovery and never Secret or workload access.
+  currentClusterDiscovery:
+    enabled: false
   # Namespace-scoped read-only access used only when the control plane resolves
   # Kubernetes/external-secret references. Empty means this release namespace.
   # Add namespaces deliberately; no ClusterRole is created by this chart.
