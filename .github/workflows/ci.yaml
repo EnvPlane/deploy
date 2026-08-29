@@ -72,3 +72,8 @@ jobs:
           bash scripts/check-env-parity.sh
       - run: bash scripts/check-base-image-digests.sh
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Verify installation documentation contract
+        run: |
+          bash -n scripts/sync-signed-release-index.sh
+          ./scripts/tests/install-command-contract.sh
+          ./scripts/tests/test-generate-public-release-index.sh

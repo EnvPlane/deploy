@@ -4,6 +4,9 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readme="$root/README.md"
 installation="$root/docs/installation.md"
+advanced="$root/docs/installation-advanced.md"
+release_index="$root/docs/generated/stable-release-index.json"
+renderer="$root/scripts/render-install-docs-from-release-index.sh"
 notes="$root/deploy/helm/envplane/templates/NOTES.txt"
 preflight="$root/scripts/envplane-install-preflight.sh"
 
@@ -15,22 +18,37 @@ extract_command() {
   ' "$1"
 }
 
-expected="$(cat <<'EOF'
-```bash
-helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
-  --version <published-umbrella-version> \
-  --namespace envplane \
-  --create-namespace \
-  --wait
-```
-EOF
-)"
+install_command="$(jq -er '.install.command' "$release_index")"
+version="$(jq -er '.version' "$release_index")"
+revision="$(jq -er '.sourceRevision' "$release_index")"
+printf -v expected '```bash\n%s\n```' "$install_command"
 for document in "$readme" "$installation"; do
   actual="$(extract_command "$document")"
   [[ "$actual" == "$expected" ]] || {
     echo "canonical install command drifted in $document" >&2
     exit 1
   }
+done
+
+bash -n "$renderer"
+before="$(shasum -a 256 "$readme" "$installation")"
+"$renderer" "$release_index" >/dev/null
+after="$(shasum -a 256 "$readme" "$installation")"
+[[ "$before" == "$after" ]] || { echo "install docs were not rendered from the checked-in release index" >&2; exit 1; }
+
+for document in "$readme" "$installation"; do
+  grep -Fq "Stable release: \`$version\`" "$document"
+  grep -Fq "blob/$revision/docs/installation.md" "$document"
+done
+
+for required in 'Free limits and activation' '## Upgrade' '## Uninstall' '## Troubleshooting'; do
+  grep -Fq "$required" "$installation" || { echo "installation guide missing $required" >&2; exit 1; }
+done
+for required in 'Production hardening' 'Private registry or mirror' 'External PostgreSQL and Redis'; do
+  grep -Fq "$required" "$advanced" || { echo "advanced installation guide missing $required" >&2; exit 1; }
+done
+for warning in 'automatically install an Ingress' 'CSI driver, or cloud integration'; do
+  grep -Fq "$warning" "$installation" || { echo "unsupported add-on ownership warning missing: $warning" >&2; exit 1; }
 done
 
 bash -n "$preflight"

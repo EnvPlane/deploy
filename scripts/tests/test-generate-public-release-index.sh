@@ -17,7 +17,8 @@ jq -e --arg version "$version" --arg digest "$digest" '
   .support.clusterTargets == ["current", "remote"] and
   .support.deploymentModes == ["cloud", "on-prem"] and
   (.status.commands | length) == 3 and
-  .firstRun.screen == "initial-authentication"
+  .firstRun.screen == "initial-authentication" and
+  (.install.command == ("helm upgrade --install envplane " + .chart.repository + " --version " + $version + " --namespace envplane --create-namespace --wait"))
 ' "$tmp/index.json" >/dev/null
 ! rg -qi 'kubeconfig|credential|scm.?token|secret' "$tmp/index.json"
 
