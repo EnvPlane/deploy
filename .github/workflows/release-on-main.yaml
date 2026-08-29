@@ -122,6 +122,27 @@ jobs:
           ref: ${{ steps.secret_lifecycle.outputs.agent_revision }}
           path: release-gate-agent
           token: ${{ github.token }}
+      - name: Select release-compatible frontend source
+        id: first_run_browser
+        env:
+          REPORT: ${{ steps.source.outputs.report }}
+        run: |
+          set -euo pipefail
+          revision="$(jq -er '.images.frontend.sourceRevision' "$REPORT")"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+      - name: Checkout release-compatible frontend source
+        uses: actions/checkout@v7
+        with:
+          repository: EnvPlane/frontend
+          ref: ${{ steps.first_run_browser.outputs.revision }}
+          path: release-gate-frontend
+          token: ${{ github.token }}
+      - name: Install release-compatible frontend browser dependencies
+        working-directory: release-gate-frontend
+        run: |
+          npm ci
+          npx --no-install playwright install --with-deps chromium
       - uses: actions/setup-go@v6
         with:
           go-version-file: release-gate-agent/go.mod
@@ -273,6 +294,8 @@ jobs:
       - name: Run disposable private-registry Secret materialization release gate
         env:
           ENVPLANE_SM09_CHART: dist/envplane-${{ steps.version.outputs.version }}.tgz
+          ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE: "1"
+          ENVPLANE_SM09_FRONTEND_DIR: ${{ github.workspace }}/release-gate-frontend
         run: |
           set -euo pipefail
           curl -fsSL -o "$RUNNER_TEMP/kind" https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64

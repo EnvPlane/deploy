@@ -274,6 +274,25 @@ grep -Fq 'SM-11 clean-install environment did not reach Running with a URL' "$se
   echo "private-registry lifecycle harness must prove a clean-install environment reaches Running with a URL" >&2
   exit 1
 }
+grep -Fq 'ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE' "$secret_lifecycle_harness" &&
+  grep -Fq 'npm run test:e2e:real' "$secret_lifecycle_harness" &&
+  grep -Fq 'ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token"' "$secret_lifecycle_harness" &&
+  grep -Fq 'ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must execute the live first-run browser gate with in-memory credentials" >&2
+  exit 1
+}
+grep -Fq 'cmd/e2e-activation-fixture sign' "$secret_lifecycle_harness" &&
+  grep -Fq 'activationPublicKeysJSON:' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must use an ephemeral public-key-bound activation fixture" >&2
+  exit 1
+}
+grep -Fq 'repository: EnvPlane/frontend' "$workflow" &&
+  grep -Fq 'ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE: "1"' "$workflow" &&
+  grep -Fq 'ENVPLANE_SM09_FRONTEND_DIR: ${{ github.workspace }}/release-gate-frontend' "$workflow" &&
+  grep -Fq 'playwright install --with-deps chromium' "$workflow" || {
+  echo "umbrella publication must require the compatible frontend live browser gate" >&2
+  exit 1
+}
 grep -Fq '.resourceScanStatus == "completed"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must wait for the Agent resource scan before compilation" >&2
   exit 1
