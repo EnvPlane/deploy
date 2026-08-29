@@ -289,6 +289,8 @@ grep -Fq 'cmd/e2e-activation-fixture sign' "$secret_lifecycle_harness" &&
   exit 1
 }
 grep -Fq 'repository: EnvPlane/frontend' "$workflow" &&
+  grep -Fq 'Select compatible source checkout authentication' "$workflow" &&
+  grep -Fq 'token: ${{ steps.source_read_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}' "$workflow" &&
   grep -Fq 'ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE: "1"' "$workflow" &&
   grep -Fq 'ENVPLANE_SM09_FRONTEND_DIR: ${{ github.workspace }}/release-gate-frontend' "$workflow" &&
   grep -Fq 'playwright install --with-deps chromium' "$workflow" || {

@@ -11,3 +11,9 @@ with a misleading repository-not-found error before the release gate runs.
 
 Use the automation GitHub App token or the existing automation PAT with
 contents-read scope for cross-repository release-gate checkouts.
+
+## Resolution
+
+The workflow now selects the existing automation App/PAT credential, mints a
+contents-read App token when available, and uses that token for both
+compatibility-manifest source checkouts.

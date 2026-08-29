@@ -106,6 +106,32 @@ jobs:
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Verify automatic release workflow contract
         run: ./scripts/tests/release-on-main-contract.sh
+      - id: source_read_auth
+        name: Select compatible source checkout authentication
+        env:
+          CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          APP_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPLANE_AUTOMATION_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$CLIENT_ID" && -n "$APP_KEY" ]]; then
+            echo "method=app" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$PAT" ]]; then
+            echo "method=pat" >> "$GITHUB_OUTPUT"
+          else
+            echo "compatible source checkout requires ENVPLANE_AUTOMATION_APP_* or ENVPLANE_AUTOMATION_PAT" >&2
+            exit 1
+          fi
+      - id: source_read_app
+        name: Mint compatible source checkout token
+        if: steps.source_read_auth.outputs.method == 'app'
+        env:
+          ENVPLANE_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          ENVPLANE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          GH_APP_OWNER: EnvPlane
+          GH_APP_REPOSITORY: deploy
+          GH_APP_TOKEN_PERMISSIONS: '{"contents":"read"}'
+        run: ./scripts/obtain-github-app-token.sh
       - name: Select Secret materialization lifecycle gate source
         id: secret_lifecycle
         env:
@@ -121,7 +147,7 @@ jobs:
           repository: EnvPlane/agent
           ref: ${{ steps.secret_lifecycle.outputs.agent_revision }}
           path: release-gate-agent
-          token: ${{ github.token }}
+          token: ${{ steps.source_read_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
       - name: Select release-compatible frontend source
         id: first_run_browser
         env:
@@ -137,7 +163,7 @@ jobs:
           repository: EnvPlane/frontend
           ref: ${{ steps.first_run_browser.outputs.revision }}
           path: release-gate-frontend
-          token: ${{ github.token }}
+          token: ${{ steps.source_read_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
       - name: Install release-compatible frontend browser dependencies
         working-directory: release-gate-frontend
         run: |
