@@ -18,4 +18,4 @@ dependencies:
   repository: file://../envplane-e2e-workload
   version: 0.1.0
 digest: sha256:b50e1a77eef726c1b8c17b39dec682e3ba03d236996c6e386b02217229e8a90b
-generated: "2026-08-29T12:24:14.254022+02:00"
+generated: "2026-08-29T13:46:08.673695+02:00"

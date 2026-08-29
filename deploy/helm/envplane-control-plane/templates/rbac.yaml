@@ -1,6 +1,10 @@
 {{- if .Values.rbac.create -}}
 {{- $serviceAccountName := include "envplane-control-plane.serviceAccountName" . -}}
-{{- $currentClusterDiscovery := default (dict) .Values.rbac.currentClusterDiscovery -}}
+{{- $currentClusterDiscoveryLocal := default (dict) .Values.rbac.currentClusterDiscovery -}}
+{{- $global := default (dict) .Values.global -}}
+{{- $globalEnvplane := default (dict) (get $global "envplane") -}}
+{{- $currentClusterDiscoveryGlobal := default (dict) (get $globalEnvplane "currentClusterDiscovery") -}}
+{{- $currentClusterDiscoveryEnabled := or (default false $currentClusterDiscoveryLocal.enabled) (default false $currentClusterDiscoveryGlobal.enabled) -}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -74,7 +78,7 @@ roleRef:
   name: {{ include "envplane-control-plane.fullname" $ }}-secret-reader
 {{- end }}
 {{- end }}
-{{- if default false $currentClusterDiscovery.enabled }}
+{{- if $currentClusterDiscoveryEnabled }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

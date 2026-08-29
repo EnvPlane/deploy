@@ -83,6 +83,11 @@ global:
       # Optional image-pull Secret for project Agent/Runner Pods. Credentials
       # remain operator-managed; this value only references the Secret.
         imagePullSecret: ""
+    # Explicit guided-install consent for read-only current-cluster discovery.
+    # The control-plane chart resolves this global value into its narrowly
+    # scoped ClusterRole; it does not grant workload or Secret access.
+    currentClusterDiscovery:
+      enabled: false
     # Interactive OAuth is disabled by default. legacy_secret is a temporary
     # compatibility path for an operator-managed Secret in the release
     # namespace; the umbrella never renders credential values.
