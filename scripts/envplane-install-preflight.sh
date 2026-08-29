@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Diagnose an EnvPlane zero-values installation without reading Secret objects
+# Diagnose an envplane zero-values installation without reading Secret objects
 # or values. The optional output contains only a StorageClass name.
 chart="oci://ghcr.io/envplane/envplane"
 version=""
@@ -93,7 +93,7 @@ fi
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 if ! helm pull "$chart" --version "$version" --destination "$tmp" >/dev/null 2>&1; then
-  echo "Network check failed: anonymous Helm pull of $chart:$version did not succeed. Check outbound registry access and the published version; do not add registry credentials for public EnvPlane artifacts." >&2
+  echo "Network check failed: anonymous Helm pull of $chart:$version did not succeed. Check outbound registry access and the published version; do not add registry credentials for public envplane artifacts." >&2
   exit 1
 fi
 

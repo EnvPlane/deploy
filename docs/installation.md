@@ -81,7 +81,7 @@ If it reports a missing StorageClass, ask the platform owner to configure one
 or select a supported class in an operator values file. If it reports RBAC,
 grant exactly the displayed permission to the Helm caller, then rerun. If the
 anonymous pull fails, fix outbound registry access or choose a published version;
-do not add a registry Secret for public EnvPlane artifacts.
+do not add a registry Secret for public envplane artifacts.
 
 The canonical command stays unchanged. If you deliberately generated an
 explicit StorageClass override, add only this flag to it:
