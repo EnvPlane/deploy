@@ -13,9 +13,11 @@ controlPlane:
 frontend:
   enabled: true
 agent:
-  enabled: false
+  # Zero-values installs the current-cluster Agent and Runner. Remote clusters
+  # remain an authenticated API/UI concern, never a chart-values side effect.
+  enabled: true
 runner:
-  enabled: false
+  enabled: true
 webhook:
   enabled: false
 
@@ -111,7 +113,10 @@ global:
             name: ""
             key: ca.crt
     firstStartRegistration:
-      mode: disabled # disabled | managed | existing
+      # The default creates one Helm-owned Secret and retains its generated
+      # tokens through install, upgrade and rollback. No pre-created Secret or
+      # plaintext value is required for a same-cluster first run.
+      mode: managed # disabled | managed | existing
       secretName: envplane-first-start-registration
       existingSecret: ""
       tokenTTLSeconds: 86400
@@ -122,7 +127,7 @@ global:
         appRepositoryId: envplane/app
         gitopsRepositoryId: envplane/gitops
       cluster:
-        id: ""
+        id: management-cluster
       agent:
         id: envplane-agent
       runner:
@@ -397,6 +402,10 @@ envplane-control-plane:
     external:
       existingSecret: ""
       urlKey: database-url
+    # The zero-values profile uses in-cluster PostgreSQL and generates its own
+    # database credential. TLS remains explicit for an external database.
+    tls:
+      enabled: false
     persistence:
       enabled: true
       size: 8Gi
@@ -418,7 +427,10 @@ envplane-control-plane:
       size: 1Gi
       storageClassName: ""
   persistence:
-    enabled: false
+    # Retain API state as well as the internal PostgreSQL/Redis state. A
+    # support-matrix cluster supplies the default StorageClass, or an operator
+    # selects one explicitly.
+    enabled: true
     size: 1Gi
     storageClassName: ""
   # Prefer existingSecret references above. secretEnv remains for compatibility
@@ -468,10 +480,10 @@ envplane-agent:
   securityContext: {}
   rbac:
     discovery:
-      # The umbrella's default child is disabled; this namespace keeps an
-      # explicit safe render contract when an operator enables it.
+      # The empty item resolves in the Agent chart to the umbrella release
+      # namespace, keeping zero-values RBAC local to the installation.
       namespaces:
-        - default
+        - ""
   controlPlane:
     endpointMode: sameCluster
     url: http://envplane-control-plane:8080

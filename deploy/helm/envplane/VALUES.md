@@ -1,7 +1,7 @@
 # Provider-neutral values contract
 
 The umbrella chart has no Kubernetes-distribution, cloud, DNS, ingress
-controller, domain, or StorageClass default. A base install exposes only
+controller, domain, or StorageClass default. A zero-values install exposes only
 cluster-internal `ClusterIP` Services. Public access and provider integrations
 must be selected explicitly in an environment values file.
 
@@ -59,9 +59,10 @@ creates a Secret from raw credentials and never logs registry data. Explicit
 per-component `imagePullSecrets` remain supported and are merged without
 duplicates.
 
-Agent and Runner remain disabled by default. Enable them only with an existing
-project-scoped registration Secret; values never need to contain a plaintext
-bootstrap token.
+Agent and Runner are enabled by default with a Helm-managed registration Secret
+generated once and retained across upgrades. Select `firstStartRegistration.mode=existing`
+only when an operator-managed project-scoped registration Secret is required;
+values never need to contain a plaintext bootstrap token.
 
 ### Browser authentication (deploy-time mode)
 

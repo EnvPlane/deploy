@@ -1,0 +1,19 @@
+{{- $controlPlane := default (dict) (index .Values "envplane-control-plane") -}}
+{{- $persistence := default (dict) (get $controlPlane "persistence") -}}
+{{- $postgres := default (dict) (get $controlPlane "postgres") -}}
+{{- $redis := default (dict) (get $controlPlane "redis") -}}
+{{- $postgresPersistence := default (dict) (get $postgres "persistence") -}}
+{{- $redisPersistence := default (dict) (get $redis "persistence") -}}
+{{- $storageClassNames := list (default "" (get $persistence "storageClassName")) (default "" (get $postgresPersistence "storageClassName")) (default "" (get $redisPersistence "storageClassName")) -}}
+{{- range $storageClassName := $storageClassNames }}
+  {{- if $storageClassName }}
+    {{- $storageClass := lookup "storage.k8s.io/v1" "StorageClass" "" $storageClassName -}}
+    {{- if not $storageClass }}{{- fail (printf "StorageClass %q was not found or the Helm operator cannot read storageclasses.storage.k8s.io; grant get access or select an existing StorageClass" $storageClassName) }}{{- end -}}
+  {{- end }}
+{{- end }}
+{{- if and (eq (default "" (get $postgres "mode")) "disabled") (default true (get $postgres "enabled")) }}
+{{- fail "envplane-control-plane.postgres.mode=disabled conflicts with postgres.enabled=true; use internal or external storage" }}
+{{- end }}
+{{- if and (eq (default "" (get $redis "mode")) "disabled") (default true (get $redis "enabled")) }}
+{{- fail "envplane-control-plane.redis.mode=disabled conflicts with redis.enabled=true; use internal or external storage" }}
+{{- end }}

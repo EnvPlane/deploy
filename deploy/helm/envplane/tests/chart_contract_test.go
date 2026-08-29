@@ -527,6 +527,7 @@ func TestUmbrellaRejectsFixtureWithoutChartManagedRuntime(t *testing.T) {
 	chartPath := umbrellaChartPath(t)
 	cmd := exec.Command("helm", append([]string{"template", "envplane", chartPath}, withFixturePostgres([]string{
 		"--set", "global.envplane.e2eFixture.enabled=true",
+		"--set", "global.envplane.firstStartRegistration.mode=disabled",
 	})...)...)
 	cmd.Dir = chartPath
 	output, err := cmd.CombinedOutput()
@@ -540,6 +541,8 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	for _, expected := range []string{
 		"# Source: envplane/charts/envplane-control-plane/templates/deployment.yaml",
 		"# Source: envplane/charts/envplane-frontend/templates/deployment.yaml",
+		"# Source: envplane/charts/envplane-agent/templates/deployment.yaml",
+		"# Source: envplane/charts/envplane-runner/templates/deployment.yaml",
 		"name: envplane-control-plane",
 		"name: envplane-frontend",
 	} {
@@ -559,13 +562,9 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 			t.Fatalf("umbrella render contains retired installer behavior %q:\n%s", forbidden, rendered)
 		}
 	}
-	for _, disabled := range []string{
-		"# Source: envplane/charts/envplane-agent/templates/deployment.yaml",
-		"# Source: envplane/charts/envplane-runner/templates/deployment.yaml",
-		"# Source: envplane/charts/envplane-webhook/templates/deployment.yaml",
-	} {
+	for _, disabled := range []string{"# Source: envplane/charts/envplane-webhook/templates/deployment.yaml"} {
 		if strings.Contains(rendered, disabled) {
-			t.Fatalf("Agent/Runner must remain opt-in by default; found %q", disabled)
+			t.Fatalf("Webhook must remain opt-in by default; found %q", disabled)
 		}
 	}
 	if !strings.Contains(rendered, "          envFrom:\n            - configMapRef:\n                name: \"envplane-platform-dependency-status\"") {
@@ -573,6 +572,43 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	}
 	if strings.Contains(rendered, "      envFrom:\n        - configMapRef:") {
 		t.Fatalf("platform dependency status must not be rendered at PodSpec scope:\n%s", rendered)
+	}
+}
+
+func TestZeroValuesProfileUsesManagedCredentialsAndPortForwardAccess(t *testing.T) {
+	rendered := renderUmbrella(t)
+	for _, expected := range []string{
+		"name: envplane-first-start-registration",
+		"agent-registration-token:",
+		"runner-registration-token:",
+		"runner-project-config-token:",
+		"name: ENVPLANE_SAME_CLUSTER_REGISTRATION_ENABLED",
+		"kind: PersistentVolumeClaim",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("zero-values render missing %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{"kind: Ingress", "kind: HTTPRoute", "imagePullSecrets:", "stringData:"} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("zero-values render contains forbidden %q:\n%s", forbidden, rendered)
+		}
+	}
+	notes, err := os.ReadFile("../templates/NOTES.txt")
+	if err != nil {
+		t.Fatalf("read zero-values NOTES: %v", err)
+	}
+	if !strings.Contains(string(notes), "kubectl -n {{ .Release.Namespace }} port-forward svc/envplane-frontend 3000:3000") {
+		t.Fatalf("zero-values NOTES must include the no-add-on port-forward fallback")
+	}
+}
+
+func TestZeroValuesProfileValidatesExplicitStorageClass(t *testing.T) {
+	output := renderUmbrellaError(t,
+		"--set", "envplane-control-plane.persistence.storageClassName=missing-storage-class",
+	)
+	if !strings.Contains(output, "StorageClass \"missing-storage-class\" was not found or the Helm operator cannot read") {
+		t.Fatalf("explicit StorageClass failure must be actionable:\n%s", output)
 	}
 }
 
@@ -1460,7 +1496,7 @@ func TestInstallationDocsQuickStartSmoke(t *testing.T) {
 	contents := string(docs)
 	for _, expected := range []string{
 		"helm upgrade --install envplane oci://ghcr.io/envplane/envplane",
-		"--version <published-umbrella-version>", "--namespace envplane", "--values values.yaml",
+		"--version <published-umbrella-version>", "--namespace envplane", "one command",
 		"auto", "managed", "existing", "disabled", "Kubernetes 1.26",
 		"Private registry", "minikube-", "not required",
 	} {
@@ -1644,6 +1680,7 @@ func TestUmbrellaConditionallyOwnsSameClusterExecutionTargets(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "agent.enabled=true",
 		"--set", "runner.enabled=true",
+		"--set", "global.envplane.firstStartRegistration.mode=disabled",
 		"--set", "envplane-agent.cluster.id=management-cluster",
 		"--set", "envplane-agent.bootstrap.projectId=project-a",
 		"--set", "envplane-runner.project.id=project-a",

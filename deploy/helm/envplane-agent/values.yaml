@@ -161,7 +161,9 @@ rbac:
     # discover arbitrary cluster workloads.
     scope: namespace # namespace | cluster; cluster requires explicit opt-in
     namespaces:
-      - default
+      # Empty resolves to the release namespace. List another namespace only
+      # when the operator deliberately grants cross-namespace discovery.
+      - ""
     clusterCapabilityRead: false
     # Enables metadata GETs for only the explicit workload namespace
     # allowlist. Namespace objects are cluster-scoped, so namespaced Roles

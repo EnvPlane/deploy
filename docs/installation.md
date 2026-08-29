@@ -30,30 +30,28 @@ minikube profiles or cloud infrastructure.
 
 ## Quick start
 
-Create `values.yaml` from one of the examples below, then run exactly:
+On a support-matrix cluster with a default StorageClass, the safe baseline is
+one command and needs no values file or pre-created Secret:
 
 ```sh
 helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
   --version <published-umbrella-version> \
   --namespace envplane \
   --create-namespace \
-  --values values.yaml \
   --wait
 ```
 
-The chart installs the API and frontend by default. Enable same-cluster Agent
-and Runner declaratively when required:
+The chart installs API, frontend, internal PostgreSQL/Redis, same-cluster Agent
+and Runner, retained PVCs, and a Helm-managed registration Secret. It creates no
+Ingress, Gateway, DNS, StorageClass, tunnel or other cluster add-on. Use the
+post-install port-forward printed in Helm NOTES for the first run. Create an
+operator values file only to select a private registry, external data services,
+an explicit StorageClass, or an existing Ingress/Gateway:
 
 ```yaml
-agent:
-  enabled: true
-runner:
-  enabled: true
-global:
-  envplane:
-    firstStartRegistration:
-      mode: managed
-      cluster: {id: management-cluster}
+envplane-control-plane:
+  persistence:
+    storageClassName: fast-ssd
 ```
 
 `managed` retains chart-generated registration material across upgrades.

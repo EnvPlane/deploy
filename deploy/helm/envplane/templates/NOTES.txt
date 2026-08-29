@@ -7,12 +7,21 @@ Job, nested Helm invocation, or cluster-wide installer RBAC is created.
 Frontend service:
   envplane-frontend (or envplane-frontend.fullnameOverride when configured)
 
-Same-cluster Agent and Runner are disabled by default. Enable them through the
-umbrella values only for the management cluster. Remote execution clusters are
-created and repaired through the authenticated Remote Clusters API/UI; the
-management-cluster reconciler installs only the signed compatible Agent/Runner
-releases. Do not paste OCI, Helm, Secret, or bootstrap-token commands from
-Bootstrap into a target cluster.
+The zero-values release enables same-cluster Agent and Runner with Helm-managed
+registration credentials. Remote execution clusters are created and repaired
+through the authenticated Remote Clusters API/UI; the management-cluster
+reconciler installs only the signed compatible Agent/Runner releases. Do not
+paste OCI, Helm, Secret, or bootstrap-token commands from Bootstrap into a
+target cluster.
+
+No ingress or Gateway is created by default. To open the first-run UI without
+changing cluster add-ons, run:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/envplane-frontend 3000:3000
+
+Then open http://127.0.0.1:3000. If Pods remain Pending because no default
+StorageClass is available, install/configure storage with the platform owner or
+use the external-data profile; EnvPlane will not install a storage add-on.
 
 Migration from the retired installer-Job release is documented in:
   https://github.com/envplane/deploy/blob/main/deploy/helm/envplane/README.md

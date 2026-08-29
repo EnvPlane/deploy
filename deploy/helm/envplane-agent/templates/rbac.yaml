@@ -61,7 +61,8 @@
 {{- fail "rbac.discovery.namespaces must contain at least one namespace when rbac.discovery.scope=namespace" -}}
 {{- end -}}
 {{- if eq $scope "namespace" -}}
-{{- range $namespace := $namespaces }}
+{{- range $configuredNamespace := $namespaces }}
+{{- $namespace := default $.Release.Namespace $configuredNamespace -}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
