@@ -349,9 +349,12 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code" \
     ENVPLANE_E2E_FIRST_RUN_EXPECT_EXPIRED=1 \
     ENVPLANE_E2E_FIRST_RUN_ASSERT_FAIL_CLOSED=1 \
+    ENVPLANE_E2E_RUN_LIFECYCLE=1 \
+    ENVPLANE_E2E_PROJECT_ID="$project" \
+    ENVPLANE_E2E_ENVIRONMENT_ID="${environment}-browser" \
     ENVPLANE_E2E_BASE_URL="http://127.0.0.1:$frontend_port" \
     ENVPLANE_E2E_API_URL="$api" \
-    npm run test:e2e:real -- --grep "claims, resumes, verifies lifecycle evidence"
+    npm run test:e2e:real -- --grep "claims, resumes, verifies lifecycle evidence|creates a real full environment through the UI"
   )
 fi
 ! grep -Fq "$registry_password" "$tmp"/*.json "$tmp"/*.log 2>/dev/null

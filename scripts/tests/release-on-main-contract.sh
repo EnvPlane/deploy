@@ -276,6 +276,7 @@ grep -Fq 'SM-11 clean-install environment did not reach Running with a URL' "$se
 }
 grep -Fq 'ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE' "$secret_lifecycle_harness" &&
   grep -Fq 'npm run test:e2e:real' "$secret_lifecycle_harness" &&
+  grep -Fq 'ENVPLANE_E2E_RUN_LIFECYCLE=1' "$secret_lifecycle_harness" &&
   grep -Fq 'ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token"' "$secret_lifecycle_harness" &&
   grep -Fq 'ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must execute the live first-run browser gate with in-memory credentials" >&2
