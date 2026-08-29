@@ -34,6 +34,10 @@ compatibility_map_for_revision() {
   printf '%s-remote-cluster-compatibility-r%s' "$RELEASE" "$1"
 }
 
+release_compatibility_map_for_revision() {
+  printf '%s-release-compatibility-r%s' "$RELEASE" "$1"
+}
+
 helm upgrade --install "$RELEASE" "$ENVPLANE_CONFIGMAP_E2E_CHART_N_MINUS_1" \
   --kube-context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" --namespace "$NAMESPACE" --create-namespace \
   --values "$ENVPLANE_CONFIGMAP_E2E_VALUES_FILE" --server-side=true --wait --timeout 15m
@@ -58,8 +62,11 @@ helm upgrade "$RELEASE" "$ENVPLANE_CONFIGMAP_E2E_CHART_N" \
 current_revision="$(revision)"
 current_status_map="$(status_map_for_revision "$current_revision")"
 current_compatibility_map="$(compatibility_map_for_revision "$current_revision")"
+current_release_compatibility_map="$(release_compatibility_map_for_revision "$current_revision")"
 kubectl --context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" -n "$NAMESPACE" get configmap "$current_status_map" >/dev/null
 kubectl --context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" -n "$NAMESPACE" get configmap "$current_compatibility_map" \
+  -o json | jq -e '.immutable == true and (.data["release.json"] | type == "string" and length > 0)' >/dev/null
+kubectl --context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" -n "$NAMESPACE" get configmap "$current_release_compatibility_map" \
   -o json | jq -e '.immutable == true and (.data["release.json"] | type == "string" and length > 0)' >/dev/null
 ! kubectl --context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" -n "$NAMESPACE" get configmap "$OLD_STATUS_MAP" >/dev/null 2>&1
 ! kubectl --context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" -n "$NAMESPACE" get configmap "$OLD_COMPATIBILITY_MAP" >/dev/null 2>&1
@@ -69,6 +76,13 @@ kubectl --context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" -n "$NAMESPACE" get configma
 helm rollback "$RELEASE" 1 --kube-context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" \
   --namespace "$NAMESPACE" --server-side=true --wait --timeout 15m
 kubectl --context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" -n "$NAMESPACE" get configmap "$OLD_COMPATIBILITY_MAP" \
+  -o json | jq -e '.immutable == true' >/dev/null
+# The predecessor has no generic release map. Roll back to the current
+# published revision as well, proving Helm restores its immutable map rather
+# than mutating the newer map in place.
+helm rollback "$RELEASE" "$current_revision" --kube-context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" \
+  --namespace "$NAMESPACE" --server-side=true --wait --timeout 15m
+kubectl --context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" -n "$NAMESPACE" get configmap "$current_release_compatibility_map" \
   -o json | jq -e '.immutable == true' >/dev/null
 
 helm uninstall "$RELEASE" --kube-context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" \

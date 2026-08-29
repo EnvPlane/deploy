@@ -146,6 +146,11 @@ An explicit global name remains an external operator-owned override. */}}
 {{- end -}}
 {{- end -}}
 
+{{/* Keep in lockstep with the umbrella's immutable release compatibility map. */}}
+{{- define "envplane-control-plane.releaseCompatibilityConfigMapName" -}}
+{{- printf "%s-release-compatibility-r%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
 {{/* The umbrella's immutable compatibility map is revision-scoped so an
 upgrade never mutates it in place. */}}
 {{- define "envplane-control-plane.remoteClusterCompatibilityConfigMapName" -}}

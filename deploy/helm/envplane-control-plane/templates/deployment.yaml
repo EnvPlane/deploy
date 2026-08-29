@@ -32,6 +32,16 @@
 {{- $leaderElection := default (dict) (get $remoteClusterReconcilerConfig "leaderElection") -}}
 {{- $leaderElectionNamespace := trim (default "" (get $leaderElection "namespace")) -}}
 {{- $remoteCompatibilityConfigMap := include "envplane-control-plane.remoteClusterCompatibilityConfigMapName" . -}}
+{{- $releaseCompatibility := default (dict) (get $globalEnvPlane "releaseCompatibility") -}}
+{{- $releaseCompatibilityEnabled := default false (get $releaseCompatibility "enabled") -}}
+{{- $releaseCompatibilityConfigMap := include "envplane-control-plane.releaseCompatibilityConfigMapName" . -}}
+{{- $installFlow := default (dict) (get $globalEnvPlane "installFlow") -}}
+{{- $installFlowFirstRun := default (dict) (get $installFlow "firstRun") -}}
+{{- $installFlowActivation := default (dict) (get $installFlow "activation") -}}
+{{- $installFlowRollout := default (dict) (get $installFlow "rollout") -}}
+{{- $installFlowFirstRunContractVersion := default "v1" (get $installFlowFirstRun "contractVersion") -}}
+{{- $installFlowActivationContractVersion := default "v1" (get $installFlowActivation "contractVersion") -}}
+{{- $installFlowRolloutMode := default "legacy" (get $installFlowRollout "mode") -}}
 {{- $firstStart := default (dict) (get $globalEnvPlane "firstStartRegistration") -}}
 {{- $firstStartMode := default "disabled" $firstStart.mode -}}
 {{- if and $sameClusterProjectExecutorsEnabled (or (eq $firstStartMode "disabled") (not $sameClusterProjectExecutorsNamespace)) -}}
@@ -236,6 +246,19 @@ spec:
           env:
             - name: GOMEMLIMIT
               value: {{ .Values.runtime.gomemlimit | quote }}
+            {{- if $releaseCompatibilityEnabled }}
+            # The API validates this signed release input before it creates
+            # first-run or activation state. Values select an expected
+            # contract/mode; they never define policy.
+            - name: ENVPLANE_INSTALL_FLOW_COMPATIBILITY_MANIFEST
+              value: /etc/envplane/release-compatibility/release.json
+            - name: ENVPLANE_INSTALL_FLOW_FIRST_RUN_CONTRACT_VERSION
+              value: {{ $installFlowFirstRunContractVersion | quote }}
+            - name: ENVPLANE_INSTALL_FLOW_ACTIVATION_CONTRACT_VERSION
+              value: {{ $installFlowActivationContractVersion | quote }}
+            - name: ENVPLANE_INSTALL_FLOW_ROLLOUT_MODE
+              value: {{ $installFlowRolloutMode | quote }}
+            {{- end }}
             {{- if $platformDependencyStatusEnabled }}
             # The declared contract comes from envFrom above. This separate,
             # read-only ConfigMap watch supplies observed reconciler state.
@@ -577,6 +600,11 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/envplane/data
+          {{- if $releaseCompatibilityEnabled }}
+            - name: release-compatibility
+              mountPath: /etc/envplane/release-compatibility
+              readOnly: true
+          {{- end }}
           {{- if and (eq $postgresMode "internal") .Values.postgres.tls.enabled }}
             - name: postgres-ca
               mountPath: /etc/envplane/postgres-ca
@@ -621,6 +649,11 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
+      {{- if $releaseCompatibilityEnabled }}
+        - name: release-compatibility
+          configMap:
+            name: {{ $releaseCompatibilityConfigMap | quote }}
+      {{- end }}
         {{- if and (eq $postgresMode "internal") .Values.postgres.tls.enabled }}
         - name: postgres-ca
           secret:

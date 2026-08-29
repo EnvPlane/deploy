@@ -235,6 +235,20 @@ func renderPublishedUmbrella(t *testing.T, values ...string) (string, error) {
 	}
 	temporaryChart := filepath.Join(t.TempDir(), "envplane")
 	copyChartTree(t, sourceChart, temporaryChart)
+	for _, dependency := range []string{
+		"envplane-control-plane",
+		"envplane-frontend",
+		"envplane-agent",
+		"envplane-runner",
+		"envplane-webhook",
+		"envplane-e2e-workload",
+	} {
+		copyChartTree(t, filepath.Join(filepath.Dir(sourceChart), dependency), filepath.Join(filepath.Dir(temporaryChart), dependency))
+	}
+	dependencies := exec.Command("helm", "dependency", "build", "--skip-refresh", temporaryChart)
+	if output, err := dependencies.CombinedOutput(); err != nil {
+		t.Fatalf("build published umbrella test dependencies: %v\n%s", err, output)
+	}
 	manifestPath := filepath.Join(temporaryChart, "compatibility", "release.json")
 	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
 		t.Fatalf("create compatibility directory: %v", err)
@@ -1423,6 +1437,45 @@ func TestPublishedUmbrellaRejectsStaleOrConflictingRuntimeImagePins(t *testing.T
 	}
 }
 
+func TestPublishedUmbrellaMountsRevisionScopedInstallFlowManifest(t *testing.T) {
+	rendered, err := renderPublishedUmbrella(t)
+	if err != nil {
+		t.Fatalf("render published umbrella: %v\n%s", err, rendered)
+	}
+	for _, expected := range []string{
+		"name: envplane-release-compatibility-r1",
+		"envplane.io/purpose: release-compatibility",
+		"immutable: true",
+		"mountPath: /etc/envplane/release-compatibility",
+		"readOnly: true",
+		"name: ENVPLANE_INSTALL_FLOW_COMPATIBILITY_MANIFEST",
+		"name: ENVPLANE_INSTALL_FLOW_FIRST_RUN_CONTRACT_VERSION",
+		"name: ENVPLANE_INSTALL_FLOW_ACTIVATION_CONTRACT_VERSION",
+		"name: ENVPLANE_INSTALL_FLOW_ROLLOUT_MODE",
+		`name: "envplane-release-compatibility-r1"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("published release compatibility input missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
+func TestPublishedUmbrellaRejectsInstallFlowPolicyMismatch(t *testing.T) {
+	for _, override := range [][]string{
+		{"--set", "global.envplane.installFlow.rollout.mode=canary"},
+		{"--set", "global.envplane.installFlow.firstRun.contractVersion=v2"},
+		{"--set", "global.envplane.installFlow.activation.contractVersion=v2"},
+	} {
+		output, err := renderPublishedUmbrella(t, override...)
+		if err == nil {
+			t.Fatalf("published umbrella accepted incompatible install-flow values %v:\n%s", override, output)
+		}
+		if !strings.Contains(output, "signed compatibility manifest") {
+			t.Fatalf("install-flow rejection does not identify signed manifest for %v:\n%s", override, output)
+		}
+	}
+}
+
 func TestUmbrellaUpgradeWrapperPreservesOperatorValuesWithoutReusingArtifactPins(t *testing.T) {
 	wrapper, err := os.ReadFile("../../../../scripts/upgrade-umbrella.sh")
 	if err != nil {
@@ -1475,6 +1528,7 @@ func TestPublishedConfigMapUpgradeE2ECoversNMinus1RollbackAndUninstall(t *testin
 		"--field-manager=platform-reconciler",
 		"platform-dependency-reconciler-status-r",
 		"remote-cluster-compatibility-r",
+		"release-compatibility-r",
 		"helm rollback",
 		"helm uninstall",
 	} {

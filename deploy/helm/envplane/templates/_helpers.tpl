@@ -144,6 +144,15 @@ override for advanced integrations.
 {{- end -}}
 {{- end -}}
 
+{{/*
+The install-flow manifest is an immutable release input. Do not share a name
+with a mutable/operator-owned ConfigMap: Helm upgrades and rollbacks must be
+able to select the exact manifest that belongs to each revision.
+*/}}
+{{- define "envplane.releaseCompatibilityConfigMapName" -}}
+{{- printf "%s-release-compatibility-r%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
 {{/* Resolve a declared platform dependency state without probing or changing the cluster. */}}
 {{- define "envplane.platformDependencyState" -}}
 {{- $dependency := . -}}

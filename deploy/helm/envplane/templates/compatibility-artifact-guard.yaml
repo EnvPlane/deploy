@@ -11,6 +11,34 @@ release instead.
 {{- if or (not $manifest) (not (get $manifest "images")) -}}
 {{- fail "published umbrella compatibility/release.json is malformed or has no image pins" -}}
 {{- end -}}
+{{- $installFlow := default (dict) (get $manifest "installFlow") -}}
+{{- $firstRun := default (dict) (get $installFlow "firstRun") -}}
+{{- $activation := default (dict) (get $installFlow "activation") -}}
+{{- $rollout := default (dict) (get $installFlow "rollout") -}}
+{{- if or (not $installFlow) (not (get $firstRun "contractVersion")) (not (get $activation "contractVersion")) (not (get $rollout "defaultMode")) -}}
+{{- fail "published umbrella compatibility/release.json has no install-flow contract" -}}
+{{- end -}}
+{{- $globalConfig := include "envplane.globalConfig" . | fromJson -}}
+{{- $requestedInstallFlow := default (dict) (get $globalConfig "installFlow") -}}
+{{- $requestedFirstRun := default (dict) (get $requestedInstallFlow "firstRun") -}}
+{{- $requestedActivation := default (dict) (get $requestedInstallFlow "activation") -}}
+{{- $requestedRollout := default (dict) (get $requestedInstallFlow "rollout") -}}
+{{- $requestedFirstRunContract := default "v1" (get $requestedFirstRun "contractVersion") -}}
+{{- $requestedActivationContract := default "v1" (get $requestedActivation "contractVersion") -}}
+{{- $requestedRolloutMode := default "legacy" (get $requestedRollout "mode") -}}
+{{- $manifestFirstRunContract := get $firstRun "contractVersion" -}}
+{{- $manifestActivationContract := get $activation "contractVersion" -}}
+{{- $manifestDefaultRolloutMode := get $rollout "defaultMode" -}}
+{{- $manifestRollbackRolloutMode := default "" (get $rollout "rollbackMode") -}}
+{{- if ne $requestedFirstRunContract $manifestFirstRunContract -}}
+{{- fail (printf "first-run contract %q conflicts with this umbrella release's signed compatibility manifest (expected %q)" $requestedFirstRunContract $manifestFirstRunContract) -}}
+{{- end -}}
+{{- if ne $requestedActivationContract $manifestActivationContract -}}
+{{- fail (printf "activation contract %q conflicts with this umbrella release's signed compatibility manifest (expected %q)" $requestedActivationContract $manifestActivationContract) -}}
+{{- end -}}
+{{- if and (ne $requestedRolloutMode $manifestDefaultRolloutMode) (ne $requestedRolloutMode $manifestRollbackRolloutMode) -}}
+{{- fail (printf "install-flow rollout mode %q conflicts with this umbrella release's signed compatibility manifest (expected %q or rollback mode %q)" $requestedRolloutMode $manifestDefaultRolloutMode $manifestRollbackRolloutMode) -}}
+{{- end -}}
 {{- $valueKeys := dict
   "control-plane" "envplane-control-plane"
   "frontend" "envplane-frontend"

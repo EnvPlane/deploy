@@ -7,6 +7,21 @@
 {{- if and $reconcilerEnabled (not (.Files.Get "compatibility/release.json")) }}
 {{- fail "managed executor reconciliation requires the signed compatibility/release.json included by a published umbrella chart" }}
 {{- end }}
+{{- if .Files.Get "compatibility/release.json" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "envplane.releaseCompatibilityConfigMapName" . }}
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    envplane.io/purpose: release-compatibility
+    envplane.io/release-revision: {{ .Release.Revision | quote }}
+immutable: true
+data:
+  release.json: |
+{{ .Files.Get "compatibility/release.json" | indent 4 }}
+{{- end }}
 {{- if and $reconcilerEnabled (.Files.Get "compatibility/release.json") (not (trim (default "" (get $controlPlaneRemote "compatibilityConfigMapName"))) ) }}
 apiVersion: v1
 kind: ConfigMap

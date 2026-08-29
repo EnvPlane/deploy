@@ -65,6 +65,18 @@ global:
     # contains no target-cluster endpoint or credential material.
     remoteClusterReconciler:
       enabled: false
+    # Published umbrella releases mount their signed declaration into the
+    # control plane. The API validates install-flow contracts and rollout mode
+    # before changing first-run or activation state.
+    releaseCompatibility:
+      enabled: true
+    installFlow:
+      firstRun:
+        contractVersion: "v1"
+      activation:
+        contractVersion: "v1"
+      rollout:
+        mode: legacy
     # Per-project management-cluster Agent/Runner releases. The umbrella owns
     # and creates this namespace on the first install when enabled.
     sameClusterProjectExecutors:
