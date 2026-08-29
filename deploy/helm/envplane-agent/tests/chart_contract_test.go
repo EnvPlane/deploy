@@ -390,6 +390,18 @@ func TestAgentChartPreservesMaterializationRBACDocumentBoundaries(t *testing.T) 
 			t.Fatalf("materialization RBAC missing uniquely named binding %q:\n%s", expected, rendered)
 		}
 	}
+	for _, expected := range []string{
+		"kind: Role\nmetadata:\n  name: envplane-agent-secret-source-registry\n",
+		"kind: RoleBinding\nmetadata:\n  name: envplane-agent-secret-source-registry-binding\n",
+		"kind: Role\nmetadata:\n  name: envplane-agent-secret-target-registry\n",
+		"kind: RoleBinding\nmetadata:\n  name: envplane-agent-secret-target-registry-binding\n",
+		"roleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: Role\n  name: envplane-agent-secret-source-registry\n",
+		"roleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: Role\n  name: envplane-agent-secret-target-registry\n",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("materialization RBAC has an unresolved RoleBinding reference %q:\n%s", expected, rendered)
+		}
+	}
 	if strings.Contains(rendered, "secret-target-registry---") {
 		t.Fatalf("materialization RBAC must preserve YAML document boundaries:\n%s", rendered)
 	}

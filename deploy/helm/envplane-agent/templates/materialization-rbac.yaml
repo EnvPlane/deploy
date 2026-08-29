@@ -9,7 +9,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ printf "%s-secret-source-%s-binding" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-secret-source-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
   namespace: {{ $item.sourceNamespace | quote }}
   labels:
     {{- include "envplane-agent.labels" $ | nindent 4 }}
@@ -22,7 +22,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ printf "%s-secret-source-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-secret-source-%s-binding" $fullName $item.id | trunc 63 | trimSuffix "-" }}
   namespace: {{ $item.sourceNamespace | quote }}
   labels:
     {{- include "envplane-agent.labels" $ | nindent 4 }}
@@ -38,7 +38,7 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ printf "%s-secret-target-%s-binding" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-secret-target-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
   namespace: {{ $item.targetNamespace | quote }}
   labels:
     {{- include "envplane-agent.labels" $ | nindent 4 }}
@@ -56,7 +56,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ printf "%s-secret-target-%s" $fullName $item.id | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-secret-target-%s-binding" $fullName $item.id | trunc 63 | trimSuffix "-" }}
   namespace: {{ $item.targetNamespace | quote }}
   labels:
     {{- include "envplane-agent.labels" $ | nindent 4 }}
