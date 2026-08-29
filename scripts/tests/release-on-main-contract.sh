@@ -200,6 +200,10 @@ grep -Fq "Run disposable private-registry Secret materialization release gate" "
   echo "release must run the mandatory clean-cluster private-registry Secret lifecycle gate" >&2
   exit 1
 }
+grep -A2 -F 'uses: azure/setup-helm@v5' "$workflow" | grep -Fq 'version: v3.21.3' || {
+  echo "release workflow must pin the supported Helm 3 client" >&2
+  exit 1
+}
 
 grep -Fq -- '--values "$base_values" --values "$values"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must layer its SM-09 values over the canonical E2E profile" >&2
