@@ -271,7 +271,8 @@ grep -Fq 'SM-09 API request failed:' "$secret_lifecycle_harness" || {
   exit 1
 }
 grep -Fq 'SM-11 clean-install environment did not reach Ready with a URL' "$secret_lifecycle_harness" &&
-  grep -Fq '(.status == "ready" or .status == "running")' "$secret_lifecycle_harness" || {
+  grep -Fq '(.status == "ready" or .status == "running")' "$secret_lifecycle_harness" &&
+  grep -Fq 'environment_release="$project-$environment"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must prove a clean-install environment reaches Ready with a URL" >&2
   exit 1
 }

@@ -305,7 +305,11 @@ if ! jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$s
   echo "SM-09 materialization did not reach ready" >&2
   exit 1
 fi
-environment_release="default-$environment"
+# Keep this selector bound to the releaseNamePattern submitted to Bootstrap
+# above (`{{ .project.id }}-{{ .environment.name }}`). The runtime status can
+# already be Ready while an incorrectly guessed label would make this gate
+# report no workload at all.
+environment_release="$project-$environment"
 for _ in $(seq 1 180); do
   environment_status="$(api_curl "$api/api/v1/environments/$environment")"
   jq -e '(.status == "ready" or .status == "running") and (.url | type == "string" and length > 0)' <<<"$environment_status" >/dev/null 2>&1 && break
