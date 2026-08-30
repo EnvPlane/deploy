@@ -11,3 +11,8 @@ The clean-install environment API now reports the successful terminal state as
 Accept the supported Ready state (and the legacy Running spelling during the
 migration window) while continuing to require a non-empty URL and Running
 workload Pods.
+
+## Resolution
+
+The harness now accepts `ready` or `running`, requires a non-empty URL, and
+still verifies the target workload Pods are Running after the API succeeds.
