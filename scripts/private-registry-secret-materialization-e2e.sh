@@ -190,7 +190,33 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
 fi
 tenant_id="${ENVPLANE_SM09_TENANT_ID:-default}"
 api_curl() {
-  curl --noproxy '*' --fail --silent --show-error -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@"
+  local output response_meta status_code curl_status request_url
+  output="$(mktemp "$tmp/api-response.XXXXXX")"
+  request_url=""
+  for argument in "$@"; do
+    if [[ "$argument" == http://* || "$argument" == https://* ]]; then
+      request_url="$argument"
+      break
+    fi
+  done
+  set +e
+  response_meta="$(curl --noproxy '*' --fail --silent --show-error -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@")"
+  curl_status=$?
+  set -e
+  if (( curl_status != 0 )); then
+    status_code="${response_meta:-000}"
+    if jq -e 'type == "object"' "$output" >/dev/null 2>&1; then
+      jq -c --arg endpoint "${request_url#"$api"}" --arg status "$status_code" \
+        '{endpoint: $endpoint, status: $status, code: (.code // ""), field: (.field // ""), error: (.error // "")}' "$output" >&2
+    else
+      jq -cn --arg endpoint "${request_url#"$api"}" --arg status "$status_code" \
+        '{endpoint: $endpoint, status: $status, code: "non_json_http_response"}' >&2
+    fi
+    rm -f "$output"
+    return "$curl_status"
+  fi
+  cat "$output"
+  rm -f "$output"
 }
 api_call() {
   local output="$1" label="$2" response_headers="$1.headers" response_meta status_code content_type body_bytes allow_methods

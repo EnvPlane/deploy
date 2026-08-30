@@ -270,6 +270,11 @@ grep -Fq 'SM-09 API request failed:' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must emit redacted Bootstrap API diagnostics" >&2
   exit 1
 }
+grep -Fq 'api-response.XXXXXX' "$secret_lifecycle_harness" &&
+  grep -Fq 'non_json_http_response' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must retain redacted evidence for failed API reads" >&2
+  exit 1
+}
 grep -Fq 'SM-11 clean-install environment did not reach Ready with a URL' "$secret_lifecycle_harness" &&
   grep -Fq '(.status == "ready" or .status == "running")' "$secret_lifecycle_harness" &&
   grep -Fq 'environment_release="$project-$environment"' "$secret_lifecycle_harness" || {
