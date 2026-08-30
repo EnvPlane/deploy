@@ -13,6 +13,7 @@ operators see only curl's exit code.
 
 ## Resolution
 
-Capture each API response in the disposable harness directory, emit only
-status/code/field/error metadata for failures, then return curl's original
-status. Successful calls retain their JSON stdout contract.
+Capture each API response in the disposable harness directory, explicitly
+evaluate the HTTP status, emit only status/code/field/error metadata for
+failures, and preserve a transport failure's curl status. Successful calls
+retain their JSON stdout contract.

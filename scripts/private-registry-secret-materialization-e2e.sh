@@ -200,11 +200,11 @@ api_curl() {
     fi
   done
   set +e
-  response_meta="$(curl --noproxy '*' --fail --silent --show-error -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@")"
+  response_meta="$(curl --noproxy '*' --silent --show-error -o "$output" -w '%{http_code}' -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@")"
   curl_status=$?
   set -e
-  if (( curl_status != 0 )); then
-    status_code="${response_meta:-000}"
+  status_code="${response_meta:-000}"
+  if (( curl_status != 0 )) || [[ ! "$status_code" =~ ^2[0-9]{2}$ ]]; then
     if jq -e 'type == "object"' "$output" >/dev/null 2>&1; then
       jq -c --arg endpoint "${request_url#"$api"}" --arg status "$status_code" \
         '{endpoint: $endpoint, status: $status, code: (.code // ""), field: (.field // ""), error: (.error // "")}' "$output" >&2
@@ -213,7 +213,10 @@ api_curl() {
         '{endpoint: $endpoint, status: $status, code: "non_json_http_response"}' >&2
     fi
     rm -f "$output"
-    return "$curl_status"
+    if (( curl_status != 0 )); then
+      return "$curl_status"
+    fi
+    return 1
   fi
   cat "$output"
   rm -f "$output"
