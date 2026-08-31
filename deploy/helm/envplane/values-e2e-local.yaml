@@ -16,6 +16,9 @@ envplane-control-plane:
   env:
     ENVPLANE_OAUTH_COOKIE_SECURE: "false"
     ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
+    # The disposable browser gate validates anonymous local first-run. This
+    # never belongs in a normal release values file.
+    ENVPLANE_INSECURE_ALLOW_ANONYMOUS_API: "true"
   postgres:
     # Disposable local E2E profile: no PostgreSQL TLS CA Secret is provisioned.
     tls:
