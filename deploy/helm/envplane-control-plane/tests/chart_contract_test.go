@@ -307,6 +307,10 @@ func TestControlPlaneChartRendersCommercializationAliasesAndSecretReferences(t *
 	if strings.Contains(rendered, "api-key: ") || strings.Contains(rendered, "webhook-secret: ") {
 		t.Fatalf("commercialization secret bytes were rendered instead of SecretRefs:\n%s", rendered)
 	}
+	zeroGrace := renderControlPlaneChart(t, "--set", "commercialization.license.graceDays=0")
+	if !strings.Contains(zeroGrace, "name: ENVPLANE_LICENSE_GRACE_DAYS\n              value: \"0\"") {
+		t.Fatalf("zero-day license grace period must be rendered without the chart default:\n%s", zeroGrace)
+	}
 }
 
 func TestControlPlaneChartUsesNamespaceScopedSecretReaderInsteadOfClusterAdmin(t *testing.T) {

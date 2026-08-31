@@ -360,7 +360,7 @@ spec:
             - name: ENVPLANE_ACTIVATION_ISSUER_URL
               value: {{ default "" (get $license "activationIssuerURL") | quote }}
             - name: ENVPLANE_LICENSE_GRACE_DAYS
-              value: {{ default 14 (get $license "graceDays") | quote }}
+              value: {{ ternary (get $license "graceDays") 14 (hasKey $license "graceDays") | quote }}
             - name: ENVPLANE_REMOTE_CLUSTER_RECONCILER_ENABLED
               value: {{ $remoteClusterReconcilerEnabled | quote }}
             {{- if $remoteClusterReconcilerEnabled }}
