@@ -8,6 +8,14 @@ runner:
   enabled: true
 
 envplane-control-plane:
+  # The disposable browser gate reaches the UI through a fixed loopback
+  # port-forward. Keep this exception in the dedicated local profile; normal
+  # releases retain HTTPS and secure session cookies.
+  allowInsecureLocalDevelopment: true
+  publicURL: "http://127.0.0.1:13000"
+  env:
+    ENVPLANE_OAUTH_COOKIE_SECURE: "false"
+    ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
   postgres:
     # Disposable local E2E profile: no PostgreSQL TLS CA Secret is provisioned.
     tls:
