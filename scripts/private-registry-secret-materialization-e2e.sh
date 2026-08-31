@@ -153,9 +153,10 @@ envplane-control-plane:
   env:
     ENVPLANE_ENABLE_RELEASE_TEST_CONTROLS: "1"
     ENVPLANE_API_WRITE_TOKEN: $api_token
-  license:
-    activationPublicKeysJSON: '$activation_public_keys_json'
-    graceDays: 0
+  commercialization:
+    license:
+      activationPublicKeysJSON: '$activation_public_keys_json'
+      graceDays: 0
 envplane-runner:
   controlPlane:
     namespace: $namespace
