@@ -29,6 +29,10 @@ failure_line=""
 record_failure_line() {
   local status=$?
   failure_line="${BASH_LINENO[0]:-$LINENO}"
+  # This handler can run in a command-substitution subshell, where updating
+  # failure_line alone would not reach the EXIT trap. Emit only the line and
+  # status now; printing BASH_COMMAND could disclose credentials or payloads.
+  echo "SM-09 failed at script line $failure_line (exit $status)" >&2
   return "$status"
 }
 trap record_failure_line ERR
