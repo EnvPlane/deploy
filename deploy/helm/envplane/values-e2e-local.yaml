@@ -29,6 +29,10 @@ envplane-control-plane:
     # Disposable local E2E profile: no PostgreSQL TLS CA Secret is provisioned.
     tls:
       enabled: false
+  # Kind used by the local E2E harness does not run metrics-server. Disable
+  # the production HPA in this profile so the gate remains signal-rich.
+  autoscaling:
+    enabled: false
 
 global:
   envplane:

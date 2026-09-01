@@ -522,6 +522,9 @@ func TestUmbrellaE2EFixtureProfileOwnsRuntimeAndFixtureWorkloads(t *testing.T) {
 	if strings.Contains(rendered, "ENVPLANE_SAME_CLUSTER_FIXTURE_ENABLED\n              value: \"false\"") {
 		t.Fatalf("E2E fixture profile did not enable control-plane reconciliation:\n%s", rendered)
 	}
+	if strings.Contains(rendered, "# Source: envplane/charts/envplane-control-plane/templates/hpa.yaml") {
+		t.Fatalf("local E2E profile must not render an HPA when metrics-server is unavailable:\n%s", rendered)
+	}
 }
 
 func TestUmbrellaFixtureRecoveryIsExplicitlyOptIn(t *testing.T) {
