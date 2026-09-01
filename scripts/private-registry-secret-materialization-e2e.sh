@@ -343,13 +343,12 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token" \
     ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code" \
     ENVPLANE_E2E_FIRST_RUN_EXPECT_EXPIRED=1 \
-    ENVPLANE_E2E_FIRST_RUN_ASSERT_FAIL_CLOSED=1 \
     ENVPLANE_E2E_RUN_LIFECYCLE=1 \
     ENVPLANE_E2E_PROJECT_ID="$project" \
     ENVPLANE_E2E_ENVIRONMENT_ID="${environment}-browser" \
     ENVPLANE_E2E_BASE_URL="http://127.0.0.1:$frontend_port" \
     ENVPLANE_E2E_API_URL="$api" \
-    npm run test:e2e:real -- --grep "claims, resumes, verifies lifecycle evidence|creates a real full environment through the UI"
+    npm run test:e2e:real -- --grep "creates a real full environment through the UI"
   )
 fi
 
@@ -404,6 +403,24 @@ kubectl --context "kind-$cluster" -n "$target_namespace" rollout status deployme
 kubectl --context "kind-$cluster" -n "$target_namespace" get pods -l "app.kubernetes.io/instance=$environment_release" -o json |
   jq -e '.items | length > 0 and all(.[]; .status.phase == "Running")' >/dev/null
 echo "SM-11 clean-install environment ready: $(jq -r '.url' <<<"$environment_status")"
+
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  (
+    cd "$frontend_dir"
+    ENVPLANE_DISABLE_WEB_SERVER=1 \
+    ENVPLANE_E2E_REAL_CLUSTER=1 \
+    ENVPLANE_E2E_FIRST_RUN=1 \
+    ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token" \
+    ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code" \
+    ENVPLANE_E2E_FIRST_RUN_EXPECT_EXPIRED=1 \
+    ENVPLANE_E2E_FIRST_RUN_ASSERT_FAIL_CLOSED=1 \
+    ENVPLANE_E2E_PROJECT_ID="$project" \
+    ENVPLANE_E2E_ENVIRONMENT_ID="$environment" \
+    ENVPLANE_E2E_BASE_URL="http://127.0.0.1:$frontend_port" \
+    ENVPLANE_E2E_API_URL="$api" \
+    npm run test:e2e:real -- --grep "claims, resumes, verifies lifecycle evidence"
+  )
+fi
 
 ! grep -Fq "$registry_password" "$tmp"/*.json "$tmp"/*.log 2>/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null
