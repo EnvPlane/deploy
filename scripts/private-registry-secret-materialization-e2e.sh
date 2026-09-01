@@ -317,6 +317,42 @@ assert_rejected_fault namespace_escape
 assert_rejected_fault expired_lease
 assert_rejected_fault tampered_envelope
 
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  for _ in $(seq 1 60); do
+    setup_token="$(kubectl --context "kind-$cluster" -n "$namespace" get secret -l envplane.io/managed-secret=authentication -o jsonpath='{.items[0].data.setup-token}' 2>/dev/null | base64 --decode 2>/dev/null || true)"
+    [[ -n "$setup_token" ]] && break
+    sleep 1
+  done
+  [[ -n "${setup_token:-}" ]] || { echo "clean-install setup credential was not created" >&2; exit 1; }
+  activation_identity="$(api_curl "$api/api/v1/license/activation/identity")"
+  installation_id="$(jq -er '.installationId' <<<"$activation_identity")"
+  activation_tenant_id="$(jq -er '.tenantId' <<<"$activation_identity")"
+  activation_code_file="$tmp/first-run-activation-code"
+  go run ./cmd/e2e-activation-fixture sign \
+    --private-key "$activation_private_key" \
+    --output "$activation_code_file" \
+    --installation-id "$installation_id" \
+    --tenant-id "$activation_tenant_id" \
+    --expires-in 45s
+  activation_code="$(<"$activation_code_file")"
+  (
+    cd "$frontend_dir"
+    ENVPLANE_DISABLE_WEB_SERVER=1 \
+    ENVPLANE_E2E_REAL_CLUSTER=1 \
+    ENVPLANE_E2E_FIRST_RUN=1 \
+    ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token" \
+    ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code" \
+    ENVPLANE_E2E_FIRST_RUN_EXPECT_EXPIRED=1 \
+    ENVPLANE_E2E_FIRST_RUN_ASSERT_FAIL_CLOSED=1 \
+    ENVPLANE_E2E_RUN_LIFECYCLE=1 \
+    ENVPLANE_E2E_PROJECT_ID="$project" \
+    ENVPLANE_E2E_ENVIRONMENT_ID="${environment}-browser" \
+    ENVPLANE_E2E_BASE_URL="http://127.0.0.1:$frontend_port" \
+    ENVPLANE_E2E_API_URL="$api" \
+    npm run test:e2e:real -- --grep "claims, resumes, verifies lifecycle evidence|creates a real full environment through the UI"
+  )
+fi
+
 # A private image must fail before its pull credential exists.
 kubectl --context "kind-$cluster" -n "$target_namespace" run before-materialization --image="$registry/envplane/sm09:1" --restart=Never >/dev/null
 sleep 8
@@ -369,41 +405,6 @@ kubectl --context "kind-$cluster" -n "$target_namespace" get pods -l "app.kubern
   jq -e '.items | length > 0 and all(.[]; .status.phase == "Running")' >/dev/null
 echo "SM-11 clean-install environment ready: $(jq -r '.url' <<<"$environment_status")"
 
-if [[ "$first_run_browser_gate" == "1" ]]; then
-  for _ in $(seq 1 60); do
-    setup_token="$(kubectl --context "kind-$cluster" -n "$namespace" get secret -l envplane.io/managed-secret=authentication -o jsonpath='{.items[0].data.setup-token}' 2>/dev/null | base64 --decode 2>/dev/null || true)"
-    [[ -n "$setup_token" ]] && break
-    sleep 1
-  done
-  [[ -n "${setup_token:-}" ]] || { echo "clean-install setup credential was not created" >&2; exit 1; }
-  activation_identity="$(api_curl "$api/api/v1/license/activation/identity")"
-  installation_id="$(jq -er '.installationId' <<<"$activation_identity")"
-  activation_tenant_id="$(jq -er '.tenantId' <<<"$activation_identity")"
-  activation_code_file="$tmp/first-run-activation-code"
-  go run ./cmd/e2e-activation-fixture sign \
-    --private-key "$activation_private_key" \
-    --output "$activation_code_file" \
-    --installation-id "$installation_id" \
-    --tenant-id "$activation_tenant_id" \
-    --expires-in 45s
-  activation_code="$(<"$activation_code_file")"
-  (
-    cd "$frontend_dir"
-    ENVPLANE_DISABLE_WEB_SERVER=1 \
-    ENVPLANE_E2E_REAL_CLUSTER=1 \
-    ENVPLANE_E2E_FIRST_RUN=1 \
-    ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token" \
-    ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code" \
-    ENVPLANE_E2E_FIRST_RUN_EXPECT_EXPIRED=1 \
-    ENVPLANE_E2E_FIRST_RUN_ASSERT_FAIL_CLOSED=1 \
-    ENVPLANE_E2E_RUN_LIFECYCLE=1 \
-    ENVPLANE_E2E_PROJECT_ID="$project" \
-    ENVPLANE_E2E_ENVIRONMENT_ID="${environment}-browser" \
-    ENVPLANE_E2E_BASE_URL="http://127.0.0.1:$frontend_port" \
-    ENVPLANE_E2E_API_URL="$api" \
-    npm run test:e2e:real -- --grep "claims, resumes, verifies lifecycle evidence|creates a real full environment through the UI"
-  )
-fi
 ! grep -Fq "$registry_password" "$tmp"/*.json "$tmp"/*.log 2>/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config >/dev/null
