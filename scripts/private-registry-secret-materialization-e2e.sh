@@ -25,6 +25,11 @@ frontend_dir="${ENVPLANE_SM09_FRONTEND_DIR:-}"
 tmp="$(mktemp -d)"
 pids=()
 failure_line=""
+sm09_phase="initializing release gate"
+
+set_sm09_phase() {
+  sm09_phase="$1"
+}
 
 record_failure_line() {
   local status=$?
@@ -48,6 +53,10 @@ fi
 cleanup() {
   exit_status=$?
   if (( exit_status != 0 )) && kubectl --context "kind-$cluster" cluster-info >/dev/null 2>&1; then
+    # `set -e` can terminate an outer shell after a command substitution
+    # without running the ERR handler in this process. Keep the last explicit
+    # phase in the EXIT diagnostics so release failures are always actionable.
+    echo "SM-09 failed during phase: $sm09_phase (exit $exit_status)" >&2
     if [[ -n "$failure_line" ]]; then
       echo "SM-09 failed at script line $failure_line" >&2
     fi
@@ -196,10 +205,13 @@ if ! kubectl --context "kind-$cluster" -n "$namespace" get deployments -l "app.k
 fi
 kubectl --context "kind-$cluster" -n "$base_namespace" create secret docker-registry registry-source --docker-server="$registry" --docker-username="$registry_user" --docker-password="$registry_password" >/dev/null
 kubectl --context "kind-$cluster" -n "$base_namespace" create secret generic application-source --from-literal=config="$application_secret" >/dev/null
+set_sm09_phase "wait for control-plane rollout"
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-control-plane --timeout=5m
+set_sm09_phase "wait for Agent rollout"
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-agent --timeout=5m
 
 api_port=18080
+set_sm09_phase "start control-plane API port-forward"
 kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane "$api_port:8080" >"$tmp/port-forward.log" 2>&1 &
 api_port_forward_pid=$!
 pids+=("$api_port_forward_pid")
@@ -207,7 +219,9 @@ api="http://127.0.0.1:$api_port"
 frontend_port=13000
 tenant_id="${ENVPLANE_SM09_TENANT_ID:-default}"
 if [[ "$first_run_browser_gate" == "1" ]]; then
+  set_sm09_phase "wait for frontend rollout"
   kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-frontend --timeout=5m
+  set_sm09_phase "start frontend port-forward"
   kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-frontend "$frontend_port:3000" >"$tmp/frontend-port-forward.log" 2>&1 &
   frontend_port_forward_pid=$!
   pids+=("$frontend_port_forward_pid")
@@ -233,8 +247,10 @@ wait_for_port_forward() {
   return 1
 }
 
+set_sm09_phase "wait for control-plane API port-forward"
 wait_for_port_forward "$api_port_forward_pid" "control-plane API" "$tmp/port-forward.log" "$api/api/v1/health"
 if [[ "$first_run_browser_gate" == "1" ]]; then
+  set_sm09_phase "wait for frontend port-forward"
   wait_for_port_forward "$frontend_port_forward_pid" "frontend" "$tmp/frontend-port-forward.log" "http://127.0.0.1:$frontend_port/"
 fi
 
@@ -293,7 +309,9 @@ api_call() {
   echo "SM-09 API request failed: $label (curl=$curl_status http=${status_code:-000})" >&2
   return 1
 }
+set_sm09_phase "verify control-plane health API"
 api_curl "$api/api/v1/health" >/dev/null
+set_sm09_phase "configure fixture project SCM metadata"
 fixture_project_patch="$(jq -cn \
   --arg provider "$fixture_scm_provider" \
   --arg repository "$fixture_app_repository_url" \
@@ -306,6 +324,7 @@ jq -e --arg provider "$fixture_scm_provider" --arg repository "$fixture_app_repo
   exit 1
 }
 
+set_sm09_phase "wait for Agent connection"
 for _ in $(seq 1 120); do
   agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"
   jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" >/dev/null 2>&1 && break
@@ -317,7 +336,9 @@ if ! jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" 
 	exit 1
 fi
 
+set_sm09_phase "start Agent resource scan"
 api_call "$tmp/resource-scan.json" "start Agent resource scan" -X POST "$api/api/v1/projects/$project/bootstrap-session/resource-scan/start"
+set_sm09_phase "wait for Agent resource scan"
 for _ in $(seq 1 120); do
   agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"
   jq -e '.resourceScanStatus == "completed"' <<<"$agent_status" >/dev/null 2>&1 && break
