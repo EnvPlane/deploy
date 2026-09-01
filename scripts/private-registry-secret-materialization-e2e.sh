@@ -393,6 +393,25 @@ assert_rejected_fault expired_lease
 assert_rejected_fault tampered_envelope
 
 if [[ "$first_run_browser_gate" == "1" ]]; then
+	# Environment creation now dispatches encrypted-clone materialization
+	# automatically. Verify that lifecycle before reusing this intentionally
+	# shared fixture namespace for the separate browser-created environment.
+	# The browser plan has a different ownership binding and must start without
+	# Secrets owned by the API-created environment.
+	set_sm09_phase "wait for automatic Secret materialization"
+	for _ in $(seq 1 120); do
+		automatic_status="$(api_curl "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
+		jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$automatic_status" >/dev/null 2>&1 && break
+		sleep 2
+	done
+	if ! jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$automatic_status" >/dev/null; then
+		jq -c '{state: (.state // ""), items: [.items[]? | {id: (.id // ""), state: (.state // ""), errorCode: (.errorCode // "")} ]}' <<<"$automatic_status" >&2
+		echo "SM-09 automatic materialization did not reach ready before browser isolation" >&2
+		exit 1
+	fi
+	set_sm09_phase "reset shared fixture Secrets before browser gate"
+	kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull application-config --ignore-not-found >/dev/null
+
   set_sm09_phase "prepare first-run browser gate"
   for _ in $(seq 1 60); do
     setup_token="$(kubectl --context "kind-$cluster" -n "$namespace" get secret -l envplane.io/managed-secret=authentication -o jsonpath='{.items[0].data.setup-token}' 2>/dev/null | base64 --decode 2>/dev/null || true)"
