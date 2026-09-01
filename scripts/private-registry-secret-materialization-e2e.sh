@@ -185,14 +185,44 @@ kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envp
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-agent --timeout=5m
 
 api_port=18080
-kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane "$api_port:8080" >"$tmp/port-forward.log" 2>&1 & pids+=("$!")
+kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane "$api_port:8080" >"$tmp/port-forward.log" 2>&1 &
+api_port_forward_pid=$!
+pids+=("$api_port_forward_pid")
 api="http://127.0.0.1:$api_port"
 frontend_port=13000
+tenant_id="${ENVPLANE_SM09_TENANT_ID:-default}"
 if [[ "$first_run_browser_gate" == "1" ]]; then
   kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-frontend --timeout=5m
-  kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-frontend "$frontend_port:3000" >"$tmp/frontend-port-forward.log" 2>&1 & pids+=("$!")
+  kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-frontend "$frontend_port:3000" >"$tmp/frontend-port-forward.log" 2>&1 &
+  frontend_port_forward_pid=$!
+  pids+=("$frontend_port_forward_pid")
 fi
-tenant_id="${ENVPLANE_SM09_TENANT_ID:-default}"
+
+wait_for_port_forward() {
+  local pid="$1" label="$2" log_file="$3" url="$4" attempt
+  for attempt in $(seq 1 90); do
+    if curl --noproxy '*' --silent --show-error --fail \
+      -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" \
+      "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    if ! kill -0 "$pid" >/dev/null 2>&1; then
+      echo "SM-09 $label port-forward exited before becoming reachable" >&2
+      tail -40 "$log_file" >&2 || true
+      return 1
+    fi
+    sleep 1
+  done
+  echo "SM-09 $label port-forward did not become reachable within 90 seconds" >&2
+  tail -40 "$log_file" >&2 || true
+  return 1
+}
+
+wait_for_port_forward "$api_port_forward_pid" "control-plane API" "$tmp/port-forward.log" "$api/api/v1/health"
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  wait_for_port_forward "$frontend_port_forward_pid" "frontend" "$tmp/frontend-port-forward.log" "http://127.0.0.1:$frontend_port/"
+fi
+
 api_curl() {
   local output response_meta status_code curl_status request_url
   output="$(mktemp "$tmp/api-response.XXXXXX")"
@@ -226,12 +256,15 @@ api_curl() {
   rm -f "$output"
 }
 api_call() {
-  local output="$1" label="$2" response_headers="$1.headers" response_meta status_code content_type body_bytes allow_methods
+  local output="$1" label="$2" response_headers="$1.headers" response_meta status_code content_type body_bytes allow_methods curl_status
   shift 2
+  set +e
   response_meta="$(curl --noproxy '*' --silent --show-error -D "$response_headers" -o "$output" -w $'%{http_code}\t%{content_type}' -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" "$@")"
+  curl_status=$?
+  set -e
   status_code="${response_meta%%$'\t'*}"
   content_type="${response_meta#*$'\t'}"
-  if [[ "$status_code" =~ ^2[0-9]{2}$ ]]; then
+  if (( curl_status == 0 )) && [[ "$status_code" =~ ^2[0-9]{2}$ ]]; then
     return 0
   fi
   if jq -e 'type == "object"' "$output" >/dev/null 2>&1; then
@@ -242,10 +275,9 @@ api_call() {
     jq -cn --arg status "$status_code" --arg contentType "$content_type" --arg allow "$allow_methods" --argjson bodyBytes "$body_bytes" \
       '{status: $status, code: "non_json_http_response", contentType: $contentType, bodyBytes: $bodyBytes, allow: $allow}' >&2
   fi
-  echo "SM-09 API request failed: $label" >&2
+  echo "SM-09 API request failed: $label (curl=$curl_status http=${status_code:-000})" >&2
   return 1
 }
-for _ in $(seq 1 90); do api_curl "$api/api/v1/health" >/dev/null 2>&1 && break; sleep 1; done
 api_curl "$api/api/v1/health" >/dev/null
 fixture_project_patch="$(jq -cn \
   --arg provider "$fixture_scm_provider" \
