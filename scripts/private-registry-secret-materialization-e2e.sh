@@ -2,7 +2,7 @@
 # Disposable SM-09 release gate. It intentionally creates every Kubernetes and
 # registry resource it needs, never prints registry credentials, and runs
 # before the umbrella OCI artifact is published.
-set -euo pipefail
+set -eEuo pipefail
 
 : "${ENVPLANE_SM09_CHART:?set the packaged umbrella chart path}"
 
@@ -352,8 +352,11 @@ fi
 
 # Drive the public Bootstrap API. The payload contains references and bounded
 # metadata only; it never contains a Secret value or registry credential.
+set_sm09_phase "save Bootstrap deployment and Secret strategies"
 api_call "$tmp/bootstrap.json" "save deployment, secret strategies, and final review" -X PATCH "$api/api/v1/projects/$project/bootstrap-session" -H 'content-type: application/json' -d "{\"current_step\":10,\"stepData\":{\"deployment\":{\"backend\":\"helm_direct\",\"helmDirect\":{\"chartRef\":\"$workload_chart_ref\",\"chartVersion\":\"$workload_chart_version\",\"namespaceMode\":\"shared\",\"namespacePattern\":\"$target_namespace\",\"releaseNamePattern\":\"{{ .project.id }}-{{ .environment.name }}\",\"timeout\":180,\"wait\":true,\"createNamespace\":false,\"valuesOverrideStrategy\":\"merge\",\"imageTagValuePath\":\"image.tag\"}},\"secretStrategies\":{\"registry\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"registry-source\",\"targetName\":\"registry-pull\",\"retentionHours\":24},\"application\":{\"strategy\":\"encrypted clone\",\"required\":true,\"serviceId\":\"service/private-image\",\"namespace\":\"$base_namespace\",\"secretName\":\"application-source\",\"targetName\":\"application-config\",\"retentionHours\":24}}}}"
+set_sm09_phase "start Runner Helm chart preflight"
 api_call "$tmp/chart-preflight.json" "start Runner Helm chart preflight" -X POST "$api/api/v1/projects/$project/bootstrap-session/helm-direct/preflight"
+set_sm09_phase "wait for Runner Helm chart preflight"
 for _ in $(seq 1 120); do
   bootstrap_session="$(api_curl "$api/api/v1/projects/$project/bootstrap-session")"
   jq -e --arg chartRef "$workload_chart_ref" --arg chartVersion "$workload_chart_version" \
@@ -368,8 +371,11 @@ if ! jq -e --arg chartRef "$workload_chart_ref" --arg chartVersion "$workload_ch
   echo "SM-09 Runner Helm chart preflight did not complete" >&2
   exit 1
 fi
+set_sm09_phase "compile Bootstrap session"
 api_call "$tmp/compiled.json" "compile Bootstrap session" -X POST "$api/api/v1/projects/$project/bootstrap-session/compile"
+set_sm09_phase "create SM-09 environment"
 api_call "$tmp/environment.json" "create environment" -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project\":\"$project\",\"clusterId\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}"
+set_sm09_phase "load Secret materialization plan"
 materialization_status="$(api_curl "$api/api/v1/environments/$environment/secret-materialization")"
 plan_id="$(jq -er '.planId' <<<"$materialization_status")"
 
@@ -380,12 +386,14 @@ assert_rejected_fault() {
   jq -e '.error | type == "string"' "$output" >/dev/null
 }
 
+set_sm09_phase "verify rejected Secret materialization faults"
 assert_rejected_fault wrong_tenant
 assert_rejected_fault namespace_escape
 assert_rejected_fault expired_lease
 assert_rejected_fault tampered_envelope
 
 if [[ "$first_run_browser_gate" == "1" ]]; then
+  set_sm09_phase "prepare first-run browser gate"
   for _ in $(seq 1 60); do
     setup_token="$(kubectl --context "kind-$cluster" -n "$namespace" get secret -l envplane.io/managed-secret=authentication -o jsonpath='{.items[0].data.setup-token}' 2>/dev/null | base64 --decode 2>/dev/null || true)"
     [[ -n "$setup_token" ]] && break
@@ -403,6 +411,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     --tenant-id "$activation_tenant_id" \
     --expires-in 45s
   activation_code="$(<"$activation_code_file")"
+  set_sm09_phase "run first environment browser gate"
   (
     cd "$frontend_dir"
     ENVPLANE_DISABLE_WEB_SERVER=1 \
@@ -422,6 +431,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
 fi
 
 # A private image must fail before its pull credential exists.
+set_sm09_phase "verify private image fails before materialization"
 kubectl --context "kind-$cluster" -n "$target_namespace" run before-materialization --image="$registry/envplane/sm09:1" --restart=Never >/dev/null
 sleep 8
 ! kubectl --context "kind-$cluster" -n "$target_namespace" get pod before-materialization -o jsonpath='{.status.phase}' | grep -qx Running
@@ -429,7 +439,9 @@ sleep 8
 # A foreign Secret at an approved target name must never be adopted. This is
 # metadata-only and is deleted before the retry below.
 kubectl --context "kind-$cluster" -n "$target_namespace" create secret generic registry-pull --from-literal=owner=foreign >/dev/null
+set_sm09_phase "dispatch foreign Secret target conflict"
 api_curl -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/foreign-dispatch.json"
+set_sm09_phase "wait for foreign Secret target conflict"
 for _ in $(seq 1 120); do
   status="$(api_curl "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
   jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .errorCode == "conflict")' <<<"$status" >/dev/null 2>&1 && break
@@ -442,7 +454,9 @@ if ! jq -e '.state == "failed" and (.items[] | select(.id == "registry") | .erro
 fi
 kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull >/dev/null
 
+set_sm09_phase "dispatch Secret materialization"
 api_curl -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"materialize\"}" >"$tmp/dispatch.json"
+set_sm09_phase "wait for Secret materialization"
 for _ in $(seq 1 120); do
   status="$(api_curl "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
   jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$status" >/dev/null 2>&1 && break
@@ -458,6 +472,7 @@ fi
 # already be Ready while an incorrectly guessed label would make this gate
 # report no workload at all.
 environment_release="$project-$environment"
+set_sm09_phase "wait for clean-install environment readiness"
 for _ in $(seq 1 180); do
   environment_status="$(api_curl "$api/api/v1/environments/$environment")"
   jq -e '(.status == "ready" or .status == "running") and (.url | type == "string" and length > 0)' <<<"$environment_status" >/dev/null 2>&1 && break
@@ -474,6 +489,7 @@ kubectl --context "kind-$cluster" -n "$target_namespace" get pods -l "app.kubern
 echo "SM-11 clean-install environment ready: $(jq -r '.url' <<<"$environment_status")"
 
 if [[ "$first_run_browser_gate" == "1" ]]; then
+  set_sm09_phase "run environment lifecycle browser gate"
   (
     cd "$frontend_dir"
     ENVPLANE_DISABLE_WEB_SERVER=1 \
@@ -492,6 +508,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
 fi
 
 ! grep -Fq "$registry_password" "$tmp"/*.json "$tmp"/*.log 2>/dev/null
+set_sm09_phase "verify materialized private image pull"
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config >/dev/null
 kubectl --context "kind-$cluster" -n "$target_namespace" run after-materialization --image="$registry/envplane/sm09:1" --restart=Never --overrides='{"spec":{"imagePullSecrets":[{"name":"registry-pull"}]}}' >/dev/null
@@ -499,6 +516,7 @@ kubectl --context "kind-$cluster" -n "$target_namespace" wait --for=condition=Re
 
 # Explicit source rotation is a fresh materialization command, never a silent
 # mutation. Restarting Agent validates lease/queue recovery before the command.
+set_sm09_phase "verify Secret source rotation"
 kubectl --context "kind-$cluster" -n "$namespace" rollout restart deployment/envplane-agent
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-agent --timeout=5m
 before_rotation="$(kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config -o jsonpath='{.metadata.resourceVersion}')"
@@ -512,6 +530,7 @@ for _ in $(seq 1 120); do
   sleep 2
 done
 [[ "$after_rotation" != "$before_rotation" ]]
+set_sm09_phase "clean up materialized Secrets"
 api_curl -X POST "$api/api/v1/environments/$environment/secret-materialization/dispatch" -H 'content-type: application/json' -d "{\"planId\":\"$plan_id\",\"operation\":\"cleanup\"}" >"$tmp/cleanup.json"
 for _ in $(seq 1 120); do kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null 2>&1 || break; sleep 2; done
 ! kubectl --context "kind-$cluster" -n "$target_namespace" get secret registry-pull >/dev/null 2>&1
