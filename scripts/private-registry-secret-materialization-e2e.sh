@@ -350,6 +350,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     ENVPLANE_E2E_API_URL="$api" \
     npm run test:e2e:real -- --grep "creates a real full environment through the UI"
   )
+  kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull application-config --ignore-not-found >/dev/null
 fi
 
 # A private image must fail before its pull credential exists.
