@@ -419,17 +419,6 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     sleep 1
   done
   [[ -n "${setup_token:-}" ]] || { echo "clean-install setup credential was not created" >&2; exit 1; }
-  activation_identity="$(api_curl "$api/api/v1/license/activation/identity")"
-  installation_id="$(jq -er '.installationId' <<<"$activation_identity")"
-  activation_tenant_id="$(jq -er '.tenantId' <<<"$activation_identity")"
-  activation_code_file="$tmp/first-run-activation-code"
-  go run ./cmd/e2e-activation-fixture sign \
-    --private-key "$activation_private_key" \
-    --output "$activation_code_file" \
-    --installation-id "$installation_id" \
-    --tenant-id "$activation_tenant_id" \
-    --expires-in 45s
-  activation_code="$(<"$activation_code_file")"
   set_sm09_phase "run first environment browser gate"
   (
     cd "$frontend_dir"
@@ -437,8 +426,6 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     ENVPLANE_E2E_REAL_CLUSTER=1 \
     ENVPLANE_E2E_FIRST_RUN=1 \
     ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token" \
-    ENVPLANE_E2E_FIRST_RUN_ACTIVATION_CODE="$activation_code" \
-    ENVPLANE_E2E_FIRST_RUN_EXPECT_EXPIRED=1 \
     ENVPLANE_E2E_RUN_LIFECYCLE=1 \
     ENVPLANE_E2E_PROJECT_ID="$project" \
     ENVPLANE_E2E_ENVIRONMENT_ID="${environment}-browser" \
@@ -508,6 +495,21 @@ kubectl --context "kind-$cluster" -n "$target_namespace" get pods -l "app.kubern
 echo "SM-11 clean-install environment ready: $(jq -r '.url' <<<"$environment_status")"
 
 if [[ "$first_run_browser_gate" == "1" ]]; then
+  # Sign the short-lived code immediately before the only test that installs
+  # it. The preceding real environment lifecycle can legitimately take longer
+  # than the activation TTL and must not consume that test window.
+  set_sm09_phase "issue short-lived activation for browser lifecycle"
+  activation_identity="$(api_curl "$api/api/v1/license/activation/identity")"
+  installation_id="$(jq -er '.installationId' <<<"$activation_identity")"
+  activation_tenant_id="$(jq -er '.tenantId' <<<"$activation_identity")"
+  activation_code_file="$tmp/first-run-activation-code"
+  go run ./cmd/e2e-activation-fixture sign \
+    --private-key "$activation_private_key" \
+    --output "$activation_code_file" \
+    --installation-id "$installation_id" \
+    --tenant-id "$activation_tenant_id" \
+    --expires-in 45s
+  activation_code="$(<"$activation_code_file")"
   set_sm09_phase "run environment lifecycle browser gate"
   (
     cd "$frontend_dir"
