@@ -23,6 +23,7 @@ data:
 {{ .Files.Get "compatibility/release.json" | indent 4 }}
 {{- end }}
 {{- if and $reconcilerEnabled (.Files.Get "compatibility/release.json") (not (trim (default "" (get $controlPlaneRemote "compatibilityConfigMapName"))) ) }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:

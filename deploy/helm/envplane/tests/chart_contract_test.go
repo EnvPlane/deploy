@@ -1460,6 +1460,21 @@ func TestPublishedUmbrellaMountsRevisionScopedInstallFlowManifest(t *testing.T) 
 	}
 }
 
+func TestPublishedUmbrellaSeparatesCompatibilityConfigMapsIntoYAMLDocuments(t *testing.T) {
+	rendered, err := renderPublishedUmbrella(t,
+		"--set", "global.envplane.sameClusterProjectExecutors.enabled=true",
+		"--set", "global.envplane.sameClusterProjectExecutors.namespace=envplane-executors",
+	)
+	if err != nil {
+		t.Fatalf("render published umbrella with project executors: %v\n%s", err, rendered)
+	}
+	releaseStart := strings.Index(rendered, "name: envplane-release-compatibility-r1")
+	remoteStart := strings.Index(rendered, "name: envplane-remote-cluster-compatibility-r1")
+	if releaseStart < 0 || remoteStart <= releaseStart || !strings.Contains(rendered[releaseStart:remoteStart], "\n---\n") {
+		t.Fatalf("release and remote compatibility ConfigMaps must be separate YAML documents:\n%s", rendered)
+	}
+}
+
 func TestPublishedUmbrellaRejectsInstallFlowPolicyMismatch(t *testing.T) {
 	for _, override := range [][]string{
 		{"--set", "global.envplane.installFlow.rollout.mode=canary"},
