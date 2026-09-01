@@ -18,7 +18,30 @@ if [[ "$image" =~ ^(ghcr\.io/envplane/frontend):sha-[0-9a-f]{40}$ ]]; then
     echo "tagged frontend image requires an expected immutable digest" >&2
     exit 2
   }
-  docker buildx imagetools inspect "$image" | grep -Fq "$expected_digest" || {
+  wait_attempts="${ENVPLANE_ARTIFACT_WAIT_ATTEMPTS:-6}"
+  wait_seconds="${ENVPLANE_ARTIFACT_WAIT_SECONDS:-10}"
+  [[ "$wait_attempts" =~ ^[1-9][0-9]*$ && "$wait_seconds" =~ ^[0-9]+$ ]] || {
+    echo "artifact wait settings must be positive integers" >&2
+    exit 2
+  }
+  tagged_image="$image"
+  repository="${image%%:*}"
+  actual_digest=""
+  for ((attempt=1; attempt<=wait_attempts; attempt++)); do
+    actual_digest="$(docker buildx imagetools inspect "$tagged_image" 2>/dev/null \
+      | awk '/^Digest:[[:space:]]+sha256:[0-9a-f]{64}$/ {print $2; exit}' || true)"
+    if [[ "$actual_digest" == "$expected_digest" ]]; then
+      # Inspect the exact index accepted above, rather than letting a tag
+      # change between verification and the image-content smoke check.
+      image="$repository@$expected_digest"
+      break
+    fi
+    if (( attempt < wait_attempts )); then
+      echo "waiting for frontend artifact $tagged_image (attempt $attempt/$wait_attempts)" >&2
+      sleep "$wait_seconds"
+    fi
+  done
+  [[ "$actual_digest" == "$expected_digest" ]] || {
     echo "frontend image tag does not resolve to the expected immutable digest" >&2
     exit 1
   }

@@ -361,6 +361,12 @@ grep -Fq 'verify-frontend-component-repair-controls.sh' "$workflow" || {
   exit 1
 }
 
+grep -Fq 'ENVPLANE_ARTIFACT_WAIT_ATTEMPTS' "$frontend_smoke" &&
+grep -Fq 'image="$repository@$expected_digest"' "$frontend_smoke" || {
+  echo "frontend component smoke must retry publication visibility and inspect the immutable digest" >&2
+  exit 1
+}
+
 if grep -Fq 'Resolve latest published immutable artifacts' "$workflow"; then
   echo "release must consume the confirmed artifact manifest, not resolve independently" >&2
   exit 1
