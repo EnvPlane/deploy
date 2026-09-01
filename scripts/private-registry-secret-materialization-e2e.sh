@@ -17,6 +17,9 @@ environment="${ENVPLANE_SM09_ENVIRONMENT:-sm09-private-registry}"
 release="${ENVPLANE_SM09_RELEASE:-envplane-sm09}"
 workload_chart_ref="${ENVPLANE_SM09_WORKLOAD_CHART_REF:-oci://ghcr.io/envplane/envplane-e2e-workload}"
 workload_chart_version="${ENVPLANE_SM09_WORKLOAD_CHART_VERSION:-0.1.0}"
+fixture_scm_provider="${ENVPLANE_SM09_FIXTURE_SCM_PROVIDER:-github}"
+fixture_app_repository_url="${ENVPLANE_SM09_FIXTURE_APP_REPOSITORY_URL:-https://github.com/envplane/envplane-e2e-workload}"
+fixture_app_default_branch="${ENVPLANE_SM09_FIXTURE_APP_DEFAULT_BRANCH:-main}"
 first_run_browser_gate="${ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE:-0}"
 frontend_dir="${ENVPLANE_SM09_FRONTEND_DIR:-}"
 tmp="$(mktemp -d)"
@@ -244,6 +247,17 @@ api_call() {
 }
 for _ in $(seq 1 90); do api_curl "$api/api/v1/health" >/dev/null 2>&1 && break; sleep 1; done
 api_curl "$api/api/v1/health" >/dev/null
+fixture_project_patch="$(jq -cn \
+  --arg provider "$fixture_scm_provider" \
+  --arg repository "$fixture_app_repository_url" \
+  --arg branch "$fixture_app_default_branch" \
+  '{git_repo: {provider: $provider, url: $repository, default_branch: $branch}}')"
+api_call "$tmp/project.json" "set fixture project SCM metadata" -X PATCH "$api/api/v1/projects/$project" -H 'content-type: application/json' -d "$fixture_project_patch"
+jq -e --arg provider "$fixture_scm_provider" --arg repository "$fixture_app_repository_url" \
+  '.git_repo.provider == $provider and .git_repo.url == $repository' "$tmp/project.json" >/dev/null || {
+  echo "SM-09 fixture project SCM metadata was not persisted" >&2
+  exit 1
+}
 
 for _ in $(seq 1 120); do
   agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"

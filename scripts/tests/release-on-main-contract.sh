@@ -270,6 +270,11 @@ grep -Fq 'SM-09 API request failed:' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must emit redacted Bootstrap API diagnostics" >&2
   exit 1
 }
+grep -Fq 'set fixture project SCM metadata' "$secret_lifecycle_harness" &&
+  grep -Fq 'fixture_project_patch=' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must persist SCM metadata before browser environment creation" >&2
+  exit 1
+}
 grep -Fq 'api-response.XXXXXX' "$secret_lifecycle_harness" &&
   grep -Fq 'non_json_http_response' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must retain redacted evidence for failed API reads" >&2
