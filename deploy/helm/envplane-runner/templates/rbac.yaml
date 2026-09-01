@@ -3,6 +3,12 @@
 {{- $fullName := .fullName -}}
 {{- $serviceAccountName := .serviceAccountName -}}
 {{- $writerNamespace := .namespace -}}
+{{- $namespaceCapabilities := dict -}}
+{{- range $candidate := $root.Values.rbac.featureEnvWriter.namespaceCapabilities -}}
+{{- if eq (toString $candidate.namespace) (toString $writerNamespace) -}}
+{{- $namespaceCapabilities = $candidate -}}
+{{- end -}}
+{{- end -}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -49,10 +55,34 @@ rules:
     resources:
       - ingresses
     verbs: ["get","list","watch","create","update","patch","delete"]
-  {{- if $root.Values.rbac.featureEnvWriter.allowNetworkPolicies }}
+  {{- if or $root.Values.rbac.featureEnvWriter.allowNetworkPolicies (default false (get $namespaceCapabilities "allowNetworkPolicies")) }}
   - apiGroups: ["networking.k8s.io"]
     resources:
       - networkpolicies
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  {{- end }}
+  {{- if or $root.Values.rbac.featureEnvWriter.allowPodDisruptionBudgets (default false (get $namespaceCapabilities "allowPodDisruptionBudgets")) }}
+  - apiGroups: ["policy"]
+    resources:
+      - poddisruptionbudgets
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  {{- end }}
+  {{- if or $root.Values.rbac.featureEnvWriter.allowServiceAccounts (default false (get $namespaceCapabilities "allowServiceAccounts")) }}
+  - apiGroups: [""]
+    resources:
+      - serviceaccounts
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  {{- end }}
+  {{- if or $root.Values.rbac.featureEnvWriter.allowHorizontalPodAutoscalers (default false (get $namespaceCapabilities "allowHorizontalPodAutoscalers")) }}
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  {{- end }}
+  {{- if or $root.Values.rbac.featureEnvWriter.allowDaemonSets (default false (get $namespaceCapabilities "allowDaemonSets")) }}
+  - apiGroups: ["apps"]
+    resources:
+      - daemonsets
     verbs: ["get","list","watch","create","update","patch","delete"]
   {{- end }}
   {{- if $root.Values.rbac.featureEnvWriter.allowFluxResources }}

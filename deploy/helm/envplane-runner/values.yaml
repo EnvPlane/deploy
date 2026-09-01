@@ -174,7 +174,15 @@ rbac:
     namespace: ""
     namespaces: []
     generatedNamespaces: []
+    # Per-namespace capabilities supplied only by the control plane from a
+    # signed release plan. This keeps optional write access tied to the exact
+    # target namespace instead of broadening every Runner target.
+    namespaceCapabilities: []
     allowNetworkPolicies: false
+    allowPodDisruptionBudgets: false
+    allowServiceAccounts: false
+    allowHorizontalPodAutoscalers: false
+    allowDaemonSets: false
     allowFluxResources: false
   secretManager:
     enabled: false

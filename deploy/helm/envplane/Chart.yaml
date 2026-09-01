@@ -18,7 +18,7 @@ dependencies:
     repository: file://../envplane-agent
     condition: agent.enabled
   - name: envplane-runner
-    version: 0.4.1
+    version: 0.4.2
     repository: file://../envplane-runner
     condition: runner.enabled
   - name: envplane-webhook

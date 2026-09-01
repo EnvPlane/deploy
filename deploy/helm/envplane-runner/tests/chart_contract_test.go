@@ -518,6 +518,36 @@ func TestRunnerChartCapabilityFlagsControlOptionalPermissions(t *testing.T) {
 	}
 }
 
+func TestRunnerChartNamespaceCapabilitiesStayBoundToTheirTarget(t *testing.T) {
+	rendered := renderRunnerChart(t,
+		"--set", "rbac.featureEnvWriter.enabled=true",
+		"--set", "rbac.featureEnvWriter.mode=preconfiguredNamespaces",
+		"--set", "rbac.featureEnvWriter.namespaces[0]=feature-a",
+		"--set", "rbac.featureEnvWriter.namespaces[1]=feature-b",
+		"--set", "rbac.featureEnvWriter.namespaceCapabilities[0].namespace=feature-a",
+		"--set", "rbac.featureEnvWriter.namespaceCapabilities[0].allowNetworkPolicies=true",
+		"--set", "rbac.featureEnvWriter.namespaceCapabilities[0].allowPodDisruptionBudgets=true",
+		"--set", "rbac.featureEnvWriter.namespaceCapabilities[0].allowServiceAccounts=true",
+		"--set", "rbac.featureEnvWriter.namespaceCapabilities[0].allowHorizontalPodAutoscalers=true",
+		"--set", "rbac.featureEnvWriter.namespaceCapabilities[0].allowDaemonSets=true",
+	)
+	for _, expected := range []string{"networkpolicies", "poddisruptionbudgets", "serviceaccounts", "horizontalpodautoscalers", "daemonsets"} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("namespace capability missing %s:\n%s", expected, rendered)
+		}
+	}
+	for _, doc := range renderedDocs(rendered) {
+		if !docIsKind(doc, "Role") || !strings.Contains(doc, "feature-env-writer") || !strings.Contains(doc, `namespace: "feature-b"`) {
+			continue
+		}
+		for _, forbidden := range []string{"networkpolicies", "poddisruptionbudgets", "horizontalpodautoscalers", "daemonsets"} {
+			if docHasAnyResource(doc, forbidden) {
+				t.Fatalf("feature-b received feature-a-only %s permission:\n%s", forbidden, doc)
+			}
+		}
+	}
+}
+
 func TestRunnerChartSecretManagerUsesExplicitNamespaceAllowlist(t *testing.T) {
 	rendered := renderRunnerChart(t,
 		"--set", "rbac.secretManager.enabled=true",
