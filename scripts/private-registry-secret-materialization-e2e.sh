@@ -24,6 +24,14 @@ first_run_browser_gate="${ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE:-0}"
 frontend_dir="${ENVPLANE_SM09_FRONTEND_DIR:-}"
 tmp="$(mktemp -d)"
 pids=()
+failure_line=""
+
+record_failure_line() {
+  local status=$?
+  failure_line="${BASH_LINENO[0]:-$LINENO}"
+  return "$status"
+}
+trap record_failure_line ERR
 
 case "$first_run_browser_gate" in
   0|1) ;;
@@ -36,6 +44,9 @@ fi
 cleanup() {
   exit_status=$?
   if (( exit_status != 0 )) && kubectl --context "kind-$cluster" cluster-info >/dev/null 2>&1; then
+    if [[ -n "$failure_line" ]]; then
+      echo "SM-09 failed at script line $failure_line" >&2
+    fi
     echo "SM-09 redacted pod diagnostics" >&2
     kubectl --context "kind-$cluster" get pods --all-namespaces -o wide >&2 || true
     echo "SM-09 warning events" >&2
