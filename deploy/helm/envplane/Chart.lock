@@ -7,7 +7,7 @@ dependencies:
   version: 0.2.1
 - name: envplane-agent
   repository: file://../envplane-agent
-  version: 0.2.20
+  version: 0.2.21
 - name: envplane-runner
   repository: file://../envplane-runner
   version: 0.4.2
@@ -17,5 +17,5 @@ dependencies:
 - name: envplane-e2e-workload
   repository: file://../envplane-e2e-workload
   version: 0.1.0
-digest: sha256:cc000b49b59fbfea935c6625073fde484c9a699ed132d6f72187d651687279fc
-generated: "2026-09-02T12:43:47.120937+02:00"
+digest: sha256:2333f434ff9814b4d8e2d7ba6d14e58fc9aea766af0ef8fb0204db547403cfd4
+generated: "2026-09-02T17:47:48.239029+02:00"

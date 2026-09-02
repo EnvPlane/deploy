@@ -183,6 +183,11 @@ rbac:
     # Secret reads are sensitive and disabled by default. Set true only when
     # manifest discovery must include Secret metadata for selected namespaces.
     readSecrets: false
+  # Grants a separate, read-only Role for observing Flux Kustomization status.
+  # It does not inherit workload or Secret discovery permissions.
+  fluxStatus:
+    enabled: false
+    namespace: ""
   materialization:
     # Opt-in exact Secret capability generated from an approved persisted plan.
     # Each item renders namespaced Roles only; no ClusterRole can write Secrets.

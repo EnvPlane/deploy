@@ -365,6 +365,32 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 		t.Fatalf("inventory-only discovery must not render an explicit namespace allowlist:\n%s", inventoryOnly)
 	}
 
+	fluxStatus := renderAgentChart(t,
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.namespaces[0]=app",
+		"--set", "rbac.discovery.readSecrets=true",
+		"--set", "rbac.fluxStatus.enabled=true",
+		"--set", "rbac.fluxStatus.namespace=flux-system",
+	)
+	for _, expected := range []string{
+		"name: envplane-agent-flux-status-reader",
+		`namespace: "flux-system"`,
+		`resources: ["kustomizations"]`,
+		`verbs: ["get","list","watch"]`,
+	} {
+		if !strings.Contains(fluxStatus, expected) {
+			t.Fatalf("Flux status RBAC missing %q:\n%s", expected, fluxStatus)
+		}
+	}
+	fluxRoleStart := strings.Index(fluxStatus, "name: envplane-agent-flux-status-reader")
+	if fluxRoleStart < 0 {
+		t.Fatalf("Flux status Role was not rendered:\n%s", fluxStatus)
+	}
+	fluxRole := fluxStatus[fluxRoleStart:]
+	if strings.Contains(fluxRole, `resources: ["secrets"]`) || strings.Contains(fluxRole, `resources: ["deployments"`) {
+		t.Fatalf("Flux status Role must not inherit workload or Secret discovery permissions:\n%s", fluxRole)
+	}
+
 	external := renderAgentChart(t,
 		"--set", "serviceAccount.create=false",
 		"--set", "serviceAccount.name=platform-agent",

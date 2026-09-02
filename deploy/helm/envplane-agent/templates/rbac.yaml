@@ -194,3 +194,34 @@ roleRef:
 {{- fail (printf "unsupported rbac.discovery.scope %q; expected namespace or cluster" $scope) }}
 {{- end }}
 {{- end }}
+
+{{- if and .Values.rbac.create .Values.rbac.fluxStatus.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-agent.fullname" . }}-flux-status-reader
+  namespace: {{ default .Values.flux.namespace .Values.rbac.fluxStatus.namespace | quote }}
+  labels:
+    {{- include "envplane-agent.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
+    resources: ["kustomizations"]
+    verbs: ["get","list","watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-agent.fullname" . }}-flux-status-reader
+  namespace: {{ default .Values.flux.namespace .Values.rbac.fluxStatus.namespace | quote }}
+  labels:
+    {{- include "envplane-agent.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "envplane-agent.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-agent.fullname" . }}-flux-status-reader
+{{- end }}
