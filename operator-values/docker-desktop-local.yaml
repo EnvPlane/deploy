@@ -7,10 +7,12 @@ global:
   envplane:
     publicURL: http://envplane.local
     registry:
-      mode: existing
-      existingSecret: envplane-ghcr
-      imagePullSecrets:
-        - name: envplane-ghcr
+      # Published runtime artifacts are pullable without cluster credentials.
+      # Keep the disposable local profile zero-secret so a fresh cluster can
+      # install and upgrade without an operator-managed registry Secret.
+      mode: disabled
+      existingSecret: ""
+      imagePullSecrets: []
     auth:
       mode: disabled
       existingSecret: ""
@@ -23,8 +25,8 @@ global:
       namespace: envplane-executors
       allowInsecureControlPlane: true
       registry:
-        existingSecret: envplane-ghcr
-        imagePullSecret: envplane-ghcr
+        existingSecret: ""
+        imagePullSecret: ""
 
 envplane-control-plane:
   allowInsecureLocalDevelopment: true
