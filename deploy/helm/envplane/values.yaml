@@ -391,7 +391,7 @@ envplane-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envplane/envplane-agent"
-      version: "0.2.19"
+      version: "0.2.20"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
     # stable target-pod-reachable HTTPS endpoint, never a tunnel or Service
