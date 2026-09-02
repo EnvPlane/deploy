@@ -2,7 +2,7 @@ apiVersion: v2
 name: envplane-runner
 description: EnvPlane runner that compiles and applies feature environments for a single project.
 type: application
-version: 0.4.2
+version: 0.4.3
 appVersion: "0.2.0"
 keywords:
   - envplane
