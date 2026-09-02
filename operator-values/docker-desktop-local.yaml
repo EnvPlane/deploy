@@ -30,6 +30,10 @@ global:
 
 envplane-control-plane:
   allowInsecureLocalDevelopment: true
+  # Docker Desktop does not provide the Kubernetes resource metrics API by
+  # default. Keep one replica without an HPA that can never obtain metrics.
+  autoscaling:
+    enabled: false
   env:
     ENVPLANE_INSECURE_ALLOW_ANONYMOUS_API: "true"
     ENVPLANE_OAUTH_COOKIE_SECURE: "false"
