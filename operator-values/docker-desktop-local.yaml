@@ -31,6 +31,7 @@ global:
 envplane-control-plane:
   allowInsecureLocalDevelopment: true
   env:
+    ENVPLANE_INSECURE_ALLOW_ANONYMOUS_API: "true"
     ENVPLANE_OAUTH_COOKIE_SECURE: "false"
     ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
     ENVPLANE_ENABLE_GIT_COMMIT: "true"
