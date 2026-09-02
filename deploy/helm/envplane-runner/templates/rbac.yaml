@@ -123,6 +123,20 @@ roleRef:
 {{- $discoveryNamespace := default .Release.Namespace .Values.rbac.discovery.namespace -}}
 {{- $writerMode := default "releaseNamespace" .Values.rbac.featureEnvWriter.mode -}}
 {{- $secretNamespace := default .Release.Namespace .Values.rbac.secretManager.namespace -}}
+{{- $namespaceReaderTargets := list -}}
+{{- if .Values.rbac.featureEnvWriter.enabled -}}
+{{- if eq $writerMode "releaseNamespace" -}}
+{{- $namespaceReaderTargets = append $namespaceReaderTargets (default .Release.Namespace .Values.rbac.featureEnvWriter.namespace) -}}
+{{- else if eq $writerMode "preconfiguredNamespaces" -}}
+{{- range $namespace := .Values.rbac.featureEnvWriter.namespaces -}}
+{{- if $namespace }}{{- $namespaceReaderTargets = append $namespaceReaderTargets $namespace -}}{{- end -}}
+{{- end -}}
+{{- else if eq $writerMode "generatedFeatureNamespaces" -}}
+{{- range $namespace := .Values.rbac.featureEnvWriter.generatedNamespaces -}}
+{{- if $namespace }}{{- $namespaceReaderTargets = append $namespaceReaderTargets $namespace -}}{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- if eq $discoveryScope "namespace" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -269,6 +283,44 @@ roleRef:
   kind: ClusterRole
   name: {{ $fullName }}-discovery-reader
 {{ end }}
+{{- if $namespaceReaderTargets }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullName }}-feature-env-namespace-reader
+  labels:
+    {{- include "envplane-runner.labels" . | nindent 4 }}
+  {{- with .Values.rbac.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  # Namespace objects are cluster-scoped. Cleanup verifies EnvPlane ownership
+  # before uninstalling a release, so grant get only for exact writer targets.
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames:
+      {{- range ($namespaceReaderTargets | uniq | sortAlpha) }}
+      - {{ . | quote }}
+      {{- end }}
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullName }}-feature-env-namespace-reader
+  labels:
+    {{- include "envplane-runner.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullName }}-feature-env-namespace-reader
+{{- end }}
 {{ if .Values.rbac.featureEnvWriter.enabled }}
 {{ if eq $writerMode "releaseNamespace" }}
 {{ $writerNamespace := default .Release.Namespace .Values.rbac.featureEnvWriter.namespace -}}

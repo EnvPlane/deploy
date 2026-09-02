@@ -195,9 +195,20 @@ func TestRunnerChartManagedRemoteUsesProjectScopedWriterRBAC(t *testing.T) {
 			t.Fatalf("managed remote runner render missing %q:\n%s", expected, rendered)
 		}
 	}
-	for _, forbidden := range []string{"kind: ClusterRole", "kind: ClusterRoleBinding", "host.minikube.internal"} {
+	for _, forbidden := range []string{"host.minikube.internal"} {
 		if strings.Contains(rendered, forbidden) {
 			t.Fatalf("managed remote runner render must not contain %q:\n%s", forbidden, rendered)
+		}
+	}
+	namespaceReader := findResourceDoc(renderedDocs(rendered), "ClusterRole", "envplane-runner-feature-env-namespace-reader", "")
+	for _, expected := range []string{"resources: [\"namespaces\"]", "- \"project-a-pr-1\"", "- \"project-a-pr-2\"", "verbs: [\"get\"]"} {
+		if !strings.Contains(namespaceReader, expected) {
+			t.Fatalf("managed remote namespace ownership reader missing %q:\n%s", expected, namespaceReader)
+		}
+	}
+	for _, forbidden := range []string{"list", "watch", "create", "update", "patch", "delete"} {
+		if strings.Contains(namespaceReader, forbidden) {
+			t.Fatalf("managed remote namespace ownership reader grants %q:\n%s", forbidden, namespaceReader)
 		}
 	}
 
@@ -465,11 +476,8 @@ func TestRunnerChartGeneratedFeatureNamespaceWriterRendersPerNamespace(t *testin
 
 func TestRunnerChartNamespaceScopedDiscoveryUsesRoleBinding(t *testing.T) {
 	rendered := renderRunnerChart(t, "--set", "rbac.discovery.scope=namespace")
-	if strings.Contains(rendered, "kind: ClusterRoleBinding") {
-		t.Fatalf("namespace-scoped discovery must not render ClusterRoleBinding:\n%s", rendered)
-	}
-	if strings.Contains(rendered, "kind: ClusterRole") {
-		t.Fatalf("namespace-scoped discovery must not render ClusterRole:\n%s", rendered)
+	if strings.Contains(rendered, "envplane-runner-discovery-reader\nroleRef:\n  apiGroup: rbac.authorization.k8s.io\n  kind: ClusterRole") {
+		t.Fatalf("namespace-scoped discovery must not bind a cluster-wide discovery reader:\n%s", rendered)
 	}
 	discoveryRole := findDoc(renderedDocs(rendered), "kind: Role", "discovery-reader")
 	if discoveryRole == "" {
@@ -477,6 +485,12 @@ func TestRunnerChartNamespaceScopedDiscoveryUsesRoleBinding(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "kind: RoleBinding") {
 		t.Fatalf("namespace-scoped discovery RoleBinding not found:\n%s", rendered)
+	}
+	namespaceReader := findResourceDoc(renderedDocs(rendered), "ClusterRole", "envplane-runner-feature-env-namespace-reader", "")
+	for _, expected := range []string{"resources: [\"namespaces\"]", "resourceNames:", "- \"envplane-system\"", "verbs: [\"get\"]"} {
+		if !strings.Contains(namespaceReader, expected) {
+			t.Fatalf("least-privilege namespace ownership reader missing %q:\n%s", expected, namespaceReader)
+		}
 	}
 }
 
