@@ -513,6 +513,10 @@ envplane-agent:
     registrationTokenKey: registration-token
   cluster:
     id: ""
+  capabilities:
+    # Set unsupported for local clusters without MetalLB/kube-vip/cloud LB.
+    # Cloud providers without a portable discovery API can set supported.
+    loadBalancer: auto
   bootstrap:
     projectId: ""
   # Management-cluster reconciliation can opt into the strict remote contract.

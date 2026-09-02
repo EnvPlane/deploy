@@ -630,6 +630,13 @@
               "additionalProperties": true,
               "properties": { "authPersistence": { "$ref": "#/definitions/persistence" } }
             },
+            "capabilities": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "loadBalancer": { "type": "string", "enum": ["auto", "supported", "unsupported"] }
+              }
+            },
             "managedRemote": {
               "type": "object",
               "additionalProperties": false,
