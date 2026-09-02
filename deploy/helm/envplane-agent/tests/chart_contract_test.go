@@ -69,6 +69,7 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		"ENVPLANE_CONTROL_PLANE_CONNECTIVITY_MAX_BACKOFF_SECONDS",
 		"ENVPLANE_CONTROL_PLANE_CONNECTIVITY_DEADLINE_SECONDS",
 		"ENVPLANE_CLUSTER_ID",
+		"ENVPLANE_LOAD_BALANCER_CAPABILITY",
 		"ENVPLANE_BOOTSTRAP_PROJECT_ID",
 		"ENVPLANE_AGENT_ID",
 		"ENVPLANE_AGENT_HEARTBEAT_SECONDS",
@@ -110,6 +111,14 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		}
 	}
 
+}
+
+func TestAgentChartRejectsInvalidLoadBalancerCapability(t *testing.T) {
+	cmd := exec.Command("helm", "template", "envplane-agent", "..", "--set", "capabilities.loadBalancer=maybe")
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "capabilities.loadBalancer must be auto, supported, or unsupported") {
+		t.Fatalf("expected load balancer capability validation, output=%s err=%v", output, err)
+	}
 }
 
 func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {

@@ -89,6 +89,13 @@ dependencyWait:
 cluster:
   id: ""
 
+capabilities:
+  # auto reports supported only when a portable in-cluster provider API (for
+  # example MetalLB or Cilium LB IPAM) is discovered. Cloud providers can set
+  # supported explicitly; local clusters without an implementation should set
+  # unsupported so release-plan preflight fails before Helm --wait can hang.
+  loadBalancer: auto # auto | supported | unsupported
+
 bootstrap:
   projectId: ""
 

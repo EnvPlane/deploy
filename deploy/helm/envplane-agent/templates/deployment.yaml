@@ -8,6 +8,10 @@
 {{- $watchNamespaces := .Values.watch.namespaces -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- $managedRemoteEnabled := eq (include "envplane-agent.managedRemoteEnabled" .) "true" -}}
+{{- $loadBalancerCapability := lower (trim (default "auto" .Values.capabilities.loadBalancer)) -}}
+{{- if not (has $loadBalancerCapability (list "auto" "supported" "unsupported")) -}}
+{{- fail "capabilities.loadBalancer must be auto, supported, or unsupported" -}}
+{{- end -}}
 {{- if eq $discoveryScope "namespace" -}}
 {{- $watchNamespaces = .Values.rbac.discovery.namespaces -}}
 {{- end -}}
@@ -124,6 +128,8 @@ spec:
             {{ end }}
             - name: ENVPLANE_CLUSTER_ID
               value: {{ if $firstStartEnabled }}{{ $firstStart.cluster.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "remoteClusterId" | quote }}{{ else }}{{ default .Release.Name .Values.cluster.id | quote }}{{ end }}
+            - name: ENVPLANE_LOAD_BALANCER_CAPABILITY
+              value: {{ $loadBalancerCapability | quote }}
             - name: ENVPLANE_BOOTSTRAP_PROJECT_ID
               value: {{ if $firstStartEnabled }}{{ $firstStart.project.id | quote }}{{ else if $managedRemoteEnabled }}{{ get $managedRemote "projectId" | quote }}{{ else }}{{ .Values.bootstrap.projectId | quote }}{{ end }}
             - name: ENVPLANE_AGENT_ID
