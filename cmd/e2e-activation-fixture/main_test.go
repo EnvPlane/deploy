@@ -55,3 +55,28 @@ func TestGenerateAndSignCreatesBoundedEphemeralMaterial(t *testing.T) {
 		t.Fatalf("activation grant binding=%+v", parsed.Grant)
 	}
 }
+
+func TestSignAcceptsRequestedLimits(t *testing.T) {
+	dir := t.TempDir()
+	privatePath := filepath.Join(dir, "private")
+	publicPath := filepath.Join(dir, "public.json")
+	codePath := filepath.Join(dir, "code")
+	generate([]string{"--private-key-output", privatePath, "--public-keys-output", publicPath})
+	sign([]string{"--private-key", privatePath, "--output", codePath, "--installation-id", "installation", "--tenant-id", "tenant", "--projects-max", "5", "--environments-active-max", "20", "--expires-in", "1h"})
+	raw, err := os.ReadFile(codePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.Split(string(raw), ".")
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed envelope
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Grant.Limits["projects.max"] != 5 || parsed.Grant.Limits["environments.active.max"] != 20 {
+		t.Fatalf("limits = %#v", parsed.Grant.Limits)
+	}
+}

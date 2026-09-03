@@ -102,9 +102,11 @@ func sign(args []string) {
 	outputPath := flags.String("output", "", "0600 activation code output")
 	installationID := flags.String("installation-id", "", "safe installation identifier")
 	tenantID := flags.String("tenant-id", "", "safe tenant identifier")
+	projectsMax := flags.Int64("projects-max", 5, "maximum projects")
+	environmentsMax := flags.Int64("environments-active-max", 5, "maximum active environments")
 	expiresIn := flags.Duration("expires-in", 15*time.Second, "positive lifetime")
 	_ = flags.Parse(args)
-	if *privatePath == "" || *outputPath == "" || strings.TrimSpace(*installationID) == "" || strings.TrimSpace(*tenantID) == "" || *expiresIn <= 0 {
+	if *privatePath == "" || *outputPath == "" || strings.TrimSpace(*installationID) == "" || strings.TrimSpace(*tenantID) == "" || *projectsMax < 0 || *environmentsMax < 0 || *expiresIn <= 0 {
 		fatal(errors.New("private-key, output, installation-id, tenant-id, and a positive expires-in are required"))
 	}
 	seed, err := os.ReadFile(*privatePath)
@@ -125,7 +127,7 @@ func sign(args []string) {
 		Grant: grant{
 			SchemaVersion: "v1", InstallationID: *installationID, TenantID: *tenantID,
 			SKU: "e2e", PlanID: "e2e", PlanVersion: "1", Features: map[string]bool{"e2e": true},
-			Limits:   map[string]int64{"projects.max": 5, "environments.active.max": 5},
+			Limits:   map[string]int64{"projects.max": *projectsMax, "environments.active.max": *environmentsMax},
 			IssuedAt: now, NotBefore: now, ExpiresAt: now.Add(*expiresIn), LicenseID: "clean-cluster-e2e",
 			Nonce:      base64.RawURLEncoding.EncodeToString(nonce),
 			Commercial: commercial{Currency: "EUR", AmountMinor: 0, BillingInterval: "test", TaxMode: "exclusive"},
