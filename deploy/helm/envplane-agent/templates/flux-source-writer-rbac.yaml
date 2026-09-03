@@ -1,0 +1,40 @@
+{{- if and .Values.rbac.create .Values.rbac.fluxSourceWriter.enabled -}}
+{{- $writer := .Values.rbac.fluxSourceWriter -}}
+{{- if or (not $writer.namespace) (not $writer.gitRepositoryName) (not $writer.credentialSecretName) -}}
+{{- fail "rbac.fluxSourceWriter requires namespace, gitRepositoryName, and credentialSecretName" -}}
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-agent.fullname" . }}-flux-source-writer
+  namespace: {{ $writer.namespace | quote }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ $writer.credentialSecretName | quote }}]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["gitrepositories"]
+    resourceNames: [{{ $writer.gitRepositoryName | quote }}]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["gitrepositories"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-agent.fullname" . }}-flux-source-writer
+  namespace: {{ $writer.namespace | quote }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "envplane-agent.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-agent.fullname" . }}-flux-source-writer
+{{- end }}

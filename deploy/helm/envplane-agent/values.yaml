@@ -188,6 +188,13 @@ rbac:
   fluxStatus:
     enabled: false
     namespace: ""
+  fluxSourceWriter:
+    # Project-scoped reconciliation of the one GitRepository used by Flux.
+    # The Agent verifies EnvPlane ownership before applying either resource.
+    enabled: false
+    namespace: ""
+    gitRepositoryName: ""
+    credentialSecretName: ""
   materialization:
     # Opt-in exact Secret capability generated from an approved persisted plan.
     # Each item renders namespaced Roles only; no ClusterRole can write Secrets.
