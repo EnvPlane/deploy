@@ -227,6 +227,7 @@ roleRef:
 {{- $bootstrapAgentDeployment := required "sameClusterProjectExecutors.bootstrapRuntime.agentDeployment is required when retirement is enabled" (get $bootstrapRuntime "agentDeployment") -}}
 {{- $bootstrapRunnerDeployment := required "sameClusterProjectExecutors.bootstrapRuntime.runnerDeployment is required when retirement is enabled" (get $bootstrapRuntime "runnerDeployment") -}}
 {{- $bootstrapRuntimeStateConfigMap := required "sameClusterProjectExecutors.bootstrapRuntime.stateConfigMap is required when retirement is enabled" (get $bootstrapRuntime "stateConfigMap") -}}
+{{ printf "\n" }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
