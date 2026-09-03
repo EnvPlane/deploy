@@ -2,8 +2,8 @@ apiVersion: v2
 name: envplane
 description: EnvPlane same-cluster umbrella chart.
 type: application
-version: 0.3.49
-appVersion: "0.3.49"
+version: 0.3.50
+appVersion: "0.3.50"
 dependencies:
   - name: envplane-control-plane
     version: 0.3.48
@@ -14,7 +14,7 @@ dependencies:
     repository: file://../envplane-frontend
     condition: frontend.enabled
   - name: envplane-agent
-    version: 0.2.22
+    version: 0.2.23
     repository: file://../envplane-agent
     condition: agent.enabled
   - name: envplane-runner
