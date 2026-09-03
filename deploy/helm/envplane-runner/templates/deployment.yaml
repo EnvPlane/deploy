@@ -12,6 +12,17 @@
 {{- $featureEnvWriterMode := default "releaseNamespace" $featureEnvWriter.mode -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- $managedRemoteEnabled := eq (include "envplane-runner.managedRemoteEnabled" .) "true" -}}
+{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPlane "sameClusterProjectExecutors") -}}
+{{- $bootstrapRuntime := default (dict) (get $sameClusterProjectExecutors "bootstrapRuntime") -}}
+{{- $bootstrapRuntimeRetirementEnabled := and $firstStartEnabled (default false (get $bootstrapRuntime "retirementEnabled")) -}}
+{{- $bootstrapRuntimeRetired := false -}}
+{{- if $bootstrapRuntimeRetirementEnabled -}}
+{{- $stateName := required "sameClusterProjectExecutors.bootstrapRuntime.stateConfigMap is required when retirement is enabled" (get $bootstrapRuntime "stateConfigMap") -}}
+{{- $state := lookup "v1" "ConfigMap" .Release.Namespace $stateName -}}
+{{- if $state -}}
+{{- $bootstrapRuntimeRetired = eq (default "" (get $state.data "status")) "retired" -}}
+{{- end -}}
+{{- end -}}
 {{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envplane-runner.imageMetadata" . | fromYaml) (include "envplane-runner.managedRemoteMetadata" . | fromYaml) -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -19,8 +30,12 @@ metadata:
   name: {{ include "envplane-runner.fullname" . }}
   labels:
     {{- include "envplane-runner.labels" . | nindent 4 }}
+    {{- if $bootstrapRuntimeRetirementEnabled }}
+    envplane.io/bootstrap-runtime: "true"
+    envplane.io/bootstrap-runtime-component: runner
+    {{- end }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ ternary 0 .Values.replicaCount $bootstrapRuntimeRetired }}
   selector:
     matchLabels:
       {{- include "envplane-runner.selectorLabels" . | nindent 6 }}

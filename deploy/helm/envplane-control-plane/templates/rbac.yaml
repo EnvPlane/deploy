@@ -221,6 +221,46 @@ roleRef:
 {{- $sameClusterProjectExecutorsRBAC := default (dict) .Values.rbac.sameClusterProjectExecutors -}}
 {{- $sameClusterProjectExecutorsEnabled := or (default false $sameClusterProjectExecutors.enabled) (default false $sameClusterProjectExecutorsRBAC.enabled) -}}
 {{- $sameClusterProjectExecutorsNamespace := trim (default (default "" $sameClusterProjectExecutors.namespace) $sameClusterProjectExecutorsRBAC.namespace) -}}
+{{- $bootstrapRuntime := default (dict) (get $sameClusterProjectExecutors "bootstrapRuntime") -}}
+{{- $bootstrapRuntimeRetirementEnabled := and $sameClusterProjectExecutorsEnabled (default false (get $bootstrapRuntime "retirementEnabled")) -}}
+{{- if $bootstrapRuntimeRetirementEnabled }}
+{{- $bootstrapAgentDeployment := required "sameClusterProjectExecutors.bootstrapRuntime.agentDeployment is required when retirement is enabled" (get $bootstrapRuntime "agentDeployment") -}}
+{{- $bootstrapRunnerDeployment := required "sameClusterProjectExecutors.bootstrapRuntime.runnerDeployment is required when retirement is enabled" (get $bootstrapRuntime "runnerDeployment") -}}
+{{- $bootstrapRuntimeStateConfigMap := required "sameClusterProjectExecutors.bootstrapRuntime.stateConfigMap is required when retirement is enabled" (get $bootstrapRuntime "stateConfigMap") -}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-bootstrap-runtime-retirement
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ $bootstrapRuntimeStateConfigMap | quote }}]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: [{{ $bootstrapAgentDeployment | quote }}, {{ $bootstrapRunnerDeployment | quote }}]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-bootstrap-runtime-retirement
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "envplane-control-plane.fullname" . }}-bootstrap-runtime-retirement
+{{- end }}
 {{- if $sameClusterProjectExecutorsEnabled }}
 {{- if not $sameClusterProjectExecutorsNamespace }}{{- fail "sameClusterProjectExecutors RBAC requires a namespace" }}{{- end }}
 ---

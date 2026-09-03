@@ -8,6 +8,17 @@
 {{- $watchNamespaces := .Values.watch.namespaces -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- $managedRemoteEnabled := eq (include "envplane-agent.managedRemoteEnabled" .) "true" -}}
+{{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPlane "sameClusterProjectExecutors") -}}
+{{- $bootstrapRuntime := default (dict) (get $sameClusterProjectExecutors "bootstrapRuntime") -}}
+{{- $bootstrapRuntimeRetirementEnabled := and $firstStartEnabled (default false (get $bootstrapRuntime "retirementEnabled")) -}}
+{{- $bootstrapRuntimeRetired := false -}}
+{{- if $bootstrapRuntimeRetirementEnabled -}}
+{{- $stateName := required "sameClusterProjectExecutors.bootstrapRuntime.stateConfigMap is required when retirement is enabled" (get $bootstrapRuntime "stateConfigMap") -}}
+{{- $state := lookup "v1" "ConfigMap" .Release.Namespace $stateName -}}
+{{- if $state -}}
+{{- $bootstrapRuntimeRetired = eq (default "" (get $state.data "status")) "retired" -}}
+{{- end -}}
+{{- end -}}
 {{- $loadBalancerCapability := lower (trim (default "auto" .Values.capabilities.loadBalancer)) -}}
 {{- if not (has $loadBalancerCapability (list "auto" "supported" "unsupported")) -}}
 {{- fail "capabilities.loadBalancer must be auto, supported, or unsupported" -}}
@@ -25,8 +36,12 @@ metadata:
   name: {{ include "envplane-agent.fullname" . }}
   labels:
     {{- include "envplane-agent.labels" . | nindent 4 }}
+    {{- if $bootstrapRuntimeRetirementEnabled }}
+    envplane.io/bootstrap-runtime: "true"
+    envplane.io/bootstrap-runtime-component: agent
+    {{- end }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ ternary 0 .Values.replicaCount $bootstrapRuntimeRetired }}
   selector:
     matchLabels:
       {{- include "envplane-agent.selectorLabels" . | nindent 6 }}

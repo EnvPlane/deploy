@@ -23,6 +23,8 @@
 {{- $sameClusterProjectExecutorsDiscovery := default (dict) $sameClusterProjectExecutors.discovery -}}
 {{- $sameClusterProjectExecutorsDiscoveryNamespaces := default (list) $sameClusterProjectExecutorsDiscovery.namespaces -}}
 {{- $sameClusterProjectExecutorsAllowInsecureControlPlane := default false $sameClusterProjectExecutors.allowInsecureControlPlane -}}
+{{- $bootstrapRuntime := default (dict) (get $sameClusterProjectExecutors "bootstrapRuntime") -}}
+{{- $bootstrapRuntimeRetirementEnabled := default false (get $bootstrapRuntime "retirementEnabled") -}}
 {{- $executorReconcilerEnabled := or $remoteClusterReconcilerEnabled $sameClusterProjectExecutorsEnabled -}}
 {{- $registry := default (dict) (get $globalEnvPlane "registry") -}}
 {{- $projectExecutorRegistry := default (dict) (get $sameClusterProjectExecutors "registry") -}}
@@ -409,6 +411,20 @@ spec:
             {{- end }}
             - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_DISCOVERY_NAMESPACES
               value: {{ join "," $sameClusterProjectExecutorsDiscoveryNamespaces | quote }}
+            {{- if $bootstrapRuntimeRetirementEnabled }}
+            - name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_RETIREMENT_ENABLED
+              value: "true"
+            - name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_AGENT_DEPLOYMENT
+              value: {{ required "sameClusterProjectExecutors.bootstrapRuntime.agentDeployment is required when retirement is enabled" (get $bootstrapRuntime "agentDeployment") | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNNER_DEPLOYMENT
+              value: {{ required "sameClusterProjectExecutors.bootstrapRuntime.runnerDeployment is required when retirement is enabled" (get $bootstrapRuntime "runnerDeployment") | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_STATE_CONFIG_MAP
+              value: {{ required "sameClusterProjectExecutors.bootstrapRuntime.stateConfigMap is required when retirement is enabled" (get $bootstrapRuntime "stateConfigMap") | quote }}
+            {{- end }}
             {{- end }}
             {{- if and $executorReconcilerEnabled $remoteCompatibilityConfigMap }}
             - name: ENVPLANE_REMOTE_CLUSTER_COMPATIBILITY_MANIFEST

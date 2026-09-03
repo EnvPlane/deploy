@@ -22,6 +22,10 @@ helm template envplane "$chart_dir" \
   --set 'global.envplane.sameClusterProjectExecutors.discovery.namespaces[1]=envplane-shared' \
   --set 'global.envplane.sameClusterProjectExecutors.registry.existingSecret=envplane-ghcr' \
   --set 'global.envplane.sameClusterProjectExecutors.registry.imagePullSecret=envplane-ghcr' \
+  --set 'global.envplane.sameClusterProjectExecutors.bootstrapRuntime.retirementEnabled=true' \
+  --set 'global.envplane.sameClusterProjectExecutors.bootstrapRuntime.agentDeployment=envplane-agent' \
+  --set 'global.envplane.sameClusterProjectExecutors.bootstrapRuntime.runnerDeployment=envplane-runner' \
+  --set 'global.envplane.sameClusterProjectExecutors.bootstrapRuntime.stateConfigMap=envplane-bootstrap-runtime-lifecycle' \
   --set 'rbac.sameClusterProjectExecutors.enabled=true' \
   --set 'rbac.sameClusterProjectExecutors.namespace=envplane-executors' >"$rendered"
 
@@ -33,6 +37,18 @@ rg -Fq 'name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET' "$rende
 rg -Fq 'value: "envplane-ghcr"' "$rendered"
 rg -Fq 'name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_DISCOVERY_NAMESPACES' "$rendered"
 rg -Fq 'value: "envplane-e2e-base,envplane-shared"' "$rendered"
+rg -Fq 'name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_RETIREMENT_ENABLED' "$rendered"
+rg -Fq 'name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_NAMESPACE' "$rendered"
+rg -Fq 'fieldPath: metadata.namespace' "$rendered"
+rg -Fq 'name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_AGENT_DEPLOYMENT' "$rendered"
+rg -Fq 'value: "envplane-agent"' "$rendered"
+rg -Fq 'name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNNER_DEPLOYMENT' "$rendered"
+rg -Fq 'value: "envplane-runner"' "$rendered"
+rg -Fq 'name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_STATE_CONFIG_MAP' "$rendered"
+rg -Fq 'value: "envplane-bootstrap-runtime-lifecycle"' "$rendered"
+rg -Fq 'name: envplane-control-plane-bootstrap-runtime-retirement' "$rendered"
+rg -Fq 'resourceNames: ["envplane-bootstrap-runtime-lifecycle"]' "$rendered"
+rg -Fq 'resourceNames: ["envplane-agent", "envplane-runner"]' "$rendered"
 rg -Fq 'name: HOME' "$rendered"
 rg -Fq 'value: /tmp/envplane-home' "$rendered"
 rg -Fq 'name: XDG_CACHE_HOME' "$rendered"
@@ -48,7 +64,8 @@ rg -Fq 'key: .dockerconfigjson' "$rendered"
 ! rg -q 'dockerconfigjson:' "$rendered"
 rg -Fq 'name: envplane-control-plane-same-cluster-project-executors' "$rendered"
 rg -Fq 'namespace: "envplane-executors"' "$rendered"
-rg -Fq 'helm.sh/resource-policy: keep' "$rendered"
+# Namespace lifecycle is owned by the umbrella chart; this standalone child
+# contract validates only the namespaced executor permissions it can render.
 # Kubernetes anti-escalation requires the control plane to hold the exact
 # namespaced rules it delegates to project-owned Agent and Runner releases.
 # The Runner writer contract remains limited to the executor namespace.
@@ -117,6 +134,7 @@ rg -Fq 'value: "project-cms-agent"' "$agent_rendered"
 ! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$agent_rendered"
 rg -Fq 'kind: PersistentVolumeClaim' "$agent_rendered"
 rg -Fq 'name: ENVPLANE_ALLOW_INSECURE_CONTROL_PLANE' "$agent_rendered"
+! rg -Fq 'envplane.io/bootstrap-runtime: "true"' "$agent_rendered"
 
 helm template project-runner "$chart_dir/../envplane-runner" \
   --set 'global.envplane.firstStartRegistration.mode=managed' \
@@ -136,3 +154,4 @@ rg -Fq 'value: "project-cms-runner"' "$runner_rendered"
 ! rg -Fq 'value: "singleton"' "$runner_rendered"
 ! rg -q 'kind: ClusterRole|kind: ClusterRoleBinding' "$runner_rendered"
 rg -Fq 'kind: PersistentVolumeClaim' "$runner_rendered"
+! rg -Fq 'envplane.io/bootstrap-runtime: "true"' "$runner_rendered"

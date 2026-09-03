@@ -593,6 +593,36 @@ func TestUmbrellaDirectlyOwnsDefaultWorkloads(t *testing.T) {
 	}
 }
 
+func TestUmbrellaPersistsBootstrapRuntimeRetirementContract(t *testing.T) {
+	rendered, err := renderPublishedUmbrella(t,
+		"--set", "global.envplane.sameClusterProjectExecutors.enabled=true",
+		"--set", "global.envplane.sameClusterProjectExecutors.namespace=envplane-executors",
+	)
+	if err != nil {
+		t.Fatalf("render published umbrella with bootstrap runtime handoff: %v\n%s", err, rendered)
+	}
+	for _, expected := range []string{
+		"name: \"envplane-bootstrap-runtime-lifecycle\"",
+		"envplane.io/bootstrap-runtime-lifecycle: \"true\"",
+		"status: \"active\"",
+		"envplane.io/bootstrap-runtime: \"true\"",
+		"envplane.io/bootstrap-runtime-component: agent",
+		"envplane.io/bootstrap-runtime-component: runner",
+		"name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_RETIREMENT_ENABLED",
+		"name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_NAMESPACE",
+		"fieldPath: metadata.namespace",
+		"name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_AGENT_DEPLOYMENT",
+		"name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNNER_DEPLOYMENT",
+		"name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_STATE_CONFIG_MAP",
+		"resourceNames: [\"envplane-bootstrap-runtime-lifecycle\"]",
+		"resourceNames: [\"envplane-agent\", \"envplane-runner\"]",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("bootstrap runtime handoff render missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestZeroValuesProfileUsesManagedCredentialsAndPortForwardAccess(t *testing.T) {
 	rendered := renderUmbrella(t)
 	for _, expected := range []string{

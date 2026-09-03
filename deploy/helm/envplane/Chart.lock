@@ -1,21 +1,21 @@
 dependencies:
 - name: envplane-control-plane
   repository: file://../envplane-control-plane
-  version: 0.3.46
+  version: 0.3.47
 - name: envplane-frontend
   repository: file://../envplane-frontend
   version: 0.2.1
 - name: envplane-agent
   repository: file://../envplane-agent
-  version: 0.2.21
+  version: 0.2.22
 - name: envplane-runner
   repository: file://../envplane-runner
-  version: 0.4.3
+  version: 0.4.4
 - name: envplane-webhook
   repository: file://../envplane-webhook
   version: 0.1.0
 - name: envplane-e2e-workload
   repository: file://../envplane-e2e-workload
   version: 0.1.0
-digest: sha256:cd6461aa9c89084afa67d9ab5376198e167e508724d64ba51276934c291ab8f6
-generated: "2026-09-02T23:58:27.098758+02:00"
+digest: sha256:5d57832e6859e36367b798d118ed20861006f0e85d18ca65c244b348567c2a0e
+generated: "2026-09-03T06:44:39.903845+02:00"

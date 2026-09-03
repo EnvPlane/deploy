@@ -82,6 +82,14 @@ global:
     sameClusterProjectExecutors:
       enabled: false
       namespace: ""
+      # Once the first dedicated project Agent and Runner both report fresh,
+      # authenticated heartbeats, retire the singleton bootstrap pair. The
+      # lifecycle ConfigMap survives Helm upgrades and prevents resurrection.
+      bootstrapRuntime:
+        retirementEnabled: true
+        agentDeployment: envplane-agent
+        runnerDeployment: envplane-runner
+        stateConfigMap: envplane-bootstrap-runtime-lifecycle
       # LOCAL DEVELOPMENT ONLY: permit project-owned runtimes to reach an
       # explicitly configured HTTP control plane.
       allowInsecureControlPlane: false
@@ -391,7 +399,7 @@ envplane-control-plane:
     # dependency update workflow changes both fields atomically.
     chart:
       ref: "oci://ghcr.io/envplane/envplane-agent"
-      version: "0.2.21"
+      version: "0.2.22"
   remoteControlPlane:
     # Required only when Agent/Runner are installed in another cluster. Use a
     # stable target-pod-reachable HTTPS endpoint, never a tunnel or Service
