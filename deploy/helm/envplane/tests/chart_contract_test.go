@@ -161,6 +161,20 @@ func TestCanonicalGlobalEnvPlaneValuesOverrideLegacyTree(t *testing.T) {
 	}
 }
 
+func TestUmbrellaPassesActivationVerificationKeysToControlPlane(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set-string", "envplane-control-plane.commercialization.license.activationPublicKeysJSON=test-issuer-key",
+	)
+	for _, expected := range []string{
+		"name: ENVPLANE_ACTIVATION_PUBLIC_KEYS_JSON",
+		"test-issuer-key",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("canonical activation verification key was not rendered %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 // Render one canonical child chart in an isolated chart tree. Published
 // umbrellas intentionally reject runtime image overrides that conflict with
 // their signed compatibility manifest, but the child charts must still support

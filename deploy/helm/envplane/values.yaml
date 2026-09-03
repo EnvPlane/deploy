@@ -384,6 +384,9 @@ envplane-control-plane:
         key: webhook-secret
     license:
       publicKeysJSON: "{}"
+      # License runtime settings belong to the canonical child-chart key.
+      # Do not place these below controlPlane: that key only enables the
+      # dependency and cannot configure the control-plane container.
       activationPublicKeysJSON: "[]"
       activationIssuerURL: ""
       graceDays: 14

@@ -16,6 +16,24 @@ runbook.
 
 For the values contract and migration details see [`VALUES.md`](VALUES.md).
 
+## Activation verification keys
+
+An operator that issues signed activation codes must configure the public
+verification keys in the control-plane child values. Keep the JSON in an
+operator-managed values file; it contains public keys only, never a signing
+private key or an activation code.
+
+```yaml
+envplane-control-plane:
+  commercialization:
+    license:
+      activationPublicKeysJSON: '[{"keyId":"issuer-2026","algorithm":"Ed25519","publicKey":"BASE64_PUBLIC_KEY","status":"active"}]'
+```
+
+`controlPlane.enabled` controls whether the dependency is installed. It is not
+a configuration namespace: values below `controlPlane.commercialization` are
+not passed to the control-plane and would leave activation unavailable.
+
 ## Remote execution clusters
 
 The umbrella values enable the management-cluster Remote Cluster Reconciler;
