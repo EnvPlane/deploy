@@ -189,10 +189,11 @@ rbac:
     enabled: false
     namespace: ""
   fluxSourceWriter:
-    # Project-scoped reconciliation of the one GitRepository used by Flux.
+    # Project-scoped reconciliation of the GitRepository and Kustomization used by Flux.
     # The Agent verifies EnvPlane ownership before applying either resource.
     enabled: false
     namespace: ""
+    kustomizationName: ""
     gitRepositoryName: ""
     credentialSecretName: ""
   materialization:
