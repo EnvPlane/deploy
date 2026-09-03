@@ -112,9 +112,8 @@ publicURL: ""
 # requeues it with a new attempt ID; after maxAttempts delete becomes a visible
 # retryable failure rather than an indefinitely claimed record.
 runnerCommand:
-  # Must exceed the default Helm execution timeout (300s). The runner may
-  # still renew this lease while a long command is active.
-  leaseSeconds: 360
+  # Secret materialization can include image pulls and registry retries.
+  leaseSeconds: 900
   maxAttempts: 3
 
 ttlCleanup:
