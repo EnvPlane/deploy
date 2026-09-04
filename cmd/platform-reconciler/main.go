@@ -649,6 +649,11 @@ func verifyIngressSmoke(dep capability, client dynamic.Interface) error {
 	if className == "" {
 		className = "nginx"
 	}
+	// The access Ingress already owns smoke.Host and `/`. A probe using that
+	// route is rejected by ingress-nginx admission before it can verify the
+	// controller. Give the probe its own deterministic hostname; no DNS lookup
+	// is involved in this readiness check.
+	smoke.Host = ingressSmokeHost(smoke.Host)
 	gvr := schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
 	obj := map[string]any{
 		"apiVersion": "networking.k8s.io/v1", "kind": "Ingress",
@@ -675,6 +680,11 @@ func verifyIngressSmoke(dep capability, client dynamic.Interface) error {
 		time.Sleep(time.Second)
 	}
 	return fmt.Errorf("ingress smoke probe did not receive a controller endpoint")
+}
+
+func ingressSmokeHost(accessHost string) string {
+	host := strings.TrimPrefix(strings.TrimSpace(accessHost), "*.")
+	return "envplane-smoke." + host
 }
 
 type getter struct {

@@ -82,6 +82,18 @@ func TestOrphanIngressClassIsDegradedNotReady(t *testing.T) {
 	}
 }
 
+func TestIngressSmokeHostDoesNotReuseAccessRoute(t *testing.T) {
+	for input, want := range map[string]string{
+		"envplane.local":   "envplane-smoke.envplane.local",
+		"*.example.test":   "envplane-smoke.example.test",
+		"  preview.example": "envplane-smoke.preview.example",
+	} {
+		if got := ingressSmokeHost(input); got != want {
+			t.Fatalf("ingressSmokeHost(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
+
 func TestDetectCompatibleExternalDNS(t *testing.T) {
 	objects := []runtime.Object{
 		&unstructured.Unstructured{Object: map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": "dns-credentials", "namespace": "envplane"}, "data": map[string]any{"credentials": "redacted"}}},
