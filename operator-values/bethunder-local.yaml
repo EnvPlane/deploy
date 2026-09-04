@@ -14,7 +14,7 @@ global:
     firstStartRegistration:
       mode: managed
       cluster:
-        # This is the persisted EnvPlane management-cluster ID, not the
+        # This is the persisted envplane management-cluster ID, not the
         # minikube profile name. Keeping it stable makes upgrades idempotent.
         id: management-cluster
     # Project-owned local Agent/Runner releases are reconciled only in this
