@@ -26,6 +26,10 @@ global:
       enabled: true
       namespace: envplane-executors
       allowInsecureControlPlane: true
+      discovery:
+        namespaces:
+          - app-frontend
+          - app-backend
       registry:
         existingSecret: envplane-ghcr
         imagePullSecret: envplane-ghcr
@@ -47,6 +51,10 @@ envplane-control-plane:
     sameClusterProjectExecutors:
       enabled: true
       namespace: envplane-executors
+      discovery:
+        namespaces:
+          - app-frontend
+          - app-backend
   postgres:
     auth:
       # The control-plane chart creates and owns this Secret on first install,
