@@ -1,16 +1,11 @@
 # Operator configuration for the existing bethunder-local minikube profile.
-# The image-pull Secret contains credentials and is created in the cluster;
-# this file stores only its name.
+# Published EnvPlane artifacts are public, so this profile intentionally uses
+# no image-pull Secret and remains usable as a zero-setup installation.
 # LOCAL DEVELOPMENT ONLY: this profile intentionally disables TLS and Secure
 # cookies for a disposable minikube cluster; never use it for shared access.
 allowInsecureLocalDevelopment: true
 global:
   envplane:
-    registry:
-      mode: existing
-      existingSecret: envplane-ghcr
-      imagePullSecrets:
-        - name: envplane-ghcr
     auth:
       # OAuth is now activated in the managed authentication store. Do not
       # re-run the legacy bootstrap migration on every local restart.
@@ -30,9 +25,6 @@ global:
         namespaces:
           - app-frontend
           - app-backend
-      registry:
-        existingSecret: envplane-ghcr
-        imagePullSecret: envplane-ghcr
 
 envplane-control-plane:
   # LOCAL DEVELOPMENT ONLY: canonical callback origin for the minikube ingress.
