@@ -1286,10 +1286,16 @@ func TestIngressAccessProfileGrantsOnlyScopedProviderInstallerPermissions(t *tes
 		"resources: [\"namespaces\"]\n    verbs: [\"get\", \"create\"]",
 		"resources: [\"clusterroles\", \"clusterrolebindings\"]",
 		"resources: [\"validatingwebhookconfigurations\"]",
-		"resources: [\"configmaps\", \"pods\", \"secrets\"]\n    verbs: [\"list\", \"watch\"]",
+		"resources: [\"nodes\", \"services\", \"configmaps\", \"pods\", \"secrets\"]\n    verbs: [\"get\", \"list\", \"watch\"]",
 		"name: envplane-platform-reconciler-ingress-installer",
+		"name: envplane-ingress-installer",
+		"name: envplane-platform-ingress-installer",
+		"ENVPLANE_RECONCILE_ACTION\n              value: install-ingress",
 		"namespace: ingress-nginx",
 		"resources: [\"configmaps\", \"endpoints\", \"events\", \"pods\", \"secrets\", \"serviceaccounts\", \"services\"]",
+		"name: envplane-ingress-installer",
+		"name: envplane-platform-ingress-installer",
+		"ENVPLANE_RECONCILE_ACTION\n              value: install-ingress",
 		"name: envplane-platform-reconciler-namespaces",
 		"ENVPLANE_RECONCILE_PROVIDER_NAMESPACES",
 		"\"helm.sh/hook\": post-install,post-upgrade",
@@ -1301,6 +1307,18 @@ func TestIngressAccessProfileGrantsOnlyScopedProviderInstallerPermissions(t *tes
 	}
 	if strings.Contains(rendered, "resources: [\"*\"]") || strings.Contains(rendered, "verbs: [\"*\"]") {
 		t.Fatal("nginx provider installer must not render wildcard RBAC")
+	}
+	regularStart := strings.Index(rendered, "name: envplane-platform-reconciler-discovery")
+	if regularStart < 0 {
+		t.Fatal("regular platform reconciler ClusterRole is missing")
+	}
+	regularEnd := strings.Index(rendered[regularStart:], "\n---")
+	if regularEnd < 0 {
+		t.Fatal("regular platform reconciler ClusterRole boundary is missing")
+	}
+	regularRole := rendered[regularStart : regularStart+regularEnd]
+	if strings.Contains(regularRole, "resources: [\"configmaps\", \"pods\", \"secrets\"]") || strings.Contains(regularRole, "resources: [\"nodes\", \"services\", \"configmaps\", \"pods\", \"secrets\"]") {
+		t.Fatalf("regular platform reconciler must not have cluster-wide Secret discovery:\n%s", regularRole)
 	}
 }
 

@@ -394,6 +394,15 @@
           "type": "object", "additionalProperties": false,
           "properties": { "create": { "type": "boolean" }, "name": { "type": "string" } }
         },
+        "ingressInstaller": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "serviceAccount": {
+              "type": "object", "additionalProperties": false,
+              "properties": { "name": { "type": "string" } }
+            }
+          }
+        },
         "backoffLimit": { "type": "integer", "minimum": 0 },
         "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
         "cleanupManagedOnUninstall": { "type": "boolean" },

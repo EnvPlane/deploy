@@ -100,6 +100,7 @@ const statusSnapshotSchemaVersion = 1
 const (
 	actionCleanup          = "cleanup"
 	actionEnsureNamespaces = "ensure-namespaces"
+	actionInstallIngress   = "install-ingress"
 )
 
 var (
@@ -164,6 +165,13 @@ func run() error {
 	}
 	if actionName == actionEnsureNamespaces {
 		return ensureNamespaces(core, os.Getenv("ENVPLANE_RECONCILE_PROVIDER_NAMESPACES"))
+	}
+	if actionName == actionInstallIngress {
+		if cfg.Ingress.Mode != "managed" && cfg.Ingress.Mode != "auto" {
+			return fmt.Errorf("ingress install requires managed or auto mode")
+		}
+		_, err := reconcile("ingress", cfg.Ingress, client, restCfg)
+		return err
 	}
 	var reconcileErrors []string
 	for name, dep := range map[string]capability{"ingress": cfg.Ingress, "dns": cfg.DNS, "storage": cfg.Storage} {
@@ -321,6 +329,10 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 			r.State = "incompatible"
 			return r, fmt.Errorf("storage provider %s requires pinned chart %s", dep.Provider, provider.Chart)
 		}
+	}
+	if name == "ingress" && dep.Mode == "managed" && os.Getenv("ENVPLANE_RECONCILE_SKIP_MANAGED_INGRESS") == "true" {
+		r.State = "pending-install"
+		return r, nil
 	}
 	if err := helmApply(dep.Managed, restCfg); err != nil {
 		return r, fmt.Errorf("managed %s provider: %w", name, err)
