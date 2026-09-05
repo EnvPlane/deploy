@@ -81,7 +81,7 @@ jobs:
           cosign sign --yes "$CHART_REF"
           cosign attest --yes --predicate "$PREDICATE" --type https://envplane.dev/chart/v1 "$CHART_REF"
       - name: Create isolated Kubernetes test cluster
-        uses: helm/kind-action@v1.14.0
+        uses: helm/kind-action@v1.15.0
         with:
           cluster_name: runner-chart-upgrade
       - name: Test published legacy remote upgrade
