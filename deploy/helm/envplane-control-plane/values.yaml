@@ -384,9 +384,11 @@ runtime:
   gomemlimit: 1600MiB
 
 autoscaling:
-  enabled: true
+  # The control plane has security-sensitive process state that is local to
+  # one instance. Keep HPA disabled until that state is shared or coordinated.
+  enabled: false
   minReplicas: 1
-  maxReplicas: 3
+  maxReplicas: 1
   targetCPUUtilizationPercentage: 70
 
 livenessProbe:

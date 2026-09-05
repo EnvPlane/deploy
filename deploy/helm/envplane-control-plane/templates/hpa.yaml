@@ -1,3 +1,6 @@
+{{- if and .Values.autoscaling.enabled (or (gt (int .Values.autoscaling.minReplicas) 1) (gt (int .Values.autoscaling.maxReplicas) 1)) }}
+{{- fail "control-plane autoscaling is unsupported above one replica while security-sensitive process state is local; keep autoscaling disabled or set minReplicas and maxReplicas to 1" }}
+{{- end }}
 {{- if .Values.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler

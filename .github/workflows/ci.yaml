@@ -64,6 +64,7 @@ jobs:
       - run: helm lint deploy/helm/envplane
       - run: helm lint deploy/helm/envplane-control-plane
       - run: bash deploy/helm/envplane-control-plane/tests/same-cluster-project-executors-contract.sh
+      - run: bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
       - run: helm lint deploy/helm/envplane-agent
       - run: helm lint deploy/helm/envplane-runner
       - run: bash scripts/check-vendored-chart-drift.sh
