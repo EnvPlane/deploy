@@ -474,6 +474,28 @@ spec:
   background: false
   validationFailureAction: Enforce
   rules:
+    - name: deny-cluster-admin-bindings
+      match:
+        any:
+          - resources:
+              kinds:
+                - ClusterRoleBinding
+                - RoleBinding
+              operations:
+                - CREATE
+                - UPDATE
+                - PATCH
+      validate:
+        message: "Bindings to cluster-admin are not permitted."
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ request.object.roleRef.kind }}`}}"
+                operator: Equals
+                value: ClusterRole
+              - key: "{{`{{ request.object.roleRef.name }}`}}"
+                operator: Equals
+                value: cluster-admin
     - name: restrict-control-plane-cluster-role-bindings
       match:
         any:
