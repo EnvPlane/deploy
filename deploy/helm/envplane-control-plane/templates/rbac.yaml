@@ -221,6 +221,10 @@ roleRef:
 {{- $sameClusterProjectExecutorsRBAC := default (dict) .Values.rbac.sameClusterProjectExecutors -}}
 {{- $sameClusterProjectExecutorsEnabled := or (default false $sameClusterProjectExecutors.enabled) (default false $sameClusterProjectExecutorsRBAC.enabled) -}}
 {{- $sameClusterProjectExecutorsNamespace := trim (default (default "" $sameClusterProjectExecutors.namespace) $sameClusterProjectExecutorsRBAC.namespace) -}}
+{{- $sameClusterProjectExecutorsAdmissionPolicy := default (dict) (get $sameClusterProjectExecutorsRBAC "admissionPolicy") -}}
+{{- $sameClusterProjectExecutorsAdmissionPolicyEnabled := true -}}
+{{- if hasKey $sameClusterProjectExecutorsAdmissionPolicy "enabled" }}{{- $sameClusterProjectExecutorsAdmissionPolicyEnabled = get $sameClusterProjectExecutorsAdmissionPolicy "enabled" }}{{- end }}
+{{- if and $sameClusterProjectExecutorsEnabled (not $sameClusterProjectExecutorsAdmissionPolicyEnabled) }}{{- fail "sameClusterProjectExecutors requires its Kyverno admissionPolicy to remain enabled" }}{{- end }}
 {{- $bootstrapRuntime := default (dict) (get $sameClusterProjectExecutors "bootstrapRuntime") -}}
 {{- $bootstrapRuntimeRetirementEnabled := and $sameClusterProjectExecutorsEnabled (default false (get $bootstrapRuntime "retirementEnabled")) -}}
 {{- if $bootstrapRuntimeRetirementEnabled }}
@@ -455,5 +459,73 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+{{- if $sameClusterProjectExecutorsAdmissionPolicyEnabled }}
+---
+# This policy is part of the same-cluster executor security boundary. The
+# release manager must retain its delegated permissions for Helm, but it must
+# not be able to bind cluster-admin or mint another cluster-scoped role.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-rbac-guard
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+spec:
+  background: false
+  validationFailureAction: Enforce
+  rules:
+    - name: restrict-control-plane-cluster-role-bindings
+      match:
+        any:
+          - resources:
+              kinds:
+                - ClusterRoleBinding
+                - RoleBinding
+              operations:
+                - CREATE
+                - UPDATE
+                - PATCH
+      preconditions:
+        all:
+          - key: "{{`{{ request.userInfo.username }}`}}"
+            operator: Equals
+            value: "system:serviceaccount:{{ .Release.Namespace }}:{{ $serviceAccountName }}"
+      validate:
+        message: "The control-plane service account may bind only its allowlisted release-manager ClusterRole."
+        deny:
+          conditions:
+            all:
+              - key: "{{`{{ request.object.roleRef.kind }}`}}"
+                operator: Equals
+                value: ClusterRole
+              - key: "{{`{{ request.object.roleRef.name }}`}}"
+                operator: NotIn
+                value:
+                  - {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+    - name: restrict-control-plane-cluster-roles
+      match:
+        any:
+          - resources:
+              kinds:
+                - ClusterRole
+              operations:
+                - CREATE
+                - UPDATE
+                - PATCH
+      preconditions:
+        all:
+          - key: "{{`{{ request.userInfo.username }}`}}"
+            operator: Equals
+            value: "system:serviceaccount:{{ .Release.Namespace }}:{{ $serviceAccountName }}"
+      validate:
+        message: "The control-plane service account may modify only its allowlisted release-manager ClusterRole."
+        deny:
+          conditions:
+            any:
+              - key: "{{`{{ request.object.metadata.name }}`}}"
+                operator: NotIn
+                value:
+                  - {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+{{- end }}
 {{- end }}
 {{- end }}

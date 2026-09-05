@@ -334,6 +334,10 @@ rbac:
   sameClusterProjectExecutors:
     enabled: false
     namespace: ""
+    # Kyverno admission protection for the cluster-scoped release-manager
+    # permissions. Keep this enabled whenever same-cluster executors are used.
+    admissionPolicy:
+      enabled: true
     # Finite operator-approved base namespaces. Project Agents use named
     # namespace GETs and namespaced Roles for this list; empty intentionally
     # keeps discovery blocked until an allowlist is configured.
