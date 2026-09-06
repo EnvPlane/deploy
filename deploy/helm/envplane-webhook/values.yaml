@@ -19,12 +19,13 @@ secrets:
   existingSecret: "envplane-webhook-secrets"
   controlPlaneTokenKey: control-plane-token
   githubWebhookSecretKey: github-webhook-secret
-  gitlabWebhookTokenKey: gitlab-webhook-token
+  # JSON object keyed by GitLab project ID or path_with_namespace.
+  gitlabWebhookTokensKey: gitlab-webhook-tokens
   # Local-rendering escape hatch only; never commit live values.
   allowUnsafePlaintext: false
   controlPlaneToken: ""
   githubWebhookSecret: ""
-  gitlabWebhookToken: ""
+  gitlabWebhookTokens: ""
 
 service:
   type: ClusterIP

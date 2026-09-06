@@ -52,11 +52,11 @@ spec:
                   name: {{ include "envplane-webhook.secretName" . }}
                   key: {{ .Values.secrets.githubWebhookSecretKey }}
                   optional: true
-            - name: ENVPLANE_GITLAB_WEBHOOK_TOKEN
+            - name: ENVPLANE_GITLAB_WEBHOOK_TOKENS
               valueFrom:
                 secretKeyRef:
                   name: {{ include "envplane-webhook.secretName" . }}
-                  key: {{ .Values.secrets.gitlabWebhookTokenKey }}
+                  key: {{ .Values.secrets.gitlabWebhookTokensKey }}
                   optional: true
           livenessProbe:
             httpGet:
