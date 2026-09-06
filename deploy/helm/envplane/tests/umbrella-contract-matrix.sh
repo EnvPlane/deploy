@@ -30,7 +30,7 @@ for profile in "${profiles[@]}"; do
   for version in 1.26.0 1.29.0 1.32.0; do
     kubeconform -strict -ignore-missing-schemas -cache "$KUBECONFORM_CACHE" -kubernetes-version "$version" "$rendered" >/dev/null
   done
-  ! rg -q 'envplane-install|ghcr.io/envplane/install|kubectl delete namespace|helm (install|upgrade|uninstall)|cluster-admin|resources: \["\*"\]|verbs: \["\*"\]' "$rendered"
+  ! grep -Eq 'envplane-install|ghcr.io/envplane/install|kubectl delete namespace|helm (install|upgrade|uninstall)|cluster-admin|resources: \["\*"\]|verbs: \["\*"\]' "$rendered"
   ruby - "$rendered" "$profile" <<'RUBY'
 require "yaml"
 docs = YAML.load_stream(File.read(ARGV[0])).compact.select { |d| d.is_a?(Hash) }

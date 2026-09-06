@@ -9,15 +9,15 @@ trap 'rm -f "$default_rendered" "$single_rendered" "$invalid_error"' EXIT
 
 helm template default "$chart_dir" \
   --set postgres.tls.enabled=false >"$default_rendered"
-! rg -q '^kind: HorizontalPodAutoscaler$' "$default_rendered"
+! grep -Eq '^kind: HorizontalPodAutoscaler$' "$default_rendered"
 
 helm template single "$chart_dir" \
   --set postgres.tls.enabled=false \
   --set autoscaling.enabled=true \
   --set autoscaling.minReplicas=1 \
   --set autoscaling.maxReplicas=1 >"$single_rendered"
-rg -Fq 'kind: HorizontalPodAutoscaler' "$single_rendered"
-rg -Fq 'maxReplicas: 1' "$single_rendered"
+grep -Fq 'kind: HorizontalPodAutoscaler' "$single_rendered"
+grep -Fq 'maxReplicas: 1' "$single_rendered"
 
 set +e
 helm template invalid "$chart_dir" \
@@ -27,6 +27,6 @@ helm template invalid "$chart_dir" \
 rc=$?
 set -e
 test "$rc" -ne 0
-rg -Fq 'autoscaling is unsupported above one replica' "$invalid_error"
+grep -Fq 'autoscaling is unsupported above one replica' "$invalid_error"
 
 echo "control-plane single-replica autoscaling contract is valid"
