@@ -50,6 +50,28 @@ func TestE2EWorkloadUsesTheStandardImageContract(t *testing.T) {
 	}
 }
 
+func TestE2EWorkloadRendersSecurityResourcesAndProbes(t *testing.T) {
+	cmd := exec.Command("helm", "template", "e2e", "..")
+	cmd.Dir = "."
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, output)
+	}
+	rendered := string(output)
+	for _, expected := range []string{
+		"runAsNonRoot: true",
+		"allowPrivilegeEscalation: false",
+		"readOnlyRootFilesystem: true",
+		"resources:\n            limits:\n              cpu: 100m\n              memory: 64Mi",
+		"livenessProbe:\n            tcpSocket:\n              port: 8080",
+		"readinessProbe:\n            tcpSocket:\n              port: 8080",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("E2E workload baseline missing %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestE2EWorkloadRejectsLatest(t *testing.T) {
 	cmd := exec.Command("helm", "template", "e2e", "..", "--set", "image.tag=latest")
 	cmd.Dir = "."
