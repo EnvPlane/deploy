@@ -72,6 +72,7 @@ jobs:
           done
       - run: bash deploy/helm/envplane-control-plane/tests/same-cluster-project-executors-contract.sh
       - run: bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
+      - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
       - run: bash scripts/check-vendored-chart-drift.sh
       - name: Check environment parity
         run: |
