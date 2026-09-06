@@ -559,11 +559,11 @@ envplane-runner:
   fullnameOverride: envplane-runner
   image:
     repository: ghcr.io/envplane/runner
-    tag: "sha-4da182e0476bb120527fee9411770e01946d9e4e"
-    digest: "sha256:0c408d01c4f4cd619d12f947eac86c036c0ed06b87d87dd6c0cc9eed1ed833a5"
+    tag: "sha-cdf64614a334e6e98b68e5ff55d5728d62f8e033"
+    digest: "sha256:2db66a6bbe5847f7595fcbb8c03f475e655a27863e1aa669f442edb18ee25720"
     pullPolicy: IfNotPresent
-    sourceRevision: "4da182e0476bb120527fee9411770e01946d9e4e"
-    release: "sha-4da182e0476bb120527fee9411770e01946d9e4e"
+    sourceRevision: "cdf64614a334e6e98b68e5ff55d5728d62f8e033"
+    release: "sha-cdf64614a334e6e98b68e5ff55d5728d62f8e033"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
