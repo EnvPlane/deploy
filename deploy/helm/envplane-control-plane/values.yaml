@@ -130,7 +130,13 @@ ttlCleanup:
   tokenKey: ttl-cleanup-token
   podAnnotations: {}
   podLabels: {}
-  resources: {}
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
 
 # Endpoint and image used in generated bootstrap Agent instructions. An empty
 # endpoint resolves at render time to this chart's Service FQDN in the release

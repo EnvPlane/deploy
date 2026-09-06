@@ -84,6 +84,27 @@ func TestControlPlaneChartDefinesAPIDeploymentAndService(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartRendersTTLCleanupResources(t *testing.T) {
+	rendered := renderControlPlaneChart(t, "--set", "ttlCleanup.enabled=true")
+	if !strings.Contains(rendered, "kind: CronJob\nmetadata:\n  name: envplane-control-plane-ttl-cleanup") {
+		t.Fatalf("TTL cleanup CronJob was not rendered:\n%s", rendered)
+	}
+	cronJob := rendered[strings.Index(rendered, "# Source: envplane-control-plane/templates/ttl-cleanup-cronjob.yaml"):]
+	resources := cronJob[strings.Index(cronJob, "resources:"):]
+	for _, expected := range []string{
+		"limits:",
+		"cpu: 100m",
+		"memory: 128Mi",
+		"requests:",
+		"cpu: 25m",
+		"memory: 64Mi",
+	} {
+		if !strings.Contains(resources, expected) {
+			t.Fatalf("TTL cleanup resources missing %q:\n%s", expected, resources)
+		}
+	}
+}
+
 func TestControlPlaneChartManagesCredentialEncryptionKey(t *testing.T) {
 	rendered := renderControlPlaneChart(t)
 	for _, expected := range []string{
