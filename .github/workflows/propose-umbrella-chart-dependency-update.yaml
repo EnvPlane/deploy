@@ -42,8 +42,8 @@ jobs:
           [[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source revision" >&2; exit 1; }
           printf 'component=%s\nchart=%s\nversion=%s\nrepository=%s\ndigest=%s\nsource_revision=%s\n' \
             "$COMPONENT" "$CHART" "$VERSION" "$REPOSITORY" "$DIGEST" "$SOURCE_REVISION" >> "$GITHUB_OUTPUT"
-      - uses: azure/setup-helm@v5
-      - uses: oras-project/setup-oras@v2
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
@@ -73,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "$CLIENT_ID" && -n "$APP_KEY" ]]; then echo method=app >> "$GITHUB_OUTPUT"; elif [[ -n "$PAT" ]]; then echo method=pat >> "$GITHUB_OUTPUT"; else exit 1; fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
           fetch-depth: 1
@@ -87,7 +87,7 @@ jobs:
           GH_APP_REPOSITORY: deploy
           GH_APP_TOKEN_PERMISSIONS: '{"contents":"write"}'
           permission-pull-requests: write
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
           fetch-depth: 0
@@ -117,7 +117,7 @@ jobs:
             --set envplane-control-plane.postgres.tls.enabled=false \
             >/dev/null
       - id: pr
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         with:
           token: ${{ steps.app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
           base: main

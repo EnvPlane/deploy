@@ -30,11 +30,11 @@ jobs:
        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Download confirmed compatibility manifest
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: envplane-compatible-artifacts
           path: ${{ runner.temp }}/confirmed-artifacts
@@ -80,14 +80,14 @@ jobs:
           git checkout --detach "$source_revision"
           echo "report=$REPORT" >> "$GITHUB_OUTPUT"
           echo "revision=$source_revision" >> "$GITHUB_OUTPUT"
-      - uses: azure/setup-helm@v5
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: v3.21.3
-      - uses: oras-project/setup-oras@v2
-      - uses: sigstore/cosign-installer@v3
-      - uses: docker/setup-buildx-action@v4
+      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
       - name: Authenticate to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -142,7 +142,7 @@ jobs:
           [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
           echo "agent_revision=$revision" >> "$GITHUB_OUTPUT"
       - name: Checkout release-compatible Agent source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: EnvPlane/agent
           ref: ${{ steps.secret_lifecycle.outputs.agent_revision }}
@@ -158,7 +158,7 @@ jobs:
           [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
       - name: Checkout release-compatible frontend source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: EnvPlane/frontend
           ref: ${{ steps.first_run_browser.outputs.revision }}
@@ -169,7 +169,7 @@ jobs:
         run: |
           npm ci
           npx --no-install playwright install --with-deps chromium
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: release-gate-agent/go.mod
           cache-dependency-path: release-gate-agent/go.sum
@@ -298,7 +298,7 @@ jobs:
                (.sourceRevision | test("^[0-9a-f]{40}$")))' \
             deploy/helm/envplane/compatibility/release.json >/dev/null
       - name: Select deploy Go toolchain for umbrella validation
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           cache-dependency-path: go.sum
