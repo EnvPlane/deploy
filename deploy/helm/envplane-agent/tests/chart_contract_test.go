@@ -163,6 +163,29 @@ func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 	}
 }
 
+func TestAgentChartRendersConfigurableHealthProbes(t *testing.T) {
+	rendered := renderAgentChart(t)
+	for _, expected := range []string{
+		"livenessProbe:\n            tcpSocket:\n              port: 8080",
+		"readinessProbe:\n            tcpSocket:\n              port: 8080",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("default Agent health probe missing %q:\n%s", expected, rendered)
+		}
+	}
+
+	disabled := renderAgentChart(t, "--set", "health.enabled=false")
+	if strings.Contains(disabled, "livenessProbe:") || strings.Contains(disabled, "readinessProbe:") {
+		t.Fatalf("disabled Agent health probes must not render:\n%s", disabled)
+	}
+
+	custom := renderAgentChart(t, "--set", "health.port=9090", "--set", "health.liveness.periodSeconds=7")
+	if !strings.Contains(custom, "livenessProbe:\n            tcpSocket:\n              port: 9090") ||
+		!strings.Contains(custom, "periodSeconds: 7") {
+		t.Fatalf("custom Agent health probe settings were not rendered:\n%s", custom)
+	}
+}
+
 func TestAgentChartManagedRemoteUsesOnlyExplicitProjectScopedContract(t *testing.T) {
 	rendered := renderAgentChart(t,
 		"--set", "managedRemote.enabled=true",

@@ -50,6 +50,24 @@ command: []
 args:
   - agent
 
+# The Agent image currently has no HTTP health endpoint. These TCP probes are
+# enabled by default and target the port reserved for the Agent health listener.
+# The listener must be added to the Agent image before deploying this default
+# in a cluster; until then, set health.enabled=false explicitly.
+health:
+  enabled: true
+  port: 8080
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+
 controlPlane:
   # sameCluster derives a Service DNS endpoint from this release. remote
   # requires an explicit URL reachable from the target Agent pod.
