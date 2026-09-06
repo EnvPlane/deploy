@@ -70,6 +70,9 @@ jobs:
             helm dependency build --skip-refresh "$chart"
             helm lint "$chart"
           done
+      - name: Check probe ports
+        shell: bash
+        run: ./scripts/check-probe-container-ports.sh deploy/helm/envplane-agent
       - run: bash deploy/helm/envplane-control-plane/tests/same-cluster-project-executors-contract.sh
       - run: bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
       - run: bash scripts/tests/feature-env-writer-rbac-contract.sh

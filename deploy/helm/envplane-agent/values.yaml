@@ -55,7 +55,7 @@ args:
 # The listener must be added to the Agent image before deploying this default
 # in a cluster; until then, set health.enabled=false explicitly.
 health:
-  enabled: true
+  enabled: false
   port: 8080
   liveness:
     initialDelaySeconds: 15
