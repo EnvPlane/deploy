@@ -500,11 +500,11 @@ envplane-agent:
   fullnameOverride: envplane-agent
   image:
     repository: ghcr.io/envplane/agent
-    tag: "sha-5dadeae75000d4c86ad6830ba8829f1c0e5be9c8"
-    digest: "sha256:9f4ed88b2962321f69afba61cc14cd90ac1ddf4d67e61e18b141d22e5585ebaa"
+    tag: "sha-faaf47885430446c7c0429cccf9559fcad317de5"
+    digest: "sha256:402f70ae8e5e36f0c2fe0809ddbd4182ee60909838b1fff2aa1d98bab5121099"
     pullPolicy: IfNotPresent
-    sourceRevision: "5dadeae75000d4c86ad6830ba8829f1c0e5be9c8"
-    release: "sha-5dadeae75000d4c86ad6830ba8829f1c0e5be9c8"
+    sourceRevision: "faaf47885430446c7c0429cccf9559fcad317de5"
+    release: "sha-faaf47885430446c7c0429cccf9559fcad317de5"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
