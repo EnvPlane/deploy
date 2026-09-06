@@ -20,6 +20,6 @@ jq -e --arg version "$version" --arg digest "$digest" '
   .firstRun.screen == "initial-authentication" and
   (.install.command == ("helm upgrade --install envplane " + .chart.repository + " --version " + $version + " --namespace envplane --create-namespace --wait"))
 ' "$tmp/index.json" >/dev/null
-! rg -qi 'kubeconfig|credential|scm.?token|secret' "$tmp/index.json"
+! grep -Eiq 'kubeconfig|credential|scm.?token|secret' "$tmp/index.json"
 
 echo "public release index contract passed"

@@ -29,13 +29,13 @@ for expected in \
   "envplane/charts/envplane-frontend/templates/deployment.yaml" \
   "envplane/charts/envplane-agent/templates/deployment.yaml" \
   "envplane/charts/envplane-runner/templates/deployment.yaml"; do
-  rg -q "$expected" "$rendered" || { echo "published chart missing $expected" >&2; exit 1; }
+  grep -Eq "$expected" "$rendered" || { echo "published chart missing $expected" >&2; exit 1; }
 done
 
-count="$(rg -c --fixed-strings -- "- name: $SECRET_NAME" "$rendered" | awk -F: '{sum += $NF} END {print sum + 0}')"
+count="$(grep -Foc -- "- name: $SECRET_NAME" "$rendered")"
 (( count >= 5 )) || { echo "registry Secret reference propagated to only $count rendered pods" >&2; exit 1; }
 
-if rg -q 'dockerconfigjson:|authorization: Basic' "$rendered"; then
+if grep -Eq 'dockerconfigjson:|authorization: Basic' "$rendered"; then
   echo "published chart render contains possible registry credential data" >&2
   exit 1
 fi
@@ -46,7 +46,7 @@ if helm template envplane "$CHART_REF" --version "$VERSION" \
   echo "missing registry Secret reference unexpectedly passed schema validation" >&2
   exit 1
 fi
-rg -q 'registry.*existingSecret|existingSecret' "$missing" || {
+grep -Eq 'registry.*existingSecret|existingSecret' "$missing" || {
   echo "missing registry Secret failure is not actionable" >&2
   exit 1
 }
