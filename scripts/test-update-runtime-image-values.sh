@@ -22,6 +22,7 @@ expected_old_reference="$(awk '
   --tag sha-0123456789012345678901234567890123456789 \
   --digest "sha256:$(printf 'a%.0s' {1..64})" \
   --source-revision 0123456789012345678901234567890123456789 \
+  --release sha-1123456789012345678901234567890123456789 \
   --values-file "$tmp/values.yaml" \
   --report-file "$tmp/report.json" >/dev/null
 
@@ -42,6 +43,24 @@ done
 
 grep -q 'repository: ghcr.io/envplane/runner' "$tmp/values.yaml"
 grep -q 'tag: "sha-0123456789012345678901234567890123456789"' "$tmp/values.yaml"
+grep -q 'release: "sha-1123456789012345678901234567890123456789"' "$tmp/values.yaml"
 grep -q 'sourceRevision: "0123456789012345678901234567890123456789"' "$tmp/values.yaml"
 test "$(jq -r .oldReference "$tmp/report.json")" = "$expected_old_reference"
+
+cp "$tmp/values.yaml" "$tmp/values.before-invalid.yaml"
+base_args=(
+  --component runner
+  --repository ghcr.io/envplane/runner
+  --tag sha-0123456789012345678901234567890123456789
+  --digest "sha256:$(printf 'b%.0s' {1..64})"
+  --source-revision 0123456789012345678901234567890123456789
+  --values-file "$tmp/values.yaml"
+)
+for invalid_release in 'sha-012345678901234567890123456789012345678"' $'sha-0123456789012345678901234567890123456789\ninjected: true'; do
+  if "$root/scripts/update-runtime-image-values.sh" "${base_args[@]}" --release "$invalid_release" >/dev/null 2>&1; then
+    echo "invalid release was accepted: $invalid_release" >&2
+    exit 1
+  fi
+  cmp "$tmp/values.before-invalid.yaml" "$tmp/values.yaml"
+done
 echo "component image update isolation test passed"

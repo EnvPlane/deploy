@@ -63,6 +63,7 @@ esac
 [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || die "digest must be a lowercase sha256 digest"
 [[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] || die "source revision must be a full lowercase commit SHA"
 [[ -n "$release" ]] || release="$tag"
+[[ "$release" =~ ^sha-[0-9a-f]{40}$ ]] || die "release must be sha- followed by a full lowercase commit SHA"
 [[ -f "$values_file" ]] || die "values file not found: $values_file"
 
 case "$component" in
