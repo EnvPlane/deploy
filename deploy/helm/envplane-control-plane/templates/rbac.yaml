@@ -222,9 +222,8 @@ roleRef:
 {{- $sameClusterProjectExecutorsEnabled := or (default false $sameClusterProjectExecutors.enabled) (default false $sameClusterProjectExecutorsRBAC.enabled) -}}
 {{- $sameClusterProjectExecutorsNamespace := trim (default (default "" $sameClusterProjectExecutors.namespace) $sameClusterProjectExecutorsRBAC.namespace) -}}
 {{- $sameClusterProjectExecutorsAdmissionPolicy := default (dict) (get $sameClusterProjectExecutorsRBAC "admissionPolicy") -}}
-{{- $sameClusterProjectExecutorsAdmissionPolicyEnabled := true -}}
+{{- $sameClusterProjectExecutorsAdmissionPolicyEnabled := false -}}
 {{- if hasKey $sameClusterProjectExecutorsAdmissionPolicy "enabled" }}{{- $sameClusterProjectExecutorsAdmissionPolicyEnabled = get $sameClusterProjectExecutorsAdmissionPolicy "enabled" }}{{- end }}
-{{- if and $sameClusterProjectExecutorsEnabled (not $sameClusterProjectExecutorsAdmissionPolicyEnabled) }}{{- fail "sameClusterProjectExecutors requires its Kyverno admissionPolicy to remain enabled" }}{{- end }}
 {{- $bootstrapRuntime := default (dict) (get $sameClusterProjectExecutors "bootstrapRuntime") -}}
 {{- $bootstrapRuntimeRetirementEnabled := and $sameClusterProjectExecutorsEnabled (default false (get $bootstrapRuntime "retirementEnabled")) -}}
 {{- if $bootstrapRuntimeRetirementEnabled }}

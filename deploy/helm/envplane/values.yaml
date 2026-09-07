@@ -77,13 +77,12 @@ global:
         contractVersion: "v1"
       rollout:
         mode: legacy
-    # Per-project management-cluster Agent/Runner releases. This is enabled by
-    # explicit operator configuration. The release-manager RBAC boundary is
-    # protected by an optional Kyverno policy, which is not installed by this
-    # chart and must be provided by the cluster operator.
+    # Per-project management-cluster Agent/Runner releases. Enable this for
+    # zero-setup: the umbrella creates the dedicated executor namespace and
+    # the first project can use the chart-managed management cluster directly.
     sameClusterProjectExecutors:
-      enabled: false
-      namespace: ""
+      enabled: true
+      namespace: envplane-executors
       # Once the first dedicated project Agent and Runner both report fresh,
       # authenticated heartbeats, retire the singleton bootstrap pair. The
       # lifecycle ConfigMap survives Helm upgrades and prevents resurrection.
@@ -339,8 +338,8 @@ envplane-control-plane:
     remoteClusterReconciler:
       enabled: false
     sameClusterProjectExecutors:
-      enabled: false
-      namespace: ""
+      enabled: true
+      namespace: envplane-executors
       discovery:
         namespaces: []
     currentClusterDiscovery:

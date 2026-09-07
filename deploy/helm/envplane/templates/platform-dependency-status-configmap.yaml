@@ -2,6 +2,10 @@
 {{- $ingress := $dependencies.ingress -}}
 {{- $dns := $dependencies.dns -}}
 {{- $storage := $dependencies.storage -}}
+{{- $access := .Values.access | default dict -}}
+{{- $accessMode := default "disabled" $access.mode -}}
+{{- $accessIngress := $access.ingress | default dict -}}
+{{- $accessLocalHTTP := and (eq $accessMode "ingress") (default false $accessIngress.allowInsecureHttp) (not (and $accessIngress.tls $accessIngress.tls.enabled)) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -11,6 +15,11 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: control-plane
 data:
+  # access.ingress.allowInsecureHttp is the umbrella's explicit local-only
+  # consent. Propagate it to the API so http://*.local installations neither
+  # reject their public URL nor issue Secure-only OAuth cookies.
+  ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: {{ ternary "true" "false" $accessLocalHTTP | quote }}
+  ENVPLANE_OAUTH_COOKIE_SECURE: {{ ternary "false" "true" $accessLocalHTTP | quote }}
   ENVPLANE_PLATFORM_INGRESS_MODE: {{ default "disabled" $ingress.mode | quote }}
   ENVPLANE_PLATFORM_INGRESS_PROVIDER: {{ default "" $ingress.provider | quote }}
   ENVPLANE_PLATFORM_INGRESS_REFERENCE: {{ default "" $ingress.existingClassName | quote }}

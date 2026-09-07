@@ -667,6 +667,23 @@ func TestZeroValuesProfileUsesManagedCredentialsAndPortForwardAccess(t *testing.
 	}
 }
 
+func TestLocalHTTPIngressPropagatesExplicitDevelopmentConsent(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "access.mode=ingress",
+		"--set", "access.ingress.host=envplane.local",
+		"--set", "access.ingress.allowInsecureHttp=true",
+		"--set", "global.envplane.publicURL=http://envplane.local",
+	)
+	for _, expected := range []string{
+		`ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"`,
+		`ENVPLANE_OAUTH_COOKIE_SECURE: "false"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("local HTTP ingress must propagate %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestZeroValuesProfileValidatesExplicitStorageClass(t *testing.T) {
 	output := renderUmbrellaError(t,
 		"--set", "envplane-control-plane.persistence.storageClassName=missing-storage-class",
