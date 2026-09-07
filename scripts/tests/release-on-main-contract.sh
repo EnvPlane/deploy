@@ -234,7 +234,7 @@ fi
 
 for namespace_binding in \
   'namespace: $namespace' \
-  'namespaces: [$base_namespace]' \
+  'namespaces: [$base_namespace, $target_namespace]' \
   'namespaces: [$target_namespace]' \
   'envplane-control-plane.$namespace.svc'; do
   grep -Fq "$namespace_binding" "$secret_lifecycle_harness" || {
