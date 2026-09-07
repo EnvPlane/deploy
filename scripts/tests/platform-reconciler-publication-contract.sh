@@ -5,7 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 publisher="$root/.github/workflows/publish-platform-reconciler.yaml"
 pin_workflow="$root/.github/workflows/propose-runtime-image-update.yaml"
 
-grep -Fq 'docker/build-push-action@v7' "$publisher" || {
+grep -Eq 'docker/build-push-action@[0-9a-f]{40} # v7' "$publisher" || {
   echo "platform reconciler must be built and pushed by CI" >&2
   exit 1
 }
