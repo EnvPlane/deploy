@@ -658,6 +658,27 @@ func TestControlPlaneChartUsesCanonicalFrontendDependency(t *testing.T) {
 	}
 }
 
+func TestInternalPostgresSecretIsRetainedAcrossHelmReinstall(t *testing.T) {
+	chartPath := controlPlaneChartPath(t)
+	cmd := exec.Command("helm", "template", "envplane", chartPath,
+		"--set", "postgres.mode=internal",
+		"--set", "postgres.auth.existingSecret=",
+		"--set", "postgres.tls.enabled=false",
+	)
+	cmd.Dir = chartPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template failed: %v\n%s", err, string(output))
+	}
+	rendered := string(output)
+	if !strings.Contains(rendered, "name: envplane-control-plane-postgres") {
+		t.Fatalf("internal PostgreSQL Secret was not rendered:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "\"helm.sh/resource-policy\": keep") {
+		t.Fatalf("internal PostgreSQL Secret must be retained across Helm uninstall/reinstall:\n%s", rendered)
+	}
+}
+
 func renderControlPlaneChart(t *testing.T, args ...string) string {
 	t.Helper()
 	chartPath := controlPlaneChartPath(t)
