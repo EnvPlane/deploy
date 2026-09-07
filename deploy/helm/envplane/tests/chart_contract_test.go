@@ -1286,7 +1286,7 @@ func TestIngressAccessProfileGrantsOnlyScopedProviderInstallerPermissions(t *tes
 		"resources: [\"namespaces\"]\n    verbs: [\"get\", \"create\"]",
 		"resources: [\"clusterroles\", \"clusterrolebindings\"]",
 		"resources: [\"validatingwebhookconfigurations\"]",
-		"resources: [\"nodes\", \"services\", \"configmaps\", \"pods\", \"secrets\"]\n    verbs: [\"get\", \"list\", \"watch\"]",
+		"resources: [\"nodes\", \"services\", \"endpoints\", \"configmaps\", \"pods\", \"secrets\"]\n    verbs: [\"get\", \"list\", \"watch\"]",
 		"name: envplane-platform-reconciler-ingress-installer",
 		"name: envplane-ingress-installer",
 		"name: envplane-platform-ingress-installer",

@@ -124,7 +124,7 @@ rules:
   # These read/event permissions mirror the pinned ingress-nginx controller
   # contract and are granted only to this short-lived installer identity.
   - apiGroups: [""]
-    resources: ["nodes", "services", "configmaps", "pods", "secrets"]
+    resources: ["nodes", "services", "endpoints", "configmaps", "pods", "secrets"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
