@@ -67,9 +67,9 @@ jobs:
             ~/.cache/go-build
             ~/.cache/helm
             ~/.config/helm
-          key: deploy-publish-main-cache-${{ runner.os }}-${{ hashFiles('go.sum', 'deploy/helm/**/Chart.lock', 'deploy/helm/**/Chart.yaml') }}
+          key: deploy-publish-main-cache-v2-${{ runner.os }}-${{ hashFiles('go.sum', 'deploy/helm/**/Chart.lock', 'deploy/helm/**/Chart.yaml') }}
           restore-keys: |
-            deploy-publish-main-cache-${{ runner.os }}-
+            deploy-publish-main-cache-v2-${{ runner.os }}-
       - name: Authenticate Docker to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
