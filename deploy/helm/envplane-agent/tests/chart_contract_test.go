@@ -165,12 +165,17 @@ func TestAgentChartUsesSameClusterDNSAndRequiresRemoteEndpoint(t *testing.T) {
 
 func TestAgentChartRendersConfigurableHealthProbes(t *testing.T) {
 	rendered := renderAgentChart(t)
+	if strings.Contains(rendered, "livenessProbe:") || strings.Contains(rendered, "readinessProbe:") {
+		t.Fatalf("default Agent health probes must remain disabled until the image exposes a health listener:\n%s", rendered)
+	}
+
+	enabled := renderAgentChart(t, "--set", "health.enabled=true")
 	for _, expected := range []string{
 		"livenessProbe:\n            tcpSocket:\n              port: 8080",
 		"readinessProbe:\n            tcpSocket:\n              port: 8080",
 	} {
-		if !strings.Contains(rendered, expected) {
-			t.Fatalf("default Agent health probe missing %q:\n%s", expected, rendered)
+		if !strings.Contains(enabled, expected) {
+			t.Fatalf("enabled Agent health probe missing %q:\n%s", expected, enabled)
 		}
 	}
 
@@ -179,7 +184,7 @@ func TestAgentChartRendersConfigurableHealthProbes(t *testing.T) {
 		t.Fatalf("disabled Agent health probes must not render:\n%s", disabled)
 	}
 
-	custom := renderAgentChart(t, "--set", "health.port=9090", "--set", "health.liveness.periodSeconds=7")
+	custom := renderAgentChart(t, "--set", "health.enabled=true", "--set", "health.port=9090", "--set", "health.liveness.periodSeconds=7")
 	if !strings.Contains(custom, "livenessProbe:\n            tcpSocket:\n              port: 9090") ||
 		!strings.Contains(custom, "periodSeconds: 7") {
 		t.Fatalf("custom Agent health probe settings were not rendered:\n%s", custom)
