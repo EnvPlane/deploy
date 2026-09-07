@@ -27,7 +27,8 @@ helm template envplane "$chart_dir" \
   --set 'global.envplane.sameClusterProjectExecutors.bootstrapRuntime.runnerDeployment=envplane-runner' \
   --set 'global.envplane.sameClusterProjectExecutors.bootstrapRuntime.stateConfigMap=envplane-bootstrap-runtime-lifecycle' \
   --set 'rbac.sameClusterProjectExecutors.enabled=true' \
-  --set 'rbac.sameClusterProjectExecutors.namespace=envplane-executors' >"$rendered"
+  --set 'rbac.sameClusterProjectExecutors.namespace=envplane-executors' \
+  --set 'rbac.sameClusterProjectExecutors.admissionPolicy.enabled=true' >"$rendered"
 
 grep -Fq 'name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ENABLED' "$rendered"
 grep -Fq 'value: "true"' "$rendered"
@@ -137,6 +138,9 @@ helm template public-oci "$chart_dir" \
   --set 'global.envplane.sameClusterProjectExecutors.namespace=envplane-executors' \
   >"$public_rendered"
 ! grep -Eq 'ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET|executor-registry-config|HELM_REGISTRY_CONFIG' "$public_rendered"
+# Zero-setup cannot require a Kyverno CRD. The admission guard remains an
+# explicit hardening option, covered by the private-registry render above.
+! grep -Fq 'kind: ClusterPolicy' "$public_rendered"
 
 helm template project-agent "$chart_dir/../envplane-agent" \
   --set 'global.envplane.firstStartRegistration.mode=managed' \
