@@ -164,7 +164,7 @@ envplane-agent:
   controlPlane:
     namespace: $namespace
   watch:
-    namespaces: [$base_namespace]
+    namespaces: [$base_namespace, $target_namespace]
   rbac:
     discovery:
       namespaces: [$base_namespace, $target_namespace]
