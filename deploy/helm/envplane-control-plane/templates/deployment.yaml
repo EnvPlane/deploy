@@ -6,7 +6,9 @@
 {{- $redisAuthSecret := printf "%s-redis-auth" (include "envplane-control-plane.fullname" .) -}}
 {{- $global := default (dict) .Values.global -}}
 {{- $allowInsecureLocalDevelopment := default false .Values.allowInsecureLocalDevelopment -}}
-{{- $cookieSecure := default "true" (get (default (dict) .Values.env) "ENVPLANE_OAUTH_COOKIE_SECURE") -}}
+{{- $configuredEnvironment := default (dict) .Values.env -}}
+{{- $localHTTPProfile := and .Values.ingress.enabled (not .Values.ingress.tls.enabled) $allowInsecureLocalDevelopment -}}
+{{- $cookieSecure := default (ternary "false" "true" $localHTTPProfile) (get $configuredEnvironment "ENVPLANE_OAUTH_COOKIE_SECURE") -}}
 {{- if and .Values.ingress.enabled (not .Values.ingress.tls.enabled) (eq (lower (toString $cookieSecure)) "false") (not $allowInsecureLocalDevelopment) -}}
 {{- fail "refusing ingress without TLS while ENVPLANE_OAUTH_COOKIE_SECURE=false; set allowInsecureLocalDevelopment=true only for local development" -}}
 {{- end -}}
@@ -95,6 +97,9 @@
 {{- $agentBootstrapChartRef := default $legacyAgentBootstrapChartRef $agentBootstrapChart.ref -}}
 {{- $agentBootstrapChartVersion := default $legacyAgentBootstrapChartVersion $agentBootstrapChart.version -}}
 {{- $environment := omit (deepCopy .Values.env) "ENVPLANE_AGENT_CONTROL_PLANE_URL" "ENVPLANE_AGENT_IMAGE_REPOSITORY" "ENVPLANE_AGENT_IMAGE_TAG" "ENVPLANE_AGENT_HELM_CHART_REF" "ENVPLANE_AGENT_HELM_CHART_VERSION" -}}
+{{- if and $localHTTPProfile (not (hasKey $environment "ENVPLANE_OAUTH_COOKIE_SECURE")) }}
+{{- $_ := set $environment "ENVPLANE_OAUTH_COOKIE_SECURE" "false" -}}
+{{- end }}
 {{- $auth := default (dict) .Values.auth -}}
 {{- $globalAuth := default (dict) (get $globalEnvPlane "auth") -}}
 {{- $publicURL := trim (default (get $globalEnvPlane "publicURL") .Values.publicURL) -}}

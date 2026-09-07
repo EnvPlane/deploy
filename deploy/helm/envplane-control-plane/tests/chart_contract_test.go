@@ -557,6 +557,19 @@ func TestControlPlaneChartRendersIngressForFrontendAndAPIWhenExplicitlyEnabled(t
 	}
 }
 
+func TestControlPlaneLocalHTTPProfileDisablesSecureOAuthCookies(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--set", "allowInsecureLocalDevelopment=true",
+		"--set", "ingress.enabled=true",
+		"--set", "ingress.domain=envplane.local",
+		"--set", "ingress.tls.enabled=false",
+		"--set", "publicURL=http://envplane.local",
+	)
+	if !strings.Contains(rendered, "- name: ENVPLANE_OAUTH_COOKIE_SECURE\n              value: \"false\"") {
+		t.Fatalf("local HTTP profile must disable Secure OAuth cookies:\n%s", rendered)
+	}
+}
+
 func TestControlPlaneChartRendersNodePortFrontendWithoutIngress(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
 		"--set", "ingress.enabled=false",
