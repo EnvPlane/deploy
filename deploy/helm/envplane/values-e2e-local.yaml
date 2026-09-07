@@ -98,6 +98,8 @@ envplane-agent:
       createClaim: true
 
 envplane-runner:
+  helmAllowedChartHosts:
+    - ghcr.io
   dependencyWait:
     connectivity:
       maxAttempts: 30
