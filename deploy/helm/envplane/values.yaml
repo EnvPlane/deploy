@@ -77,11 +77,13 @@ global:
         contractVersion: "v1"
       rollout:
         mode: legacy
-    # Per-project management-cluster Agent/Runner releases. The umbrella owns
-    # and creates this namespace on the first install when enabled.
+    # Per-project management-cluster Agent/Runner releases. This is enabled by
+    # default so a zero-setup installation can create its first customer
+    # project without a separate Helm upgrade. The umbrella owns the executor
+    # namespace; customer workloads and credentials remain project-managed.
     sameClusterProjectExecutors:
-      enabled: false
-      namespace: ""
+      enabled: true
+      namespace: envplane-executors
       # Once the first dedicated project Agent and Runner both report fresh,
       # authenticated heartbeats, retire the singleton bootstrap pair. The
       # lifecycle ConfigMap survives Helm upgrades and prevents resurrection.
@@ -103,11 +105,13 @@ global:
       # Optional image-pull Secret for project Agent/Runner Pods. Credentials
       # remain operator-managed; this value only references the Secret.
         imagePullSecret: ""
-    # Explicit guided-install consent for read-only current-cluster discovery.
+    # Read-only current-cluster discovery is part of zero-setup. It grants no
+    # Secret or workload reads and lets the first project select the
+    # chart-managed management cluster.
     # The control-plane chart resolves this global value into its narrowly
     # scoped ClusterRole; it does not grant workload or Secret access.
     currentClusterDiscovery:
-      enabled: false
+      enabled: true
     # Interactive OAuth is disabled by default. legacy_secret is a temporary
     # compatibility path for an operator-managed Secret in the release
     # namespace; the umbrella never renders credential values.
@@ -335,10 +339,12 @@ envplane-control-plane:
     remoteClusterReconciler:
       enabled: false
     sameClusterProjectExecutors:
-      enabled: false
-      namespace: ""
+      enabled: true
+      namespace: envplane-executors
       discovery:
         namespaces: []
+    currentClusterDiscovery:
+      enabled: true
   remoteClusterReconciler:
     compatibilityConfigMapName: ""
     leaderElection:

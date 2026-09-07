@@ -4,7 +4,7 @@
 {{- $controlPlaneRemote := default (dict) (get $controlPlane "remoteClusterReconciler") -}}
 {{- $projectExecutors := default (dict) (get $globalConfig "sameClusterProjectExecutors") -}}
 {{- $reconcilerEnabled := or (default false $remote.enabled) (default false $projectExecutors.enabled) -}}
-{{- if and $reconcilerEnabled (not (.Files.Get "compatibility/release.json")) }}
+{{- if and (default false $remote.enabled) (not (.Files.Get "compatibility/release.json")) }}
 {{- fail "managed executor reconciliation requires the signed compatibility/release.json included by a published umbrella chart" }}
 {{- end }}
 {{- if .Files.Get "compatibility/release.json" }}

@@ -560,6 +560,7 @@ func TestUmbrellaRejectsFixtureWithoutChartManagedRuntime(t *testing.T) {
 	cmd := exec.Command("helm", append([]string{"template", "envplane", chartPath}, withFixturePostgres([]string{
 		"--set", "global.envplane.e2eFixture.enabled=true",
 		"--set", "global.envplane.firstStartRegistration.mode=disabled",
+		"--set", "global.envplane.sameClusterProjectExecutors.enabled=false",
 	})...)...)
 	cmd.Dir = chartPath
 	output, err := cmd.CombinedOutput()
@@ -645,6 +646,9 @@ func TestZeroValuesProfileUsesManagedCredentialsAndPortForwardAccess(t *testing.
 		"runner-registration-token:",
 		"runner-project-config-token:",
 		"name: ENVPLANE_SAME_CLUSTER_REGISTRATION_ENABLED",
+		"name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ENABLED",
+		`name: "envplane-executors"`,
+		"envplane-control-plane-current-cluster-discovery",
 		"kind: PersistentVolumeClaim",
 	} {
 		if !strings.Contains(rendered, expected) {
@@ -1839,6 +1843,7 @@ func TestUmbrellaConditionallyOwnsSameClusterExecutionTargets(t *testing.T) {
 		"--set", "agent.enabled=true",
 		"--set", "runner.enabled=true",
 		"--set", "global.envplane.firstStartRegistration.mode=disabled",
+		"--set", "global.envplane.sameClusterProjectExecutors.enabled=false",
 		"--set", "envplane-agent.cluster.id=management-cluster",
 		"--set", "envplane-agent.bootstrap.projectId=project-a",
 		"--set", "envplane-runner.project.id=project-a",
