@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "0.4.199",
-  "sourceRevision": "2b2caed2dec6ca8fa25531ad0054e18305f9b514",
+  "version": "0.4.200",
+  "sourceRevision": "4c24894fe199292ac9f8f1adcea172c534bda69d",
   "chart": {
     "repository": "oci://ghcr.io/envplane/envplane",
-    "digest": "sha256:d44fa8c2be9bcdde3e9c513398902ad96776b47cfc514dc7047bfe3a79364f39"
+    "digest": "sha256:af5810fdc3702f768ed94a01faa41a7546fd8a165b2211e19d84ae9f87937264"
   },
   "support": {
     "kubernetes": {
@@ -26,7 +26,7 @@
   "install": {
     "release": "envplane",
     "namespace": "envplane",
-    "command": "helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.199 --namespace envplane --create-namespace --wait",
+    "command": "helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.200 --namespace envplane --create-namespace --wait",
     "prerequisites": [
       "kubernetes",
       "helm",
