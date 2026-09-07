@@ -17,9 +17,12 @@ metadata:
 data:
   # access.ingress.allowInsecureHttp is the umbrella's explicit local-only
   # consent. Propagate it to the API so http://*.local installations neither
-  # reject their public URL nor issue Secure-only OAuth cookies.
+  # reject their public URL nor issue Secure-only OAuth cookies. Project-owned
+  # Agents contact the in-cluster control-plane Service over HTTP too; they
+  # need the same explicit local-only consent before they can run discovery.
   ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: {{ ternary "true" "false" $accessLocalHTTP | quote }}
   ENVPLANE_OAUTH_COOKIE_SECURE: {{ ternary "false" "true" $accessLocalHTTP | quote }}
+  ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ALLOW_INSECURE_CONTROL_PLANE: {{ ternary "true" "false" $accessLocalHTTP | quote }}
   ENVPLANE_PLATFORM_INGRESS_MODE: {{ default "disabled" $ingress.mode | quote }}
   ENVPLANE_PLATFORM_INGRESS_PROVIDER: {{ default "" $ingress.provider | quote }}
   ENVPLANE_PLATFORM_INGRESS_REFERENCE: {{ default "" $ingress.existingClassName | quote }}

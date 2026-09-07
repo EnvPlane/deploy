@@ -677,6 +677,7 @@ func TestLocalHTTPIngressPropagatesExplicitDevelopmentConsent(t *testing.T) {
 	for _, expected := range []string{
 		`ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"`,
 		`ENVPLANE_OAUTH_COOKIE_SECURE: "false"`,
+		`ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ALLOW_INSECURE_CONTROL_PLANE: "true"`,
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("local HTTP ingress must propagate %q:\n%s", expected, rendered)

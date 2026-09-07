@@ -52,6 +52,11 @@ global:
         id: envplane-e2e-runner
         namespace: envplane
         deploymentMode: helm
+    # The local E2E profile reaches the in-cluster control-plane Service over
+    # HTTP. Dedicated project executors must receive the same explicit
+    # development-only consent as the singleton bootstrap Agent.
+    sameClusterProjectExecutors:
+      allowInsecureControlPlane: true
     e2eFixture:
       enabled: true
       recovery:
