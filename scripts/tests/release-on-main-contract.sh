@@ -31,10 +31,9 @@ for required in \
   "workflow_run:" \
   "Publish deploy image and charts (main)" \
   "workflow_run.conclusion" \
-  "actions/download-artifact@v8" \
+  "envplane-compatible-artifacts" \
   "envplane-compatible-artifacts" \
   "artifact_run_id" \
-  "oras-project/setup-oras@v2" \
   "oras login ghcr.io" \
   "helm dependency build" \
   "Run Secret materialization executor lifecycle gate" \
@@ -49,6 +48,16 @@ for required in \
   'git -C "$docs_tree" push origin HEAD:refs/heads/main'; do
   grep -Fq "$required" "$workflow" || { echo "workflow missing: $required" >&2; exit 1; }
 done
+
+grep -Eq 'actions/download-artifact@[0-9a-f]{40} # v8' "$workflow" || {
+  echo "release workflow must pin download-artifact to a full commit SHA" >&2
+  exit 1
+}
+
+grep -Eq 'oras-project/setup-oras@[0-9a-f]{40} # v2' "$workflow" || {
+  echo "release workflow must pin setup-oras to a full commit SHA" >&2
+  exit 1
+}
 
 grep -Fq 'verify-anonymous-oci-artifacts.sh' "$workflow" || {
   echo "release must verify anonymous OCI pulls after publication" >&2; exit 1;
@@ -207,7 +216,7 @@ grep -Fq "Run disposable private-registry Secret materialization release gate" "
   echo "release must run the mandatory clean-cluster private-registry Secret lifecycle gate" >&2
   exit 1
 }
-grep -A2 -F 'uses: azure/setup-helm@v5' "$workflow" | grep -Fq 'version: v3.21.3' || {
+grep -A2 -E 'uses: azure/setup-helm@[0-9a-f]{40} # v5' "$workflow" | grep -Fq 'version: v3.21.3' || {
   echo "release workflow must pin the supported Helm 3 client" >&2
   exit 1
 }
