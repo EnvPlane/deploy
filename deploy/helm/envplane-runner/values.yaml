@@ -116,6 +116,10 @@ helmRegistry:
   configKey: .dockerconfigjson
   mountPath: /var/run/envplane/helm-registry
 
+# Direct network chart references are denied unless their host is explicitly
+# allowlisted. Keep this empty for general-purpose Runner releases.
+helmAllowedChartHosts: []
+
 dependencyWait:
   enabled: true
   connectivity:

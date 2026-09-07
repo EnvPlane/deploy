@@ -177,6 +177,10 @@ spec:
               value: {{ .Values.controlPlane.heartbeatIntervalSeconds | quote }}
             - name: ENVPLANE_RUNNER_REPORT_TIMEOUT_SECONDS
               value: {{ .Values.controlPlane.reportTimeoutSeconds | quote }}
+            {{- if .Values.helmAllowedChartHosts }}
+            - name: ENVPLANE_HELM_ALLOWED_CHART_HOSTS
+              value: {{ join "," .Values.helmAllowedChartHosts | quote }}
+            {{- end }}
             - name: ENVPLANE_RUNNER_HEALTH_ADDR
               value: {{ printf ":%d" (.Values.health.port | int) | quote }}
             - name: ENVPLANE_RUNNER_VERSION
