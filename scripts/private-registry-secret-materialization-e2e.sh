@@ -22,6 +22,7 @@ fixture_app_repository_url="${ENVPLANE_SM09_FIXTURE_APP_REPOSITORY_URL:-https://
 fixture_app_default_branch="${ENVPLANE_SM09_FIXTURE_APP_DEFAULT_BRANCH:-main}"
 first_run_browser_gate="${ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE:-0}"
 frontend_dir="${ENVPLANE_SM09_FRONTEND_DIR:-}"
+automatic_materialization_wait_seconds="${ENVPLANE_SM09_AUTOMATIC_MATERIALIZATION_WAIT_SECONDS:-600}"
 tmp="$(mktemp -d)"
 pids=()
 failure_line=""
@@ -48,6 +49,10 @@ case "$first_run_browser_gate" in
 esac
 if [[ "$first_run_browser_gate" == "1" ]]; then
   [[ -n "$frontend_dir" && -f "$frontend_dir/package.json" ]] || { echo "ENVPLANE_SM09_FRONTEND_DIR must contain the compatible frontend source" >&2; exit 2; }
+fi
+if ! [[ "$automatic_materialization_wait_seconds" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ENVPLANE_SM09_AUTOMATIC_MATERIALIZATION_WAIT_SECONDS must be a positive integer" >&2
+  exit 2
 fi
 
 cleanup() {
@@ -399,7 +404,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
 	# The browser plan has a different ownership binding and must start without
 	# Secrets owned by the API-created environment.
 	set_sm09_phase "wait for automatic Secret materialization"
-	for _ in $(seq 1 120); do
+	for _ in $(seq 1 $((automatic_materialization_wait_seconds / 2))); do
 		automatic_status="$(api_curl "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
 		jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$automatic_status" >/dev/null 2>&1 && break
 		sleep 2
