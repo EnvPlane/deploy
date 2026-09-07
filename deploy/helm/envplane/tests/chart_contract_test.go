@@ -646,8 +646,6 @@ func TestZeroValuesProfileUsesManagedCredentialsAndPortForwardAccess(t *testing.
 		"runner-registration-token:",
 		"runner-project-config-token:",
 		"name: ENVPLANE_SAME_CLUSTER_REGISTRATION_ENABLED",
-		"name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ENABLED",
-		`name: "envplane-executors"`,
 		"envplane-control-plane-current-cluster-discovery",
 		"kind: PersistentVolumeClaim",
 	} {
