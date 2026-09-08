@@ -72,7 +72,7 @@ jobs:
           done
       - name: Check probe ports
         shell: bash
-        run: ./scripts/check-probe-container-ports.sh deploy/helm/envplane-agent
+        run: ./scripts/check-probe-container-ports.sh
       - run: bash deploy/helm/envplane-control-plane/tests/same-cluster-project-executors-contract.sh
       - run: bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
       - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
