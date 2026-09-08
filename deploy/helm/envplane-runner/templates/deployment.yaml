@@ -226,6 +226,10 @@ spec:
           {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
           livenessProbe:
             httpGet:
               # Readiness reports a stale bootstrap identity as unavailable,
