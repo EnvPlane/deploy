@@ -10,7 +10,7 @@ dependencies:
   version: 0.2.24
 - name: envplane-runner
   repository: file://../envplane-runner
-  version: 0.4.5
+  version: 0.4.6
 - name: envplane-webhook
   repository: file://../envplane-webhook
   version: 0.1.0
