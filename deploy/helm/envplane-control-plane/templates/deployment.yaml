@@ -25,6 +25,7 @@
 {{- $sameClusterProjectExecutorsDiscovery := default (dict) $sameClusterProjectExecutors.discovery -}}
 {{- $sameClusterProjectExecutorsDiscoveryNamespaces := default (list) $sameClusterProjectExecutorsDiscovery.namespaces -}}
 {{- $sameClusterProjectExecutorsAllowInsecureControlPlane := default false $sameClusterProjectExecutors.allowInsecureControlPlane -}}
+{{- $sameClusterProjectExecutorsHelmAllowedChartHosts := default (list) $sameClusterProjectExecutors.helmAllowedChartHosts -}}
 {{- $bootstrapRuntime := default (dict) (get $sameClusterProjectExecutors "bootstrapRuntime") -}}
 {{- $bootstrapRuntimeRetirementEnabled := default false (get $bootstrapRuntime "retirementEnabled") -}}
 {{- $executorReconcilerEnabled := or $remoteClusterReconcilerEnabled $sameClusterProjectExecutorsEnabled -}}
@@ -416,6 +417,8 @@ spec:
             {{- end }}
             - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_DISCOVERY_NAMESPACES
               value: {{ join "," $sameClusterProjectExecutorsDiscoveryNamespaces | quote }}
+            - name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_HELM_ALLOWED_CHART_HOSTS
+              value: {{ join "," $sameClusterProjectExecutorsHelmAllowedChartHosts | quote }}
             {{- if $bootstrapRuntimeRetirementEnabled }}
             - name: ENVPLANE_SAME_CLUSTER_BOOTSTRAP_RUNTIME_RETIREMENT_ENABLED
               value: "true"

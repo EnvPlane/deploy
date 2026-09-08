@@ -94,6 +94,9 @@ global:
       # LOCAL DEVELOPMENT ONLY: permit project-owned runtimes to reach an
       # explicitly configured HTTP control plane.
       allowInsecureControlPlane: false
+      # Direct OCI and HTTP(S) charts are denied by project Runners unless
+      # their host is explicitly listed here. This carries no credentials.
+      helmAllowedChartHosts: []
       discovery:
         namespaces: []
       # Optional private-registry override. Leave both fields empty for public

@@ -20,6 +20,7 @@ helm template envplane "$chart_dir" \
   --set 'global.envplane.sameClusterProjectExecutors.namespace=envplane-executors' \
   --set 'global.envplane.sameClusterProjectExecutors.discovery.namespaces[0]=envplane-e2e-base' \
   --set 'global.envplane.sameClusterProjectExecutors.discovery.namespaces[1]=envplane-shared' \
+  --set 'global.envplane.sameClusterProjectExecutors.helmAllowedChartHosts[0]=ghcr.io' \
   --set 'global.envplane.sameClusterProjectExecutors.registry.existingSecret=envplane-ghcr' \
   --set 'global.envplane.sameClusterProjectExecutors.registry.imagePullSecret=envplane-ghcr' \
   --set 'global.envplane.sameClusterProjectExecutors.bootstrapRuntime.retirementEnabled=true' \
@@ -34,6 +35,8 @@ grep -Fq 'name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ENABLED' "$rendered"
 grep -Fq 'value: "true"' "$rendered"
 grep -Fq 'name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_NAMESPACE' "$rendered"
 grep -Fq 'value: "envplane-executors"' "$rendered"
+grep -Fq 'name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_HELM_ALLOWED_CHART_HOSTS' "$rendered"
+grep -Fq 'value: "ghcr.io"' "$rendered"
 grep -Fq 'name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_IMAGE_PULL_SECRET' "$rendered"
 grep -Fq 'value: "envplane-ghcr"' "$rendered"
 grep -Fq 'name: ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_DISCOVERY_NAMESPACES' "$rendered"

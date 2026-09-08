@@ -57,6 +57,8 @@ global:
     # development-only consent as the singleton bootstrap Agent.
     sameClusterProjectExecutors:
       allowInsecureControlPlane: true
+      helmAllowedChartHosts:
+        - ghcr.io
     e2eFixture:
       enabled: true
       recovery:
