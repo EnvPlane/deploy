@@ -14,8 +14,8 @@ controlPlane:
   url: "http://envplane-control-plane:8080"
 
 secrets:
-  # Existing Secret is the production path. It must contain the control-plane
-  # token and at least one provider secret/token under the configured keys.
+  # Existing Secret is the production path for optional GitHub compatibility
+  # settings. GitLab signing secrets remain in control-plane.
   existingSecret: "envplane-webhook-secrets"
   # The receiver credential is distinct from legacy provider/configuration
   # secrets and is valid only for control-plane receiver ingestion.
@@ -23,13 +23,10 @@ secrets:
   receiverTokenKey: receiver-token
   controlPlaneTokenKey: control-plane-token
   githubWebhookSecretKey: github-webhook-secret
-  # JSON object keyed by GitLab project ID or path_with_namespace.
-  gitlabWebhookTokensKey: gitlab-webhook-tokens
   # Local-rendering escape hatch only; never commit live values.
   allowUnsafePlaintext: false
   controlPlaneToken: ""
   githubWebhookSecret: ""
-  gitlabWebhookTokens: ""
 
 service:
   type: ClusterIP

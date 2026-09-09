@@ -59,14 +59,6 @@ spec:
                   name: {{ include "envplane-webhook.secretName" . }}
                   key: {{ .Values.secrets.githubWebhookSecretKey }}
                   optional: true
-            {{- if not .Values.secrets.receiverSecret }}
-            - name: ENVPLANE_GITLAB_WEBHOOK_TOKENS
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "envplane-webhook.secretName" . }}
-                  key: {{ .Values.secrets.gitlabWebhookTokensKey }}
-                  optional: true
-            {{- end }}
           livenessProbe:
             httpGet:
               path: /livez
