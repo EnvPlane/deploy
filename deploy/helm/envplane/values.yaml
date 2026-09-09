@@ -20,6 +20,16 @@ runner:
   enabled: true
 webhook:
   enabled: false
+  # SCM providers require a public HTTPS callback. The local default is
+  # deliberately not ready: expose this Service through a tunnel before
+  # enabling MR automation.
+  publicEndpoint:
+    mode: local
+    host: ""
+    className: ""
+    annotations: {}
+    tls:
+      secretName: ""
 
 # Cross-child first-start registration for an Agent and Runner installed in
 # this same release/cluster. `managed` creates one Helm-owned Secret and keeps
@@ -633,6 +643,10 @@ envplane-webhook:
     existingSecret: envplane-webhook-secrets
     receiverSecret: envplane-webhook-receiver
     receiverTokenKey: receiver-token
+  # The umbrella owns the public receiver ingress so it remains separate from
+  # the control-plane ingress and has one explicit external endpoint contract.
+  ingress:
+    enabled: false
 
 envplane-control-plane:
   webhookReceiver:

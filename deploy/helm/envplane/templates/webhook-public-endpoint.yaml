@@ -1,0 +1,63 @@
+{{- if .Values.webhook.enabled }}
+{{- $endpoint := default dict .Values.webhook.publicEndpoint -}}
+{{- $mode := lower (default "local" $endpoint.mode) -}}
+{{- $host := trim (default "" $endpoint.host) -}}
+{{- $tls := default dict $endpoint.tls -}}
+{{- if and (ne $mode "local") (ne $mode "ingress") }}
+{{- fail "webhook.publicEndpoint.mode must be local or ingress" }}
+{{- end }}
+{{- if eq $mode "ingress" }}
+{{- if not $host }}{{- fail "webhook.publicEndpoint.host is required when mode=ingress" }}{{- end }}
+{{- if not (trim (default "" $tls.secretName)) }}{{- fail "webhook.publicEndpoint.tls.secretName is required when mode=ingress" }}{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-webhook-receiver
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: webhook-receiver
+  {{- with $endpoint.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $endpoint.className }}
+  ingressClassName: {{ . | quote }}
+  {{- end }}
+  tls:
+    - hosts:
+        - {{ $host | quote }}
+      secretName: {{ $tls.secretName | quote }}
+  rules:
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: envplane-webhook
+                port:
+                  name: http
+---
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-webhook-receiver-status
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: webhook-receiver
+data:
+  # This is an observed-state contract. Helm declares configuration only; a
+  # controller or Bootstrap test delivery must change pending to ready.
+  ENVPLANE_WEBHOOK_RECEIVER_MODE: {{ $mode | quote }}
+  ENVPLANE_WEBHOOK_RECEIVER_PUBLIC_URL: {{- if eq $mode "ingress" }} {{ printf "https://%s" $host | quote }}{{- else }} ""{{- end }}
+  ENVPLANE_WEBHOOK_RECEIVER_INGRESS_STATE: {{- if eq $mode "ingress" }} "pending"{{- else }} "not_configured"{{- end }}
+  ENVPLANE_WEBHOOK_RECEIVER_DNS_STATE: "unknown"
+  ENVPLANE_WEBHOOK_RECEIVER_TLS_STATE: {{- if eq $mode "ingress" }} "pending"{{- else }} "not_applicable"{{- end }}
+  ENVPLANE_WEBHOOK_RECEIVER_RUNTIME_STATE: "unknown"
+  ENVPLANE_WEBHOOK_RECEIVER_READINESS: {{- if eq $mode "ingress" }} "pending"{{- else }} "public_endpoint_required"{{- end }}
+{{- end }}
