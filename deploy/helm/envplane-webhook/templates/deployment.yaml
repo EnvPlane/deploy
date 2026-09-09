@@ -46,6 +46,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "envplane-webhook.secretName" . }}
                   key: {{ .Values.secrets.controlPlaneTokenKey }}
+            - name: ENVPLANE_WEBHOOK_RECEIVER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.receiverSecret | quote }}
+                  key: {{ .Values.secrets.receiverTokenKey | quote }}
             - name: ENVPLANE_GITHUB_WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:

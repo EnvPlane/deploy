@@ -631,6 +631,14 @@ envplane-webhook:
     url: http://envplane-control-plane:8080
   secrets:
     existingSecret: envplane-webhook-secrets
+    receiverSecret: envplane-webhook-receiver
+    receiverTokenKey: receiver-token
+
+envplane-control-plane:
+  webhookReceiver:
+    enabled: true
+    existingSecret: envplane-webhook-receiver
+    tokenKey: receiver-token
 
 # This dependency exists only to publish and pin the immutable Helm Direct
 # bootstrap artifact. The umbrella never installs the workload itself.

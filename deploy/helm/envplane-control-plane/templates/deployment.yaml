@@ -284,6 +284,14 @@ spec:
               value: {{ $agentBootstrapEndpoint | quote }}
             - name: ENVPLANE_PUBLIC_URL
               value: {{ $publicURL | quote }}
+            {{- if .Values.webhookReceiver.enabled }}
+            - name: ENVPLANE_WEBHOOK_RECEIVER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "webhookReceiver.existingSecret is required when receiver is enabled" .Values.webhookReceiver.existingSecret | quote }}
+                  key: {{ .Values.webhookReceiver.tokenKey | quote }}
+                  optional: true
+            {{- end }}
             - name: ENVPLANE_CREDENTIAL_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:

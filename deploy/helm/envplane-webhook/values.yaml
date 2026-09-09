@@ -17,6 +17,10 @@ secrets:
   # Existing Secret is the production path. It must contain the control-plane
   # token and at least one provider secret/token under the configured keys.
   existingSecret: "envplane-webhook-secrets"
+  # The receiver credential is distinct from legacy provider/configuration
+  # secrets and is valid only for control-plane receiver ingestion.
+  receiverSecret: "envplane-webhook-receiver"
+  receiverTokenKey: receiver-token
   controlPlaneTokenKey: control-plane-token
   githubWebhookSecretKey: github-webhook-secret
   # JSON object keyed by GitLab project ID or path_with_namespace.

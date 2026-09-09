@@ -417,3 +417,7 @@ readinessProbe:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+webhookReceiver:
+  enabled: false
+  existingSecret: ""
+  tokenKey: receiver-token
