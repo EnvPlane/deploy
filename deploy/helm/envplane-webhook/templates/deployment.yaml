@@ -41,11 +41,13 @@ spec:
               value: {{ .Values.readyStaleAfter | quote }}
             - name: ENVPLANE_CONTROL_PLANE_URL
               value: {{ required "controlPlane.url is required" .Values.controlPlane.url | quote }}
+            {{- if not .Values.secrets.receiverSecret }}
             - name: ENVPLANE_CONTROL_PLANE_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "envplane-webhook.secretName" . }}
                   key: {{ .Values.secrets.controlPlaneTokenKey }}
+            {{- end }}
             - name: ENVPLANE_WEBHOOK_RECEIVER_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -57,12 +59,14 @@ spec:
                   name: {{ include "envplane-webhook.secretName" . }}
                   key: {{ .Values.secrets.githubWebhookSecretKey }}
                   optional: true
+            {{- if not .Values.secrets.receiverSecret }}
             - name: ENVPLANE_GITLAB_WEBHOOK_TOKENS
               valueFrom:
                 secretKeyRef:
                   name: {{ include "envplane-webhook.secretName" . }}
                   key: {{ .Values.secrets.gitlabWebhookTokensKey }}
                   optional: true
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /livez

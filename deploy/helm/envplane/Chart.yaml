@@ -2,7 +2,7 @@ apiVersion: v2
 name: envplane
 description: EnvPlane same-cluster umbrella chart.
 type: application
-version: 0.3.51
+version: 0.3.52
 appVersion: "0.3.50"
 dependencies:
   - name: envplane-control-plane
@@ -22,7 +22,7 @@ dependencies:
     repository: file://../envplane-runner
     condition: runner.enabled
   - name: envplane-webhook
-    version: 0.1.1
+    version: 0.1.2
     repository: file://../envplane-webhook
     condition: webhook.enabled
   # Published and pinned with the umbrella so Helm Direct bootstrap defaults

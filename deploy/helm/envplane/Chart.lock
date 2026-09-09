@@ -13,9 +13,9 @@ dependencies:
   version: 0.4.6
 - name: envplane-webhook
   repository: file://../envplane-webhook
-  version: 0.1.1
+  version: 0.1.2
 - name: envplane-e2e-workload
   repository: file://../envplane-e2e-workload
   version: 0.1.0
-digest: sha256:b7f959e73d7ac8ee049b879449f172bde976cb3a3f2c69231b0756894be98c0b
-generated: "2026-09-09T19:29:33.345518+02:00"
+digest: sha256:f13e56a8fe77f5f3b70fd2ce08f9e7d4a95e080979dcc48fb95408722f2c5cfc
+generated: "2026-09-09T20:07:54.148946+02:00"
