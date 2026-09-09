@@ -297,6 +297,10 @@ platformDependencyReconciler:
 
 envplane-control-plane:
   fullnameOverride: envplane-control-plane
+  env:
+    ENVPLANE_WEBHOOK_RECEIVER_STATUS_CONFIGMAP: "{{ .Release.Name }}-webhook-receiver-status"
+    ENVPLANE_WEBHOOK_RECEIVER_STATUS_NAMESPACE: ""
+    ENVPLANE_WEBHOOK_RECEIVER_STATUS_STALE_AFTER_SECONDS: "300"
   commercialization:
     ai:
       enabled: false

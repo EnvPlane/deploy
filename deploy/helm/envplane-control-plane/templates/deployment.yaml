@@ -277,6 +277,14 @@ spec:
             - name: ENVPLANE_PLATFORM_DEPENDENCY_STATUS_STALE_AFTER_SECONDS
               value: {{ $platformDependencyStatusStaleAfter | quote }}
             {{- end }}
+            {{- with .Values.env.ENVPLANE_WEBHOOK_RECEIVER_STATUS_CONFIGMAP }}
+            - name: ENVPLANE_WEBHOOK_RECEIVER_STATUS_CONFIGMAP
+              value: {{ tpl . $ | quote }}
+            - name: ENVPLANE_WEBHOOK_RECEIVER_STATUS_NAMESPACE
+              value: {{ default $.Release.Namespace $.Values.env.ENVPLANE_WEBHOOK_RECEIVER_STATUS_NAMESPACE | quote }}
+            - name: ENVPLANE_WEBHOOK_RECEIVER_STATUS_STALE_AFTER_SECONDS
+              value: {{ default "300" $.Values.env.ENVPLANE_WEBHOOK_RECEIVER_STATUS_STALE_AFTER_SECONDS | quote }}
+            {{- end }}
             # Bootstrap Agent instructions must use a pod-reachable endpoint,
             # never the browser ingress host. A remote target cluster sets the
             # explicit agentBootstrap.controlPlaneURL override.
