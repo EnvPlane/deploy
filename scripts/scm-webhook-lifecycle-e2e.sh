@@ -71,7 +71,23 @@ send_event() {
 }
 send_event open e2e-delivery-901 "$mr_body"
 send_event open e2e-delivery-901 "$mr_body"
+
+# Wait until the accepted MR has produced its environment. This proves the
+# callback crossed receiver authentication and reached the scheduler.
+for _ in $(seq 1 120); do
+  environments="$(curl -fsS "${AUTH_ARGS[@]}" "$API_URL/api/v1/environments?project_id=$PROJECT_ID" 2>/dev/null || echo '[]')"
+  if jq -e 'any(.[]?; ((.source.pullRequestId // .source.pull_request_id) == "901"))' <<<"$environments" >/dev/null; then break; fi
+  sleep 2
+done
+jq -e 'any(.[]?; ((.source.pullRequestId // .source.pull_request_id) == "901"))' <<<"$environments" >/dev/null || { echo "MR event did not create an environment" >&2; exit 1; }
+
 send_event close e2e-delivery-close-901 "$mr_body"
+for _ in $(seq 1 120); do
+  environments="$(curl -fsS "${AUTH_ARGS[@]}" "$API_URL/api/v1/environments?project_id=$PROJECT_ID" 2>/dev/null || echo '[]')"
+  if jq -e 'any(.[]?; ((.source.pullRequestId // .source.pull_request_id) == "901") and ((.status | ascii_downcase) == "deleted" or (.status | ascii_downcase) == "terminating" or (.status | ascii_downcase) == "delete_requested" or (.status | ascii_downcase) == "cleaned"))' <<<"$environments" >/dev/null; then break; fi
+  sleep 2
+done
+jq -e 'any(.[]?; ((.source.pullRequestId // .source.pull_request_id) == "901") and ((.status | ascii_downcase) == "deleted" or (.status | ascii_downcase) == "terminating" or (.status | ascii_downcase) == "delete_requested" or (.status | ascii_downcase) == "cleaned"))' <<<"$environments" >/dev/null || { echo "close event did not start environment cleanup" >&2; exit 1; }
 
 invalid_status="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$CALLBACK_URL" \
   -H 'Content-Type: application/json' -H 'X-Gitlab-Event: Merge Request Hook' \
