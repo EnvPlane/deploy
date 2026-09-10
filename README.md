@@ -56,6 +56,17 @@ selection are in [advanced installation](docs/installation-advanced.md).
 Run published-artifact and remote-cluster scenarios only against disposable or
 approved test environments.
 
+### SCM webhook lifecycle fixture
+
+`./scripts/scm-webhook-lifecycle-e2e.sh` runs the disposable GitLab webhook
+path against one umbrella install. Set `ENVPLANE_E2E_PUBLIC_CALLBACK_URL` to
+an HTTPS ingress or approved tunnel forwarding to `envplane-webhook`, provide
+the preconfigured disposable hook token and receiver token, and set the
+immutable umbrella context/ref/version variables. The fixture verifies
+reconcile, test delivery, MR open/replay/close cleanup, invalid signatures,
+secret rotation, ingress outage, and that the receiver-only token cannot read
+admin endpoints. It never prints credential values.
+
 ## Security
 
 Do not commit kubeconfigs, registry credentials, cloud keys, bootstrap tokens,
