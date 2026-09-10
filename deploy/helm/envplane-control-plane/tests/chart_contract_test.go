@@ -241,6 +241,32 @@ func TestControlPlaneChartPropagatesCanonicalPublicURL(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartRendersWebhookStatusEnvironmentOnce(t *testing.T) {
+	rendered := renderControlPlaneChart(t,
+		"--namespace", "envplane",
+		"--set-string", "env.ENVPLANE_WEBHOOK_RECEIVER_STATUS_CONFIGMAP=\\{\\{ .Release.Name \\}\\}-webhook-receiver-status",
+		"--set", "env.ENVPLANE_WEBHOOK_RECEIVER_STATUS_NAMESPACE=envplane",
+	)
+	for _, name := range []string{
+		"ENVPLANE_WEBHOOK_RECEIVER_STATUS_CONFIGMAP",
+		"ENVPLANE_WEBHOOK_RECEIVER_STATUS_NAMESPACE",
+		"ENVPLANE_WEBHOOK_RECEIVER_STATUS_STALE_AFTER_SECONDS",
+	} {
+		if count := strings.Count(rendered, "name: "+name); count != 1 {
+			t.Fatalf("webhook status environment %s must be rendered exactly once, got %d:\n%s", name, count, rendered)
+		}
+	}
+	if strings.Contains(rendered, "value: \"{{ .Release.Name }}-webhook-receiver-status\"") {
+		t.Fatalf("webhook status ConfigMap name was not expanded:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "name: ENVPLANE_WEBHOOK_RECEIVER_STATUS_CONFIGMAP\n              value: \"envplane-webhook-receiver-status\"") {
+		t.Fatalf("webhook status ConfigMap name was not rendered for the release:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "name: ENVPLANE_WEBHOOK_RECEIVER_STATUS_NAMESPACE\n              value: \"envplane\"") {
+		t.Fatalf("webhook status namespace was overwritten or empty:\n%s", rendered)
+	}
+}
+
 func TestControlPlaneChartUsesServiceDNSForSameClusterAgentBootstrapAndAllowsRemoteOverride(t *testing.T) {
 	sameCluster := renderControlPlaneChart(t, "--namespace", "envplane")
 	for _, expected := range []string{
