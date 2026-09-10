@@ -149,6 +149,9 @@ Back up and remove retained data separately when required.
 | Upgrade keeps old images | `helm get values envplane -n envplane` | Remove image overrides and rerun the wrapper without `--reuse-values`. |
 | External database connection fails | Check pod events and Secret metadata, never Secret values | Verify the existing Secret name/key, network policy, TLS trust, and database reachability. |
 
+For existing installations, run the read-only [SCM webhook migration runbook](scm-webhook-migration.md)
+and `scripts/scm-webhook-migration-preflight.sh` before changing provider URLs.
+
 For production topology and non-default choices, continue with
 [advanced installation](installation-advanced.md). For API-managed remote
 targets, see [remote clusters](remote-clusters.md).

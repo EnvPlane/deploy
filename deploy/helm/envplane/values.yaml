@@ -377,6 +377,8 @@ envplane-control-plane:
   # Public access is rendered by templates/access.yaml, not this child chart.
   ingress:
     enabled: false
+  # Explicit removal deadline for the legacy receiver fallback.
+  legacyFallbackUntil: "2026-12-31T23:59:59Z"
     domain: ""
     className: ""
     annotations: {}

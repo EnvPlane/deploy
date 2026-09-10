@@ -34,6 +34,8 @@ service:
 
 requestTimeout: 10s
 readyStaleAfter: 2m
+# Explicit removal deadline for the legacy control-plane-token fallback.
+legacyFallbackUntil: "2026-12-31T23:59:59Z"
 
 ingress:
   enabled: false

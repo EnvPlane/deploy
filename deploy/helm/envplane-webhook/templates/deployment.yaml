@@ -39,6 +39,8 @@ spec:
               value: {{ .Values.requestTimeout | quote }}
             - name: ENVPLANE_WEBHOOK_READY_STALE_AFTER
               value: {{ .Values.readyStaleAfter | quote }}
+            - name: ENVPLANE_WEBHOOK_LEGACY_FALLBACK_UNTIL
+              value: {{ .Values.legacyFallbackUntil | quote }}
             - name: ENVPLANE_CONTROL_PLANE_URL
               value: {{ required "controlPlane.url is required" .Values.controlPlane.url | quote }}
             {{- if not .Values.secrets.receiverSecret }}
