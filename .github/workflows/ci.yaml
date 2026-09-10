@@ -77,7 +77,8 @@ jobs:
       - run: bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
       - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
       - run: bash scripts/tests/github-actions-pinned-contract.sh
-      - run: bash scripts/check-vendored-chart-drift.sh
+      - name: Check packaged file dependencies and vendored chart drift
+        run: bash scripts/check-vendored-chart-drift.sh
       - name: Check environment parity
         run: |
           helm dependency build --skip-refresh deploy/helm/envplane
