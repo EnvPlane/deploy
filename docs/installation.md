@@ -59,6 +59,27 @@ Agent and Runner are already part of the umbrella; do not install their child
 charts manually. Remote clusters are added later through **Settings → Remote
 clusters**.
 
+## 3a. SCM webhook automation checklist
+
+Before selecting GitLab merge-request automation in Bootstrap:
+
+- Set `webhook.enabled=true` in the umbrella values.
+- Use `webhook.publicEndpoint.mode=ingress` with a public DNS name and TLS
+  certificate. The default `local` mode is deliberately not ready for GitLab;
+  use an approved public HTTPS tunnel only for development.
+- Keep the webhook hostname separate from the control-plane hostname and make
+  sure DNS resolves to the webhook receiver Ingress.
+- Use a GitLab token with the `api` scope to create and update project hooks;
+  `read_api` is not sufficient for Bootstrap registration.
+- In Bootstrap, wait for endpoint, DNS, TLS, receiver readiness, and delivery
+  proof. A `pending` or `failed` state does not enable MR automation or Compile.
+
+If automatic registration is unavailable, copy the exact callback URL shown by
+Bootstrap and create a GitLab project hook manually with **Merge request
+events**, **Comments**, and **Enable SSL verification**. Never place the signing
+secret in Helm values or support bundles; rotate it through the control plane
+when it is lost.
+
 ## Free limits and activation
 
 A new installation uses the built-in free plan without checkout or license
