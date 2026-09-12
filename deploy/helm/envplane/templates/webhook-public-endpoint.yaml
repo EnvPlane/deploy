@@ -51,8 +51,10 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: webhook-receiver
 data:
-  # This is an observed-state contract. Helm declares configuration only; a
-  # controller or Bootstrap test delivery must change pending to ready.
+  # See control-plane/docs/adr/20260909-webhook-readiness-proof-source.md.
+  # Helm declares endpoint configuration and initial observed state. An external
+  # controller may update the observed-state fields; EnvPlane never writes them.
+  # They are diagnostic-only. Compile gating uses the per-project delivery proof.
   ENVPLANE_WEBHOOK_RECEIVER_MODE: {{ $mode | quote }}
   ENVPLANE_WEBHOOK_RECEIVER_PUBLIC_URL: {{- if eq $mode "ingress" }} {{ printf "https://%s" $host | quote }}{{- else }} ""{{- end }}
   ENVPLANE_WEBHOOK_RECEIVER_INGRESS_STATE: {{- if eq $mode "ingress" }} "pending"{{- else }} "not_configured"{{- end }}

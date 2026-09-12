@@ -54,6 +54,14 @@ The legacy control-plane-token fallback is explicit and expires at
 receiver fails startup unless the dedicated receiver token is configured. This is a removal date,
 not a rolling extension: migrate before it and then remove the compatibility setting.
 
+## Receiver status ConfigMap
+
+The receiver status ConfigMap declares endpoint configuration and exposes optional aggregate
+observed state. EnvPlane does not update its DNS, TLS, runtime, or readiness fields; an external
+controller may publish them for diagnostics. A `pending` value does not block Compile. The
+per-project delivery proof is the authoritative compile-gating state, as recorded in the
+[webhook readiness proof ADR](https://github.com/EnvPlane/control-plane/blob/main/docs/adr/20260909-webhook-readiness-proof-source.md).
+
 ## 5. Rotation
 
 Use the project `rotate-secret` action/API. It updates the encrypted project credential and
