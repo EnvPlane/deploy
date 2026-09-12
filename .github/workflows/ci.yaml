@@ -75,6 +75,8 @@ jobs:
         run: ./scripts/check-probe-container-ports.sh
       - run: bash deploy/helm/envplane-control-plane/tests/same-cluster-project-executors-contract.sh
       - run: bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
+      - name: Guard webhook legacy fallback removal deadline
+        run: go test ./deploy/helm/envplane-webhook/tests
       - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
       - run: bash scripts/tests/github-actions-pinned-contract.sh
       - name: Check packaged file dependencies and vendored chart drift

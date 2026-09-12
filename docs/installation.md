@@ -73,6 +73,10 @@ Before selecting GitLab merge-request automation in Bootstrap:
   `read_api` is not sufficient for Bootstrap registration.
 - In Bootstrap, wait for endpoint, DNS, TLS, receiver readiness, and delivery
   proof. A `pending` or `failed` state does not enable MR automation or Compile.
+- The legacy local GitLab verification fallback is a migration-only setting. It
+  expires on `2026-12-31T23:59:59Z`; after expiry the receiver refuses to start
+  without `ENVPLANE_WEBHOOK_RECEIVER_TOKEN`. Monitor the receiver's
+  `legacy_fallback` delivery metric and complete migration before that date.
 
 If automatic registration is unavailable, copy the exact callback URL shown by
 Bootstrap and create a GitLab project hook manually with **Merge request
