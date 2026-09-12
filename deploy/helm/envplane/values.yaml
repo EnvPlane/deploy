@@ -502,7 +502,7 @@ envplane-frontend:
   image:
     repository: ghcr.io/envplane/frontend
     tag: "sha-ebc644e2aee57680e8662be9e2662a134af3d312"
-    digest: "sha256:d52c2fc62d1416f19eeb95f0dce7dde70c187e27c31212811cec1f8debb604aa"
+    digest: "sha256:bec6f5f9600cfb914e0ebf0036a1dafe5f4600f945fe96a23aeca0187360dcce"
     pullPolicy: IfNotPresent
     sourceRevision: "ebc644e2aee57680e8662be9e2662a134af3d312"
     release: "sha-ebc644e2aee57680e8662be9e2662a134af3d312"
