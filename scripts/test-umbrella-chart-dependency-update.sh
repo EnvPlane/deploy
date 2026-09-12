@@ -21,8 +21,8 @@ grep -A2 'name: envplane-e2e-workload' "$tmp/envplane/Chart.yaml" | grep -q 'ver
 grep -A3 '^    bootstrapDefaults:' "$tmp/envplane/values.yaml" | grep -q '^      helmDirect:$'
 grep -A3 '^    bootstrapDefaults:' "$tmp/envplane/values.yaml" | grep -q 'chartVersion: "0.1.1"'
 "$root/scripts/update-umbrella-chart-dependency.sh" --component e2e-workload --version 0.1.0 --chart-file "$tmp/envplane/Chart.yaml" --values-file "$tmp/envplane/values.yaml" >/dev/null
-helm template envplane "$tmp/envplane" \
+rendered="$(helm template envplane "$tmp/envplane" \
   --set envplane-control-plane.postgres.auth.password=test-password \
-  --set envplane-control-plane.postgres.tls.enabled=false \
-  | grep -q 'ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF'
+  --set envplane-control-plane.postgres.tls.enabled=false)"
+grep -q 'ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF' <<<"$rendered"
 echo "umbrella dependency isolation test passed"
