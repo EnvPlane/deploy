@@ -87,6 +87,65 @@ func renderUmbrella(t *testing.T, values ...string) string {
 	return string(output)
 }
 
+func renderUmbrellaNotes(t *testing.T, values ...string) string {
+	t.Helper()
+	chartPath := umbrellaChartPath(t)
+	args := append([]string{"install", "notes-check", chartPath, "--namespace", "envplane", "--dry-run", "--debug",
+		"--set", "envplane-control-plane.postgres.auth.password=test-fixture-password",
+		"--set", "envplane-control-plane.postgres.tls.enabled=false",
+		"--set", "access.ingress.allowInsecureHttp=true",
+	}, values...)
+	cmd := exec.Command("helm", args...)
+	cmd.Dir = chartPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm install dry-run for NOTES failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	index := strings.Index(text, "NOTES:\n")
+	if index < 0 {
+		t.Fatalf("helm install dry-run did not return NOTES:\n%s", text)
+	}
+	return text[index:]
+}
+
+func TestUmbrellaNotesReferenceRenderedWorkloads(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		values       []string
+		controlPlane string
+		frontend     string
+	}{
+		{name: "defaults", controlPlane: "envplane-control-plane", frontend: "envplane-frontend"},
+		{name: "overrides", values: []string{
+			"--set", "envplane-control-plane.fullnameOverride=api-preview",
+			"--set", "envplane-frontend.fullnameOverride=web-preview",
+		}, controlPlane: "api-preview", frontend: "web-preview"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			notes := renderUmbrellaNotes(t, tc.values...)
+			for _, expected := range []string{
+				"rollout status deployment/" + tc.controlPlane,
+				"rollout status deployment/" + tc.frontend,
+				"port-forward svc/" + tc.frontend + " 3000:3000",
+			} {
+				if !strings.Contains(notes, expected) {
+					t.Fatalf("NOTES missing %q:\n%s", expected, notes)
+				}
+			}
+			if strings.Contains(notes, "deployment/notes-check") || strings.Contains(notes, "notes-check-envplane") {
+				t.Fatalf("NOTES leaked umbrella release name instead of a rendered workload:\n%s", notes)
+			}
+			rendered := renderUmbrella(t, tc.values...)
+			for _, workload := range []string{tc.controlPlane, tc.frontend} {
+				if !strings.Contains(rendered, "name: "+workload+"\n") {
+					t.Fatalf("rendered manifest is missing workload %q:\n%s", workload, rendered)
+				}
+			}
+		})
+	}
+}
+
 func renderUmbrellaError(t *testing.T, values ...string) string {
 	t.Helper()
 	chartPath := umbrellaChartPath(t)
@@ -662,7 +721,7 @@ func TestZeroValuesProfileUsesManagedCredentialsAndPortForwardAccess(t *testing.
 	if err != nil {
 		t.Fatalf("read zero-values NOTES: %v", err)
 	}
-	if !strings.Contains(string(notes), "kubectl -n {{ .Release.Namespace }} port-forward svc/envplane-frontend 3000:3000") {
+	if !strings.Contains(string(notes), "kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $frontendName }} 3000:3000") {
 		t.Fatalf("zero-values NOTES must include the no-add-on port-forward fallback")
 	}
 }

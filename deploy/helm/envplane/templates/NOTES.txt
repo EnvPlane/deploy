@@ -1,3 +1,7 @@
+{{- $controlPlane := default (dict) (index .Values "envplane-control-plane") -}}
+{{- $frontend := default (dict) (index .Values "envplane-frontend") -}}
+{{- $controlPlaneName := default "envplane-control-plane" (get $controlPlane "fullnameOverride") -}}
+{{- $frontendName := default "envplane-frontend" (get $frontend "fullnameOverride") -}}
 EnvPlane is installed as a direct Helm umbrella release.
 
 The release namespace is the EnvPlane workload namespace. Helm directly owns
@@ -5,12 +9,12 @@ the enabled control-plane, frontend, Agent and Runner resources; no installer
 Job, nested Helm invocation, or cluster-wide installer RBAC is created.
 
 Frontend service:
-  envplane-frontend (or envplane-frontend.fullnameOverride when configured)
+  {{ $frontendName }}
 
 Release readiness:
 
-  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "envplane-control-plane.fullname" . }} --timeout=10m
-  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "envplane-frontend.fullname" . }} --timeout=10m
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ $controlPlaneName }} --timeout=10m
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ $frontendName }} --timeout=10m
 
 First-run URL:
 
@@ -26,7 +30,7 @@ target cluster.
 No ingress or Gateway is created by default. To open the first-run UI without
 changing cluster add-ons, run:
 
-  kubectl -n {{ .Release.Namespace }} port-forward svc/envplane-frontend 3000:3000
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $frontendName }} 3000:3000
 
 Then open http://127.0.0.1:3000. If Pods remain Pending because no default
 StorageClass is available, install/configure storage with the platform owner or

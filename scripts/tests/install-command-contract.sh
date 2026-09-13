@@ -65,7 +65,7 @@ for required in   'kubectl "${kubectl_args[@]}" auth can-i'   'get storageclass 
   }
 done
 
-for required in   'kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "envplane-control-plane.fullname" . }} --timeout=10m'   'kubectl -n {{ .Release.Namespace }} port-forward svc/envplane-frontend 3000:3000'   'http://127.0.0.1:3000'; do
+for required in   'kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ $controlPlaneName }} --timeout=10m'   'kubectl -n {{ .Release.Namespace }} port-forward svc/{{ $frontendName }} 3000:3000'   'http://127.0.0.1:3000'; do
   grep -Fq "$required" "$notes" || {
     echo "Helm NOTES missing post-install handoff: $required" >&2
     exit 1
