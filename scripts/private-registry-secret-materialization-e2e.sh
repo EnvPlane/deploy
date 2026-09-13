@@ -437,6 +437,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     ENVPLANE_E2E_FIRST_RUN=1 \
     ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token" \
     ENVPLANE_E2E_RUN_LIFECYCLE=1 \
+    ENVPLANE_E2E_KEEP_ENVIRONMENT=1 \
     ENVPLANE_E2E_PROJECT_ID="$project" \
     ENVPLANE_E2E_ENVIRONMENT_ID="${environment}-browser" \
     ENVPLANE_E2E_BASE_URL="http://127.0.0.1:$frontend_port" \
@@ -444,10 +445,9 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     npm run test:e2e:real -- --grep "creates a real full environment through the UI"
   )
 
-  # Playwright confirms the browser environment was created, while encrypted
-  # Secret materialization completes asynchronously. Wait for that plan before
-  # removing the shared fixture Secrets; otherwise its Agent command can race
-  # the foreign-Secret conflict check below and recreate registry-pull.
+  # Playwright keeps the browser environment so this harness can first verify
+  # encrypted Secret materialization. It is deleted explicitly after that
+  # proof, before the shared fixture Secrets are removed.
   set_sm09_phase "wait for browser Secret materialization"
   browser_environment="${environment}-browser"
   for _ in $(seq 1 $((automatic_materialization_wait_seconds / 2))); do
@@ -458,6 +458,18 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
   if ! jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$browser_status" >/dev/null; then
     jq -c '{state: (.state // ""), items: [.items[]? | {id: (.id // ""), state: (.state // ""), errorCode: (.errorCode // "")} ]}' <<<"$browser_status" >&2
     echo "SM-09 browser Secret materialization did not reach ready before cleanup" >&2
+    exit 1
+  fi
+  set_sm09_phase "clean up browser environment after Secret materialization"
+  api_curl -X DELETE "$api/api/v1/environments/$browser_environment?force=true" >"$tmp/browser-cleanup.json"
+  for _ in $(seq 1 $((automatic_materialization_wait_seconds / 2))); do
+    browser_status="$(api_curl "$api/api/v1/environments/$browser_environment/secret-materialization")"
+    jq -e '.state == "deleted"' <<<"$browser_status" >/dev/null 2>&1 && break
+    sleep 2
+  done
+  if ! jq -e '.state == "deleted"' <<<"$browser_status" >/dev/null; then
+    jq -c '{state: (.state // ""), items: [.items[]? | {id: (.id // ""), state: (.state // ""), errorCode: (.errorCode // "")} ]}' <<<"$browser_status" >&2
+    echo "SM-09 browser environment cleanup did not complete" >&2
     exit 1
   fi
   kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull application-config --ignore-not-found >/dev/null
