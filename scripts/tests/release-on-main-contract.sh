@@ -286,9 +286,8 @@ grep -Fq 'set fixture project SCM metadata' "$secret_lifecycle_harness" &&
 }
 grep -Fq 'ENVPLANE_E2E_KEEP_ENVIRONMENT=1' "$secret_lifecycle_harness" &&
   grep -Fq 'ENVPLANE_E2E_SECRET_MATERIALIZATION_TIMEOUT_MS' "$secret_lifecycle_harness" &&
-  grep -Fq 'clean up browser environment after Secret materialization' "$secret_lifecycle_harness" &&
-  grep -Fq ".state == \"deleted\"" "$secret_lifecycle_harness" || {
-  echo "private-registry lifecycle harness must verify browser Secret materialization before cleanup" >&2
+  grep -Fq 'browser environment remains until the cleanup trap deletes the' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must verify browser Secret materialization before fixture cleanup" >&2
   exit 1
 }
 grep -Fq 'api-response.XXXXXX' "$secret_lifecycle_harness" &&
