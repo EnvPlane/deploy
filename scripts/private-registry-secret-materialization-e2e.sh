@@ -443,6 +443,23 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     ENVPLANE_E2E_API_URL="$api" \
     npm run test:e2e:real -- --grep "creates a real full environment through the UI"
   )
+
+  # Playwright confirms the browser environment was created, while encrypted
+  # Secret materialization completes asynchronously. Wait for that plan before
+  # removing the shared fixture Secrets; otherwise its Agent command can race
+  # the foreign-Secret conflict check below and recreate registry-pull.
+  set_sm09_phase "wait for browser Secret materialization"
+  browser_environment="${environment}-browser"
+  for _ in $(seq 1 $((automatic_materialization_wait_seconds / 2))); do
+    browser_status="$(api_curl "$api/api/v1/environments/$browser_environment/secret-materialization")"
+    jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$browser_status" >/dev/null 2>&1 && break
+    sleep 2
+  done
+  if ! jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$browser_status" >/dev/null; then
+    jq -c '{state: (.state // ""), items: [.items[]? | {id: (.id // ""), state: (.state // ""), errorCode: (.errorCode // "")} ]}' <<<"$browser_status" >&2
+    echo "SM-09 browser Secret materialization did not reach ready before cleanup" >&2
+    exit 1
+  fi
   kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull application-config --ignore-not-found >/dev/null
 fi
 
