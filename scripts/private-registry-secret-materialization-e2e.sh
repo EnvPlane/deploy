@@ -463,6 +463,23 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
   kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull application-config --ignore-not-found >/dev/null
 fi
 
+# Environment creation dispatches encrypted clones automatically. The negative
+# checks below require a clean target namespace, so wait for the API-created
+# plan to settle before deleting its owned Secrets. This is required whether
+# or not the optional browser gate is enabled.
+set_sm09_phase "wait for initial Secret materialization before conflict coverage"
+for _ in $(seq 1 $((automatic_materialization_wait_seconds / 2))); do
+  initial_status="$(api_curl "$api/api/v1/projects/$project/secret-materialization?planId=$plan_id")"
+  jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$initial_status" >/dev/null 2>&1 && break
+  sleep 2
+done
+if ! jq -e '.state == "ready" and (.items | all(.[]; .state == "ready"))' <<<"$initial_status" >/dev/null; then
+  jq -c '{state: (.state // ""), items: [.items[]? | {id: (.id // ""), state: (.state // ""), errorCode: (.errorCode // "")} ]}' <<<"$initial_status" >&2
+  echo "SM-09 initial Secret materialization did not reach ready before conflict coverage" >&2
+  exit 1
+fi
+kubectl --context "kind-$cluster" -n "$target_namespace" delete secret registry-pull application-config --ignore-not-found >/dev/null
+
 # A private image must fail before its pull credential exists.
 set_sm09_phase "verify private image fails before materialization"
 kubectl --context "kind-$cluster" -n "$target_namespace" run before-materialization --image="$registry/envplane/sm09:1" --restart=Never >/dev/null
