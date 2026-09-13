@@ -438,6 +438,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
     ENVPLANE_E2E_FIRST_RUN_SETUP_TOKEN="$setup_token" \
     ENVPLANE_E2E_RUN_LIFECYCLE=1 \
     ENVPLANE_E2E_KEEP_ENVIRONMENT=1 \
+    ENVPLANE_E2E_SECRET_MATERIALIZATION_TIMEOUT_MS="$((automatic_materialization_wait_seconds * 1000))" \
     ENVPLANE_E2E_PROJECT_ID="$project" \
     ENVPLANE_E2E_ENVIRONMENT_ID="${environment}-browser" \
     ENVPLANE_E2E_BASE_URL="http://127.0.0.1:$frontend_port" \
