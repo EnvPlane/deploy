@@ -9,6 +9,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/engine"
 )
 
 var buildUmbrellaDependencies sync.Once
@@ -90,23 +94,61 @@ func renderUmbrella(t *testing.T, values ...string) string {
 func renderUmbrellaNotes(t *testing.T, values ...string) string {
 	t.Helper()
 	chartPath := umbrellaChartPath(t)
-	args := append([]string{"install", "notes-check", chartPath, "--namespace", "envplane", "--dry-run", "--debug",
-		"--set", "envplane-control-plane.postgres.auth.password=test-fixture-password",
-		"--set", "envplane-control-plane.postgres.tls.enabled=false",
-		"--set", "access.ingress.allowInsecureHttp=true",
-	}, values...)
-	cmd := exec.Command("helm", args...)
-	cmd.Dir = chartPath
-	output, err := cmd.CombinedOutput()
+	chart, err := loader.Load(chartPath)
 	if err != nil {
-		t.Fatalf("helm install dry-run for NOTES failed: %v\n%s", err, output)
+		t.Fatalf("load umbrella chart for NOTES: %v", err)
 	}
-	text := string(output)
-	index := strings.Index(text, "NOTES:\n")
-	if index < 0 {
-		t.Fatalf("helm install dry-run did not return NOTES:\n%s", text)
+	chartValues := map[string]interface{}{
+		"envplane-control-plane": map[string]interface{}{
+			"postgres": map[string]interface{}{
+				"auth": map[string]interface{}{"password": "test-fixture-password"},
+				"tls":  map[string]interface{}{"enabled": false},
+			},
+		},
+		"access": map[string]interface{}{"ingress": map[string]interface{}{"allowInsecureHttp": true}},
 	}
-	return text[index:]
+	for index := 0; index+1 < len(values); index += 2 {
+		if values[index] != "--set" {
+			t.Fatalf("unsupported offline NOTES value flag %q", values[index])
+		}
+		parts := strings.SplitN(values[index+1], "=", 2)
+		if len(parts) != 2 {
+			t.Fatalf("invalid offline NOTES value %q", values[index+1])
+		}
+		setNestedChartValue(t, chartValues, strings.Split(parts[0], "."), parts[1])
+	}
+	renderValues, err := chartutil.ToRenderValues(chart, chartValues, chartutil.ReleaseOptions{Name: "notes-check", Namespace: "envplane", IsInstall: true}, nil)
+	if err != nil {
+		t.Fatalf("prepare offline NOTES values: %v", err)
+	}
+	rendered, err := engine.Engine{}.Render(chart, renderValues)
+	if err != nil {
+		t.Fatalf("render offline NOTES: %v", err)
+	}
+	for path, text := range rendered {
+		if path == chart.Metadata.Name+"/templates/NOTES.txt" {
+			return text
+		}
+	}
+	t.Fatal("offline renderer did not return umbrella NOTES")
+	return ""
+}
+
+func setNestedChartValue(t *testing.T, values map[string]interface{}, path []string, value string) {
+	t.Helper()
+	if len(path) == 0 || strings.TrimSpace(path[0]) == "" {
+		t.Fatal("empty offline NOTES value path")
+	}
+	current := values
+	for _, key := range path[:len(path)-1] {
+		next, ok := current[key].(map[string]interface{})
+		if !ok {
+			next = map[string]interface{}{}
+			current[key] = next
+		}
+		current = next
+	}
+	current[path[len(path)-1]] = value
 }
 
 func TestUmbrellaNotesReferenceRenderedWorkloads(t *testing.T) {
