@@ -25,6 +25,10 @@ webhook:
   # enabling MR automation.
   publicEndpoint:
     mode: local
+    # external selects an operator-managed public HTTPS receiver, such as a
+    # managed gateway or tunnel. EnvPlane still performs bounded reachability
+    # and signed delivery verification before enabling MR automation.
+    url: ""
     host: ""
     className: ""
     annotations: {}
