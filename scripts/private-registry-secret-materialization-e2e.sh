@@ -97,8 +97,22 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for bin in docker kind kubectl helm curl jq; do command -v "$bin" >/dev/null || { echo "missing $bin" >&2; exit 2; }; done
+for bin in docker kind kubectl helm curl jq tar; do command -v "$bin" >/dev/null || { echo "missing $bin" >&2; exit 2; }; done
 [[ -f "$ENVPLANE_SM09_CHART" ]] || { echo "packaged umbrella chart is missing" >&2; exit 2; }
+compatibility_path="$(tar -tzf "$ENVPLANE_SM09_CHART" | awk '/\/compatibility\/release\.json$/ { print; exit }')"
+[[ -n "$compatibility_path" ]] || {
+  echo "SM-09 requires a published umbrella chart with compatibility/release.json" >&2
+  exit 2
+}
+compatibility_manifest="$(tar -xOf "$ENVPLANE_SM09_CHART" "$compatibility_path")"
+jq -e '
+  .schemaVersion == 1 and
+  (.images | type == "array" and length > 0) and
+  all(.images[]; (.name | type == "string" and length > 0) and (.digest | type == "string" and startswith("sha256:")))
+' >/dev/null <<<"$compatibility_manifest" || {
+  echo "SM-09 requires a published umbrella chart with valid immutable compatibility image pins" >&2
+  exit 2
+}
 if [[ "$first_run_browser_gate" == "1" ]]; then
   command -v go >/dev/null || { echo "missing go required for the ephemeral activation fixture" >&2; exit 2; }
 fi
