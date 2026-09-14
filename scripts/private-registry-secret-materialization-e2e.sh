@@ -102,7 +102,11 @@ trap cleanup EXIT
 
 for bin in docker kind kubectl helm curl jq tar; do command -v "$bin" >/dev/null || { echo "missing $bin" >&2; exit 2; }; done
 [[ -f "$ENVPLANE_SM09_CHART" ]] || { echo "packaged umbrella chart is missing" >&2; exit 2; }
-compatibility_path="$(tar -tzf "$ENVPLANE_SM09_CHART" | awk '/\/compatibility\/release\.json$/ { print; exit }')"
+# Do not pipe tar into an early-exit search while pipefail is enabled: an
+# otherwise successful tar can receive SIGPIPE after awk finds the manifest.
+chart_entries="$tmp/chart-entries.txt"
+tar -tzf "$ENVPLANE_SM09_CHART" >"$chart_entries"
+compatibility_path="$(awk '/\/compatibility\/release\.json$/ { print; exit }' "$chart_entries")"
 [[ -n "$compatibility_path" ]] || {
   echo "SM-09 requires a published umbrella chart with compatibility/release.json" >&2
   exit 2

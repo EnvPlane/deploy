@@ -353,6 +353,15 @@ grep -Fq -- "-w '%{http_code}'" "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must preserve Bootstrap API error responses" >&2
   exit 1
 }
+grep -Fq 'chart_entries="$tmp/chart-entries.txt"' "$secret_lifecycle_harness" &&
+grep -Fq 'tar -tzf "$ENVPLANE_SM09_CHART" >"$chart_entries"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must enumerate chart entries without an early-exit tar pipe" >&2
+  exit 1
+}
+if grep -Fq 'tar -tzf "$ENVPLANE_SM09_CHART" | awk' "$secret_lifecycle_harness"; then
+  echo "private-registry lifecycle harness must not pipe tar into an early-exit awk search" >&2
+  exit 1
+fi
 grep -Fq '\"project\":\"$project\"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must bind the canonical environment project field" >&2
   exit 1
