@@ -76,7 +76,7 @@ cleanup() {
         jq -Rr 'fromjson? | select(.msg == "agent control-plane connectivity check failed") | "message=\(.msg) error=\(.error) retryable=\(.retryable) maxAttempts=\(.maxAttempts)"' >&2 || true
       echo "SM-09 Agent runtime diagnostics" >&2
       kubectl --context "kind-$cluster" -n "$namespace" logs "$agent_pod" -c agent --tail=1000 2>/dev/null |
-        jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN" or .message == "secret materialization command claimed" or .message == "secret materialization result reported") | "level=\(.level // "") message=\(.message // .msg // "") error=\(.error // "")"' >&2 || true
+        jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN" or (.message // .msg) == "secret materialization command claimed" or (.message // .msg) == "secret materialization command completed" or (.message // .msg) == "secret materialization result reported") | "level=\(.level // "") message=\(.message // .msg // "") error=\(.error // "")"' >&2 || true
     fi
     runner_pod="$(kubectl --context "kind-$cluster" -n "$namespace" get pod -l app.kubernetes.io/name=envplane-runner -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
     if [[ -n "$runner_pod" ]]; then
