@@ -87,6 +87,15 @@ cleanup() {
       kubectl --context "kind-$cluster" -n "$namespace" logs "$runner_pod" --tail=100 2>/dev/null |
         jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN" or .message == "runner release plan published" or .message == "runner helm command completed") | "level=\(.level // "") message=\(.message // .msg // "") error=\(.error // "")"' >&2 || true
     fi
+    control_plane_pod="$(kubectl --context "kind-$cluster" -n "$namespace" get pod -l app.kubernetes.io/name=envplane-control-plane -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
+    if [[ -n "$control_plane_pod" ]]; then
+      # The reconciler logs only sanitized Helm error classes. Keep this
+      # allowlist narrow so a failed release gate never emits chart values,
+      # request bodies, or bootstrap credentials.
+      echo "SM-09 control-plane executor diagnostics" >&2
+      kubectl --context "kind-$cluster" -n "$namespace" logs "$control_plane_pod" --tail=1000 2>/dev/null |
+        grep -E 'resolve signed remote (agent|runner) chart|install remote (agent|runner) release|upgrade remote (agent|runner) release|same-cluster project executor reconciliation failed' >&2 || true
+    fi
     if [[ -n "${api:-}" && -n "${project:-}" ]]; then
       echo "SM-09 persisted command diagnostics" >&2
       api_curl "$api/api/v1/projects/$project/bootstrap-session" 2>/dev/null |

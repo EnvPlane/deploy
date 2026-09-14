@@ -362,6 +362,11 @@ if grep -Fq 'tar -tzf "$ENVPLANE_SM09_CHART" | awk' "$secret_lifecycle_harness";
   echo "private-registry lifecycle harness must not pipe tar into an early-exit awk search" >&2
   exit 1
 fi
+grep -Fq 'SM-09 control-plane executor diagnostics' "$secret_lifecycle_harness" &&
+grep -Fq 'install remote (agent|runner) release' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must report allowlisted control-plane executor failures" >&2
+  exit 1
+}
 grep -Fq '\"project\":\"$project\"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must bind the canonical environment project field" >&2
   exit 1
