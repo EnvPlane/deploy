@@ -388,6 +388,35 @@ if ! jq -e '(.status == "connected" or .status == "online")' <<<"$agent_status" 
 	exit 1
 fi
 
+bootstrap_runtime_state_config_map="${ENVPLANE_SM09_BOOTSTRAP_RUNTIME_STATE_CONFIG_MAP:-envplane-bootstrap-runtime-lifecycle}"
+project_agent_status='{}'
+project_runner_status='{}'
+set_sm09_phase "wait for project executor handoff"
+for _ in $(seq 1 120); do
+  project_agent_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status")"
+  project_runner_status="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/runner-status")"
+  if jq -e '(.status == "connected" or .status == "online") and (.agentId | startswith("ep-agent-"))' <<<"$project_agent_status" >/dev/null 2>&1 &&
+    jq -e '(.status == "connected" or .status == "online") and (.runnerId | startswith("ep-runner-"))' <<<"$project_runner_status" >/dev/null 2>&1 &&
+    kubectl --context "kind-$cluster" -n "$namespace" get configmap "$bootstrap_runtime_state_config_map" -o json |
+      jq -e --arg project "$project" '.data.status == "retired" and .data.projectID == $project' >/dev/null 2>&1 &&
+    [[ "$(kubectl --context "kind-$cluster" -n "$namespace" get deployment envplane-agent -o jsonpath='{.spec.replicas}')" == "0" ]] &&
+    [[ "$(kubectl --context "kind-$cluster" -n "$namespace" get deployment envplane-runner -o jsonpath='{.spec.replicas}')" == "0" ]]; then
+    break
+  fi
+  sleep 2
+done
+if ! jq -e '(.status == "connected" or .status == "online") and (.agentId | startswith("ep-agent-"))' <<<"$project_agent_status" >/dev/null 2>&1 ||
+  ! jq -e '(.status == "connected" or .status == "online") and (.runnerId | startswith("ep-runner-"))' <<<"$project_runner_status" >/dev/null 2>&1 ||
+  ! kubectl --context "kind-$cluster" -n "$namespace" get configmap "$bootstrap_runtime_state_config_map" -o json |
+    jq -e --arg project "$project" '.data.status == "retired" and .data.projectID == $project' >/dev/null 2>&1 ||
+  [[ "$(kubectl --context "kind-$cluster" -n "$namespace" get deployment envplane-agent -o jsonpath='{.spec.replicas}')" != "0" ]] ||
+  [[ "$(kubectl --context "kind-$cluster" -n "$namespace" get deployment envplane-runner -o jsonpath='{.spec.replicas}')" != "0" ]]; then
+  jq -c '{agentId: (.agentId // ""), status: (.status // "")}' <<<"$project_agent_status" >&2
+  jq -c '{runnerId: (.runnerId // ""), status: (.status // "")}' <<<"$project_runner_status" >&2
+  echo "SM-09 project executor handoff did not retire the singleton bootstrap runtime" >&2
+  exit 1
+fi
+
 set_sm09_phase "start Agent resource scan"
 api_call "$tmp/resource-scan.json" "start Agent resource scan" -X POST "$api/api/v1/projects/$project/bootstrap-session/resource-scan/start"
 set_sm09_phase "wait for Agent resource scan"

@@ -264,6 +264,13 @@ grep -Fq 'SM-09 Agent preflight diagnostics' "$secret_lifecycle_harness" || {
   exit 1
 }
 
+grep -Fq 'wait for project executor handoff' "$secret_lifecycle_harness" &&
+  grep -Fq 'SM-09 project executor handoff did not retire the singleton bootstrap runtime' "$secret_lifecycle_harness" &&
+  grep -Fq 'bootstrap_runtime_state_config_map=' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must wait for project executor handoff before scanning" >&2
+  exit 1
+}
+
 grep -Fq '(.message // .msg) == "secret materialization command completed"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must retain Agent secret materialization completion diagnostics" >&2
   exit 1
