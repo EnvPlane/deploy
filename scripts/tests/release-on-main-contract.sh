@@ -357,8 +357,13 @@ grep -Fq '\"project\":\"$project\"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must bind the canonical environment project field" >&2
   exit 1
 }
-grep -Fq '\"clusterId\":\"local-e2e\"' "$secret_lifecycle_harness" || {
+grep -Fq '\"clusterId\":\"$fixture_cluster_id\"' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must bind the canonical environment cluster field" >&2
+  exit 1
+}
+grep -Fq 'create disposable fixture project' "$secret_lifecycle_harness" &&
+grep -Fq -- '-X PUT "$api/api/v1/projects/$project"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must create its disposable project through the public API" >&2
   exit 1
 }
 if grep -Fq '\"project_id\":\"$project\"' "$secret_lifecycle_harness" || grep -Fq '\"cluster_id\":\"local-e2e\"' "$secret_lifecycle_harness"; then

@@ -20,6 +20,9 @@ workload_chart_version="${ENVPLANE_SM09_WORKLOAD_CHART_VERSION:-0.1.0}"
 fixture_scm_provider="${ENVPLANE_SM09_FIXTURE_SCM_PROVIDER:-github}"
 fixture_app_repository_url="${ENVPLANE_SM09_FIXTURE_APP_REPOSITORY_URL:-https://github.com/envplane/envplane-e2e-workload}"
 fixture_app_default_branch="${ENVPLANE_SM09_FIXTURE_APP_DEFAULT_BRANCH:-main}"
+fixture_gitops_repository_url="${ENVPLANE_SM09_FIXTURE_GITOPS_REPOSITORY_URL:-https://github.com/envplane/deploy}"
+fixture_gitops_default_branch="${ENVPLANE_SM09_FIXTURE_GITOPS_DEFAULT_BRANCH:-main}"
+fixture_cluster_id="${ENVPLANE_SM09_FIXTURE_CLUSTER_ID:-local-e2e}"
 first_run_browser_gate="${ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE:-0}"
 frontend_dir="${ENVPLANE_SM09_FRONTEND_DIR:-}"
 automatic_materialization_wait_seconds="${ENVPLANE_SM09_AUTOMATIC_MATERIALIZATION_WAIT_SECONDS:-600}"
@@ -335,6 +338,18 @@ api_call() {
 }
 set_sm09_phase "verify control-plane health API"
 api_curl "$api/api/v1/health" >/dev/null
+set_sm09_phase "create disposable fixture project"
+fixture_project_create="$(jq -cn \
+  --arg id "$project" \
+  --arg name "SM-09 private registry fixture" \
+  --arg cluster "$fixture_cluster_id" \
+  --arg provider "$fixture_scm_provider" \
+  --arg app_repository "$fixture_app_repository_url" \
+  --arg app_branch "$fixture_app_default_branch" \
+  --arg gitops_repository "$fixture_gitops_repository_url" \
+  --arg gitops_branch "$fixture_gitops_default_branch" \
+  '{id: $id, name: $name, product_id: "generic", cluster_id: $cluster, authorized_cluster_ids: [$cluster], git_repo: {provider: $provider, url: $app_repository, default_branch: $app_branch}, gitops_repo: {provider: $provider, url: $gitops_repository, default_branch: $gitops_branch}}')"
+api_call "$tmp/project-create.json" "create disposable fixture project" -X PUT "$api/api/v1/projects/$project" -H 'content-type: application/json' -d "$fixture_project_create"
 set_sm09_phase "configure fixture project SCM metadata"
 fixture_project_patch="$(jq -cn \
   --arg provider "$fixture_scm_provider" \
@@ -398,7 +413,7 @@ fi
 set_sm09_phase "compile Bootstrap session"
 api_call "$tmp/compiled.json" "compile Bootstrap session" -X POST "$api/api/v1/projects/$project/bootstrap-session/compile"
 set_sm09_phase "create SM-09 environment"
-api_call "$tmp/environment.json" "create environment" -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project\":\"$project\",\"clusterId\":\"local-e2e\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}"
+api_call "$tmp/environment.json" "create environment" -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project\":\"$project\",\"clusterId\":\"$fixture_cluster_id\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}"
 set_sm09_phase "load Secret materialization plan"
 materialization_status="$(api_curl "$api/api/v1/environments/$environment/secret-materialization")"
 plan_id="$(jq -er '.planId' <<<"$materialization_status")"
