@@ -22,7 +22,7 @@ dependencies:
     repository: file://../envplane-runner
     condition: runner.enabled
   - name: envplane-webhook
-    version: 0.1.2
+    version: 0.1.6
     repository: file://../envplane-webhook
     condition: webhook.enabled
   # Published and pinned with the umbrella so Helm Direct bootstrap defaults
