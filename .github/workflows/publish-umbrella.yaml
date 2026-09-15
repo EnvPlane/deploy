@@ -147,4 +147,4 @@ jobs:
             "${{ steps.push.outputs.package }}" \
             deploy/helm/envplane/compatibility/release.json \
             --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
-            --notes "OCI chart: oci://ghcr.io/EnvPlane/envplane:$VERSION\nDigest: $DIGEST"
+            --notes "OCI chart: oci://ghcr.io/envplane/envplane:$VERSION\nDigest: $DIGEST"

@@ -34,12 +34,12 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Reject an existing OCI version
-        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/EnvPlane/envplane-control-plane --version '${{ steps.chart.outputs.version }}'
+        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envplane/envplane-control-plane --version '${{ steps.chart.outputs.version }}'
       - name: Publish OCI chart
         id: push
         run: |
           set -euo pipefail
-          output="$(helm push dist/envplane-control-plane-*.tgz oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
+          output="$(helm push dist/envplane-control-plane-*.tgz oci://ghcr.io/envplane 2>&1 | tee /dev/stderr)"
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ -n "$digest" ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
