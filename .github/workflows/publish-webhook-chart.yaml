@@ -32,7 +32,18 @@ jobs:
         id: push
         run: |
           set -euo pipefail
-          output="$(helm push dist/envplane-webhook-*.tgz oci://ghcr.io/envplane 2>&1 | tee /dev/stderr)"
+          output=""
+          for attempt in 1 2 3 4 5; do
+            if output="$(helm push dist/envplane-webhook-*.tgz oci://ghcr.io/envplane 2>&1)"; then
+              printf '%s\n' "$output"
+              break
+            fi
+            printf '%s\n' "$output" >&2
+            if [[ "$output" != *'failed to perform "Tag" on destination'* || "$attempt" == 5 ]]; then
+              exit 1
+            fi
+            sleep "$((attempt * 3))"
+          done
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
