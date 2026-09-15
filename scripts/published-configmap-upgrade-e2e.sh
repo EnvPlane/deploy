@@ -31,7 +31,11 @@ revision() {
 }
 
 status_map_for_revision() {
-  printf '%s-platform-dependency-reconciler-status-r%s' "$RELEASE" "$1"
+  local suffix="-pdr-status-r$1"
+  local prefix_limit=$((63 - ${#suffix}))
+  local prefix="${RELEASE:0:prefix_limit}"
+  prefix="${prefix%-}"
+  printf '%s%s' "$prefix" "$suffix"
 }
 
 compatibility_map_for_revision() {

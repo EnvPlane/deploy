@@ -1101,7 +1101,7 @@ func TestControlPlaneWatchesScopedReconcilerStatus(t *testing.T) {
 		"resources: [\"configmaps\"]",
 		"verbs: [\"get\", \"watch\"]",
 		"name: ENVPLANE_PLATFORM_DEPENDENCY_STATUS_CONFIG_MAP",
-		"value: \"envplane-platform-dependency-reconciler-status-r1\"",
+		"value: \"envplane-pdr-status-r1\"",
 		"name: ENVPLANE_PLATFORM_DEPENDENCY_STATUS_STALE_AFTER_SECONDS",
 		"value: \"300\"",
 	} {
@@ -1189,9 +1189,9 @@ func TestPlatformReconcilerStatusConfigMapIsHelmOwnedAndWriteScoped(t *testing.T
 		"--set", "global.envplane.registry.existingSecret=registry-credentials",
 	)
 	for _, expected := range []string{
-		"name: envplane-platform-dependency-reconciler-status-r1",
+		"name: envplane-pdr-status-r1",
 		"status.json: \"\"",
-		"resourceNames: [\"envplane-platform-dependency-reconciler\", \"envplane-platform-dependency-reconciler-status-r1\"]",
+		"resourceNames: [\"envplane-platform-dependency-reconciler\", \"envplane-pdr-status-r1\"]",
 		"verbs: [\"get\", \"update\", \"patch\"]",
 	} {
 		if !strings.Contains(rendered, expected) {
@@ -1212,14 +1212,14 @@ func TestReleaseOwnedConfigMapsAreRevisionScopedForServerSideUpgrades(t *testing
 		"--set", "global.envplane.registry.existingSecret=registry-credentials",
 	)
 	for _, expected := range []string{
-		"name: envplane-platform-dependency-reconciler-status-r1",
-		"value: \"envplane-platform-dependency-reconciler-status-r1\"",
+		"name: envplane-pdr-status-r1",
+		"value: \"envplane-pdr-status-r1\"",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("revision-scoped reconciler status contract missing %q:\\n%s", expected, rendered)
 		}
 	}
-	if strings.Contains(rendered, "name: envplane-platform-dependency-reconciler-status\\n") {
+	if strings.Contains(rendered, "name: envplane-pdr-status\\n") {
 		t.Fatalf("status ConfigMap must not retain an unversioned name:\\n%s", rendered)
 	}
 
@@ -1513,7 +1513,7 @@ func TestPlatformDependencyE2EMatrixUsesUmbrellaAndOwnershipScenarios(t *testing
 		t.Fatal(err)
 	}
 	contents := string(script)
-	for _, expected := range []string{"helm upgrade --install", "empty existing mixed degraded", "helm uninstall", "platform-dependency-reconciler-status"} {
+	for _, expected := range []string{"helm upgrade --install", "empty existing mixed degraded", "helm uninstall", "pdr-status-r"} {
 		if !strings.Contains(contents, expected) {
 			t.Fatalf("platform E2E matrix missing %q", expected)
 		}
@@ -1528,7 +1528,7 @@ func TestPlatformReconcilerLifecycleE2ECoversUninstallAndCleanReinstall(t *testi
 	contents := string(script)
 	for _, expected := range []string{
 		"helm upgrade --install", "helm uninstall", "assert_owned_support_absent",
-		"platform-dependency-reconciler-status", "PLATFORM_RECONCILER_LIFECYCLE_REGISTRY_SECRET",
+		"pdr-status-r", "PLATFORM_RECONCILER_LIFECYCLE_REGISTRY_SECRET",
 		"get ingressclass", "must not need manual deletion",
 	} {
 		if !strings.Contains(contents, expected) {
@@ -1728,7 +1728,7 @@ func TestPublishedConfigMapUpgradeE2ECoversNMinus1RollbackAndUninstall(t *testin
 		"ENVPLANE_CONFIGMAP_E2E_CHART_N",
 		"--server-side=true",
 		"--field-manager=platform-reconciler",
-		"platform-dependency-reconciler-status-r",
+		"pdr-status-r",
 		"remote-cluster-compatibility-r",
 		"release-compatibility-r",
 		"helm rollback",

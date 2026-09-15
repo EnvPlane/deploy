@@ -44,6 +44,15 @@ assert_capabilities_match_observed_status() {
   api_pf_pid=""
 }
 
+status_map_for_revision() {
+  local release="$1" revision="$2" suffix prefix_limit prefix
+  suffix="-pdr-status-r${revision}"
+  prefix_limit=$((63 - ${#suffix}))
+  prefix="${release:0:prefix_limit}"
+  prefix="${prefix%-}"
+  printf '%s%s' "$prefix" "$suffix"
+}
+
 IFS=',' read -r -a contexts <<< "$PLATFORM_E2E_CONTEXT"
 for context in "${contexts[@]}"; do
   for scenario in empty existing mixed degraded; do
@@ -63,7 +72,8 @@ for context in "${contexts[@]}"; do
         --set platformDependencyReconciler.enabled=true --wait --timeout 10m
     fi
     revision="$(helm status "$RELEASE" --kube-context "$context" --namespace "$NAMESPACE" -o json | jq -r '.version')"
-    status="$(kubectl --context "$context" -n "$NAMESPACE" get configmap "${RELEASE}-platform-dependency-reconciler-status-r${revision}" -o jsonpath='{.data.status\.json}')"
+    local_status_map="$(status_map_for_revision "$RELEASE" "$revision")"
+    status="$(kubectl --context "$context" -n "$NAMESPACE" get configmap "$local_status_map" -o jsonpath='{.data.status\.json}')"
     test -n "$status"
     printf '%s\n' "$status" | jq -e '
       type == "object" and

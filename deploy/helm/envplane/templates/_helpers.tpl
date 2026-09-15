@@ -120,9 +120,14 @@ be supplied/owned by the operator.
 {{- $status := default (dict) (get $envplane "platformDependencyStatus") -}}
 {{- $override := trim (default "" (get $status "statusConfigMapName")) -}}
 {{- if $override -}}
-{{- $override -}}
+  {{- $override -}}
 {{- else -}}
-{{- printf "%s-platform-dependency-reconciler-status-r%d" .Release.Name .Release.Revision | trunc 63 | trimSuffix "-" -}}
+{{- /* Keep the revision suffix intact: truncating the complete name can make
+      every long release use the same status ConfigMap across upgrades. */ -}}
+{{- $suffix := printf "-pdr-status-r%d" .Release.Revision -}}
+{{- $prefixLimit := int (sub 63 (len $suffix)) -}}
+{{- $prefix := .Release.Name | trunc $prefixLimit | trimSuffix "-" -}}
+{{- printf "%s%s" $prefix $suffix -}}
 {{- end -}}
 {{- end -}}
 
