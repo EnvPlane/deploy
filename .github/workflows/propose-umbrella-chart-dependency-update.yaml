@@ -109,7 +109,10 @@ jobs:
         run: |
           set -euo pipefail
           scripts/update-umbrella-chart-dependency.sh --component '${{ steps.payload.outputs.component }}' --version '${{ steps.payload.outputs.version }}'
-          helm dependency build --skip-refresh deploy/helm/envplane
+          # The workflow just changed a local file dependency version. Refresh
+          # Chart.lock and the vendored archive from that canonical source;
+          # --skip-refresh would leave the lock file intentionally stale.
+          helm dependency build deploy/helm/envplane
           scripts/test-umbrella-chart-dependency-update.sh
           helm lint deploy/helm/envplane
           helm template envplane deploy/helm/envplane \
