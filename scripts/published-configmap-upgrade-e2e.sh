@@ -10,7 +10,11 @@ set -euo pipefail
 : "${ENVPLANE_CONFIGMAP_E2E_CHART_N_MINUS_1:?set the published N-1 umbrella chart ref}"
 : "${ENVPLANE_CONFIGMAP_E2E_CHART_N:?set the published N umbrella chart ref}"
 
-NAMESPACE="${ENVPLANE_CONFIGMAP_E2E_NAMESPACE:-envplane-configmap-upgrade-e2e}"
+# The checked-in disposable values profile configures the singleton Agent and
+# Runner to reach the control-plane Service in the release namespace
+# `envplane`. Keep this default aligned with that profile; callers that supply
+# a namespace-neutral values file can still override it explicitly.
+NAMESPACE="${ENVPLANE_CONFIGMAP_E2E_NAMESPACE:-envplane}"
 RELEASE="${ENVPLANE_CONFIGMAP_E2E_RELEASE:-envplane-configmap-upgrade-e2e}"
 OLD_STATUS_MAP="${ENVPLANE_CONFIGMAP_E2E_OLD_STATUS_MAP:-${RELEASE}-platform-dependency-reconciler-status}"
 OLD_COMPATIBILITY_MAP="${ENVPLANE_CONFIGMAP_E2E_OLD_COMPATIBILITY_MAP:-${RELEASE}-remote-cluster-compatibility}"
@@ -40,7 +44,11 @@ release_compatibility_map_for_revision() {
 
 helm upgrade --install "$RELEASE" "$ENVPLANE_CONFIGMAP_E2E_CHART_N_MINUS_1" \
   --kube-context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" --namespace "$NAMESPACE" --create-namespace \
-  --values "$ENVPLANE_CONFIGMAP_E2E_VALUES_FILE" --server-side=true --wait --timeout 15m
+  --values "$ENVPLANE_CONFIGMAP_E2E_VALUES_FILE" \
+  --set platformDependencyReconciler.enabled=true \
+  --set platformDependencies.storage.mode=existing \
+  --set platformDependencies.storage.existingClassName=standard \
+  --server-side=true --wait --timeout 15m
 
 # Simulate the exact safe observation write that used to make server-side Helm
 # conflict with data.status.json. The payload has no credentials or provider
@@ -57,7 +65,11 @@ EOF
 
 helm upgrade "$RELEASE" "$ENVPLANE_CONFIGMAP_E2E_CHART_N" \
   --kube-context "$ENVPLANE_CONFIGMAP_E2E_CONTEXT" --namespace "$NAMESPACE" \
-  --values "$ENVPLANE_CONFIGMAP_E2E_VALUES_FILE" --server-side=true --wait --timeout 15m
+  --values "$ENVPLANE_CONFIGMAP_E2E_VALUES_FILE" \
+  --set platformDependencyReconciler.enabled=true \
+  --set platformDependencies.storage.mode=existing \
+  --set platformDependencies.storage.existingClassName=standard \
+  --server-side=true --wait --timeout 15m
 
 current_revision="$(revision)"
 current_status_map="$(status_map_for_revision "$current_revision")"
