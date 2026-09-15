@@ -205,6 +205,10 @@ grep -Fq 'git merge --no-edit origin/automation/umbrella-chart-dependencies' "$c
   echo "chart receiver must serialize an existing dependency branch" >&2
   exit 1
 }
+grep -Fq 'GH_APP_TOKEN_PERMISSIONS: '\''{"contents":"write","pull_requests":"write"}'\''' "$chart_receiver" || {
+  echo "chart receiver must request pull request permission from the GitHub App" >&2
+  exit 1
+}
 
 grep -Fq 'Verify confirmed immutable artifacts' "$workflow" || {
   echo "release must validate the downloaded compatibility manifest" >&2
