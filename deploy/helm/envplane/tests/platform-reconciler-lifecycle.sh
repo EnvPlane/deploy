@@ -39,7 +39,7 @@ test -n "$ingress_uid"
 assert_owned_support_exists() {
   local revision status_config_map
   revision="$(helm status "$RELEASE" --kube-context "$PLATFORM_RECONCILER_LIFECYCLE_CONTEXT" --namespace "$NAMESPACE" -o json | jq -r '.version')"
-  status_config_map="${RELEASE}-platform-dependency-reconciler-status-r${revision}"
+  status_config_map="$(status_map_for_revision "$revision")"
   STATUS_CONFIG_MAP="$status_config_map"
   for object in \
     "configmap/$RELEASE-platform-dependency-reconciler" \
@@ -54,6 +54,15 @@ assert_owned_support_exists() {
     "clusterrolebinding/$RELEASE-platform-reconciler-discovery"; do
     kubectl --context "$PLATFORM_RECONCILER_LIFECYCLE_CONTEXT" get "$object" >/dev/null
   done
+}
+
+status_map_for_revision() {
+  local revision="$1" suffix prefix_limit prefix
+  suffix="-pdr-status-r${revision}"
+  prefix_limit=$((63 - ${#suffix}))
+  prefix="${RELEASE:0:prefix_limit}"
+  prefix="${prefix%-}"
+  printf '%s%s' "$prefix" "$suffix"
 }
 
 assert_owned_support_absent() {
