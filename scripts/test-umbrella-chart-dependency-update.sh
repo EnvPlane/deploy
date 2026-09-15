@@ -25,4 +25,23 @@ rendered="$(helm template envplane "$tmp/envplane" \
   --set envplane-control-plane.postgres.auth.password=test-password \
   --set envplane-control-plane.postgres.tls.enabled=false)"
 grep -q 'ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF' <<<"$rendered"
+
+# The publication receiver changes Chart.yaml before regenerating the lock and
+# archive.  Exercise that exact transition in an isolated copy of all local
+# file dependencies: `helm dependency build` must reject the stale lock,
+# whereas `update` must produce a coherent lock and vendor archive.
+cp -R "$root/deploy/helm" "$tmp/helm"
+refresh_chart="$tmp/helm/envplane"
+runner_chart="$tmp/helm/envplane-runner/Chart.yaml"
+sed -i.bak 's/^version: 0.4.6$/version: 0.3.1/' "$runner_chart"
+rm -f "$runner_chart.bak"
+"$root/scripts/update-umbrella-chart-dependency.sh" --component runner --version 0.3.1 --chart-file "$refresh_chart/Chart.yaml" --values-file "$refresh_chart/values.yaml" >/dev/null
+"$root/scripts/update-umbrella-chart-dependency.sh" --component webhook --version 0.1.6 --chart-file "$refresh_chart/Chart.yaml" --values-file "$refresh_chart/values.yaml" >/dev/null
+if helm dependency build "$refresh_chart" >/dev/null 2>&1; then
+  echo "dependency build unexpectedly accepted a stale lock" >&2
+  exit 1
+fi
+helm dependency update "$refresh_chart" >/dev/null
+grep -A2 'name: envplane-runner' "$refresh_chart/Chart.lock" | grep -q 'version: 0.3.1'
+test -f "$refresh_chart/charts/envplane-runner-0.3.1.tgz"
 echo "umbrella dependency isolation test passed"
