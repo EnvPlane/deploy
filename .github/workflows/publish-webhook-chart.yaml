@@ -1,0 +1,58 @@
+name: Publish webhook Helm chart
+
+on:
+  push:
+    tags:
+      - 'webhook-chart-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+      - id: chart
+        run: echo "version=$(awk '/^version:/{print $2; exit}' deploy/helm/envplane-webhook/Chart.yaml)" >> "$GITHUB_OUTPUT"
+      - name: Verify canonical chart sources
+        run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
+      - name: Package chart
+        run: helm package deploy/helm/envplane-webhook --destination dist
+      - name: Authenticate to GHCR
+        run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Reject an existing OCI version
+        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/EnvPlane/envplane-webhook --version '${{ steps.chart.outputs.version }}'
+      - name: Publish OCI chart
+        id: push
+        run: |
+          set -euo pipefail
+          output="$(helm push dist/envplane-webhook-*.tgz oci://ghcr.io/EnvPlane 2>&1 | tee /dev/stderr)"
+          digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - id: dispatch_auth
+        env:
+          CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          APP_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPLANE_AUTOMATION_PAT }}
+        run: |
+          if [[ -n "$CLIENT_ID" && -n "$APP_KEY" ]]; then echo method=app >> "$GITHUB_OUTPUT"; elif [[ -n "$PAT" ]]; then echo method=pat >> "$GITHUB_OUTPUT"; else exit 1; fi
+      - id: dispatch_app
+        if: steps.dispatch_auth.outputs.method == 'app'
+        run: ./scripts/obtain-github-app-token.sh
+        env:
+          ENVPLANE_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          ENVPLANE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          GH_APP_OWNER: EnvPlane
+          GH_APP_REPOSITORY: deploy
+          GH_APP_TOKEN_PERMISSIONS: '{"contents":"write"}'
+      - name: Dispatch chart publication
+        env:
+          GH_TOKEN: ${{ steps.dispatch_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
+        run: ./scripts/dispatch-chart-published.sh --component webhook --chart envplane-webhook --version '${{ steps.chart.outputs.version }}' --digest '${{ steps.push.outputs.digest }}'
