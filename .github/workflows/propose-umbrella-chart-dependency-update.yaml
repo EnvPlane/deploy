@@ -97,13 +97,18 @@ jobs:
           TOKEN: ${{ steps.app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
+          # create-pull-request owns automation/umbrella-chart-dependencies.
+          # Keep this checkout on main so the action can create that branch on
+          # its first run rather than resetting a remote ref that does not yet
+          # exist.  An existing automation branch is merged into the worktree
+          # first, preserving serialized component updates.
+          git config user.name "envplane-release-automation[bot]"
+          git config user.email "envplane-release-automation[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${TOKEN}@github.com/EnvPlane/deploy.git"
           git fetch origin main
+          git checkout -B main origin/main
           if git fetch origin refs/heads/automation/umbrella-chart-dependencies:refs/remotes/origin/automation/umbrella-chart-dependencies; then
-            git checkout -B automation/umbrella-chart-dependencies origin/automation/umbrella-chart-dependencies
-            git merge --no-edit origin/main
-          else
-            git checkout -B automation/umbrella-chart-dependencies origin/main
+            git merge --no-edit origin/automation/umbrella-chart-dependencies
           fi
       - name: Update matching dependency and vendor archive
         run: |

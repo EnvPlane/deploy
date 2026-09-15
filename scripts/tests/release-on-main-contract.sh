@@ -197,6 +197,15 @@ for receiver in "$runtime_receiver" "$chart_receiver"; do
   fi
 done
 
+grep -Fq 'git checkout -B main origin/main' "$chart_receiver" || {
+  echo "chart receiver must keep the worktree on main for first PR creation" >&2
+  exit 1
+}
+grep -Fq 'git merge --no-edit origin/automation/umbrella-chart-dependencies' "$chart_receiver" || {
+  echo "chart receiver must serialize an existing dependency branch" >&2
+  exit 1
+}
+
 grep -Fq 'Verify confirmed immutable artifacts' "$workflow" || {
   echo "release must validate the downloaded compatibility manifest" >&2
   exit 1
