@@ -339,10 +339,12 @@ grep -Fq 'api-response.XXXXXX' "$secret_lifecycle_harness" &&
   echo "private-registry lifecycle harness must retain redacted evidence for failed API reads" >&2
   exit 1
 }
-grep -Fq 'SM-11 clean-install environment did not reach Ready with a URL' "$secret_lifecycle_harness" &&
+grep -Fq 'SM-11 clean-install environment did not reach Ready' "$secret_lifecycle_harness" &&
+  grep -Fq 'SM-11 route-less fixture unexpectedly advertises a preview URL' "$secret_lifecycle_harness" &&
+  grep -Fq '(.url // "") == ""' "$secret_lifecycle_harness" &&
   grep -Fq '(.status == "ready" or .status == "running")' "$secret_lifecycle_harness" &&
   grep -Fq 'environment_release="$project-$environment"' "$secret_lifecycle_harness" || {
-  echo "private-registry lifecycle harness must prove a clean-install environment reaches Ready with a URL" >&2
+  echo "private-registry lifecycle harness must prove readiness without a fabricated preview URL" >&2
   exit 1
 }
 grep -Fq 'ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE' "$secret_lifecycle_harness" &&
