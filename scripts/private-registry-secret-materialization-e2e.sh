@@ -81,6 +81,18 @@ cleanup() {
       kubectl --context "kind-$cluster" -n "$namespace" logs "$agent_pod" -c agent --tail=1000 2>/dev/null |
         jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN" or (.message // .msg) == "secret materialization command claimed" or (.message // .msg) == "secret materialization command completed" or (.message // .msg) == "secret materialization result reported") | "level=\(.level // "") message=\(.message // .msg // "") error=\(.error // "")"' >&2 || true
     fi
+    # The bootstrap Agent is retired after project-scoped executors take
+    # ownership. Query every Agent pod so materialization failures from the
+    # active project executor are not hidden behind the retired singleton.
+    echo "SM-09 project Agent materialization diagnostics" >&2
+    kubectl --context "kind-$cluster" get pods --all-namespaces -l app.kubernetes.io/name=envplane-agent -o json 2>/dev/null |
+      jq -r '.items[] | select(.status.phase == "Running") | [.metadata.namespace, .metadata.name] | @tsv' |
+      while IFS=$'\t' read -r agent_namespace project_agent_pod; do
+        [[ -n "$agent_namespace" && -n "$project_agent_pod" ]] || continue
+        printf 'namespace=%s pod=%s\n' "$agent_namespace" "$project_agent_pod" >&2
+        kubectl --context "kind-$cluster" -n "$agent_namespace" logs "$project_agent_pod" -c agent --tail=1000 2>/dev/null |
+          jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN" or (.message // .msg) == "secret materialization command claimed" or (.message // .msg) == "secret materialization command completed" or (.message // .msg) == "secret materialization result reported") | "level=\(.level // "") message=\(.message // .msg // "") error=\(.error // "")"' >&2 || true
+      done
     runner_pod="$(kubectl --context "kind-$cluster" -n "$namespace" get pod -l app.kubernetes.io/name=envplane-runner -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
     if [[ -n "$runner_pod" ]]; then
       echo "SM-09 Runner runtime diagnostics" >&2

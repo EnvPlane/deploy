@@ -289,6 +289,12 @@ grep -Fq '(.message // .msg) == "secret materialization command completed"' "$se
   exit 1
 }
 
+grep -Fq 'SM-09 project Agent materialization diagnostics' "$secret_lifecycle_harness" &&
+  grep -Fq 'get pods --all-namespaces -l app.kubernetes.io/name=envplane-agent' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must diagnose project-scoped Agent materialization failures" >&2
+  exit 1
+}
+
 grep -Fq "curl --noproxy '*' --silent --show-error" "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must bypass ambient proxies and explicitly inspect local API responses" >&2
   exit 1
