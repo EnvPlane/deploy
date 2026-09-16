@@ -35,6 +35,10 @@ for profile in "${profiles[@]}"; do
 require "yaml"
 docs = YAML.load_stream(File.read(ARGV[0])).compact.select { |d| d.is_a?(Hash) }
 allowed_namespaces = ["", "envplane"]
+# Zero-setup project executors are enabled by default. The control plane owns
+# a deliberately namespaced Role and RoleBinding in their dedicated namespace;
+# this is part of the umbrella contract, not a render leak.
+allowed_namespaces << "envplane-executors"
 allowed_namespaces << "ingress-nginx" if ARGV[1] == "ingress"
 # The all-enabled profile intentionally exercises the Agent's default
 # namespaced discovery target. Its Role and RoleBinding belong in `default`;
