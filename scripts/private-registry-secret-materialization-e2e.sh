@@ -111,7 +111,10 @@ cleanup() {
     if [[ -n "${api:-}" && -n "${project:-}" ]]; then
       echo "SM-09 persisted command diagnostics" >&2
       api_curl "$api/api/v1/projects/$project/bootstrap-session" 2>/dev/null |
-        jq -c '{runnerCommands: [(.data.runnerCommands // [])[] | {id, operation, status, lastError}], materializationCommands: [(.data.secretMaterializationCommands // [])[] | {id, operation, status, lastError}]}' >&2 || true
+        # These identifiers are operational metadata only. Deliberately omit
+        # payloads, encrypted envelopes, Secret names, and error messages so
+        # the failure path remains safe for CI logs.
+        jq -c '{runnerCommands: [(.data.runnerCommands // [])[] | {id, operation, status, lastError}], materializationCommands: [(.data.secretMaterializationCommands // [])[] | {commandId, planId, planDigest, environmentId, clusterId, agentId, operation, status, attempt, attemptId, createdAt, claimedAt, leaseExpiresAt}], materializationResults: [(.data.secretMaterializationResults // {}) | to_entries[]? | {commandId: .key, attemptId: (.value.attemptId // ""), status: (.value.status // ""), errorCode: (.value.errorCode // ""), finishedAt: (.value.finishedAt // ""), items: [(.value.items // [])[] | {itemId, status, errorCode}]}]}' >&2 || true
     fi
   fi
   for pid in "${pids[@]:-}"; do kill "$pid" >/dev/null 2>&1 || true; done

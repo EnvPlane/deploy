@@ -289,6 +289,13 @@ grep -Fq '(.message // .msg) == "secret materialization command completed"' "$se
   exit 1
 }
 
+grep -Fq 'commandId, planId, planDigest' "$secret_lifecycle_harness" &&
+  grep -Fq 'materializationResults:' "$secret_lifecycle_harness" &&
+  grep -Fq 'encrypted envelopes' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must emit redacted materialization command and result identifiers" >&2
+  exit 1
+}
+
 grep -Fq 'SM-09 project Agent materialization diagnostics' "$secret_lifecycle_harness" &&
   grep -Fq 'get pods --all-namespaces -l app.kubernetes.io/name=envplane-agent' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must diagnose project-scoped Agent materialization failures" >&2
