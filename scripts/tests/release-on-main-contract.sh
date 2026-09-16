@@ -289,6 +289,12 @@ grep -Fq '(.message // .msg) == "secret materialization command completed"' "$se
   exit 1
 }
 
+grep -Fq 'command_id=' "$secret_lifecycle_harness" &&
+  grep -Fq 'status=' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must correlate Agent materialization logs by command identifier" >&2
+  exit 1
+}
+
 grep -Fq 'commandId, planId, planDigest' "$secret_lifecycle_harness" &&
   grep -Fq 'materializationResults:' "$secret_lifecycle_harness" &&
   grep -Fq 'encrypted envelopes' "$secret_lifecycle_harness" || {
