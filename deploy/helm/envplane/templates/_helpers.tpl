@@ -86,16 +86,25 @@ must declare their provider explicitly under platformDependencies.ingress.
 {{- end -}}
 
 {{/*
-The reconciler is opt-in. Merely installing the umbrella chart must not pull a
-private optional image when no external platform provider is configured.
+The reconciler runs when an external provider is configured or when the
+standard Flux recovery guard is enabled. The guard is a no-op without Flux.
 */}}
 {{- define "envplane.platformReconcilerEnabled" -}}
 {{- $requested := default false .Values.platformDependencyReconciler.enabled -}}
 {{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
+{{- $envplane := include "envplane.globalConfig" . | fromJson -}}
+{{- $fluxRecovery := default (dict) (get $envplane "fluxRecovery") -}}
+{{- $fluxRecoveryEnabled := true -}}
+{{- if hasKey $fluxRecovery "enabled" -}}
+  {{- $fluxRecoveryEnabled = get $fluxRecovery "enabled" -}}
+{{- end -}}
 {{- $access := default (dict) .Values.access -}}
 {{- $accessIngress := default (dict) (get $access "ingress") -}}
 {{- $autoAccess := and (eq (default "disabled" (get $access "mode")) "ingress") (eq (default "" (get $accessIngress "className")) "nginx") (eq (default "disabled" (get (default (dict) (get .Values.platformDependencies "ingress")) "mode")) "disabled") -}}
 {{- if and (not $requested) $autoAccess }}
+  {{- $requested = true -}}
+{{- end -}}
+{{- if and (not $requested) $fluxRecoveryEnabled }}
   {{- $requested = true -}}
 {{- end -}}
 {{- if not $requested -}}false{{- else -}}
@@ -104,6 +113,7 @@ private optional image when no external platform provider is configured.
     {{- $dependency := index $dependencies $name -}}
     {{- if ne (default "disabled" $dependency.mode) "disabled" }}{{- $configured = true -}}{{- end -}}
   {{- end -}}
+  {{- if $fluxRecoveryEnabled }}{{- $configured = true -}}{{- end -}}
   {{- if not $configured -}}false{{- else -}}true{{- end -}}
 {{- end -}}
 {{- end -}}

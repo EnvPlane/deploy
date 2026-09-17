@@ -74,6 +74,13 @@ global:
       # observed capability state on this declarative contract. A missing map
       # keeps the declared state; an old observation becomes explicitly stale.
       staleAfterSeconds: 300
+    # Bound and supersede stale preview health checks when Flux is installed.
+    # This only mutates the standard flux-system/kustomize-controller deployment
+    # and is a no-op when Flux is not installed.
+    fluxRecovery:
+      enabled: true
+      namespace: flux-system
+      deployment: kustomize-controller
     # Remote clusters are configured through the API/UI and Secret references.
     # This flag only enables the management-cluster reconciler globally; it
     # contains no target-cluster endpoint or credential material.
@@ -270,8 +277,9 @@ platformDependencies:
     state: ""
     managed: {}
 
-# Optional chart-owned reconciler. It only handles the three external
-# capabilities above; EnvPlane core workloads remain ordinary chart children.
+# Optional chart-owned reconciler. It handles the three external capabilities
+# above and the bounded Flux recovery guard; envplane core workloads remain
+# ordinary chart children.
 platformDependencyReconciler:
   # Opt-in only. With all platform dependency modes disabled, no reconciler
   # hooks/RBAC or private image are rendered.

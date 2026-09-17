@@ -39,6 +39,11 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["get", "list", "watch"]
+  # Flux recovery is limited in code and RBAC to the upstream controller.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["kustomize-controller"]
+    verbs: ["get", "update", "patch"]
   - apiGroups: [""]
     resources: ["services", "endpoints"]
     verbs: ["get", "list", "watch"]

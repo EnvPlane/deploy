@@ -3,6 +3,12 @@
 {{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
 {{- $statusConfigMap := include "envplane.platformReconcilerStatusConfigMapName" . -}}
+{{- $envplane := include "envplane.globalConfig" . | fromJson -}}
+{{- $fluxRecovery := default (dict) (get $envplane "fluxRecovery") -}}
+{{- $fluxRecoveryEnabled := true -}}
+{{- if hasKey $fluxRecovery "enabled" -}}
+{{- $fluxRecoveryEnabled = get $fluxRecovery "enabled" -}}
+{{- end -}}
 {{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
 {{- if $r.image.digest }}{{ $image = printf "%s@%s" $r.image.repository $r.image.digest }}{{ end }}
 apiVersion: batch/v1
@@ -73,6 +79,12 @@ spec:
               value: {{ $statusConfigMap | quote }}
             - name: ENVPLANE_RECONCILE_CLEANUP
               value: {{ default true $r.cleanupManagedOnUninstall | quote }}
+            - name: ENVPLANE_FLUX_RECOVERY_ENABLED
+              value: {{ $fluxRecoveryEnabled | quote }}
+            - name: ENVPLANE_FLUX_RECOVERY_NAMESPACE
+              value: {{ default "flux-system" (get $fluxRecovery "namespace") | quote }}
+            - name: ENVPLANE_FLUX_RECOVERY_DEPLOYMENT
+              value: {{ default "kustomize-controller" (get $fluxRecovery "deployment") | quote }}
             {{- $storage := $dependencies.storage -}}
             {{- $controlPlane := index .Values "envplane-control-plane" -}}
             {{- if and (ne (default "disabled" $storage.mode) "disabled") (or $controlPlane.postgres.enabled $controlPlane.redis.enabled) }}

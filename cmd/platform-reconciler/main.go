@@ -185,6 +185,11 @@ func run() error {
 		}
 		statusData[name] = res
 	}
+	fluxRecovery, fluxRecoveryErr := reconcileFluxHealthCheckRecovery(core)
+	statusData["fluxRecovery"] = fluxRecovery
+	if fluxRecoveryErr != nil {
+		reconcileErrors = append(reconcileErrors, fmt.Sprintf("fluxRecovery: %s", fluxRecoveryErr))
+	}
 	if len(reconcileErrors) > 0 {
 		if err := persistStatus(core, statusData); err != nil {
 			return err
@@ -198,6 +203,98 @@ func run() error {
 		return fmt.Errorf("bundled PostgreSQL/Redis require a ready storage dependency: %s", statusData["storage"].Message)
 	}
 	return persistStatus(core, statusData)
+}
+
+func reconcileFluxHealthCheckRecovery(client kubernetes.Interface) (result, error) {
+	result := result{Mode: "auto", Provider: "flux", Ownership: "external", UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	if !strings.EqualFold(strings.TrimSpace(os.Getenv("ENVPLANE_FLUX_RECOVERY_ENABLED")), "true") {
+		result.State = "disabled"
+		return result, nil
+	}
+	namespace := strings.TrimSpace(os.Getenv("ENVPLANE_FLUX_RECOVERY_NAMESPACE"))
+	if namespace == "" {
+		namespace = "flux-system"
+	}
+	deployment := strings.TrimSpace(os.Getenv("ENVPLANE_FLUX_RECOVERY_DEPLOYMENT"))
+	if deployment == "" {
+		deployment = "kustomize-controller"
+	}
+	// This is intentionally restricted to the upstream Flux installation
+	// identity. The reconciler must not mutate arbitrary controller Deployments.
+	if namespace != "flux-system" || deployment != "kustomize-controller" {
+		result.State = "incompatible"
+		return result, fmt.Errorf("Flux recovery supports only flux-system/kustomize-controller")
+	}
+	current, err := client.AppsV1().Deployments(namespace).Get(ctx, deployment, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		result.State = "absent"
+		result.Message = "Flux kustomize-controller is not installed"
+		return result, nil
+	}
+	if err != nil {
+		result.State = "degraded"
+		return result, fmt.Errorf("read Flux kustomize-controller: %w", err)
+	}
+	index := fluxManagerContainerIndex(current.Spec.Template.Spec.Containers)
+	if index < 0 {
+		result.State = "incompatible"
+		return result, fmt.Errorf("Flux kustomize-controller has no manager container")
+	}
+	args, changed := enableFluxFeatureGate(current.Spec.Template.Spec.Containers[index].Args, "CancelHealthCheckOnNewRevision")
+	if !changed {
+		result.State = "configured"
+		result.Reference = namespace + "/" + deployment
+		return result, nil
+	}
+	current.Spec.Template.Spec.Containers[index].Args = args
+	if _, err := client.AppsV1().Deployments(namespace).Update(ctx, current, metav1.UpdateOptions{}); err != nil {
+		result.State = "degraded"
+		return result, fmt.Errorf("enable Flux health-check recovery: %w", err)
+	}
+	result.State = "configured"
+	result.Reference = namespace + "/" + deployment
+	result.Message = "enabled CancelHealthCheckOnNewRevision"
+	return result, nil
+}
+
+func fluxManagerContainerIndex(containers []corev1.Container) int {
+	for i := range containers {
+		if containers[i].Name == "manager" {
+			return i
+		}
+	}
+	return -1
+}
+
+func enableFluxFeatureGate(args []string, gate string) ([]string, bool) {
+	prefix := "--feature-gates="
+	for i, arg := range args {
+		if !strings.HasPrefix(arg, prefix) {
+			continue
+		}
+		entries := strings.Split(strings.TrimPrefix(arg, prefix), ",")
+		found := false
+		for j, entry := range entries {
+			key, _, _ := strings.Cut(entry, "=")
+			if key != gate {
+				continue
+			}
+			found = true
+			if entry == gate+"=true" {
+				return args, false
+			}
+			entries[j] = gate + "=true"
+		}
+		if !found {
+			entries = append(entries, gate+"=true")
+		}
+		updated := append([]string(nil), args...)
+		updated[i] = prefix + strings.Join(entries, ",")
+		return updated, true
+	}
+	updated := append([]string(nil), args...)
+	updated = append(updated, prefix+gate+"=true")
+	return updated, true
 }
 
 // configForAction keeps the Job-to-binary contract explicit. Namespace setup

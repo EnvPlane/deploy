@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -84,8 +86,8 @@ func TestOrphanIngressClassIsDegradedNotReady(t *testing.T) {
 
 func TestIngressSmokeHostDoesNotReuseAccessRoute(t *testing.T) {
 	for input, want := range map[string]string{
-		"envplane.local":   "envplane-smoke.envplane.local",
-		"*.example.test":   "envplane-smoke.example.test",
+		"envplane.local":    "envplane-smoke.envplane.local",
+		"*.example.test":    "envplane-smoke.example.test",
 		"  preview.example": "envplane-smoke.preview.example",
 	} {
 		if got := ingressSmokeHost(input); got != want {
@@ -156,5 +158,47 @@ func TestReconcileActionRequiresNonEmptyDependencyConfig(t *testing.T) {
 	_, err := configForAction("reconcile", " \t\n")
 	if err == nil || !strings.Contains(err.Error(), "reconciliation config is required") {
 		t.Fatalf("expected actionable missing-config error, got %v", err)
+	}
+}
+
+func TestReconcileFluxHealthCheckRecoveryEnablesOnlyExpectedGate(t *testing.T) {
+	t.Setenv("ENVPLANE_FLUX_RECOVERY_ENABLED", "true")
+	t.Setenv("ENVPLANE_FLUX_RECOVERY_NAMESPACE", "flux-system")
+	t.Setenv("ENVPLANE_FLUX_RECOVERY_DEPLOYMENT", "kustomize-controller")
+	client := kfake.NewSimpleClientset(&appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "kustomize-controller", Namespace: "flux-system"},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "manager",
+						Args: []string{"--log-level=info", "--feature-gates=OtherFeature=true,CancelHealthCheckOnNewRevision=false"},
+					}},
+				},
+			},
+		},
+	})
+
+	result, err := reconcileFluxHealthCheckRecovery(client)
+	if err != nil || result.State != "configured" || result.Reference != "flux-system/kustomize-controller" {
+		t.Fatalf("unexpected recovery result: %#v, %v", result, err)
+	}
+	updated, err := client.AppsV1().Deployments("flux-system").Get(ctx, "kustomize-controller", metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := strings.Join(updated.Spec.Template.Spec.Containers[0].Args, " ")
+	if !strings.Contains(args, "OtherFeature=true") || !strings.Contains(args, "CancelHealthCheckOnNewRevision=true") {
+		t.Fatalf("feature gates were not preserved and enabled: %q", args)
+	}
+}
+
+func TestReconcileFluxHealthCheckRecoverySkipsAbsentFlux(t *testing.T) {
+	t.Setenv("ENVPLANE_FLUX_RECOVERY_ENABLED", "true")
+	t.Setenv("ENVPLANE_FLUX_RECOVERY_NAMESPACE", "flux-system")
+	t.Setenv("ENVPLANE_FLUX_RECOVERY_DEPLOYMENT", "kustomize-controller")
+	result, err := reconcileFluxHealthCheckRecovery(kfake.NewSimpleClientset())
+	if err != nil || result.State != "absent" {
+		t.Fatalf("unexpected absent Flux result: %#v, %v", result, err)
 	}
 }

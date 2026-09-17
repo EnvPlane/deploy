@@ -1299,7 +1299,10 @@ func TestPlatformReconcilerPrerequisitesRunBeforeTheGateJob(t *testing.T) {
 }
 
 func TestPlatformReconcilerIsOptInWhenNoProvidersAreConfigured(t *testing.T) {
-	rendered := renderUmbrella(t, "--set", "platformDependencyReconciler.enabled=true")
+	rendered := renderUmbrella(t,
+		"--set", "platformDependencyReconciler.enabled=true",
+		"--set", "global.envplane.fluxRecovery.enabled=false",
+	)
 	for _, forbidden := range []string{
 		"platform-reconciler/templates/platform-dependency-reconciler-job.yaml",
 		"platform-dependency-reconciler-cleanup",
@@ -1307,6 +1310,19 @@ func TestPlatformReconcilerIsOptInWhenNoProvidersAreConfigured(t *testing.T) {
 	} {
 		if strings.Contains(rendered, forbidden) {
 			t.Fatalf("reconciler must not render without an enabled provider %q:\n%s", forbidden, rendered)
+		}
+	}
+}
+
+func TestZeroValuesEnableBoundedFluxRecoveryWhenFluxIsPresent(t *testing.T) {
+	rendered := renderUmbrella(t)
+	for _, expected := range []string{
+		"name: ENVPLANE_FLUX_RECOVERY_ENABLED\n              value: \"true\"",
+		"name: ENVPLANE_FLUX_RECOVERY_NAMESPACE\n              value: \"flux-system\"",
+		"resourceNames: [\"kustomize-controller\"]",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("zero-values Flux recovery render missing %q:\n%s", expected, rendered)
 		}
 	}
 }
@@ -1448,6 +1464,7 @@ func TestIngressAccessProfileDoesNotAutoInstallNonNginxClass(t *testing.T) {
 		"--set", "access.mode=ingress",
 		"--set", "access.ingress.host=envplane.example.test",
 		"--set", "access.ingress.className=alb",
+		"--set", "global.envplane.fluxRecovery.enabled=false",
 	)
 	if strings.Contains(rendered, "platform-reconciler-discovery") || strings.Contains(rendered, "kind: Job\nmetadata:\n  name: envplane-platform-reconciler") {
 		t.Fatalf("non-nginx ingress class must not implicitly install a provider:\n%s", rendered)
