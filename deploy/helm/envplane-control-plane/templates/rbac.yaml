@@ -446,7 +446,11 @@ rules:
     # Roles exist, so Flux cannot own and prune the Namespace itself. The
     # reconciler deletes only a canonical namespace after an authenticated
     # Agent proves that its Flux resources are gone.
-    verbs: ["get", "list", "watch", "create", "delete"]
+    # The control plane adds the immutable environment ownership label to a
+    # legacy canonical preview namespace before accepting its Flux status. It
+    # never changes an existing ownership value; update is required only for
+    # that backwards-compatible label migration.
+    verbs: ["get", "list", "watch", "create", "update", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
