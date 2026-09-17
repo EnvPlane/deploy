@@ -43,6 +43,7 @@ for required in \
   "cosign attest" \
   "Verify anonymous OCI pulls for the complete release" \
   "gh release create" \
+  "GitHub release asset upload failed transiently" \
   "Update stable installation documentation" \
   "render-install-docs-from-release-index.sh" \
   'git -C "$docs_tree" push origin HEAD:refs/heads/main'; do
