@@ -966,6 +966,47 @@ func TestProviderNeutralAccessRendersIngressAndGatewayOnlyWhenExplicit(t *testin
 	}
 }
 
+func TestAccessRoutesBrowserAPIThroughFrontendProxy(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		values []string
+	}{
+		{
+			name: "ingress",
+			values: []string{
+				"--set", "access.mode=ingress",
+				"--set", "access.ingress.host=envplane.example.internal",
+			},
+		},
+		{
+			name: "gateway",
+			values: []string{
+				"--set", "access.mode=gateway",
+				"--set", "access.gateway.name=shared-gateway",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendered := renderUmbrella(t, tc.values...)
+			apiPath := "path: /api"
+			if tc.name == "gateway" {
+				apiPath = "value: /api"
+			}
+			apiStart := strings.Index(rendered, apiPath)
+			if apiStart < 0 {
+				t.Fatalf("%s render is missing API path:\n%s", tc.name, rendered)
+			}
+			apiRoute := rendered[apiStart:]
+			if nextRoute := strings.Index(apiRoute, "path: /auth"); nextRoute >= 0 {
+				apiRoute = apiRoute[:nextRoute]
+			}
+			if !strings.Contains(apiRoute, "name: envplane-frontend") {
+				t.Fatalf("%s API path must target the frontend proxy:\n%s", tc.name, apiRoute)
+			}
+		})
+	}
+}
+
 func TestProviderNeutralProfilesRenderDeclaredAccessAndServiceModes(t *testing.T) {
 	tests := []struct {
 		name      string

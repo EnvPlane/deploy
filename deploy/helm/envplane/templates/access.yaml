@@ -39,7 +39,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ $controlPlaneService }}
+                # The frontend owns the browser session and proxies same-origin
+                # API calls to the control-plane through its Next.js rewrite.
+                name: {{ $frontendService }}
                 port:
                   name: http
           - path: /auth
@@ -91,6 +93,12 @@ spec:
         - path:
             type: PathPrefix
             value: /api
+      backendRefs:
+        # Keep browser API traffic on the frontend so its authenticated
+        # same-origin rewrite can proxy it to the control-plane.
+        - name: {{ $frontendService }}
+          port: 3000
+    - matches:
         - path:
             type: PathPrefix
             value: /auth
