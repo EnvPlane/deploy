@@ -278,6 +278,12 @@ grep -Fq 'SM-09 Agent preflight diagnostics' "$secret_lifecycle_harness" || {
   exit 1
 }
 
+grep -Fq 'original_kube_context="$(kubectl config current-context 2>/dev/null || true)"' "$secret_lifecycle_harness" &&
+  grep -Fq 'kubectl config use-context "$original_kube_context"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must restore the caller kubecontext after deleting its Kind cluster" >&2
+  exit 1
+}
+
 grep -Fq 'wait for project executor handoff' "$secret_lifecycle_harness" &&
   grep -Fq 'SM-09 project executor handoff did not retire the singleton bootstrap runtime' "$secret_lifecycle_harness" &&
   grep -Fq 'bootstrap_runtime_state_config_map=' "$secret_lifecycle_harness" || {

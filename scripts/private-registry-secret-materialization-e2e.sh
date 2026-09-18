@@ -30,6 +30,10 @@ tmp="$(mktemp -d)"
 pids=()
 failure_line=""
 sm09_phase="initializing release gate"
+# `kind create cluster` makes its context current. Preserve the caller's
+# context so the release gate does not leave kubectl pointing at a deleted
+# disposable cluster after cleanup.
+original_kube_context="$(kubectl config current-context 2>/dev/null || true)"
 
 set_sm09_phase() {
   sm09_phase="$1"
@@ -120,6 +124,9 @@ cleanup() {
   for pid in "${pids[@]:-}"; do kill "$pid" >/dev/null 2>&1 || true; done
   kind delete cluster --name "$cluster" >/dev/null 2>&1 || true
   docker rm -f "$registry_name" >/dev/null 2>&1 || true
+  if [[ -n "$original_kube_context" ]] && kubectl config get-contexts -o name | grep -Fxq "$original_kube_context"; then
+    kubectl config use-context "$original_kube_context" >/dev/null 2>&1 || true
+  fi
   rm -rf "$tmp"
 }
 trap cleanup EXIT
