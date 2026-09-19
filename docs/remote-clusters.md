@@ -1,12 +1,12 @@
 # API-managed remote clusters
 
-EnvPilot installs core services once in the management cluster. A remote cluster is added through **Settings → Remote clusters** or `/api/v1/remote-clusters`; it is never encoded in umbrella values and an operator never installs Agent or Runner charts manually.
+EnvPlane installs core services once in the management cluster. A remote cluster is added through **Settings → Remote clusters** or `/api/v1/remote-clusters`; it is never encoded in umbrella values and an operator never installs Agent or Runner charts manually.
 
 ```text
 operator/UI or API
        |
        v
-management-cluster EnvPilot API ── Remote Cluster Reconciler ── Kubernetes API
+management-cluster EnvPlane API ── Remote Cluster Reconciler ── Kubernetes API
        |                                      |                       |
        |                                      | Helm Go SDK           v
        |                                      +--------------> managed Agent + Runner
@@ -19,12 +19,12 @@ management-cluster EnvPilot API ── Remote Cluster Reconciler ── Kubernet
 The application installation is exactly one command against an already provisioned Kubernetes cluster. Enable the Remote Cluster Reconciler in the values file; remote targets themselves do not belong in it.
 
 ```sh
-helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane \
   --version <immutable-umbrella-version> \
-  --namespace envpilot --create-namespace --values values.yaml --wait
+  --namespace envplane --create-namespace --values values.yaml --wait
 ```
 
-The management chart must expose a stable private or public HTTPS endpoint that target Pods can reach. It must not be `localhost`, a port-forward address, `host.minikube.internal`, `envpilot.local`, or foreign Kubernetes Service DNS. Service DNS is valid only for same-cluster components.
+The management chart must expose a stable private or public HTTPS endpoint that target Pods can reach. It must not be `localhost`, a port-forward address, `host.minikube.internal`, `envplane.local`, or foreign Kubernetes Service DNS. Service DNS is valid only for same-cluster components.
 
 The management values only enable the reconciler and grant it access to the
 explicit Secret namespace; they contain no target endpoint, kubeconfig, token,
@@ -32,11 +32,11 @@ or remote release setting:
 
 ```yaml
 global:
-  envpilot:
+  envplane:
     remoteClusterReconciler: {enabled: true}
-envpilot-control-plane:
+envplane-control-plane:
   rbac:
-    remoteClusterCredentials: {enabled: true, namespaces: [envpilot]}
+    remoteClusterCredentials: {enabled: true, namespaces: [envplane]}
     remoteClusterReconciler: {enabled: true}
 ```
 
@@ -69,7 +69,7 @@ Deleting a remote target is controlled: the API returns `202`, the reconciler re
 
 ### Product contract versus private-network prerequisite
 
-EnvPilot owns the RemoteCluster record, target Agent/Runner releases, scoped
+EnvPlane owns the RemoteCluster record, target Agent/Runner releases, scoped
 trust Secret copy, target-pod probe, heartbeats, Bootstrap and Environment
 lifecycle. It does **not** own network reachability outside Kubernetes. Before
 running the published E2E, the platform operator must provide:
@@ -92,23 +92,23 @@ managed releases.
 Example invocation (the exact endpoint and files are platform-owned):
 
 ```sh
-ENVPILOT_E2E_MANAGEMENT_CONTEXT=management \
-ENVPILOT_E2E_TARGET_CONTEXT=target \
-ENVPILOT_E2E_UMBRELLA_REF=oci://ghcr.io/envpilot/envpilot \
-ENVPILOT_E2E_UMBRELLA_VERSION=<immutable-version> \
-ENVPILOT_E2E_VALUES_FILE=values.yaml \
-ENVPILOT_E2E_API_URL=https://api.envpilot.platform.internal \
-ENVPILOT_E2E_UI_URL=https://ui.envpilot.platform.internal \
-ENVPILOT_E2E_REMOTE_CONTROL_PLANE_URL=https://api.envpilot.platform.internal \
-ENVPILOT_E2E_REMOTE_CONTROL_PLANE_TLS_SERVER_NAME=api.envpilot.platform.internal \
-ENVPILOT_E2E_REMOTE_CONTROL_PLANE_CA_FILE=/secure/path/current-ca.pem \
-ENVPILOT_E2E_REMOTE_CONTROL_PLANE_ROTATED_CA_FILE=/secure/path/rotated-ca.pem \
-ENVPILOT_E2E_REMOTE_KUBERNETES_ENDPOINT=https://kubernetes.target.internal \
-ENVPILOT_E2E_REMOTE_CREDENTIAL_FILE=/secure/path/target-kubeconfig \
-ENVPILOT_E2E_HELM_CHART_REF=oci://registry.example.test/charts/e2e \
-ENVPILOT_E2E_APP_REPOSITORY_URL=https://git.example.test/acme/app.git \
-ENVPILOT_E2E_GITOPS_REPOSITORY_URL=https://git.example.test/acme/gitops.git \
-ENVPILOT_E2E_SCM_TOKEN_FILE=/secure/path/scm-token \
+ENVPLANE_E2E_MANAGEMENT_CONTEXT=management \
+ENVPLANE_E2E_TARGET_CONTEXT=target \
+ENVPLANE_E2E_UMBRELLA_REF=oci://ghcr.io/envplane/envplane \
+ENVPLANE_E2E_UMBRELLA_VERSION=<immutable-version> \
+ENVPLANE_E2E_VALUES_FILE=values.yaml \
+ENVPLANE_E2E_API_URL=https://api.envplane.platform.internal \
+ENVPLANE_E2E_UI_URL=https://ui.envplane.platform.internal \
+ENVPLANE_E2E_REMOTE_CONTROL_PLANE_URL=https://api.envplane.platform.internal \
+ENVPLANE_E2E_REMOTE_CONTROL_PLANE_TLS_SERVER_NAME=api.envplane.platform.internal \
+ENVPLANE_E2E_REMOTE_CONTROL_PLANE_CA_FILE=/secure/path/current-ca.pem \
+ENVPLANE_E2E_REMOTE_CONTROL_PLANE_ROTATED_CA_FILE=/secure/path/rotated-ca.pem \
+ENVPLANE_E2E_REMOTE_KUBERNETES_ENDPOINT=https://kubernetes.target.internal \
+ENVPLANE_E2E_REMOTE_CREDENTIAL_FILE=/secure/path/target-kubeconfig \
+ENVPLANE_E2E_HELM_CHART_REF=oci://registry.example.test/charts/e2e \
+ENVPLANE_E2E_APP_REPOSITORY_URL=https://git.example.test/acme/app.git \
+ENVPLANE_E2E_GITOPS_REPOSITORY_URL=https://git.example.test/acme/gitops.git \
+ENVPLANE_E2E_SCM_TOKEN_FILE=/secure/path/scm-token \
 ./scripts/published-remote-cluster-two-cluster-e2e.sh
 ```
 

@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   attestations: write
   id-token: write
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository == 'envpilot/deploy' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    if: github.repository == 'EnvPlane/deploy' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     outputs:
       repository: ${{ steps.published.outputs.repository }}
@@ -31,30 +31,37 @@ jobs:
       digest: ${{ steps.published.outputs.digest }}
       source_revision: ${{ steps.published.outputs.source_revision }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Ensure go toolchain
+        run: |
+          GO_VERSION_FILE="go.mod" \
+          GO_MIN_VERSION="1.26.0" \
+          ./scripts/ensure-go.sh
+      - name: Select module Go toolchain
+        run: echo "GOTOOLCHAIN=go$(awk '/^go[[:space:]]/ {print $2; exit}' go.mod)" >> "$GITHUB_ENV"
       - name: Test platform reconciler
         run: go test ./cmd/platform-reconciler
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || github.token }}
+          # The workflow token is scoped to this repository and has the
+          # packages: write permission declared above. Do not prefer the
+          # legacy GHCR_TOKEN secret: it can be stale or belong to a user
+          # without permission to create the first package in this namespace.
+          password: ${{ github.token }}
       - id: metadata
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
-          images: ghcr.io/${{ github.repository_owner }}/platform-reconciler
+          images: ghcr.io/EnvPlane/platform-reconciler
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             type=raw,value=sha-${{ github.sha }}
       - id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           file: Dockerfile.platform-reconciler
@@ -67,7 +74,7 @@ jobs:
       - id: published
         name: Emit immutable image metadata
         env:
-          REPOSITORY: ghcr.io/${{ github.repository_owner }}/platform-reconciler
+          REPOSITORY: ghcr.io/EnvPlane/platform-reconciler
           TAG: sha-${{ github.sha }}
           DIGEST: ${{ steps.build.outputs.digest }}
           SOURCE_REVISION: ${{ github.sha }}
@@ -89,8 +96,27 @@ jobs:
             echo "digest=$DIGEST"
             echo "source_revision=$SOURCE_REVISION"
           } >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: platform-reconciler-image-metadata
           path: platform-reconciler-image-metadata.json
           if-no-files-found: error
+      - name: Request automatic umbrella image pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_REVISION: ${{ github.sha }}
+          REPOSITORY: ${{ steps.published.outputs.repository }}
+          TAG: ${{ steps.published.outputs.tag }}
+          DIGEST: ${{ steps.published.outputs.digest }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/dispatches" \
+            --method POST \
+            -f event_type=component-image-published \
+            -f 'client_payload[component]=platform-reconciler' \
+            -f "client_payload[repository]=$REPOSITORY" \
+            -f "client_payload[tag]=$TAG" \
+            -f "client_payload[digest]=$DIGEST" \
+            -f "client_payload[source_revision]=$SOURCE_REVISION" \
+            -f "client_payload[source_repository]=$SOURCE_REPOSITORY"

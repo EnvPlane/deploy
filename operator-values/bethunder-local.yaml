@@ -1,30 +1,65 @@
 # Operator configuration for the existing bethunder-local minikube profile.
-# The image-pull Secret contains credentials and is created in the cluster;
-# this file stores only its name.
+# Published EnvPlane artifacts are public, so this profile intentionally uses
+# no image-pull Secret and remains usable as a zero-setup installation.
+# LOCAL DEVELOPMENT ONLY: this profile intentionally disables TLS and Secure
+# cookies for a disposable minikube cluster; never use it for shared access.
+allowInsecureLocalDevelopment: true
 global:
-  envpilot:
-    registry:
-      mode: existing
-      existingSecret: envpilot-ghcr
-      imagePullSecrets:
-        - name: envpilot-ghcr
+  envplane:
+    auth:
+      # OAuth is now activated in the managed authentication store. Do not
+      # re-run the legacy bootstrap migration on every local restart.
+      mode: disabled
+      existingSecret: ""
     firstStartRegistration:
       mode: managed
       cluster:
-        id: bethunder-local
+        # This is the persisted envplane management-cluster ID, not the
+        # minikube profile name. Keeping it stable makes upgrades idempotent.
+        id: management-cluster
     # Project-owned local Agent/Runner releases are reconciled only in this
     # pre-created namespace. No credential material is stored in this file.
     sameClusterProjectExecutors:
       enabled: true
-      namespace: envpilot-executors
+      namespace: envplane-executors
+      allowInsecureControlPlane: true
+      discovery:
+        namespaces:
+          - app-frontend
+          - app-backend
 
-envpilot-control-plane:
+envplane-control-plane:
+  # LOCAL DEVELOPMENT ONLY: canonical callback origin for the minikube ingress.
+  publicURL: http://envplane.local
+  env:
+    # LOCAL DEVELOPMENT ONLY: this profile intentionally uses HTTP on a
+    # disposable minikube host. Production/operator values must omit this.
+    ENVPLANE_OAUTH_COOKIE_SECURE: "false"
+    ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
+    # The local GitLab-backed Flux project uses direct commit mode. Keep the
+    # repository writer enabled so rendered environment manifests are pushed
+    # for Flux to reconcile.
+    ENVPLANE_ENABLE_GIT_COMMIT: "true"
+    ENVPLANE_ENABLE_GIT_PUSH: "true"
   rbac:
     sameClusterProjectExecutors:
       enabled: true
-      namespace: envpilot-executors
+      namespace: envplane-executors
+      discovery:
+        namespaces:
+          - app-frontend
+          - app-backend
+  postgres:
+    auth:
+      # The control-plane chart creates and owns this Secret on first install,
+      # then preserves its generated password across upgrades.
+      existingSecret: ""
+    tls:
+      # LOCAL DEVELOPMENT ONLY: the disposable minikube PostgreSQL instance
+      # does not provision a CA/server certificate.
+      enabled: false
 
-# Run the EnvPilot execution plane in the same minikube cluster as the control
+# Run the EnvPlane execution plane in the same minikube cluster as the control
 # plane. The managed first-start registration above supplies the one-time
 # credentials used by both workloads.
 agent:
@@ -36,10 +71,24 @@ runner:
 access:
   mode: ingress
   ingress:
-    host: envpilot.local
+    # LOCAL DEVELOPMENT ONLY: required by the umbrella chart when TLS is off.
+    allowInsecureHttp: true
+    host: envplane.local
     className: nginx
     tls:
       enabled: false
+
+envplane-agent:
+  controlPlane:
+    # LOCAL DEVELOPMENT ONLY: the disposable minikube ingress exposes the
+    # control plane over HTTP. Production profiles must keep this false.
+    allowInsecure: true
+
+envplane-runner:
+  controlPlane:
+    # LOCAL DEVELOPMENT ONLY: the disposable minikube ingress exposes the
+    # control plane over HTTP. Production profiles must keep this false.
+    allowInsecure: true
 
 platformDependencies:
   ingress:

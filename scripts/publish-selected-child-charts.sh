@@ -23,7 +23,7 @@ umbrella_chart=""
 charts_dir=""
 dist=""
 output=""
-owner="envpilot"
+owner="EnvPlane"
 source_revision="${GITHUB_SHA:-}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -42,6 +42,10 @@ done
 [[ -d "$charts_dir" ]] || { echo "canonical chart directory not found: $charts_dir" >&2; exit 2; }
 [[ -n "$dist" && -n "$output" ]] || usage
 [[ "$owner" =~ ^[A-Za-z0-9-]+$ ]] || { echo "invalid OCI owner" >&2; exit 2; }
+# OCI repository names are canonicalized to lowercase. GitHub organization
+# names are case-insensitive, but Helm and registry clients are not consistent
+# about preserving mixed-case path segments.
+owner="${owner,,}"
 if [[ ! "$source_revision" =~ ^[0-9a-f]{40}$ ]]; then
   source_revision="$(git -C "$(dirname "$umbrella_chart")/../.." rev-parse HEAD 2>/dev/null || true)"
 fi
@@ -74,11 +78,12 @@ is_auth_error() {
 mkdir -p "$dist" "$(dirname "$output")"
 entries=()
 for mapping in \
-  control-plane:envpilot-control-plane \
-  frontend:envpilot-frontend \
-  agent:envpilot-agent \
-  runner:envpilot-runner \
-  webhook:envpilot-webhook; do
+  control-plane:envplane-control-plane \
+  frontend:envplane-frontend \
+  agent:envplane-agent \
+  runner:envplane-runner \
+  webhook:envplane-webhook \
+  e2eWorkload:envplane-e2e-workload; do
   component="${mapping%%:*}"
   chart="${mapping##*:}"
   selected_version="$(dependency_version "$chart")"
@@ -132,7 +137,7 @@ for mapping in \
       '{schemaVersion:1,artifactType:"helm-chart",chart:$chart,version:$version,digest:$digest,sourceRevision:$sourceRevision}' \
       > "$predicate"
     cosign sign --yes "$oras_repository@$digest"
-    cosign attest --yes --predicate "$predicate" --type https://envpilot.dev/chart/v1 "$oras_repository@$digest"
+    cosign attest --yes --predicate "$predicate" --type https://envplane.dev/chart/v1 "$oras_repository@$digest"
   else
     digest="$(jq -er '.digest' <<<"$descriptor")"
     [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
@@ -161,5 +166,5 @@ done
 printf '%s\n' "${entries[@]}" | jq -s \
   --arg sourceRevision "$source_revision" \
   '{schemaVersion:1,sourceRevision:$sourceRevision,childCharts:.}' > "$output"
-jq -e '(.childCharts | length == 5) and all(.childCharts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and (.digest | test("^sha256:[0-9a-f]{64}$")))' "$output" >/dev/null
+jq -e '(.childCharts | length == 6) and all(.childCharts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and (.digest | test("^sha256:[0-9a-f]{64}$")))' "$output" >/dev/null
 echo "confirmed canonical child charts: $output"

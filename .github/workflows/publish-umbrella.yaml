@@ -1,4 +1,4 @@
-name: Publish atomic EnvPilot umbrella release
+name: Publish atomic EnvPlane umbrella release
 
 on:
   workflow_dispatch:
@@ -23,19 +23,19 @@ permissions:
   id-token: write
 
 concurrency:
-  group: envpilot-umbrella-release
+  group: envplane-umbrella-release
   cancel-in-progress: false
 
 jobs:
   release:
-    if: github.repository == 'envpilot/deploy' && github.ref == 'refs/heads/main'
+    if: github.repository == 'EnvPlane/deploy' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: azure/setup-helm@v4
-      - uses: sigstore/cosign-installer@v3
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - id: version
         name: Validate and bump release version in the build workspace
         env:
@@ -49,12 +49,12 @@ jobs:
           # legitimately be a SemVer prerelease such as 0.3.0-main.20.
           [[ "$PREVIOUS" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]] || { echo "invalid previous SemVer" >&2; exit 1; }
           test "$(printf '%s\n' "$PREVIOUS" "$VERSION" | sort -V | tail -1)" = "$VERSION"
-          current="$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot/Chart.yaml)"
+          current="$(awk '/^version:/{print $2; exit}' deploy/helm/envplane/Chart.yaml)"
           test "$(printf '%s\n' "$current" "$VERSION" | sort -V | tail -1)" = "$VERSION"
           if [[ "$VERSION" != "$current" ]]; then
-            sed -i.bak -E "0,/^version: .*/s//version: $VERSION/; 0,/^appVersion: .*/s//appVersion: \"$VERSION\"/" deploy/helm/envpilot/Chart.yaml
+            sed -i.bak -E "0,/^version: .*/s//version: $VERSION/; 0,/^appVersion: .*/s//appVersion: \"$VERSION\"/" deploy/helm/envplane/Chart.yaml
           fi
-          rm -f deploy/helm/envpilot/Chart.yaml.bak
+          rm -f deploy/helm/envplane/Chart.yaml.bak
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
       - name: Verify canonical chart sources
@@ -65,31 +65,37 @@ jobs:
           ./scripts/generate-umbrella-compatibility-manifest.sh \
             --version '${{ steps.version.outputs.version }}' \
             --source-revision '${{ github.sha }}' \
-            --output deploy/helm/envpilot/compatibility/release.json
+            --output deploy/helm/envplane/compatibility/release.json
       - name: Build dependencies and validate chart
         run: |
           set -euo pipefail
-          mkdir -p deploy/helm/envpilot/compatibility dist
-          helm dependency build --skip-refresh deploy/helm/envpilot
-          go test ./deploy/helm/envpilot/tests
-          helm lint deploy/helm/envpilot
-          helm template envpilot deploy/helm/envpilot >/dev/null
+          mkdir -p deploy/helm/envplane/compatibility dist
+          helm dependency build --skip-refresh deploy/helm/envplane
+          go test ./deploy/helm/envplane/tests
+          helm lint deploy/helm/envplane
+          # Render with disposable CI-only values for credentials that are
+          # intentionally required by the production chart. Keep PostgreSQL
+          # TLS enabled by default; this validation profile has no CA Secret.
+          helm template envplane deploy/helm/envplane \
+            --set-string envplane-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envplane-control-plane.postgres.tls.enabled=false \
+            >/dev/null
       - name: Authenticate to GHCR
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
       - name: Authenticate cosign to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Reject an existing umbrella OCI version
         if: inputs.resume != true
-        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envpilot/envpilot --version '${{ steps.version.outputs.version }}'
+        run: ./scripts/check-oci-chart-version-available.sh --repository oci://ghcr.io/envplane/envplane --version '${{ steps.version.outputs.version }}'
       - name: Package umbrella chart
         if: inputs.resume != true
-        run: helm package deploy/helm/envpilot --destination dist --version '${{ steps.version.outputs.version }}' --app-version '${{ steps.version.outputs.version }}'
+        run: helm package deploy/helm/envplane --destination dist --version '${{ steps.version.outputs.version }}' --app-version '${{ steps.version.outputs.version }}'
       - name: Publish umbrella OCI chart
         id: push
         env:
@@ -98,16 +104,16 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$RESUME" == true ]]; then
-            mkdir -p /tmp/envpilot-release-resume deploy/helm/envpilot/compatibility
-            output="$(helm pull "oci://ghcr.io/envpilot/envpilot" --version "$VERSION" --destination /tmp/envpilot-release-resume 2>&1 | tee /dev/stderr)"
-            package="/tmp/envpilot-release-resume/envpilot-$VERSION.tgz"
-            tar -tzf "$package" > /tmp/envpilot-release-resume/archive-files.txt
-            manifest_path="$(awk '/\/compatibility\/release\.json$/ { print; exit }' /tmp/envpilot-release-resume/archive-files.txt)"
+            mkdir -p /tmp/envplane-release-resume deploy/helm/envplane/compatibility
+            output="$(helm pull "oci://ghcr.io/envplane/envplane" --version "$VERSION" --destination /tmp/envplane-release-resume 2>&1 | tee /dev/stderr)"
+            package="/tmp/envplane-release-resume/envplane-$VERSION.tgz"
+            tar -tzf "$package" > /tmp/envplane-release-resume/archive-files.txt
+            manifest_path="$(awk '/\/compatibility\/release\.json$/ { print; exit }' /tmp/envplane-release-resume/archive-files.txt)"
             test -n "$manifest_path"
-            tar -xOf "$package" "$manifest_path" > deploy/helm/envpilot/compatibility/release.json
+            tar -xOf "$package" "$manifest_path" > deploy/helm/envplane/compatibility/release.json
           else
-            package="dist/envpilot-$VERSION.tgz"
-            output="$(helm push "$package" oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+            package="dist/envplane-$VERSION.tgz"
+            output="$(helm push "$package" oci://ghcr.io/envplane 2>&1 | tee /dev/stderr)"
           fi
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
@@ -115,30 +121,30 @@ jobs:
           echo "package=$package" >> "$GITHUB_OUTPUT"
       - name: Sign and attest published chart
         env:
-          CHART_REF: ghcr.io/envpilot/envpilot@${{ steps.push.outputs.digest }}
-          MANIFEST: deploy/helm/envpilot/compatibility/release.json
+          CHART_REF: ghcr.io/envplane/envplane@${{ steps.push.outputs.digest }}
+          MANIFEST: deploy/helm/envplane/compatibility/release.json
         run: |
           cosign sign --yes "$CHART_REF"
-          cosign attest --yes --predicate "$MANIFEST" --type https://envpilot.dev/compatibility/v1 "$CHART_REF"
+          cosign attest --yes --predicate "$MANIFEST" --type https://envplane.dev/compatibility/v1 "$CHART_REF"
       - name: Verify previous-version reinstall resolves its exact compatibility set
         env:
           PREVIOUS: ${{ steps.version.outputs.previous }}
         run: |
           set -euo pipefail
-          helm pull "oci://ghcr.io/envpilot/envpilot" --version "$PREVIOUS" --destination /tmp
+          helm pull "oci://ghcr.io/envplane/envplane" --version "$PREVIOUS" --destination /tmp
           args=()
           if [[ "$PREVIOUS" == *-main.* ]]; then
             args+=(--allow-legacy-without-manifest)
           fi
-          ./scripts/verify-umbrella-reinstall-compatibility.sh "${args[@]}" "/tmp/envpilot-${PREVIOUS}.tgz"
+          ./scripts/verify-umbrella-reinstall-compatibility.sh "${args[@]}" "/tmp/envplane-${PREVIOUS}.tgz"
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
-          gh release create "envpilot-v$VERSION" \
+          gh release create "envplane-v$VERSION" \
             "${{ steps.push.outputs.package }}" \
-            deploy/helm/envpilot/compatibility/release.json \
-            --repo envpilot/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
-            --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"
+            deploy/helm/envplane/compatibility/release.json \
+            --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
+            --notes "OCI chart: oci://ghcr.io/envplane/envplane:$VERSION\nDigest: $DIGEST"

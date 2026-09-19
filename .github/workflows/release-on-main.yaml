@@ -1,4 +1,4 @@
-name: Publish latest compatible EnvPilot umbrella release
+name: Publish latest compatible EnvPlane umbrella release
 
 on:
   workflow_run:
@@ -19,7 +19,7 @@ permissions:
   attestations: write
 
 concurrency:
-  group: envpilot-umbrella-main-release
+  group: envplane-umbrella-main-release
   cancel-in-progress: false
 
 jobs:
@@ -30,23 +30,35 @@ jobs:
        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Download confirmed compatibility manifest
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: envpilot-compatible-artifacts
+          name: envplane-compatible-artifacts
           path: ${{ runner.temp }}/confirmed-artifacts
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.artifact_run_id }}
+      - name: Refresh compatibility manifest to current deploy main
+        env:
+          REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
+          GITHUB_TOKEN: ${{ github.token }}
+          WORKFLOW_RUN_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+        run: |
+          set -euo pipefail
+          current_main="${WORKFLOW_RUN_SHA:-$(git ls-remote origin refs/heads/main | awk '{print $1}')}"
+          ./scripts/resolve-compatible-manifest.sh \
+            --report "$REPORT" \
+            --main-revision "$current_main"
       - name: Ensure selected compatibility set is current deploy main
         env:
           REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
+          WORKFLOW_RUN_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
         run: |
           set -euo pipefail
-          main_revision="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          main_revision="${WORKFLOW_RUN_SHA:-$(git ls-remote origin refs/heads/main | awk '{print $1}')}"
           ./scripts/ensure-current-compatible-artifact.sh \
             --report "$REPORT" --main-revision "$main_revision"
       - name: Select the artifact source revision
@@ -58,7 +70,7 @@ jobs:
           test -s "$REPORT"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
-             (.images | length == 6) and (.charts | length == 5) and
+             (.images | length == 6) and (.charts | length == 6) and
              all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
                (.digest | test("^sha256:[0-9a-f]{64}$")) and
                (.sourceRevision | test("^[0-9a-f]{40}$")))' \
@@ -68,28 +80,105 @@ jobs:
           git checkout --detach "$source_revision"
           echo "report=$REPORT" >> "$GITHUB_OUTPUT"
           echo "revision=$source_revision" >> "$GITHUB_OUTPUT"
-      - uses: azure/setup-helm@v4
-      - uses: oras-project/setup-oras@v1
-      - uses: sigstore/cosign-installer@v3
-      - uses: docker/setup-buildx-action@v4
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: v3.21.3
+      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Authenticate to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || github.token }}
+          password: ${{ github.token }}
       - name: Authenticate Helm to GHCR
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
+          GHCR_TOKEN: ${{ github.token }}
+          GITHUB_ACTOR: ${{ github.actor }}
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
       - name: Authenticate ORAS to GHCR
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
+          GHCR_TOKEN: ${{ github.token }}
+          GITHUB_ACTOR: ${{ github.actor }}
         run: echo "$GHCR_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
       - name: Verify canonical chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
       - name: Verify automatic release workflow contract
         run: ./scripts/tests/release-on-main-contract.sh
+      - id: source_read_auth
+        name: Select compatible source checkout authentication
+        env:
+          CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          APP_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPLANE_AUTOMATION_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$CLIENT_ID" && -n "$APP_KEY" ]]; then
+            echo "method=app" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$PAT" ]]; then
+            echo "method=pat" >> "$GITHUB_OUTPUT"
+          else
+            echo "compatible source checkout requires ENVPLANE_AUTOMATION_APP_* or ENVPLANE_AUTOMATION_PAT" >&2
+            exit 1
+          fi
+      - id: source_read_app
+        name: Mint compatible source checkout token
+        if: steps.source_read_auth.outputs.method == 'app'
+        env:
+          ENVPLANE_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          ENVPLANE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          GH_APP_OWNER: ${{ github.repository_owner }}
+          GH_APP_REPOSITORY: deploy
+          GH_APP_TOKEN_PERMISSIONS: '{"contents":"read"}'
+        run: ./scripts/obtain-github-app-token.sh
+      - name: Select Secret materialization lifecycle gate source
+        id: secret_lifecycle
+        env:
+          REPORT: ${{ steps.source.outputs.report }}
+        run: |
+          set -euo pipefail
+          revision="$(jq -er '.images.agent.sourceRevision' "$REPORT")"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "agent_revision=$revision" >> "$GITHUB_OUTPUT"
+      - name: Checkout release-compatible Agent source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: EnvPlane/agent
+          ref: ${{ steps.secret_lifecycle.outputs.agent_revision }}
+          path: release-gate-agent
+          token: ${{ steps.source_read_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
+      - name: Select release-compatible frontend source
+        id: first_run_browser
+        env:
+          REPORT: ${{ steps.source.outputs.report }}
+        run: |
+          set -euo pipefail
+          revision="$(jq -er '.images.frontend.sourceRevision' "$REPORT")"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+      - name: Checkout release-compatible frontend source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: EnvPlane/frontend
+          ref: ${{ steps.first_run_browser.outputs.revision }}
+          path: release-gate-frontend
+          token: ${{ steps.source_read_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
+      - name: Install release-compatible frontend browser dependencies
+        working-directory: release-gate-frontend
+        run: |
+          npm ci
+          npx --no-install playwright install --with-deps chromium
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: release-gate-agent/go.mod
+          cache-dependency-path: release-gate-agent/go.sum
+      - name: Run Secret materialization executor lifecycle gate
+        working-directory: release-gate-agent
+        run: |
+          set -euo pipefail
+          go mod edit -dropreplace=github.com/envplane/contracts
+          go test ./agent -run '^TestSecretMaterializationReleaseGate$' -count=1
       - name: Verify confirmed immutable artifacts
         id: artifacts
         run: |
@@ -98,7 +187,7 @@ jobs:
           test -s "$report"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
-             (.images | length == 6) and (.charts | length == 5) and
+             (.images | length == 6) and (.charts | length == 6) and
              all(.images[]; (.tag | test("^sha-[0-9a-f]{40}$")) and
                (.digest | test("^sha256:[0-9a-f]{64}$"))) and
              all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
@@ -113,7 +202,8 @@ jobs:
         run: |
           set -euo pipefail
           ./scripts/verify-frontend-component-repair-controls.sh \
-            --image "$(jq -er '.images.frontend.repository + "@" + .images.frontend.digest' "$REPORT")"
+            --image "$(jq -er '.images.frontend.repository + ":" + .images.frontend.tag' "$REPORT")" \
+            --digest "$(jq -er '.images.frontend.digest' "$REPORT")"
       - name: Apply latest image pins in the ephemeral release workspace
         env:
           REPORT: ${{ steps.artifacts.outputs.report }}
@@ -141,7 +231,7 @@ jobs:
           REPORT: ${{ steps.artifacts.outputs.report }}
         run: |
           set -euo pipefail
-          for mapping in controlPlane:control-plane frontend:frontend agent:agent runner:runner webhook:webhook; do
+          for mapping in controlPlane:control-plane frontend:frontend agent:agent runner:runner webhook:webhook e2eWorkload:e2e-workload; do
             report_component="${mapping%%:*}"
             component="${mapping##*:}"
             ./scripts/update-umbrella-chart-dependency.sh \
@@ -152,33 +242,44 @@ jobs:
           # published release resolves the exact selected OCI archives so its
           # vendored dependencies cannot drift from the compatibility report.
           sed -i.bak \
-            -e 's#repository: file://../envpilot-control-plane#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-frontend#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-agent#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-runner#repository: oci://ghcr.io/envpilot#' \
-            -e 's#repository: file://../envpilot-webhook#repository: oci://ghcr.io/envpilot#' \
-            deploy/helm/envpilot/Chart.yaml
-          rm -f deploy/helm/envpilot/Chart.yaml.bak
-          rm -f deploy/helm/envpilot/Chart.lock deploy/helm/envpilot/charts/*.tgz
-          helm dependency build --skip-refresh deploy/helm/envpilot
+            -e 's#repository: file://../envplane-control-plane#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-frontend#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-agent#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-runner#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-webhook#repository: oci://ghcr.io/envplane#' \
+            -e 's#repository: file://../envplane-e2e-workload#repository: oci://ghcr.io/envplane#' \
+            deploy/helm/envplane/Chart.yaml
+          rm -f deploy/helm/envplane/Chart.yaml.bak
+          rm -f deploy/helm/envplane/Chart.lock deploy/helm/envplane/charts/*.tgz
+          helm dependency build --skip-refresh deploy/helm/envplane
       - name: Bump umbrella patch version in the build workspace
         id: version
         env:
           REPORT: ${{ steps.artifacts.outputs.report }}
         run: |
           set -euo pipefail
-          current="$(awk '/^version:/{print $2; exit}' deploy/helm/envpilot/Chart.yaml)"
+          current="$(awk '/^version:/{print $2; exit}' deploy/helm/envplane/Chart.yaml)"
           previous="$(jq -er '.previousUmbrellaVersion' "$REPORT")"
-          base="$(printf '%s\n' "$current" "$previous" | sort -V | tail -n1)"
-          IFS=. read -r major minor patch <<< "$base"
-          version="$major.$minor.$((patch + 1))"
-          while ! ./scripts/check-oci-chart-version-available.sh \
-            --repository oci://ghcr.io/envpilot/envpilot --version "$version"; do
-            patch=$((patch + 1))
-            version="$major.$minor.$patch"
-          done
-          sed -i.bak -E "0,/^version: .*/s//version: $version/; 0,/^appVersion: .*/s//appVersion: \"$version\"/" deploy/helm/envpilot/Chart.yaml
-          rm -f deploy/helm/envpilot/Chart.yaml.bak
+          # Read the registry tag set once and derive the next patch directly.
+          # Probing versions one by one makes every release walk through all
+          # historical tags (and can issue hundreds of registry requests).
+          published="$(oras repo tags ghcr.io/envplane/envplane 2>/dev/null \
+            | awk '/^[0-9]+\.[0-9]+\.[0-9]+$/ {print}' \
+            | sort -V | tail -n1 || true)"
+          base="$(printf '%s\n' "$current" "$previous" "$published" | sort -V | tail -n1)"
+          # Start the new major-minor release line once, then keep patch
+          # increments within 0.4.x. This prevents stale 0.3.x tags from
+          # colliding with the current EnvPlane release line.
+          minimum="0.4.0"
+          if [[ "$(printf '%s\n' "$base" "$minimum" | sort -V | tail -n1)" == "$minimum" && "$base" != "$minimum" ]]; then
+            version="$minimum"
+          else
+            IFS=. read -r major minor patch <<< "$base"
+            version="$major.$minor.$((patch + 1))"
+          fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          sed -i.bak -E "0,/^version: .*/s//version: $version/; 0,/^appVersion: .*/s//appVersion: \"$version\"/" deploy/helm/envplane/Chart.yaml
+          rm -f deploy/helm/envplane/Chart.yaml.bak
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "previous=$previous" >> "$GITHUB_OUTPUT"
       - name: Generate immutable compatibility manifest
@@ -190,22 +291,42 @@ jobs:
           ./scripts/generate-umbrella-compatibility-manifest.sh \
             --version "$VERSION" --source-revision "${{ steps.source.outputs.revision }}" \
             --artifact-report "$REPORT" \
-            --output deploy/helm/envpilot/compatibility/release.json
+            --output deploy/helm/envplane/compatibility/release.json
           jq -e --arg version "$VERSION" \
-            '.umbrella.version == $version and (.images | length == 6) and (.childCharts | length == 5) and
+            '.umbrella.version == $version and (.images | length == 6) and (.childCharts | length == 6) and
              all(.childCharts[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and
                (.sourceRevision | test("^[0-9a-f]{40}$")))' \
-            deploy/helm/envpilot/compatibility/release.json >/dev/null
+            deploy/helm/envplane/compatibility/release.json >/dev/null
+      - name: Select deploy Go toolchain for umbrella validation
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
       - name: Validate and package the complete umbrella
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          go test ./deploy/helm/envpilot/tests
-          helm lint deploy/helm/envpilot
-          helm template envpilot deploy/helm/envpilot >/dev/null
+          go test ./deploy/helm/envplane/tests
+          helm lint deploy/helm/envplane
+          # This is a structural release check, not an installation. Supply
+          # disposable values for credentials that remain required at runtime.
+          helm template envplane deploy/helm/envplane \
+            --set-string envplane-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envplane-control-plane.postgres.tls.enabled=false \
+            >/dev/null
           mkdir -p dist
-          helm package deploy/helm/envpilot --destination dist --version "$VERSION" --app-version "$VERSION"
+          helm package deploy/helm/envplane --destination dist --version "$VERSION" --app-version "$VERSION"
+      - name: Run disposable private-registry Secret materialization release gate
+        env:
+          ENVPLANE_SM09_CHART: dist/envplane-${{ steps.version.outputs.version }}.tgz
+          ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE: "1"
+          ENVPLANE_SM09_FRONTEND_DIR: ${{ github.workspace }}/release-gate-frontend
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/kind" https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64
+          install -m 0755 "$RUNNER_TEMP/kind" /usr/local/bin/kind
+          ./scripts/private-registry-secret-materialization-e2e.sh
       - name: Generate JSON attestation predicate
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -213,7 +334,7 @@ jobs:
           set -euo pipefail
           jq -n --arg version "$VERSION" \
             --arg sourceRevision "$GITHUB_SHA" \
-            --slurpfile compatibility deploy/helm/envpilot/compatibility/release.json \
+            --slurpfile compatibility deploy/helm/envplane/compatibility/release.json \
             '{schemaVersion:1,releaseVersion:$version,sourceRevision:$sourceRevision,compatibility:$compatibility[0]}' \
             > "$RUNNER_TEMP/compatibility-predicate.json"
           jq -e 'has("schemaVersion") and has("compatibility")' "$RUNNER_TEMP/compatibility-predicate.json" >/dev/null
@@ -223,7 +344,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          output="$(helm push "dist/envpilot-$VERSION.tgz" oci://ghcr.io/envpilot 2>&1 | tee /dev/stderr)"
+          output="$(helm push "dist/envplane-$VERSION.tgz" oci://ghcr.io/envplane 2>&1 | tee /dev/stderr)"
           digest="$(awk '/^Digest:/{print $2; exit}' <<< "$output")"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "umbrella push did not return an immutable digest" >&2; exit 1; }
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
@@ -233,18 +354,40 @@ jobs:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           set -euo pipefail
-          ref="ghcr.io/envpilot/envpilot@$DIGEST"
+          ref="ghcr.io/envplane/envplane@$DIGEST"
           cosign sign --yes "$ref"
           cosign attest --yes --predicate "$RUNNER_TEMP/compatibility-predicate.json" \
-            --type https://envpilot.dev/compatibility/v1 "$ref"
+            --type https://envplane.dev/compatibility/v1 "$ref"
+      - name: Generate and sign public stable release index
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          ./scripts/generate-public-release-index.sh \
+            --version "$VERSION" --digest "$DIGEST" \
+            --source-revision "$GITHUB_SHA" \
+            --output "dist/envplane-$VERSION-release-index.json"
+          cosign sign-blob --yes \
+            --bundle "dist/envplane-$VERSION-release-index.sigstore.json" \
+            "dist/envplane-$VERSION-release-index.json"
+      - name: Verify anonymous OCI pulls for the complete release
+        run: |
+          set -euo pipefail
+          ./scripts/verify-anonymous-oci-artifacts.sh \
+            --manifest deploy/helm/envplane/compatibility/release.json
       - name: Verify predecessor compatibility set
         env:
           PREVIOUS: ${{ steps.version.outputs.previous }}
         run: |
           set -euo pipefail
-          helm pull "oci://ghcr.io/envpilot/envpilot" --version "$PREVIOUS" --destination "$RUNNER_TEMP"
+          if [[ "$PREVIOUS" == "0.0.0" ]]; then
+            echo "no predecessor umbrella exists; skipping initial-release reinstall check"
+            exit 0
+          fi
+          helm pull "oci://ghcr.io/envplane/envplane" --version "$PREVIOUS" --destination "$RUNNER_TEMP"
           ./scripts/verify-umbrella-reinstall-compatibility.sh \
-            "$RUNNER_TEMP/envpilot-$PREVIOUS.tgz"
+            "$RUNNER_TEMP/envplane-$PREVIOUS.tgz"
       - name: Publish GitHub Release and machine-readable metadata
         env:
           GH_TOKEN: ${{ github.token }}
@@ -253,13 +396,61 @@ jobs:
         run: |
           set -euo pipefail
           jq -n --arg version "$VERSION" --arg digest "$DIGEST" \
-            --arg chart "oci://ghcr.io/envpilot/envpilot:$VERSION" \
-            --slurpfile compatibility deploy/helm/envpilot/compatibility/release.json \
+            --arg chart "oci://ghcr.io/envplane/envplane:$VERSION" \
+            --slurpfile compatibility deploy/helm/envplane/compatibility/release.json \
             '{schemaVersion:1,chart:$chart,version:$version,digest:$digest,compatibility:$compatibility[0]}' \
-            > "dist/envpilot-$VERSION-release.json"
-          gh release create "envpilot-v$VERSION" \
-            "dist/envpilot-$VERSION.tgz" \
-            deploy/helm/envpilot/compatibility/release.json \
-            "dist/envpilot-$VERSION-release.json" \
-            --repo envpilot/deploy --title "EnvPilot umbrella $VERSION" --generate-notes \
-            --notes "OCI chart: oci://ghcr.io/envpilot/envpilot:$VERSION\nDigest: $DIGEST"
+            > "dist/envplane-$VERSION-release.json"
+          tag="envplane-v$VERSION"
+          assets=(
+            "dist/envplane-$VERSION.tgz"
+            "deploy/helm/envplane/compatibility/release.json"
+            "dist/envplane-$VERSION-release.json"
+            "dist/envplane-$VERSION-release-index.json"
+            "dist/envplane-$VERSION-release-index.sigstore.json"
+          )
+          publish_release_assets() {
+            if gh release view "$tag" --repo EnvPlane/deploy >/dev/null 2>&1; then
+              gh release upload "$tag" "${assets[@]}" --repo EnvPlane/deploy --clobber
+            else
+              gh release create "$tag" "${assets[@]}" \
+                --repo EnvPlane/deploy --title "EnvPlane umbrella $VERSION" --generate-notes \
+                --notes "OCI chart: oci://ghcr.io/envplane/envplane:$VERSION\nDigest: $DIGEST"
+            fi
+          }
+
+          output="$(mktemp)"
+          trap 'rm -f "$output"' EXIT
+          for attempt in 1 2 3; do
+            if publish_release_assets >"$output" 2>&1; then
+              cat "$output"
+              exit 0
+            fi
+            cat "$output" >&2
+            if ! grep -Eq 'HTTP (429|5[0-9]{2})|[Tt]imeout|[Tt]emporar|connection reset|EOF' "$output" || [[ "$attempt" == 3 ]]; then
+              exit 1
+            fi
+            delay=$((attempt * 5))
+            echo "GitHub release asset upload failed transiently; retrying in ${delay}s (attempt $((attempt + 1))/3)." >&2
+            sleep "$delay"
+          done
+      - name: Update stable installation documentation
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          docs_tree="$RUNNER_TEMP/install-docs"
+          git fetch origin main
+          git worktree add --detach "$docs_tree" origin/main
+          mkdir -p "$docs_tree/docs/generated"
+          cp "dist/envplane-$VERSION-release-index.json" \
+            "$docs_tree/docs/generated/stable-release-index.json"
+          "$docs_tree/scripts/render-install-docs-from-release-index.sh"
+          git -C "$docs_tree" config user.name "envplane-release-bot"
+          git -C "$docs_tree" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$docs_tree" add README.md docs/installation.md docs/generated/stable-release-index.json
+          if git -C "$docs_tree" diff --cached --quiet; then
+            echo "stable installation documentation is already current"
+            exit 0
+          fi
+          git -C "$docs_tree" commit -m "Update stable installation documentation to $VERSION"
+          git -C "$docs_tree" push origin HEAD:refs/heads/main

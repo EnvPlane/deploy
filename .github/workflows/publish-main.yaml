@@ -9,17 +9,27 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'scripts/publish-selected-child-charts.sh'
+      - 'scripts/verify-changed-child-chart-versions.sh'
+      - 'scripts/tests/test-verify-changed-child-chart-versions.sh'
       - 'scripts/resolve-latest-published-artifacts.sh'
       - 'scripts/ensure-current-compatible-artifact.sh'
       - 'scripts/verify-frontend-component-repair-controls.sh'
+      - 'scripts/update-runtime-image-values.sh'
       - 'scripts/generate-umbrella-compatibility-manifest.sh'
+      - 'scripts/update-umbrella-chart-dependency.sh'
+      - 'scripts/test-umbrella-chart-dependency-update.sh'
       - 'scripts/verify-umbrella-reinstall-compatibility.sh'
+      - 'scripts/verify-anonymous-oci-artifacts.sh'
+      - 'scripts/envplane-install-preflight.sh'
+      - 'scripts/tests/install-command-contract.sh'
       - 'scripts/tests/test-publish-selected-child-charts.sh'
       - 'scripts/tests/test-generate-umbrella-compatibility-manifest.sh'
       - 'scripts/tests/release-on-main-contract.sh'
+      - 'scripts/private-registry-secret-materialization-e2e.sh'
       - 'scripts/tests/test-current-compatible-artifact.sh'
-      - 'deploy/helm/envpilot/values.yaml'
-      - 'deploy/helm/envpilot/Chart.yaml'
+      - 'scripts/tests/platform-reconciler-publication-contract.sh'
+      - 'deploy/helm/envplane/values.yaml'
+      - 'deploy/helm/envplane/Chart.yaml'
       - '.github/workflows/publish-main.yaml'
       - '.github/workflows/release-on-main.yaml'
   workflow_dispatch:
@@ -37,36 +47,70 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      # The immutable child-chart guard compares the pushed range, including
+      # github.event.before. Keep its base revision available in the runner.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          go-version-file: go.mod
-          cache: true
+          fetch-depth: 0
+      - name: Ensure go toolchain
+        run: |
+          GO_VERSION_FILE="go.mod" \
+          GO_MIN_VERSION="1.26.0" \
+          ./scripts/ensure-go.sh
+      - name: Select module Go toolchain
+        run: echo "GOTOOLCHAIN=go$(awk '/^go[[:space:]]/ {print $2; exit}' go.mod)" >> "$GITHUB_ENV"
+      - name: Cache Go modules, build cache and Helm cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/helm
+            ~/.config/helm
+          key: deploy-publish-main-cache-v2-${{ runner.os }}-${{ hashFiles('go.sum', 'deploy/helm/**/Chart.lock', 'deploy/helm/**/Chart.yaml') }}
+          restore-keys: |
+            deploy-publish-main-cache-v2-${{ runner.os }}-
       - name: Authenticate Docker to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
       - name: Test deploy tooling
         run: |
           go test ./...
           ./scripts/tests/test-current-compatible-artifact.sh
+          ./scripts/tests/platform-reconciler-publication-contract.sh
           ./scripts/tests/test-publish-selected-child-charts.sh
           ./scripts/tests/test-generate-umbrella-compatibility-manifest.sh
-      - uses: azure/setup-helm@v4
-      - uses: oras-project/setup-oras@v1
-      - uses: sigstore/cosign-installer@v3
+          ./scripts/tests/test-verify-changed-child-chart-versions.sh
+          ./scripts/tests/install-command-contract.sh
+          ./scripts/test-umbrella-chart-dependency-update.sh
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d # v2
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Authenticate to GHCR
         run: echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ github.token }}
+          GITHUB_ACTOR: ${{ github.actor }}
       - name: Authenticate ORAS to GHCR
         run: echo "$GHCR_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ github.token }}
+          GITHUB_ACTOR: ${{ github.actor }}
       - name: Verify canonical Helm chart sources
         run: ./scripts/check-canonical-chart-sources.sh --deploy "$GITHUB_WORKSPACE"
+      - name: Require a new version for changed child chart sources
+        env:
+          BASE_REVISION: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base="$BASE_REVISION"
+          if [[ ! "$base" =~ ^[0-9a-f]{40}$ ]] || [[ "$base" =~ ^0+$ ]]; then
+            base="$(git rev-parse HEAD^)"
+          fi
+          ./scripts/verify-changed-child-chart-versions.sh --base "$base" --head "$GITHUB_SHA"
       - name: Verify remote-cluster credential RBAC contract
         run: ./scripts/tests/remote-cluster-credential-contract.sh
       - name: Verify published remote-cluster lifecycle contract
@@ -84,33 +128,34 @@ jobs:
           done
       - name: Publish selected stable child charts
         # Artifact references are a public, lowercase registry contract.
-        # They remain ghcr.io/envpilot across GitHub repository-owner moves.
+        # They remain ghcr.io/EnvPlane across GitHub repository-owner moves.
         shell: bash
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           scripts/publish-selected-child-charts.sh \
-            --umbrella-chart deploy/helm/envpilot/Chart.yaml \
+            --umbrella-chart deploy/helm/envplane/Chart.yaml \
             --charts-dir deploy/helm \
             --dist dist \
             --output "$RUNNER_TEMP/selected-child-charts.json" \
-            --owner 'envpilot' \
+            --owner 'envplane' \
             --source-revision "$GITHUB_SHA"
       - name: Resolve and verify the published compatibility set
         env:
           GH_TOKEN: ${{ github.token }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           ./scripts/resolve-latest-published-artifacts.sh \
-            --values-file deploy/helm/envpilot/values.yaml \
-            --chart-file deploy/helm/envpilot/Chart.yaml \
+            --values-file deploy/helm/envplane/values.yaml \
+            --chart-file deploy/helm/envplane/Chart.yaml \
             --selected-child-charts "$RUNNER_TEMP/selected-child-charts.json" \
+            --owner envplane \
             --output "$RUNNER_TEMP/latest-artifacts.json"
           jq -e \
             '.schemaVersion == 1 and (.sourceRevision | test("^[0-9a-f]{40}$")) and
-             (.images | length == 6) and (.charts | length == 5) and
+             (.images | length == 6) and (.charts | length == 6) and
              all(.images[]; (.tag | test("^sha-[0-9a-f]{40}$")) and
                (.digest | test("^sha256:[0-9a-f]{64}$"))) and
              all(.charts[]; (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and
@@ -118,9 +163,9 @@ jobs:
                (.sourceRevision | test("^[0-9a-f]{40}$")))' \
             "$RUNNER_TEMP/latest-artifacts.json" >/dev/null
       - name: Upload confirmed compatibility manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: envpilot-compatible-artifacts
+          name: envplane-compatible-artifacts
           path: ${{ runner.temp }}/latest-artifacts.json
           if-no-files-found: error
           retention-days: 14

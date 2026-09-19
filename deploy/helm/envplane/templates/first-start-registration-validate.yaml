@@ -1,0 +1,16 @@
+{{- $global := default (dict) .Values.global -}}
+{{- $envplane := include "envplane.globalConfig" . | fromJson -}}
+{{- $registration := default (dict) (get $envplane "firstStartRegistration") -}}
+{{- $mode := default "disabled" $registration.mode -}}
+{{- if and (ne $mode "disabled") (or (not .Values.agent.enabled) (not .Values.runner.enabled)) -}}
+{{- fail "global.envplane.firstStartRegistration requires agent.enabled=true and runner.enabled=true in the same umbrella release" -}}
+{{- end -}}
+{{- $fixture := default (dict) (get $envplane "e2eFixture") -}}
+{{- if and $fixture.enabled (eq $mode "disabled") -}}
+{{- fail "global.envplane.e2eFixture requires managed or existing firstStartRegistration" -}}
+{{- end -}}
+{{- if $fixture.enabled -}}
+{{- $_fixtureChartRef := required "global.envplane.e2eFixture.chartRef is required when the E2E fixture is enabled" $fixture.chartRef -}}
+{{- $_fixtureBaseNamespace := required "global.envplane.e2eFixture.baseNamespace is required when the E2E fixture is enabled" $fixture.baseNamespace -}}
+{{- $_fixtureFeatureNamespace := required "global.envplane.e2eFixture.featureNamespace is required when the E2E fixture is enabled" $fixture.featureNamespace -}}
+{{- end -}}

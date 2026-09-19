@@ -1,0 +1,6 @@
+dependencies:
+- name: envplane-frontend
+  repository: file://../envplane-frontend
+  version: 0.2.1
+digest: sha256:bfaa87f6c1b0dc09bab6fac2272887a6d9d70c154b93fe3d22c5abf13411aa2b
+generated: "2026-08-20T10:57:35.792365+02:00"

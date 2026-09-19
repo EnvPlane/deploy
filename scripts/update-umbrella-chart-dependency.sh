@@ -2,8 +2,8 @@
 set -euo pipefail
 component=""
 version=""
-chart_file="deploy/helm/envpilot/Chart.yaml"
-values_file="deploy/helm/envpilot/values.yaml"
+chart_file="deploy/helm/envplane/Chart.yaml"
+values_file="deploy/helm/envplane/values.yaml"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --component) component="${2:-}"; shift 2 ;;
@@ -14,11 +14,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 case "$component" in
-  control-plane) dependency="envpilot-control-plane" ;;
-  frontend) dependency="envpilot-frontend" ;;
-  agent) dependency="envpilot-agent" ;;
-  runner) dependency="envpilot-runner" ;;
-  webhook) dependency="envpilot-webhook" ;;
+  control-plane) dependency="envplane-control-plane" ;;
+  frontend) dependency="envplane-frontend" ;;
+  agent) dependency="envplane-agent" ;;
+  runner) dependency="envplane-runner" ;;
+  webhook) dependency="envplane-webhook" ;;
+  e2e-workload) dependency="envplane-e2e-workload" ;;
   *) echo "unsupported component: $component" >&2; exit 2 ;;
 esac
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || { echo "invalid chart version" >&2; exit 2; }
@@ -46,6 +47,22 @@ if [[ "$component" == "agent" ]]; then
     { print }
     END { if (!version_found) exit 3 }
   ' "$values_file" > "$values_tmp" || { echo "agentBootstrap.chart.version field not found" >&2; exit 1; }
+  mv "$values_tmp" "$values_file"
+  trap - EXIT
+fi
+if [[ "$component" == "e2e-workload" ]]; then
+  [[ -f "$values_file" ]] || { echo "values.yaml not found: $values_file" >&2; exit 2; }
+  values_tmp="$(mktemp "${values_file}.XXXXXX")"
+  trap 'rm -f "$values_tmp"' EXIT
+  awk -v version="$version" '
+    $0 == "    bootstrapDefaults:" { in_defaults=1 }
+    in_defaults && $0 ~ /^    [^[:space:]]/ && $0 != "    bootstrapDefaults:" { in_defaults=0 }
+    in_defaults && $0 == "      helmDirect:" { in_helm_direct=1 }
+    in_helm_direct && $0 ~ /^      [^[:space:]]/ && $0 != "      helmDirect:" { in_helm_direct=0 }
+    in_helm_direct && $0 ~ /^        chartVersion:/ { print "        chartVersion: \"" version "\""; version_found=1; next }
+    { print }
+    END { if (!version_found) exit 3 }
+  ' "$values_file" > "$values_tmp" || { echo "bootstrapDefaults.helmDirect.chartVersion field not found" >&2; exit 1; }
   mv "$values_tmp" "$values_file"
   trap - EXIT
 fi

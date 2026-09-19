@@ -15,13 +15,15 @@ usage: resolve-latest-published-artifacts.sh --output <file> \
   [--owner <owner>]
 
 Requires Docker/Buildx and Helm registry authentication for artifact checks.
-ENVPILOT_ARTIFACT_WAIT_ATTEMPTS and ENVPILOT_ARTIFACT_WAIT_SECONDS tune the
-bounded wait for an image/chart publication still in progress.
+ENVPLANE_ARTIFACT_WAIT_ATTEMPTS and ENVPLANE_ARTIFACT_WAIT_SECONDS tune the
+bounded wait for an image/chart publication still in progress. The defaults
+are intentionally short so a missing immutable artifact fails the workflow
+promptly rather than holding a runner for many minutes.
 EOF
   exit 2
 }
 
-owner="envpilot"
+owner="EnvPlane"
 output=""
 values_file=""
 chart_file=""
@@ -51,8 +53,8 @@ command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
 command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
 command -v oras >/dev/null || { echo "oras is required" >&2; exit 1; }
 
-wait_attempts="${ENVPILOT_ARTIFACT_WAIT_ATTEMPTS:-30}"
-wait_seconds="${ENVPILOT_ARTIFACT_WAIT_SECONDS:-20}"
+wait_attempts="${ENVPLANE_ARTIFACT_WAIT_ATTEMPTS:-6}"
+wait_seconds="${ENVPLANE_ARTIFACT_WAIT_SECONDS:-10}"
 [[ "$wait_attempts" =~ ^[1-9][0-9]*$ && "$wait_seconds" =~ ^[0-9]+$ ]] || {
   echo "artifact wait settings must be positive integers" >&2; exit 2;
 }
@@ -75,7 +77,8 @@ read_image_field() {
 
 verify_image() {
   local component="$1" repository="$2" tag="$3" expected_digest="$4" revision="$5"
-  [[ "$repository" =~ ^ghcr\.io/envpilot/[a-z0-9-]+$ ]] || { echo "$component has invalid repository" >&2; exit 1; }
+  repository="${repository,,}"
+  [[ "$repository" =~ ^ghcr\.io/envplane/[a-z0-9-]+$ ]] || { echo "$component has invalid repository" >&2; exit 1; }
   [[ "$tag" == "sha-$revision" && "$revision" =~ ^[0-9a-f]{40}$ ]] || {
     echo "$component tag/sourceRevision mismatch" >&2; exit 1;
   }
@@ -108,6 +111,21 @@ image_json() {
   [[ -n "$repository" && -n "$tag" && -n "$digest" && -n "$revision" ]] || {
     echo "incomplete pinned image block for $component" >&2; exit 1;
   }
+  repository="${repository,,}"
+  if [[ "$section" == "platformDependencyReconciler" ]] &&
+     awk '$0 == "platformDependencyReconciler:" {in_section=1; next}
+          in_section && $0 ~ /^[^[:space:]]/ {exit}
+          in_section && $0 == "  enabled: false" {found=1}
+          END {exit(found ? 0 : 1)}' "$values_file"; then
+    [[ "$repository" =~ ^ghcr\.io/envplane/[a-z0-9-]+$ && "$tag" =~ ^sha-[0-9a-f]{40}$ &&
+       "$digest" =~ ^sha256:[0-9a-f]{64}$ && "$revision" =~ ^[0-9a-f]{40}$ ]] || {
+      echo "$component has invalid disabled image metadata" >&2; exit 1;
+    }
+    jq -cn --arg repository "$repository" --arg tag "$tag" --arg digest "$digest" \
+      --arg sourceRevision "$revision" \
+      '{repository:$repository,tag:$tag,digest:$digest,sourceRevision:$sourceRevision}'
+    return 0
+  fi
   verify_image "$component" "$repository" "$tag" "$digest" "$revision"
 }
 
@@ -164,14 +182,18 @@ latest_published_umbrella() {
   IFS=. read -r major minor patch <<< "$candidate"
   for _ in $(seq 1 50); do
     candidate="$major.$minor.$patch"
-    if helm show chart "oci://ghcr.io/$owner/envpilot:$candidate" >/dev/null 2>&1; then found=true; break; fi
+    if helm show chart "oci://ghcr.io/$owner/envplane:$candidate" >/dev/null 2>&1; then found=true; break; fi
     (( patch > 0 )) || break
     patch=$((patch - 1))
   done
-  [[ "$found" == true ]] || { echo "no published umbrella chart found near $1" >&2; exit 1; }
+  if [[ "$found" != true ]]; then
+    echo "no published umbrella chart found near $1; treating this as the initial release" >&2
+    printf '0.0.0'
+    return 0
+  fi
   for _ in $(seq 1 50); do
     next="$major.$minor.$((patch + 1))"
-    if helm show chart "oci://ghcr.io/$owner/envpilot:$next" >/dev/null 2>&1; then patch=$((patch + 1)); else break; fi
+    if helm show chart "oci://ghcr.io/$owner/envplane:$next" >/dev/null 2>&1; then patch=$((patch + 1)); else break; fi
   done
   printf '%s.%s.%s' "$major" "$minor" "$patch"
 }
@@ -181,26 +203,34 @@ source_revision="${GITHUB_SHA:-}"
 [[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] || { echo "source revision is unavailable" >&2; exit 1; }
 umbrella_version="$(awk '/^version:/{print $2; exit}' "$chart_file")"
 previous_umbrella="$(latest_published_umbrella "$umbrella_version")"
+control_plane_image="$(image_json envplane-control-plane control-plane)" || exit 1
+frontend_image="$(image_json envplane-frontend frontend)" || exit 1
+agent_image="$(image_json envplane-agent agent)" || exit 1
+runner_image="$(image_json envplane-runner runner)" || exit 1
+webhook_image="$(image_json envplane-webhook webhook)" || exit 1
+platform_reconciler_image="$(image_json platformDependencyReconciler platform-reconciler)" || exit 1
 images="$(jq -cn \
-  --argjson controlPlane "$(image_json envpilot-control-plane control-plane)" \
-  --argjson frontend "$(image_json envpilot-frontend frontend)" \
-  --argjson agent "$(image_json envpilot-agent agent)" \
-  --argjson runner "$(image_json envpilot-runner runner)" \
-  --argjson webhook "$(image_json envpilot-webhook webhook)" \
-  --argjson platformReconciler "$(image_json platformDependencyReconciler platform-reconciler)" \
+  --argjson controlPlane "$control_plane_image" \
+  --argjson frontend "$frontend_image" \
+  --argjson agent "$agent_image" \
+  --argjson runner "$runner_image" \
+  --argjson webhook "$webhook_image" \
+  --argjson platformReconciler "$platform_reconciler_image" \
   '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook,platformReconciler:$platformReconciler}')"
-control_plane_chart="$(chart_json envpilot-control-plane envpilot-control-plane)"
-frontend_chart="$(chart_json envpilot-frontend envpilot-frontend)"
-agent_chart="$(chart_json envpilot-agent envpilot-agent)"
-runner_chart="$(chart_json envpilot-runner envpilot-runner)"
-webhook_chart="$(chart_json envpilot-webhook envpilot-webhook)"
+control_plane_chart="$(chart_json envplane-control-plane envplane-control-plane)"
+frontend_chart="$(chart_json envplane-frontend envplane-frontend)"
+agent_chart="$(chart_json envplane-agent envplane-agent)"
+runner_chart="$(chart_json envplane-runner envplane-runner)"
+webhook_chart="$(chart_json envplane-webhook envplane-webhook)"
+e2e_workload_chart="$(chart_json envplane-e2e-workload envplane-e2e-workload)"
 charts="$(jq -cn \
   --argjson controlPlane "$control_plane_chart" \
   --argjson frontend "$frontend_chart" \
   --argjson agent "$agent_chart" \
   --argjson runner "$runner_chart" \
   --argjson webhook "$webhook_chart" \
-  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook}')"
+  --argjson e2eWorkload "$e2e_workload_chart" \
+  '{controlPlane:$controlPlane,frontend:$frontend,agent:$agent,runner:$runner,webhook:$webhook,e2eWorkload:$e2eWorkload}')"
 
 mkdir -p "$(dirname "$output")"
 jq -n --arg previousUmbrellaVersion "$previous_umbrella" \

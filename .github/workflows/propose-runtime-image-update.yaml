@@ -9,7 +9,7 @@ on:
         description: Runtime component
         required: true
         type: choice
-        options: [control-plane, frontend, agent, runner]
+        options: [control-plane, frontend, agent, runner, webhook, platform-reconciler]
       repository:
         description: Canonical GHCR repository
         required: true
@@ -59,21 +59,25 @@ jobs:
           SOURCE_REPOSITORY: ${{ github.event.client_payload.source_repository || inputs.source_repository }}
         run: |
           set -euo pipefail
-          case "$COMPONENT" in control-plane|frontend|agent|runner) ;; *) echo "invalid component" >&2; exit 1;; esac
+          source_repository_normalized="${SOURCE_REPOSITORY,,}"
+          repository_normalized="${REPOSITORY,,}"
+          case "$COMPONENT" in control-plane|frontend|agent|runner|webhook|platform-reconciler) ;; *) echo "invalid component" >&2; exit 1;; esac
           [[ "$TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "invalid immutable tag" >&2; exit 1; }
           [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "invalid digest" >&2; exit 1; }
           [[ "$SOURCE_REVISION" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source revision" >&2; exit 1; }
-          case "$COMPONENT:$SOURCE_REPOSITORY" in
-            control-plane:envpilot/control-plane|control-plane:EnvPlane/control-plane|frontend:envpilot/frontend|frontend:EnvPlane/frontend|agent:envpilot/agent|agent:EnvPlane/agent|runner:envpilot/runner|runner:EnvPlane/runner) ;;
+          case "$COMPONENT:$source_repository_normalized" in
+            control-plane:envplane/control-plane|frontend:envplane/frontend|agent:envplane/agent|runner:envplane/runner|webhook:envplane/webhook) ;;
+            platform-reconciler:envplane/deploy) ;;
             *) echo "source repository is not canonical for component" >&2; exit 1 ;;
           esac
-          case "$COMPONENT:$REPOSITORY" in
-            control-plane:ghcr.io/envpilot/api|frontend:ghcr.io/envpilot/frontend|agent:ghcr.io/envpilot/agent|runner:ghcr.io/envpilot/runner) ;;
+          case "$COMPONENT:$repository_normalized" in
+            control-plane:ghcr.io/envplane/api|frontend:ghcr.io/envplane/frontend|agent:ghcr.io/envplane/agent|runner:ghcr.io/envplane/runner|webhook:ghcr.io/envplane/webhook) ;;
+            platform-reconciler:ghcr.io/envplane/platform-reconciler) ;;
             *) echo "repository is not canonical for component" >&2; exit 1;;
           esac
           {
             echo "component=$COMPONENT"
-            echo "repository=$REPOSITORY"
+            echo "repository=$repository_normalized"
             echo "tag=$TAG"
             echo "digest=$DIGEST"
             echo "source_revision=$SOURCE_REVISION"
@@ -82,37 +86,43 @@ jobs:
       - id: auth_method
         name: Select deploy PR authentication
         env:
-          CLIENT_ID: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
-          APP_PRIVATE_KEY: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
-          FALLBACK_PAT: ${{ secrets.ENVPILOT_AUTOMATION_PAT }}
+          CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          FALLBACK_PAT: ${{ secrets.ENVPLANE_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
-          if [[ -n "$FALLBACK_PAT" ]]; then
-            echo "method=pat" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
+          if [[ -n "$CLIENT_ID" && -n "$APP_PRIVATE_KEY" ]]; then
             echo "method=app" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$FALLBACK_PAT" ]]; then
+            echo "method=pat" >> "$GITHUB_OUTPUT"
           else
             echo "Neither GitHub App credentials nor fallback PAT is configured." >&2
             exit 1
           fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 1
       - id: deploy_pr_app
         if: steps.auth_method.outputs.method == 'app'
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.ENVPILOT_AUTOMATION_APP_CLIENT_ID }}
-          private-key: ${{ secrets.ENVPILOT_AUTOMATION_APP_PRIVATE_KEY }}
-          owner: EnvPlane
-          repositories: deploy,frontend,control-plane,agent,runner
-          permission-contents: write
-          permission-pull-requests: write
-          permission-packages: read
+        run: ./scripts/obtain-github-app-token.sh
+        env:
+          ENVPLANE_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          ENVPLANE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          GH_APP_OWNER: EnvPlane
+          GH_APP_REPOSITORY: deploy
+          GH_APP_TOKEN_PERMISSIONS: '{"contents":"write","pull_requests":"write","packages":"read"}'
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Authenticate to GHCR with deploy workflow token
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
+          # Canonical packages remain under ghcr.io/EnvPlane after the
+          # repository-owner migration. Use the dedicated registry credential
+          # before the repository App token, which cannot access that package
+          # namespace. Digest verification below remains mandatory.
           password: ${{ github.token }}
       - name: Verify immutable GHCR artifact and digest
         env:
@@ -121,27 +131,28 @@ jobs:
           DIGEST: ${{ steps.payload.outputs.digest }}
         run: |
           set -euo pipefail
-          docker buildx imagetools inspect "$REPOSITORY:$TAG" | tee /tmp/image-inspect.txt
+          repository_normalized="${REPOSITORY,,}"
+          docker buildx imagetools inspect "$repository_normalized:$TAG" | tee /tmp/image-inspect.txt
           grep -Fq "$DIGEST" /tmp/image-inspect.txt || {
             echo "GHCR tag exists but does not resolve to the supplied digest" >&2
             exit 1
           }
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
           ref: main
           fetch-depth: 0
       - name: Restore the shared update branch
         env:
-          PUSH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          PUSH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
         run: |
           set -euo pipefail
           # The shared automation branch may need a merge commit before its
           # pending component pins can be refreshed. GitHub-hosted runners do
           # not provide a committer identity by default, so declare the
           # release bot explicitly before that merge.
-          git config user.name "envpilot-release-automation[bot]"
-          git config user.email "envpilot-release-automation[bot]@users.noreply.github.com"
+          git config user.name "envplane-release-automation[bot]"
+          git config user.email "envplane-release-automation[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/EnvPlane/deploy.git"
           git fetch origin main
           git checkout -B main origin/main
@@ -168,15 +179,22 @@ jobs:
         run: scripts/test-update-runtime-image-values.sh
       - name: Validate umbrella render
         run: |
-          helm dependency build --skip-refresh deploy/helm/envpilot
-          helm lint deploy/helm/envpilot
-          helm template envpilot deploy/helm/envpilot >/dev/null
-      - uses: peter-evans/create-pull-request@v7
+          helm dependency build --skip-refresh deploy/helm/envplane
+          helm lint deploy/helm/envplane
+          # The child chart intentionally requires a password and, when TLS
+          # is enabled, a CA Secret.  The proposal gate only validates chart
+          # structure; use disposable render-only values and keep runtime
+          # secret validation unchanged.
+          helm template envplane deploy/helm/envplane \
+            --set-string envplane-control-plane.postgres.auth.password=ci-render-only-password \
+            --set envplane-control-plane.postgres.tls.enabled=false \
+            >/dev/null
+      - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
         id: pull_request
         with:
-          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          token: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
           add-paths: |
-            deploy/helm/envpilot/values.yaml
+            deploy/helm/envplane/values.yaml
           base: main
           branch: automation/runtime-image-pins
           delete-branch: false
@@ -199,7 +217,7 @@ jobs:
       - name: Merge validated runtime image pin
         if: steps.pull_request.outputs.pull-request-number != ''
         env:
-          GH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPILOT_AUTOMATION_PAT }}
+          GH_TOKEN: ${{ steps.deploy_pr_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
           PR_NUMBER: ${{ steps.pull_request.outputs.pull-request-number }}
         run: |
           set -euo pipefail

@@ -6,44 +6,61 @@ apiContract:
     scmOfflineBootstrap: true
 runnerCommandAPI:
   version: "1"
-  requestHeader: X-EnvPilot-Runner-Command-API-Version
+  requestHeader: X-EnvPlane-Runner-Command-API-Version
 images:
-  api: ghcr.io/envpilot/api:0.1.6
-  frontend: ghcr.io/envpilot/frontend:0.1.5
-  agent: ghcr.io/envpilot/agent:sha-3e7e9f26ffcae4dbc3a0a352d8760a46d89c85aa
-  runner: ghcr.io/envpilot/runner:0.1.4
+  api: ghcr.io/envplane/api:0.1.6
+  frontend: ghcr.io/envplane/frontend:0.1.5
+  agent: ghcr.io/envplane/agent:sha-3e7e9f26ffcae4dbc3a0a352d8760a46d89c85aa
+  runner: ghcr.io/envplane/runner:0.1.4
 imagePins:
   api:
-    repository: ghcr.io/envpilot/api
+    repository: ghcr.io/envplane/api
     tag: ""
     digest: ""
     sourceRevision: ""
   frontend:
-    repository: ghcr.io/envpilot/frontend
+    repository: ghcr.io/envplane/frontend
     tag: ""
     digest: ""
     sourceRevision: ""
   agent:
-    repository: ghcr.io/envpilot/agent
+    repository: ghcr.io/envplane/agent
     tag: "sha-3e7e9f26ffcae4dbc3a0a352d8760a46d89c85aa"
     digest: "sha256:77de18aee07124dd313446c1080d05480c9808284642fc0bf7cfb1b2eecc7ef7"
     sourceRevision: "3e7e9f26ffcae4dbc3a0a352d8760a46d89c85aa"
   runner:
-    repository: ghcr.io/envpilot/runner
+    repository: ghcr.io/envplane/runner
     tag: ""
     digest: ""
     sourceRevision: ""
 charts:
-  umbrella: oci://ghcr.io/envpilot/envpilot:0.3.0
-  controlPlane: oci://ghcr.io/envpilot/envpilot-control-plane:0.3.0
-  frontend: oci://ghcr.io/envpilot/envpilot-frontend:0.2.0
-  agent: oci://ghcr.io/envpilot/envpilot-agent:0.2.0
-  runner: oci://ghcr.io/envpilot/envpilot-runner:0.3.0
+  umbrella: oci://ghcr.io/envplane/envplane:0.3.0
+  controlPlane: oci://ghcr.io/envplane/envplane-control-plane:0.3.0
+  frontend: oci://ghcr.io/envplane/envplane-frontend:0.2.0
+  agent: oci://ghcr.io/envplane/envplane-agent:0.2.0
+  runner: oci://ghcr.io/envplane/envplane-runner:0.3.0
 sameCluster:
-  namespace: envpilot
+  namespace: envplane
   agentRunnerDefault: disabled
   installerImage: absent
 valuesContract:
   providerNeutral: true
-  schema: deploy/helm/envpilot/values.schema.json
+  schema: deploy/helm/envplane/values.schema.json
   platformDependencyModes: [auto, managed, existing, disabled]
+releaseGate:
+  contractVersion: "1"
+  requiredFlow: [multi_namespace_scan, immutable_template, scm_mr_open, independent_feature, update, close_cleanup]
+  providers: [gitlab, github]
+  backends: [helm_direct, fluxcd]
+  parity: [inventory, dependency_graph]
+  reject: [placeholder, stale_artifact, credential_payload, contract_skew]
+testedArtifacts:
+  contracts: { version: "0.3.0", sourceRevision: "9e88e6e40cde92deb11203376cc1434c6a56ce21", artifactDigest: "sha256:4303be180ca90b9863364a8ce85f87b35a9619f83b74d6390416f520af043f2e" }
+  controlPlane: { version: "0.3.0", sourceRevision: "0c9687df8966507d13fdd62520a5b052d4c67860", artifactDigest: "sha256:6853c84da4f77f8f5c7fe49723330e797ff7196fc823ccae49aa535decfb5208" }
+  frontend: { version: "0.3.0", sourceRevision: "e60454543c1ee98594fe4738d269d2e65a61a5f5", artifactDigest: "sha256:f5cfb2fce40ad6e75ffdfbb50fcdab871483b0821a7487bcbe3565f3e44f2d00" }
+  agent: { version: "0.3.0", sourceRevision: "5237a6785d2709ab79f2629ab07a3b427b7be77f", artifactDigest: "sha256:eb392e0207d578deacd3b8fae7cc57886b7e5c1bcb28c90ed4202659d534f4cc" }
+  runner: { version: "0.3.0", sourceRevision: "ee71d4414c76e68d7e610f1170c0110bd5cba530", artifactDigest: "sha256:6c65fd3b666cb8ae0eb1735e50419ae51d220348e8d3d5f6044ec1c3e37b5808" }
+  webhook: { version: "0.3.0", sourceRevision: "1d9a732c3153ebdac2067ba6081d2d0bb4b0b9c7", artifactDigest: "sha256:afa906f95f1249cbed2e5cd412696bba63ce8277dea83877ea34199a05991967" }
+  gitops: { version: "0.3.0", sourceRevision: "a54ad6d143bf09a1f7501c988ef4290d6636a1d8", artifactDigest: "sha256:34a12e02820b09ebdbf5ca582c990dccb06a882daf6fe37fde8d606b26b183f3" }
+  bootstrap: { version: "0.3.0", sourceRevision: "144d48940d954445908764b44cfe4172a708dc47", artifactDigest: "sha256:c496b96b426fd7bbfcc209b825fe764beca6c8f6f6916e54a38e80a735ccbfa8" }
+  deploy: { version: "0.3.0", sourceRevision: "317d6d2bc028a95d28f8540a701dd4c9b1e263cf", artifactDigest: "sha256:c8eefe1fc9106e27190eed6d214d59a519936bda4adbcc1a8560d6a392b61a70" }

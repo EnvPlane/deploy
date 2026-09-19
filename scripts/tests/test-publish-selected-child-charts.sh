@@ -9,11 +9,12 @@ state="$tmp/state"
 mkdir -p "$bin" "$state" "$tmp/charts"
 
 for mapping in \
-  envpilot-control-plane:1.0.0 \
-  envpilot-frontend:1.0.0 \
-  envpilot-agent:1.0.0 \
-  envpilot-runner:9.9.9 \
-  envpilot-webhook:1.0.0; do
+  envplane-control-plane:1.0.0 \
+  envplane-frontend:1.0.0 \
+  envplane-agent:1.0.0 \
+  envplane-runner:9.9.9 \
+  envplane-webhook:1.0.0 \
+  envplane-e2e-workload:1.0.0; do
   chart="${mapping%%:*}"
   version="${mapping##*:}"
   mkdir -p "$tmp/charts/$chart"
@@ -22,18 +23,20 @@ done
 
 cat > "$tmp/Chart.yaml" <<'EOF'
 apiVersion: v2
-name: envpilot
+name: envplane
 version: 1.0.0
 dependencies:
-  - name: envpilot-control-plane
+  - name: envplane-control-plane
     version: 1.0.0
-  - name: envpilot-frontend
+  - name: envplane-frontend
     version: 1.0.0
-  - name: envpilot-agent
+  - name: envplane-agent
     version: 1.0.0
-  - name: envpilot-runner
+  - name: envplane-runner
     version: 9.9.9
-  - name: envpilot-webhook
+  - name: envplane-webhook
+    version: 1.0.0
+  - name: envplane-e2e-workload
     version: 1.0.0
 EOF
 
@@ -55,14 +58,14 @@ case "$1" in
     package="$2"
     chart="$(basename "$package" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+\.tgz$//')"
     touch "$FAKE_STATE/$chart.published"
-    printf 'Pushed: ghcr.io/envpilot/%s\nDigest: sha256:%064d\n' "$chart" 9
+    printf 'Pushed: ghcr.io/envplane/%s\nDigest: sha256:%064d\n' "$chart" 9
     ;;
   show)
     ref="$3"
     chart_and_version="${ref##*/}"
     chart="${chart_and_version%:*}"
     version="${chart_and_version##*:}"
-    if [[ "$chart" == envpilot-runner && ! -f "$FAKE_STATE/$chart.published" ]]; then
+    if [[ "$chart" == envplane-runner && ! -f "$FAKE_STATE/$chart.published" ]]; then
       echo 'manifest unknown' >&2
       exit 1
     fi
@@ -78,11 +81,11 @@ set -euo pipefail
 [[ "$1 $2 $3" == "manifest fetch --descriptor" ]] || { echo "unexpected oras command: $*" >&2; exit 2; }
 chart_and_version="${4##*/}"
 chart="${chart_and_version%:*}"
-if [[ "$chart" == envpilot-runner && ! -f "$FAKE_STATE/$chart.published" ]]; then
+if [[ "$chart" == envplane-runner && ! -f "$FAKE_STATE/$chart.published" ]]; then
   echo 'manifest unknown' >&2
   exit 1
 fi
-if [[ "$chart" == envpilot-runner ]]; then
+if [[ "$chart" == envplane-runner ]]; then
   printf '{"digest":"sha256:%064d"}\n' 9
 else
   printf '{"digest":"sha256:%064d"}\n' 1
@@ -100,29 +103,29 @@ PATH="$bin:$PATH" FAKE_STATE="$state" "$root/scripts/publish-selected-child-char
   --charts-dir "$tmp/charts" \
   --dist "$tmp/dist" \
   --output "$tmp/selected.json" \
-  --owner envpilot \
+  --owner EnvPlane \
   --source-revision 0123456789abcdef0123456789abcdef01234567 >/dev/null
 
 jq -e '
-  .schemaVersion == 1 and (.childCharts | length == 5) and
+  .schemaVersion == 1 and (.childCharts | length == 6) and
   ([.childCharts[] | select(.component == "runner")][0] |
-    .chart == "envpilot-runner" and .version == "9.9.9" and
+    .chart == "envplane-runner" and .version == "9.9.9" and
     .publication == "published" and (.digest | test("^sha256:[0-9]{63}9$")))
 ' "$tmp/selected.json" >/dev/null
-grep -Fq 'sign --yes ghcr.io/envpilot/envpilot-runner@sha256:' "$state/cosign.calls"
+grep -Fq 'sign --yes ghcr.io/envplane/envplane-runner@sha256:' "$state/cosign.calls"
 grep -Fq 'attest --yes --predicate' "$state/cosign.calls"
 
-perl -0pi -e 's/(name: envpilot-runner\n    version: )9\.9\.9/${1}9.9.10/' "$tmp/Chart.yaml"
+perl -0pi -e 's/(name: envplane-runner\n    version: )9\.9\.9/${1}9.9.10/' "$tmp/Chart.yaml"
 if PATH="$bin:$PATH" FAKE_STATE="$state" "$root/scripts/publish-selected-child-charts.sh" \
   --umbrella-chart "$tmp/Chart.yaml" \
   --charts-dir "$tmp/charts" \
   --dist "$tmp/mismatch-dist" \
   --output "$tmp/mismatch.json" \
-  --owner envpilot \
+  --owner EnvPlane \
   --source-revision 0123456789abcdef0123456789abcdef01234567 >"$tmp/mismatch.log" 2>&1; then
   echo "mismatched umbrella dependency unexpectedly reached chart publication" >&2
   exit 1
 fi
-grep -Fq 'umbrella selects envpilot-runner:9.9.10 but canonical child is 9.9.9' "$tmp/mismatch.log"
+grep -Fq 'umbrella selects envplane-runner:9.9.10 but canonical child is 9.9.9' "$tmp/mismatch.log"
 
 echo "selected child-chart publication regression is valid"

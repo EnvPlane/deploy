@@ -1,0 +1,94 @@
+name: Deploy CI
+
+concurrency:
+  group: deploy-go-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+      - name: Ensure Go toolchain for dependency scan
+        run: |
+          GO_VERSION_FILE="go.mod" \
+          GO_MIN_VERSION="1.26.0" \
+          ./scripts/ensure-go.sh
+      - name: Cache Go modules and Helm cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/.cache/helm
+            ~/.config/helm
+          key: deploy-ci-cache-${{ runner.os }}-${{ hashFiles('go.sum', 'deploy/helm/**/Chart.lock', 'deploy/helm/**/Chart.yaml') }}
+          restore-keys: |
+            deploy-ci-cache-${{ runner.os }}-
+      - name: Select module Go toolchain
+        run: echo "GOTOOLCHAIN=go$(awk '/^go[[:space:]]/ {print $2; exit}' go.mod)" >> "$GITHUB_ENV"
+      - name: Scan Go dependencies
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/govulncheck.txt"
+          set +e
+          go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 -format text ./... >"$report" 2>&1
+          status=$?
+          set -e
+          cat "$report"
+          if [[ "$status" -eq 0 ]]; then
+            exit 0
+          fi
+          # Helm still imports x/crypto/openpgp transitively, and its
+          # containerd/ORAS stack contains advisories without a fixed release.
+          # Keep only this reviewed, no-fixed-release set explicit while
+          # failing closed for every other vulnerability.
+          ids="$(sed -nE 's/.*Vulnerability #[0-9]+: (GO-[0-9-]+)$/\1/p' "$report" | sort -u)"
+          allowed=$'GO-2026-6166\nGO-2026-6168\nGO-2026-6169\nGO-2026-6170\nGO-2026-6171\nGO-2026-6172\nGO-2026-6173'
+          if [[ "$ids" == "$allowed" ]]; then
+            exit 0
+          fi
+          exit "$status"
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Lint canonical charts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for chart in deploy/helm/*; do
+            [[ -f "$chart/Chart.yaml" ]] || continue
+            helm dependency build --skip-refresh "$chart"
+            helm lint "$chart"
+          done
+      - name: Check probe ports
+        shell: bash
+        run: ./scripts/check-probe-container-ports.sh
+      - run: bash deploy/helm/envplane-control-plane/tests/same-cluster-project-executors-contract.sh
+      - run: bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
+      - name: Guard webhook legacy fallback removal deadline
+        run: go test ./deploy/helm/envplane-webhook/tests
+      - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
+      - run: bash scripts/tests/github-actions-pinned-contract.sh
+      - name: Check packaged file dependencies and vendored chart drift
+        run: bash scripts/check-vendored-chart-drift.sh
+      - name: Check environment parity
+        run: |
+          helm dependency build --skip-refresh deploy/helm/envplane
+          bash scripts/check-env-parity.sh
+      - run: bash scripts/check-base-image-digests.sh
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Verify installation documentation contract
+        run: |
+          bash -n scripts/sync-signed-release-index.sh
+          ./scripts/tests/install-command-contract.sh
+          ./scripts/tests/test-generate-public-release-index.sh

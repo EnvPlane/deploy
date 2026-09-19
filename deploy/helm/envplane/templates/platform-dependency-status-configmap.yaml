@@ -1,0 +1,49 @@
+{{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
+{{- $ingress := $dependencies.ingress -}}
+{{- $dns := $dependencies.dns -}}
+{{- $storage := $dependencies.storage -}}
+{{- $access := .Values.access | default dict -}}
+{{- $accessMode := default "disabled" $access.mode -}}
+{{- $accessIngress := $access.ingress | default dict -}}
+{{- $accessLocalHTTP := and (eq $accessMode "ingress") (default false $accessIngress.allowInsecureHttp) (not (and $accessIngress.tls $accessIngress.tls.enabled)) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-platform-dependency-status
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: control-plane
+data:
+  # access.ingress.allowInsecureHttp is the umbrella's explicit local-only
+  # consent. Propagate it to the API so http://*.local installations neither
+  # reject their public URL nor issue Secure-only OAuth cookies. Project-owned
+  # Agents contact the in-cluster control-plane Service over HTTP too; they
+  # need the same explicit local-only consent before they can run discovery.
+  ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: {{ ternary "true" "false" $accessLocalHTTP | quote }}
+  ENVPLANE_OAUTH_COOKIE_SECURE: {{ ternary "false" "true" $accessLocalHTTP | quote }}
+  ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ALLOW_INSECURE_CONTROL_PLANE: {{ ternary "true" "false" $accessLocalHTTP | quote }}
+  ENVPLANE_PLATFORM_INGRESS_MODE: {{ default "disabled" $ingress.mode | quote }}
+  ENVPLANE_PLATFORM_INGRESS_PROVIDER: {{ default "" $ingress.provider | quote }}
+  ENVPLANE_PLATFORM_INGRESS_REFERENCE: {{ default "" $ingress.existingClassName | quote }}
+  ENVPLANE_PLATFORM_INGRESS_OWNERSHIP: {{ default "external" $ingress.ownership | quote }}
+  ENVPLANE_PLATFORM_INGRESS_NAMESPACE: {{ default "" $ingress.namespace | quote }}
+  ENVPLANE_PLATFORM_INGRESS_VERSION: {{ default "" $ingress.version | quote }}
+  ENVPLANE_PLATFORM_INGRESS_CREDENTIALS_SECRET: {{ default "" $ingress.credentials.existingSecret | quote }}
+  ENVPLANE_PLATFORM_INGRESS_STATE: {{ include "envplane.platformDependencyState" $ingress | quote }}
+  ENVPLANE_PLATFORM_DNS_MODE: {{ default "disabled" $dns.mode | quote }}
+  ENVPLANE_PLATFORM_DNS_PROVIDER: {{ default "" $dns.provider | quote }}
+  ENVPLANE_PLATFORM_DNS_REFERENCE: {{ default "" $dns.existingSecret | quote }}
+  ENVPLANE_PLATFORM_DNS_OWNERSHIP: {{ default "external" $dns.ownership | quote }}
+  ENVPLANE_PLATFORM_DNS_NAMESPACE: {{ default "" $dns.namespace | quote }}
+  ENVPLANE_PLATFORM_DNS_VERSION: {{ default "" $dns.version | quote }}
+  ENVPLANE_PLATFORM_DNS_CREDENTIALS_SECRET: {{ default "" $dns.credentials.existingSecret | quote }}
+  ENVPLANE_PLATFORM_DNS_STATE: {{ include "envplane.platformDependencyState" $dns | quote }}
+  ENVPLANE_PLATFORM_STORAGE_MODE: {{ default "disabled" $storage.mode | quote }}
+  ENVPLANE_PLATFORM_STORAGE_PROVIDER: {{ default "" $storage.provider | quote }}
+  ENVPLANE_PLATFORM_STORAGE_REFERENCE: {{ default "" $storage.existingClassName | quote }}
+  ENVPLANE_PLATFORM_STORAGE_OWNERSHIP: {{ default "external" $storage.ownership | quote }}
+  ENVPLANE_PLATFORM_STORAGE_NAMESPACE: {{ default "" $storage.namespace | quote }}
+  ENVPLANE_PLATFORM_STORAGE_VERSION: {{ default "" $storage.version | quote }}
+  ENVPLANE_PLATFORM_STORAGE_CREDENTIALS_SECRET: {{ default "" $storage.credentials.existingSecret | quote }}
+  ENVPLANE_PLATFORM_STORAGE_STATE: {{ include "envplane.platformDependencyState" $storage | quote }}

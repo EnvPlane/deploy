@@ -1,12 +1,14 @@
 // platform-reconciler is deliberately limited to external platform
-// capabilities. It never installs EnvPilot core charts or workloads.
+// capabilities. It never installs EnvPlane core charts or workloads.
 package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -53,6 +55,7 @@ type credentialsConfig struct {
 }
 type managedConfig struct {
 	ChartRef      string         `json:"chartRef"`
+	ChartSHA256   string         `json:"chartSha256"`
 	Version       string         `json:"version"`
 	ReleaseName   string         `json:"releaseName"`
 	Namespace     string         `json:"namespace"`
@@ -97,6 +100,7 @@ const statusSnapshotSchemaVersion = 1
 const (
 	actionCleanup          = "cleanup"
 	actionEnsureNamespaces = "ensure-namespaces"
+	actionInstallIngress   = "install-ingress"
 )
 
 var (
@@ -105,8 +109,9 @@ var (
 )
 
 type ingressProvider struct {
-	Controller string
-	Chart      string
+	Controller  string
+	Chart       string
+	ChartSHA256 string
 }
 
 type dnsProvider struct {
@@ -119,8 +124,8 @@ type storageProvider struct {
 }
 
 var ingressProviders = map[string]ingressProvider{
-	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz"},
-	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz"},
+	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz", ChartSHA256: "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737"},
+	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz", ChartSHA256: "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737"},
 }
 
 var dnsProviders = map[string]dnsProvider{
@@ -138,8 +143,8 @@ func main() {
 	}
 }
 func run() error {
-	actionName := os.Getenv("ENVPILOT_RECONCILE_ACTION")
-	cfg, err := configForAction(actionName, os.Getenv("ENVPILOT_RECONCILE_CONFIG_JSON"))
+	actionName := os.Getenv("ENVPLANE_RECONCILE_ACTION")
+	cfg, err := configForAction(actionName, os.Getenv("ENVPLANE_RECONCILE_CONFIG_JSON"))
 	if err != nil {
 		return err
 	}
@@ -159,7 +164,14 @@ func run() error {
 		return cleanup(cfg, restCfg)
 	}
 	if actionName == actionEnsureNamespaces {
-		return ensureNamespaces(core, os.Getenv("ENVPILOT_RECONCILE_PROVIDER_NAMESPACES"))
+		return ensureNamespaces(core, os.Getenv("ENVPLANE_RECONCILE_PROVIDER_NAMESPACES"))
+	}
+	if actionName == actionInstallIngress {
+		if cfg.Ingress.Mode != "managed" && cfg.Ingress.Mode != "auto" {
+			return fmt.Errorf("ingress install requires managed or auto mode")
+		}
+		_, err := reconcile("ingress", cfg.Ingress, client, restCfg)
+		return err
 	}
 	var reconcileErrors []string
 	for name, dep := range map[string]capability{"ingress": cfg.Ingress, "dns": cfg.DNS, "storage": cfg.Storage} {
@@ -173,13 +185,18 @@ func run() error {
 		}
 		statusData[name] = res
 	}
+	fluxRecovery, fluxRecoveryErr := reconcileFluxHealthCheckRecovery(core)
+	statusData["fluxRecovery"] = fluxRecovery
+	if fluxRecoveryErr != nil {
+		reconcileErrors = append(reconcileErrors, fmt.Sprintf("fluxRecovery: %s", fluxRecoveryErr))
+	}
 	if len(reconcileErrors) > 0 {
 		if err := persistStatus(core, statusData); err != nil {
 			return err
 		}
 		return fmt.Errorf("platform dependency reconciliation failed: %s", strings.Join(reconcileErrors, "; "))
 	}
-	if os.Getenv("ENVPILOT_RECONCILE_GATE_STORAGE") == "true" && statusData["storage"].State != "detected" && statusData["storage"].State != "managed" {
+	if os.Getenv("ENVPLANE_RECONCILE_GATE_STORAGE") == "true" && statusData["storage"].State != "detected" && statusData["storage"].State != "managed" {
 		if err := persistStatus(core, statusData); err != nil {
 			return err
 		}
@@ -188,9 +205,101 @@ func run() error {
 	return persistStatus(core, statusData)
 }
 
+func reconcileFluxHealthCheckRecovery(client kubernetes.Interface) (result, error) {
+	result := result{Mode: "auto", Provider: "flux", Ownership: "external", UpdatedAt: time.Now().UTC().Format(time.RFC3339)}
+	if !strings.EqualFold(strings.TrimSpace(os.Getenv("ENVPLANE_FLUX_RECOVERY_ENABLED")), "true") {
+		result.State = "disabled"
+		return result, nil
+	}
+	namespace := strings.TrimSpace(os.Getenv("ENVPLANE_FLUX_RECOVERY_NAMESPACE"))
+	if namespace == "" {
+		namespace = "flux-system"
+	}
+	deployment := strings.TrimSpace(os.Getenv("ENVPLANE_FLUX_RECOVERY_DEPLOYMENT"))
+	if deployment == "" {
+		deployment = "kustomize-controller"
+	}
+	// This is intentionally restricted to the upstream Flux installation
+	// identity. The reconciler must not mutate arbitrary controller Deployments.
+	if namespace != "flux-system" || deployment != "kustomize-controller" {
+		result.State = "incompatible"
+		return result, fmt.Errorf("Flux recovery supports only flux-system/kustomize-controller")
+	}
+	current, err := client.AppsV1().Deployments(namespace).Get(ctx, deployment, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		result.State = "absent"
+		result.Message = "Flux kustomize-controller is not installed"
+		return result, nil
+	}
+	if err != nil {
+		result.State = "degraded"
+		return result, fmt.Errorf("read Flux kustomize-controller: %w", err)
+	}
+	index := fluxManagerContainerIndex(current.Spec.Template.Spec.Containers)
+	if index < 0 {
+		result.State = "incompatible"
+		return result, fmt.Errorf("Flux kustomize-controller has no manager container")
+	}
+	args, changed := enableFluxFeatureGate(current.Spec.Template.Spec.Containers[index].Args, "CancelHealthCheckOnNewRevision")
+	if !changed {
+		result.State = "configured"
+		result.Reference = namespace + "/" + deployment
+		return result, nil
+	}
+	current.Spec.Template.Spec.Containers[index].Args = args
+	if _, err := client.AppsV1().Deployments(namespace).Update(ctx, current, metav1.UpdateOptions{}); err != nil {
+		result.State = "degraded"
+		return result, fmt.Errorf("enable Flux health-check recovery: %w", err)
+	}
+	result.State = "configured"
+	result.Reference = namespace + "/" + deployment
+	result.Message = "enabled CancelHealthCheckOnNewRevision"
+	return result, nil
+}
+
+func fluxManagerContainerIndex(containers []corev1.Container) int {
+	for i := range containers {
+		if containers[i].Name == "manager" {
+			return i
+		}
+	}
+	return -1
+}
+
+func enableFluxFeatureGate(args []string, gate string) ([]string, bool) {
+	prefix := "--feature-gates="
+	for i, arg := range args {
+		if !strings.HasPrefix(arg, prefix) {
+			continue
+		}
+		entries := strings.Split(strings.TrimPrefix(arg, prefix), ",")
+		found := false
+		for j, entry := range entries {
+			key, _, _ := strings.Cut(entry, "=")
+			if key != gate {
+				continue
+			}
+			found = true
+			if entry == gate+"=true" {
+				return args, false
+			}
+			entries[j] = gate + "=true"
+		}
+		if !found {
+			entries = append(entries, gate+"=true")
+		}
+		updated := append([]string(nil), args...)
+		updated[i] = prefix + strings.Join(entries, ",")
+		return updated, true
+	}
+	updated := append([]string(nil), args...)
+	updated = append(updated, prefix+gate+"=true")
+	return updated, true
+}
+
 // configForAction keeps the Job-to-binary contract explicit. Namespace setup
 // deliberately runs before the ConfigMap hook and must therefore never parse
-// ENVPILOT_RECONCILE_CONFIG_JSON. All other actions require a complete config;
+// ENVPLANE_RECONCILE_CONFIG_JSON. All other actions require a complete config;
 // report only the missing contract, never the environment value itself.
 func configForAction(actionName, raw string) (config, error) {
 	if actionName == actionEnsureNamespaces {
@@ -224,7 +333,7 @@ func ensureNamespaces(client kubernetes.Interface, raw string) error {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("check provider namespace %s: %w", namespace, err)
 		}
-		if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace, Labels: map[string]string{"app.kubernetes.io/managed-by": "envpilot"}}}, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace, Labels: map[string]string{"app.kubernetes.io/managed-by": "envplane"}}}, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create provider namespace %s: %w", namespace, err)
 		}
 	}
@@ -291,6 +400,10 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 			r.State = "incompatible"
 			return r, fmt.Errorf("ingress provider %s requires pinned chart %s", dep.Provider, provider.Chart)
 		}
+		if !strings.EqualFold(strings.TrimPrefix(dep.Managed.ChartSHA256, "sha256:"), provider.ChartSHA256) {
+			r.State = "incompatible"
+			return r, fmt.Errorf("ingress provider %s requires chart SHA-256 %s", dep.Provider, provider.ChartSHA256)
+		}
 		if dep.ExistingClassName != "" {
 			if item, err := client.Resource(schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}).Get(ctx, dep.ExistingClassName, metav1.GetOptions{}); err == nil {
 				if spec, ok := item.Object["spec"].(map[string]any); !ok || spec["controller"] != provider.Controller {
@@ -314,11 +427,15 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 			return r, fmt.Errorf("storage provider %s requires pinned chart %s", dep.Provider, provider.Chart)
 		}
 	}
+	if name == "ingress" && dep.Mode == "managed" && os.Getenv("ENVPLANE_RECONCILE_SKIP_MANAGED_INGRESS") == "true" {
+		r.State = "pending-install"
+		return r, nil
+	}
 	if err := helmApply(dep.Managed, restCfg); err != nil {
 		return r, fmt.Errorf("managed %s provider: %w", name, err)
 	}
 	r.State = "managed"
-	r.Ownership = "envpilot"
+	r.Ownership = "envplane"
 	if name == "ingress" && dep.Managed.Smoke.ServiceName != "" {
 		if err := verifyIngressSmoke(dep, client); err != nil {
 			r.State = "degraded"
@@ -413,7 +530,7 @@ func detect(name string, dep capability, client dynamic.Interface) (bool, string
 		}
 		secretNamespace := dep.Namespace
 		if secretNamespace == "" {
-			secretNamespace = os.Getenv("ENVPILOT_RECONCILE_NAMESPACE")
+			secretNamespace = os.Getenv("ENVPLANE_RECONCILE_NAMESPACE")
 		}
 		secretName := dnsSecretName(dep)
 		secret, err := client.Resource(schema.GroupVersionResource{Version: "v1", Resource: "secrets"}).Namespace(secretNamespace).Get(ctx, secretName, metav1.GetOptions{})
@@ -502,9 +619,9 @@ func replicaCount(status map[string]any) int64 {
 func verifyStorageSmoke(dep capability, client dynamic.Interface) error {
 	namespace := dep.Managed.Smoke.Namespace
 	if namespace == "" {
-		namespace = os.Getenv("ENVPILOT_RECONCILE_NAMESPACE")
+		namespace = os.Getenv("ENVPLANE_RECONCILE_NAMESPACE")
 	}
-	if namespace != os.Getenv("ENVPILOT_RECONCILE_NAMESPACE") {
+	if namespace != os.Getenv("ENVPLANE_RECONCILE_NAMESPACE") {
 		return fmt.Errorf("storage smoke namespace %q must match reconciler namespace", namespace)
 	}
 	className := dep.ExistingClassName
@@ -526,7 +643,7 @@ func verifyStorageSmoke(dep capability, client dynamic.Interface) error {
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}
 	obj := map[string]any{
 		"apiVersion": "v1", "kind": "PersistentVolumeClaim",
-		"metadata": map[string]any{"generateName": "envpilot-storage-smoke-", "namespace": namespace, "labels": map[string]any{"app.kubernetes.io/managed-by": "envpilot-platform-reconciler"}},
+		"metadata": map[string]any{"generateName": "envplane-storage-smoke-", "namespace": namespace, "labels": map[string]any{"app.kubernetes.io/managed-by": "envplane-platform-reconciler"}},
 		"spec":     map[string]any{"accessModes": []any{"ReadWriteOnce"}, "resources": map[string]any{"requests": map[string]any{"storage": "1Mi"}}, "storageClassName": className},
 	}
 	created, err := client.Resource(gvr).Namespace(namespace).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
@@ -550,16 +667,16 @@ func verifyStorageSmoke(dep capability, client dynamic.Interface) error {
 func verifyDNSSmoke(dep capability, client dynamic.Interface) error {
 	smoke := dep.Managed.Smoke
 	if smoke.Namespace == "" {
-		smoke.Namespace = os.Getenv("ENVPILOT_RECONCILE_NAMESPACE")
+		smoke.Namespace = os.Getenv("ENVPLANE_RECONCILE_NAMESPACE")
 	}
-	if smoke.Namespace != os.Getenv("ENVPILOT_RECONCILE_NAMESPACE") || smoke.Host == "" {
+	if smoke.Namespace != os.Getenv("ENVPLANE_RECONCILE_NAMESPACE") || smoke.Host == "" {
 		return fmt.Errorf("DNS smoke requires host and reconciler namespace")
 	}
 	gvr := schema.GroupVersionResource{Version: "v1", Resource: "services"}
 	obj := map[string]any{
 		"apiVersion": "v1", "kind": "Service",
-		"metadata": map[string]any{"generateName": "envpilot-dns-smoke-", "namespace": smoke.Namespace, "annotations": map[string]any{"external-dns.alpha.kubernetes.io/hostname": smoke.Host, "external-dns.alpha.kubernetes.io/target": "127.0.0.1"}},
-		"spec":     map[string]any{"clusterIP": "None", "ports": []any{map[string]any{"name": "http", "port": 80}}, "selector": map[string]any{"app.kubernetes.io/name": "envpilot-dns-smoke"}},
+		"metadata": map[string]any{"generateName": "envplane-dns-smoke-", "namespace": smoke.Namespace, "annotations": map[string]any{"external-dns.alpha.kubernetes.io/hostname": smoke.Host, "external-dns.alpha.kubernetes.io/target": "127.0.0.1"}},
+		"spec":     map[string]any{"clusterIP": "None", "ports": []any{map[string]any{"name": "http", "port": 80}}, "selector": map[string]any{"app.kubernetes.io/name": "envplane-dns-smoke"}},
 	}
 	created, err := client.Resource(gvr).Namespace(smoke.Namespace).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
 	if err != nil {
@@ -631,7 +748,7 @@ func verifyIngressSmoke(dep capability, client dynamic.Interface) error {
 	if smoke.Namespace == "" {
 		smoke.Namespace = dep.Managed.Namespace
 	}
-	if smoke.Namespace != os.Getenv("ENVPILOT_RECONCILE_NAMESPACE") {
+	if smoke.Namespace != os.Getenv("ENVPLANE_RECONCILE_NAMESPACE") {
 		return fmt.Errorf("ingress smoke namespace %q must match reconciler namespace", smoke.Namespace)
 	}
 	if smoke.Port == 0 || smoke.Host == "" {
@@ -641,10 +758,15 @@ func verifyIngressSmoke(dep capability, client dynamic.Interface) error {
 	if className == "" {
 		className = "nginx"
 	}
+	// The access Ingress already owns smoke.Host and `/`. A probe using that
+	// route is rejected by ingress-nginx admission before it can verify the
+	// controller. Give the probe its own deterministic hostname; no DNS lookup
+	// is involved in this readiness check.
+	smoke.Host = ingressSmokeHost(smoke.Host)
 	gvr := schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
 	obj := map[string]any{
 		"apiVersion": "networking.k8s.io/v1", "kind": "Ingress",
-		"metadata": map[string]any{"generateName": "envpilot-platform-smoke-", "namespace": smoke.Namespace, "labels": map[string]any{"app.kubernetes.io/managed-by": "envpilot-platform-reconciler"}},
+		"metadata": map[string]any{"generateName": "envplane-platform-smoke-", "namespace": smoke.Namespace, "labels": map[string]any{"app.kubernetes.io/managed-by": "envplane-platform-reconciler"}},
 		"spec":     map[string]any{"ingressClassName": className, "rules": []any{map[string]any{"host": smoke.Host, "http": map[string]any{"paths": []any{map[string]any{"path": "/", "pathType": "Prefix", "backend": map[string]any{"service": map[string]any{"name": smoke.ServiceName, "port": map[string]any{"number": smoke.Port}}}}}}}}},
 	}
 	created, err := client.Resource(gvr).Namespace(smoke.Namespace).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
@@ -667,6 +789,11 @@ func verifyIngressSmoke(dep capability, client dynamic.Interface) error {
 		time.Sleep(time.Second)
 	}
 	return fmt.Errorf("ingress smoke probe did not receive a controller endpoint")
+}
+
+func ingressSmokeHost(accessHost string) string {
+	host := strings.TrimPrefix(strings.TrimSpace(accessHost), "*.")
+	return "envplane-smoke." + host
 }
 
 type getter struct {
@@ -712,16 +839,35 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 	if err != nil {
 		return err
 	}
+	if expected := strings.TrimPrefix(strings.TrimSpace(m.ChartSHA256), "sha256:"); expected != "" {
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("open chart for integrity verification: %w", err)
+		}
+		hash := sha256.New()
+		if _, err := io.Copy(hash, file); err != nil {
+			_ = file.Close()
+			return fmt.Errorf("hash chart: %w", err)
+		}
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("close chart: %w", err)
+		}
+		if !strings.EqualFold(fmt.Sprintf("%x", hash.Sum(nil)), expected) {
+			return fmt.Errorf("chart integrity mismatch: expected sha256:%s", expected)
+		}
+	} else {
+		return fmt.Errorf("managed chart %s requires chartSha256", m.ChartRef)
+	}
 	values := map[string]any{}
 	for key, value := range m.Values {
 		values[key] = value
 	}
-	values["envpilotOwnership"] = "envpilot"
+	values["envplaneOwnership"] = "envplane"
 	get := action.NewGet(&conf)
 	existing, getErr := get.Run(m.ReleaseName)
 	if getErr == nil {
-		if existing.Config["envpilotOwnership"] != "envpilot" {
-			return fmt.Errorf("helm release %s exists but is not owned by envpilot", m.ReleaseName)
+		if existing.Config["envplaneOwnership"] != "envplane" {
+			return fmt.Errorf("helm release %s exists but is not owned by envplane", m.ReleaseName)
 		}
 		upgrade := action.NewUpgrade(&conf)
 		upgrade.Namespace = m.Namespace
@@ -736,7 +882,7 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 	install.Namespace = m.Namespace
 	// Managed platform providers may live in a dedicated namespace (for
 	// example ingress-nginx). Creating that namespace is part of the provider
-	// installation contract; EnvPilot never creates namespaces for its core
+	// installation contract; EnvPlane never creates namespaces for its core
 	// workloads through this reconciler.
 	install.CreateNamespace = true
 	install.Wait = true
@@ -749,7 +895,7 @@ func helmApply(m managedConfig, restCfg *rest.Config) error {
 }
 func cleanup(cfg config, restCfg *rest.Config) error {
 	for _, dep := range []capability{cfg.Ingress, cfg.DNS, cfg.Storage} {
-		if dep.Mode == "managed" && dep.Ownership == "envpilot" && dep.Managed.CleanupPolicy == "delete" && dep.Managed.ReleaseName != "" {
+		if dep.Mode == "managed" && dep.Ownership == "envplane" && dep.Managed.CleanupPolicy == "delete" && dep.Managed.ReleaseName != "" {
 			var conf action.Configuration
 			if err := conf.Init(&getter{cfg: restCfg, namespace: dep.Managed.Namespace}, dep.Managed.Namespace, "secret", log.Printf); err != nil {
 				return err
@@ -762,8 +908,8 @@ func cleanup(cfg config, restCfg *rest.Config) error {
 	return nil
 }
 func persistStatus(client kubernetes.Interface, statuses map[string]result) error {
-	ns := os.Getenv("ENVPILOT_RECONCILE_NAMESPACE")
-	name := os.Getenv("ENVPILOT_RECONCILE_STATUS_CONFIG_MAP")
+	ns := os.Getenv("ENVPLANE_RECONCILE_NAMESPACE")
+	name := os.Getenv("ENVPLANE_RECONCILE_STATUS_CONFIG_MAP")
 	cm, err := client.CoreV1().ConfigMaps(ns).Get(ctx, name, metav1.GetOptions{})
 	generation := int64(1)
 	if err == nil && cm.Data != nil {

@@ -1,0 +1,78 @@
+{{- if eq (include "envplane.platformReconcilerEnabled" .) "true" }}
+{{- $r := .Values.platformDependencyReconciler -}}
+{{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
+{{- $ingress := index $dependencies "ingress" -}}
+{{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") }}
+{{- $sa := default (printf "%s-ingress-installer" .Release.Name) $r.ingressInstaller.serviceAccount.name -}}
+{{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
+{{- if $r.image.digest }}{{ $image = printf "%s@%s" $r.image.repository $r.image.digest }}{{ end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-platform-ingress-installer
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded,hook-failed
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: ingress-installer
+    app.kubernetes.io/managed-by: Helm
+spec:
+  backoffLimit: {{ default 4 $r.backoffLimit }}
+  activeDeadlineSeconds: {{ default 600 $r.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: envplane
+        app.kubernetes.io/component: ingress-installer
+    spec:
+      {{- $registryPullSecrets := include "envplane.registryImagePullSecrets" . -}}
+      {{- if or $r.imagePullSecrets $registryPullSecrets }}
+      imagePullSecrets:
+        {{- with $r.imagePullSecrets }}{{ toYaml . | nindent 8 }}{{- end }}
+        {{- if $registryPullSecrets }}{{ $registryPullSecrets | nindent 8 }}{{- end }}
+      {{- end }}
+      serviceAccountName: {{ $sa }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: ingress-installer
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ default "IfNotPresent" $r.image.pullPolicy }}
+          env:
+            - name: HOME
+              value: /tmp/envplane-home
+            - name: XDG_CACHE_HOME
+              value: /tmp/envplane-home/.cache
+            - name: XDG_CONFIG_HOME
+              value: /tmp/envplane-home/.config
+            - name: XDG_DATA_HOME
+              value: /tmp/envplane-home/.local/share
+            - name: ENVPLANE_RECONCILE_ACTION
+              value: install-ingress
+            - name: ENVPLANE_RECONCILE_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: ENVPLANE_RECONCILE_RELEASE
+              value: {{ .Release.Name | quote }}
+            - name: ENVPLANE_RECONCILE_CONFIG_JSON
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ printf "%s-platform-dependency-reconciler" .Release.Name }}
+                  key: dependencies.json
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: installer-tmp
+              mountPath: /tmp
+      volumes:
+        - name: installer-tmp
+          emptyDir: {}
+{{- end }}
+{{- end }}

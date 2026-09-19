@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-version=""; source_revision="${GITHUB_SHA:-}"; values_file="deploy/helm/envpilot/values.yaml"; chart_file="deploy/helm/envpilot/Chart.yaml"; artifact_report=""; output=""
+version=""; source_revision="${GITHUB_SHA:-}"; values_file="deploy/helm/envplane/values.yaml"; chart_file="deploy/helm/envplane/Chart.yaml"; artifact_report=""; output=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --version) version="${2:-}"; shift 2 ;;
@@ -18,8 +18,8 @@ done
 if [[ -n "$artifact_report" ]]; then
   [[ -f "$artifact_report" ]] || { echo "artifact report not found: $artifact_report" >&2; exit 2; }
   jq -e --arg revision "$source_revision" \
-    '.schemaVersion == 1 and .sourceRevision == $revision and (.charts | length == 5)' "$artifact_report" >/dev/null || {
-    echo "artifact report does not contain five selected child charts" >&2; exit 1;
+    '.schemaVersion == 1 and .sourceRevision == $revision and (.charts | length == 6)' "$artifact_report" >/dev/null || {
+    echo "artifact report does not contain six selected child charts" >&2; exit 1;
   }
 fi
 image_json() {
@@ -29,7 +29,9 @@ image_json() {
   digest="$(awk -v s="$section" '$0==s":"{in_s=1} in_s&&$0!=s":"&&$0~/^[^[:space:]]/{exit} in_s&&$0~/^    digest:/{sub(/^    digest:[[:space:]]*/,""); gsub(/"/,""); print; exit}' "$values_file")"
   [[ "$tag" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "mutable/missing tag for $name" >&2; exit 1; }
   [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "missing digest for $name" >&2; exit 1; }
-  jq -cn --arg name "$name" --arg repository "$repository" --arg tag "$tag" --arg digest "$digest" '{name:$name,repository:$repository,tag:$tag,digest:$digest}'
+  jq -cn --arg name "$name" --arg repository "$repository" --arg tag "$tag" --arg digest "$digest" \
+    '{name:$name,repository:$repository,tag:$tag,digest:$digest,
+      attestations:{sbom:{required:true,mediaType:"application/spdx+json",subject:($repository+"@"+$digest)},provenance:{required:true,subject:($repository+"@"+$digest)}}}'
 }
 dep_json() {
   local name="$1" chart_repo="$2" report_key="$3" v selected
@@ -49,17 +51,40 @@ dep_json() {
   jq -cn --arg name "$name" --arg version "$v" --arg repository "$chart_repo" \
     --arg digest "$(jq -er '.digest' <<<"$selected")" \
     --arg sourceRevision "$(jq -er '.sourceRevision' <<<"$selected")" \
-    '{name:$name,version:$version,repository:$repository,digest:$digest,sourceRevision:$sourceRevision}'
+    '{name:$name,version:$version,repository:$repository,digest:$digest,sourceRevision:$sourceRevision,
+      attestations:{sbom:{required:true,mediaType:"application/spdx+json",subject:($repository+"@"+$digest)},provenance:{required:true,subject:($repository+"@"+$digest)}}}'
 }
-images="$(printf '%s\n' "$(image_json envpilot-control-plane control-plane)" "$(image_json envpilot-frontend frontend)" "$(image_json envpilot-agent agent)" "$(image_json envpilot-runner runner)" "$(image_json envpilot-webhook webhook)" "$(image_json platformDependencyReconciler platform-reconciler)" | jq -s .)"
-charts="$(printf '%s\n' "$(dep_json envpilot-control-plane oci://ghcr.io/envpilot/envpilot-control-plane controlPlane)" "$(dep_json envpilot-frontend oci://ghcr.io/envpilot/envpilot-frontend frontend)" "$(dep_json envpilot-agent oci://ghcr.io/envpilot/envpilot-agent agent)" "$(dep_json envpilot-runner oci://ghcr.io/envpilot/envpilot-runner runner)" "$(dep_json envpilot-webhook oci://ghcr.io/envpilot/envpilot-webhook webhook)" | jq -s .)"
+images="$(printf '%s\n' "$(image_json envplane-control-plane control-plane)" "$(image_json envplane-frontend frontend)" "$(image_json envplane-agent agent)" "$(image_json envplane-runner runner)" "$(image_json envplane-webhook webhook)" "$(image_json platformDependencyReconciler platform-reconciler)" | jq -s .)"
+charts="$(printf '%s\n' "$(dep_json envplane-control-plane oci://ghcr.io/envplane/envplane-control-plane controlPlane)" "$(dep_json envplane-frontend oci://ghcr.io/envplane/envplane-frontend frontend)" "$(dep_json envplane-agent oci://ghcr.io/envplane/envplane-agent agent)" "$(dep_json envplane-runner oci://ghcr.io/envplane/envplane-runner runner)" "$(dep_json envplane-webhook oci://ghcr.io/envplane/envplane-webhook webhook)" "$(dep_json envplane-e2e-workload oci://ghcr.io/envplane/envplane-e2e-workload e2eWorkload)" | jq -s .)"
 [[ "$(jq 'length' <<<"$images")" == 6 ]] || { echo "compatibility manifest requires six immutable images" >&2; exit 1; }
-[[ "$(jq 'length' <<<"$charts")" == 5 ]] || { echo "compatibility manifest requires five child charts" >&2; exit 1; }
+[[ "$(jq 'length' <<<"$charts")" == 6 ]] || { echo "compatibility manifest requires six child charts" >&2; exit 1; }
 if [[ -n "$artifact_report" ]]; then
   jq -e 'all(.[]; (.digest | test("^sha256:[0-9a-f]{64}$")) and (.sourceRevision | test("^[0-9a-f]{40}$")))' <<<"$charts" >/dev/null || {
     echo "compatibility manifest requires immutable child chart digests" >&2; exit 1;
   }
 fi
 mkdir -p "$(dirname "$output")"
-jq -n --arg version "$version" --arg sourceRevision "$source_revision" --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson images "$images" --argjson charts "$charts" '{schemaVersion:1,umbrella:{name:"envpilot",version:$version},sourceRevision:$sourceRevision,generatedAt:$generatedAt,images:$images,childCharts:$charts}' > "$output"
+# installFlow is part of the signed umbrella predicate. It is intentionally
+# additive to schemaVersion 1 so older consumers continue to use immutable
+# image/chart pins while new install runtimes can reject incompatible flow
+# contracts before mutating persisted onboarding or activation state.
+jq -n --arg version "$version" --arg sourceRevision "$source_revision" --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson images "$images" --argjson charts "$charts" '
+  {
+    schemaVersion:1,
+    umbrella:{name:"envplane",version:$version},
+    sourceRevision:$sourceRevision,
+    generatedAt:$generatedAt,
+    installFlow:{
+      schemaVersion:"v1",
+      firstRun:{contractVersion:"v1",existingInstallPolicy:"preserve_without_reonboarding"},
+      activation:{contractVersion:"v1",legacyPolicy:"migrate_or_report_typed_error"},
+      rollout:{defaultMode:"legacy",canaryTelemetry:true,rollbackMode:"legacy"},
+      deprecations:[
+        {path:"global.envplane.auth.existingSecret",replacement:"settings.authentication",removal:"next_major"},
+        {path:"global.envplane.remoteControlPlane",replacement:"managementEndpointProfile",removal:"next_major"}
+      ]
+    },
+    images:$images,
+    childCharts:$charts
+  }' > "$output"
 echo "generated compatibility manifest: $output"

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Tear down the EnvPilot control plane from the local minikube cluster.
+# Tear down the EnvPlane control plane from the local minikube cluster.
 # Usage: ./scripts/minikube-down.sh [--delete-cluster]
 set -euo pipefail
 
-PROFILE="${MINIKUBE_PROFILE:-envpilot}"
-NAMESPACE="${ENVPILOT_NAMESPACE:-envpilot}"
-RELEASE="${ENVPILOT_RELEASE:-envpilot}"
+PROFILE="${MINIKUBE_PROFILE:-envplane}"
+NAMESPACE="${ENVPLANE_NAMESPACE:-envplane}"
+RELEASE="${ENVPLANE_RELEASE:-envplane}"
 
 helm uninstall "$RELEASE" --namespace "$NAMESPACE" || true
 kubectl delete namespace "$NAMESPACE" --ignore-not-found

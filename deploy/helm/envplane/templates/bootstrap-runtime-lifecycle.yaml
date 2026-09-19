@@ -1,0 +1,30 @@
+{{- $global := default (dict) .Values.global -}}
+{{- $envplane := default (dict) (get $global "envplane") -}}
+{{- $firstStart := default (dict) (get $envplane "firstStartRegistration") -}}
+{{- $executors := default (dict) (get $envplane "sameClusterProjectExecutors") -}}
+{{- $runtime := default (dict) (get $executors "bootstrapRuntime") -}}
+{{- if and (default false (get $executors "enabled")) (default false (get $runtime "retirementEnabled")) (ne (default "disabled" (get $firstStart "mode")) "disabled") -}}
+{{- $name := required "sameClusterProjectExecutors.bootstrapRuntime.stateConfigMap is required when retirement is enabled" (get $runtime "stateConfigMap") -}}
+{{- $status := "active" -}}
+{{- $projectID := "" -}}
+{{- $retiredAt := "" -}}
+{{- $existing := lookup "v1" "ConfigMap" .Release.Namespace $name -}}
+{{- if and $existing (eq (default "" (get $existing.data "status")) "retired") -}}
+{{- $status = "retired" -}}
+{{- $projectID = default "" (get $existing.data "projectID") -}}
+{{- $retiredAt = default "" (get $existing.data "retiredAt") -}}
+{{- end -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name | quote }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/part-of: envplane
+    envplane.io/bootstrap-runtime-lifecycle: "true"
+data:
+  status: {{ $status | quote }}
+  projectID: {{ $projectID | quote }}
+  retiredAt: {{ $retiredAt | quote }}
+{{- end }}

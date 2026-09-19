@@ -1,0 +1,12 @@
+# Existing Secret values must contain complete connection URLs. No databases are installed.
+envplane-control-plane:
+  postgres:
+    mode: external
+    external:
+      existingSecret: envplane-postgres-url
+      urlKey: database-url
+  redis:
+    mode: external
+    external:
+      existingSecret: envplane-redis-url
+      urlKey: redis-url

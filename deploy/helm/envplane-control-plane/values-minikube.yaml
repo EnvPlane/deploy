@@ -1,0 +1,66 @@
+# Overrides for running the EnvPlane control plane in a local minikube cluster.
+# Images are built directly inside the minikube docker daemon, so nothing is
+# pulled from GHCR and no image pull secret is required.
+
+image:
+  repository: envplane/api
+  tag: local
+  pullPolicy: Never
+
+frontend:
+  enabled: true
+  image:
+    repository: envplane/frontend
+    tag: local
+    pullPolicy: Never
+  env:
+    # Same-origin: the frontend rewrites /api to the in-cluster API service.
+    NEXT_PUBLIC_ENVPLANE_API_BASE_URL: ""
+    ENVPLANE_API_INTERNAL_URL: "http://envplane-control-plane:8080"
+  service:
+    type: NodePort
+
+imagePullSecrets: []
+
+# The Minikube profile exposes the UI over an explicit local HTTP endpoint.
+# Keep this override confined to the local profile: production releases retain
+# HTTPS and secure OAuth/session cookies by default.
+allowInsecureLocalDevelopment: true
+publicURL: "http://127.0.0.1:8080"
+
+# This test-only profile must not publish a host-local endpoint for a remote
+# Agent or Runner. Same-cluster components use the Service DNS. A remote target
+# requires ENVPLANE_REMOTE_CONTROL_PLANE_URL to be configured to a stable
+# pod-reachable endpoint (and optional CA Secret/key) on the control plane.
+env:
+
+  # Browser cookies must be accepted by the loopback HTTP endpoint while
+  # exercising the first-operator GitHub OAuth flow locally.
+  ENVPLANE_OAUTH_COOKIE_SECURE: "false"
+  ENVPLANE_AGENT_CONTROL_PLANE_URL: ""
+  ENVPLANE_AGENT_HELM_CHART_REF: "oci://ghcr.io/envplane/envplane-agent"
+  ENVPLANE_AGENT_HELM_CHART_VERSION: "0.2.0"
+  ENVPLANE_AGENT_IMAGE_REPOSITORY: "envplane/api"
+  ENVPLANE_AGENT_IMAGE_TAG: "local"
+  ENVPLANE_AGENT_IMAGE_PULL_POLICY: "Never"
+
+# A Docker-driver minikube ingress is not automatically reachable at
+# envplane.local from the host. scripts/minikube-up.sh therefore exposes the
+# frontend through NodePort and prints the matching `minikube service` command.
+ingress:
+  enabled: false
+
+dependencyWait:
+  enabled: true
+
+postgres:
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClassName: standard
+
+redis:
+  persistence:
+    enabled: true
+    size: 512Mi
+    storageClassName: standard

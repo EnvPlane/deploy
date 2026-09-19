@@ -1,235 +1,161 @@
-# EnvPilot installation
+# Install envplane
 
-This is the supported production installation path for an already provisioned
-Kubernetes cluster. EnvPilot is installed as one OCI umbrella release; it does
-not provision a cluster or install a distribution-specific add-on.
+This is the supported default path for an already provisioned Kubernetes
+cluster. It installs one immutable OCI umbrella release and does not require
+registration, a Secret, a values file, or manual child-chart assembly.
 
-## Prerequisites
+## 1. Check prerequisites
 
-The operator must provide:
+- Kubernetes 1.26 or newer.
+- Helm 3.14 or newer.
+- Permission to create the `envplane` namespace and chart resources.
+- A default StorageClass for bundled PostgreSQL and Redis persistence.
+- Anonymous outbound access to the public `ghcr.io` chart and images.
 
-- Kubernetes 1.26 or newer and Helm 3.14 or newer;
-- a kubeconfig context with permission to create the release namespace and the
-  explicitly enabled EnvPilot resources;
-- a default StorageClass, or an explicitly configured storage dependency, when
-  bundled PostgreSQL/Redis or persistence is enabled;
-- an existing healthy Ingress controller, Gateway API implementation, DNS
-  integration and/or storage provisioner when their mode is `existing`;
-- image-pull access to GHCR (or a private registry Secret) for every enabled
-  component;
-- existing Secret references for external PostgreSQL/Redis, registry pulls and
-  provider credentials. Secret values are never placed in Git, values files or
-  bootstrap sessions.
+The chart does **not** provision a cluster or automatically install an Ingress
+controller, Gateway API implementation, DNS controller, certificate manager,
+metrics server, CSI driver, or cloud integration. Supply those capabilities
+before enabling a feature that depends on them.
 
-The target cluster, ingress/DNS provider and database services are owned by the
-platform team. EnvPilot only creates resources in its release namespace and
-does not create tunnels, minikube profiles or cloud infrastructure.
+Optional non-mutating preflight:
 
-## Quick start
-
-Create `values.yaml` from one of the examples below, then run exactly:
-
-```sh
-helm upgrade --install envpilot oci://ghcr.io/envpilot/envpilot \
-  --version <published-umbrella-version> \
-  --namespace envpilot \
-  --create-namespace \
-  --values values.yaml \
-  --wait
+```bash
+scripts/envplane-install-preflight.sh --version <stable-version> --namespace envplane
 ```
 
-The chart installs the API and frontend by default. Enable same-cluster Agent
-and Runner declaratively when required:
+The preflight reads no Secret data and creates no cluster resources.
 
-```yaml
-agent:
-  enabled: true
-runner:
-  enabled: true
-global:
-  envpilot:
-    firstStartRegistration:
-      mode: managed
-      cluster: {id: management-cluster}
+## 2. Install the stable release
+
+<!-- envplane:canonical-install-command:start -->
+```bash
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.295 --namespace envplane --create-namespace --wait
+```
+<!-- envplane:canonical-install-command:end -->
+
+<!-- envplane:stable-release-links:start -->
+Stable release: `0.4.295` · [versioned installation guide](https://github.com/envplane/deploy/blob/a550badf5fce358e74f57c079ec939341a73e5a6/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
+<!-- envplane:stable-release-links:end -->
+
+The selected version and command are generated from the same signed stable
+release index consumed by the guided installer. `latest` is not a supported
+version selector.
+
+## 3. Verify and complete first-run
+
+```bash
+kubectl -n envplane rollout status deployment/envplane-control-plane --timeout=10m
+kubectl -n envplane rollout status deployment/envplane-frontend --timeout=10m
+kubectl -n envplane port-forward svc/envplane-frontend 3000:3000
 ```
 
-`managed` retains chart-generated registration material across upgrades.
-`existing` consumes an operator-created Secret named by
-`global.envpilot.firstStartRegistration.existingSecret`. Plaintext tokens must
-never be put in values. Remote execution targets are configured after this
-install through the authenticated UI/API RemoteCluster flow, not values or
-manual child-chart commands. See [API-managed remote clusters](remote-clusters.md).
+Open <http://127.0.0.1:3000>. The initial authentication screen guides the first
+owner through local setup or a supported identity provider. Provider client
+secrets are entered only in the authenticated, write-only setup flow; they do
+not belong in Helm values, shell history, or this website.
 
-## Remote-cluster management endpoint
+After authentication, create a project and run Bootstrap. The same-cluster
+Agent and Runner are already part of the umbrella; do not install their child
+charts manually. Remote clusters are added later through **Settings → Remote
+clusters**.
 
-Remote Agent and Runner pods must reach the management control plane through a
-stable private or public HTTPS endpoint. The same-cluster Kubernetes Service DNS name is
-never valid for a remote target. Configure only endpoint and Secret references
-in the umbrella values; the chart does not create a tunnel, issue a certificate
-or put certificate bytes in values:
+## 3a. SCM webhook automation checklist
 
-```yaml
-global:
-  envpilot:
-    remoteControlPlane:
-      endpoint: https://api.envpilot.example.test
-      tls:
-        # Optional: required only when target pods do not trust the endpoint's
-        # issuer through their system trust store.
-        caSecretRef:
-          name: envpilot-remote-ca
-          key: ca.crt
-access:
-  mode: ingress
-  ingress:
-    host: api.envpilot.example.test
-    className: nginx
-    tls:
-      enabled: true
-      # Existing provider-managed server certificate Secret. EnvPilot never
-      # reads or generates its contents.
-      secretName: envpilot-api-tls
-```
+Before selecting GitLab merge-request automation in Bootstrap:
 
-For Gateway API or an external LoadBalancer, the platform owns server-certificate
-attachment; configure its public HTTPS endpoint above. If `caSecretRef` is set,
-the named CA Secret/key must already exist in the remote Agent and Runner
-namespace. The Remote Clusters UI reads this safe endpoint metadata, pre-fills
-the endpoint/CA reference and shows a prerequisite diagnostic when it is
-missing or invalid. It rejects `envpilot.local`, localhost,
-`host.minikube.internal`, port-forwards and foreign `.svc` addresses.
+- Set `webhook.enabled=true` in the umbrella values.
+- Use `webhook.publicEndpoint.mode=ingress` with a public DNS name and TLS
+  certificate. The default `local` mode is deliberately not ready for GitLab;
+  use an approved public HTTPS tunnel only for development.
+- Keep the webhook hostname separate from the control-plane hostname and make
+  sure DNS resolves to the webhook receiver Ingress.
+- Use a GitLab token with the `api` scope to create and update project hooks;
+  `read_api` is not sufficient for Bootstrap registration.
+- In Bootstrap, wait for endpoint, DNS, TLS, receiver readiness, and delivery
+  proof. A `pending` or `failed` state does not enable MR automation or Compile.
+- The legacy local GitLab verification fallback is a migration-only setting. It
+  expires on `2026-12-31T23:59:59Z`; after expiry the receiver refuses to start
+  without `ENVPLANE_WEBHOOK_RECEIVER_TOKEN`. Monitor the receiver's
+  `legacy_fallback` delivery metric and complete migration before that date.
 
-## Platform dependency modes
+If automatic registration is unavailable, copy the exact callback URL shown by
+Bootstrap and create a GitLab project hook manually with **Merge request
+events**, **Comments**, and **Enable SSL verification**. Never place the signing
+secret in Helm values or support bundles; rotate it through the control plane
+when it is lost.
 
-Each of `platformDependencies.ingress`, `.dns` and `.storage` has one mode:
+## Free limits and activation
 
-| Mode | Meaning |
-|---|---|
-| `disabled` | EnvPilot does not require or manage this capability. |
-| `existing` | Reuse a healthy, compatible capability without adoption or mutation. |
-| `auto` | Detect a healthy capability first; install only an explicitly configured provider when absent. |
-| `managed` | Install/upgrade the explicitly selected pinned provider chart, with explicit ownership and cleanup policy. |
+A new installation uses the built-in free plan without checkout or license
+activation:
 
-`auto` and `managed` require the platform dependency reconciler and pinned
-provider configuration. They never guess cloud credentials. `existing` requires
-the class/provider/Secret references appropriate to that capability. A degraded
-or scope-mismatched capability blocks dependent features and is reported in the
-reconciler status ConfigMap.
+| Resource | Free limit |
+|---|---:|
+| Projects | 3 |
+| Managed remote clusters | 1 |
+| Active environments | 2 |
+| Members | 3 |
+| Environment TTL | 72 hours |
+| Audit retention | 7 days |
 
-Provider credentials are supplied only as `credentials.existingSecret` (DNS) or
-provider chart values that reference an existing Secret. The reconciler reads
-metadata and health, never prints Secret data.
+The running API remains the authority for effective entitlements. Owners and
+admins can review usage and start hosted activation under **Settings → Plan and
+billing**. Card data never enters envplane. On-prem installations can instead
+use the tenant-bound offline-license flow supplied by their administrator.
+Installing or upgrading the chart never silently changes the active plan.
 
-## Values examples
+## Upgrade
 
-### Generic Kubernetes (ClusterIP, existing storage)
+Read the target release's versioned guide and back up retained database/PVC
+data. Keep non-secret operator choices in one values file, then use the wrapper,
+which resets chart defaults before applying the signed compatibility manifest
+and its immutable artifact set:
 
-```yaml
-access: {mode: disabled}
-platformDependencies:
-  ingress: {mode: disabled}
-  dns: {mode: disabled}
-  storage: {mode: existing, existingClassName: standard}
-```
-
-### nginx Ingress
-
-```yaml
-access:
-  mode: ingress
-  ingress: {host: envpilot.example.test, className: nginx}
-platformDependencies:
-  ingress: {mode: existing, provider: nginx, existingClassName: nginx}
-```
-
-### AWS ALB
-
-```yaml
-access:
-  mode: ingress
-  ingress:
-    host: envpilot.example.test
-    className: alb
-    annotations:
-      alb.ingress.kubernetes.io/scheme: internal
-platformDependencies:
-  ingress: {mode: existing, provider: aws-alb, existingClassName: alb}
-```
-
-AWS credentials and the AWS Load Balancer Controller remain platform-owned.
-
-### Gateway API
-
-```yaml
-access:
-  mode: gateway
-  gateway:
-    name: shared-gateway
-    namespace: gateway-system
-    sectionName: https
-    hostnames: [envpilot.example.test]
-```
-
-### External PostgreSQL/Redis
-
-```yaml
-envpilot-control-plane:
-  postgres:
-    mode: external
-    external: {existingSecret: envpilot-postgres-url, urlKey: database-url}
-  redis:
-    mode: external
-    external: {existingSecret: envpilot-redis-url, urlKey: redis-url}
-```
-
-### Private registry
-
-```yaml
-global:
-  envpilot:
-    registry:
-      mode: existing
-      existingSecret: registry-credentials
-```
-
-This grants every enabled runtime workload pull access without changing the
-release-selected images. Published umbrellas reject repository, tag or digest
-overrides that conflict with their signed compatibility manifest. Mirror the
-published immutable artifacts if required by your registry policy, then publish
-a corresponding signed umbrella release; do not use `latest`.
-
-## Upgrades, rollback and uninstall
-
-Each published umbrella archive includes a signed compatibility manifest with
-the exact immutable runtime image refs it selects. Do **not** use Helm
-`--reuse-values` for umbrella upgrades: Helm would retain the old nested image
-maps and silently keep the preceding release's digest.
-
-Keep a durable operator values file (the same file used for installation) and
-upgrade with the provided wrapper, which uses `--reset-values` and layers that
-file over the new chart defaults:
-
-```sh
+```bash
 scripts/upgrade-umbrella.sh \
-  --release envpilot \
-  --chart oci://ghcr.io/envpilot/envpilot \
-  --version <new-published-umbrella-version> \
-  --namespace envpilot \
+  --release envplane \
+  --chart oci://ghcr.io/envplane/envplane \
+  --version <new-stable-version> \
+  --namespace envplane \
   --operator-values values.yaml
 ```
 
-This preserves operator configuration while applying the artifact pins signed
-in the selected release. An explicit `envpilot-*.image` or
-`platformDependencyReconciler.image` override that conflicts with the selected
-manifest is rejected before Helm mutates the release; update it to the selected
-immutable ref or remove it from the operator file. Do not put credentials in
-the values file or generated release metadata.
+The wrapper always passes `--reset-values`. Do not replace it with
+`--reuse-values`; that can retain stale nested image selections. If no operator
+values are needed, use an empty, non-secret YAML document (`{}`).
 
-Helm owns the core release and its child resources; external detected
-capabilities are never adopted or deleted. Managed providers are removed only
-when their configured ownership and cleanup policy permit it. Back up
-database/PVC data before rollback or uninstall.
+For rollback:
 
-The repository's `scripts/minikube-*.sh` and clean-install scripts are retained solely for
-automated test fixtures. They are not required for, or part of, the production
-installation path.
+```bash
+helm history envplane --namespace envplane
+helm rollback envplane <known-good-revision> --namespace envplane --wait --timeout 15m
+```
+
+## Uninstall
+
+```bash
+helm uninstall envplane --namespace envplane --wait
+```
+
+This removes Helm-owned workloads. Retained PVCs, external services,
+operator-managed Secrets, and platform add-ons are deliberately not deleted.
+Back up and remove retained data separately when required.
+
+## Troubleshooting
+
+| Symptom | Check | Resolution |
+|---|---|---|
+| `helm pull` or install cannot reach GHCR | `helm pull oci://ghcr.io/envplane/envplane --version <stable-version>` | Restore public OCI egress, or follow the private-mirror procedure in the advanced guide. |
+| Pods are Pending with an unbound PVC | `kubectl get storageclass` and `kubectl -n envplane get pvc` | Configure a default StorageClass or select an existing class in operator values. The chart does not install a CSI driver. |
+| Helm reports `forbidden` | Run `scripts/envplane-install-preflight.sh --version <stable-version> --namespace envplane` | Grant only the RBAC verbs reported by preflight, then retry the same command. |
+| Frontend is not reachable | Check both rollout commands and `kubectl -n envplane get svc envplane-frontend` | Keep the port-forward running for local first-run, or configure an existing Ingress/Gateway implementation. |
+| First-run has already been claimed | Inspect the initial-authentication status in the UI/API | Sign in with the configured provider; use the authenticated recovery flow instead of rerunning initial setup. |
+| Upgrade keeps old images | `helm get values envplane -n envplane` | Remove image overrides and rerun the wrapper without `--reuse-values`. |
+| External database connection fails | Check pod events and Secret metadata, never Secret values | Verify the existing Secret name/key, network policy, TLS trust, and database reachability. |
+
+For existing installations, run the read-only [SCM webhook migration runbook](scm-webhook-migration.md)
+and `scripts/scm-webhook-migration-preflight.sh` before changing provider URLs.
+
+For production topology and non-default choices, continue with
+[advanced installation](installation-advanced.md). For API-managed remote
+targets, see [remote clusters](remote-clusters.md).

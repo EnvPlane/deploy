@@ -1,0 +1,22 @@
+{{- if and .Values.aiSandbox.enabled .Values.aiSandbox.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "envplane-runner.fullname" . }}-ai-sandbox
+  labels:
+    {{- include "envplane-runner.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      envplane.ai/sandbox: "true"
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    {{- range .Values.aiSandbox.networkPolicy.egressCIDRs }}
+    - to:
+        - ipBlock:
+            cidr: {{ . | quote }}
+    {{- end }}
+{{- end }}

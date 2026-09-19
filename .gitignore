@@ -15,8 +15,8 @@ profile.cov
 *.tgz
 # The canonical umbrella deliberately vendors its four direct child charts so a
 # checked-out release can render/package without reaching an external registry.
-!deploy/helm/envpilot/charts/
-!deploy/helm/envpilot/charts/*.tgz
+!deploy/helm/envplane/charts/
+!deploy/helm/envplane/charts/*.tgz
 
 # OS/editor
 .DS_Store

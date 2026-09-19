@@ -7,5 +7,5 @@
 # depend on a developer process.
 set -euo pipefail
 
-echo "ERROR: minikube-agent-access.sh is retired. Configure ENVPILOT_REMOTE_CONTROL_PLANE_URL (and optional CA Secret/key) on the control plane, then use generated remote bootstrap instructions." >&2
+echo "ERROR: minikube-agent-access.sh is retired. Configure ENVPLANE_REMOTE_CONTROL_PLANE_URL (and optional CA Secret/key) on the control plane, then use generated remote bootstrap instructions." >&2
 exit 2

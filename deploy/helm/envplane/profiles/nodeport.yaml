@@ -1,0 +1,13 @@
+# Direct node access without an ingress or Gateway provider.
+access:
+  mode: disabled
+envplane-control-plane:
+  service:
+    type: NodePort
+    port: 8080
+    nodePort: 30081
+envplane-frontend:
+  service:
+    type: NodePort
+    port: 3000
+    nodePort: 30080

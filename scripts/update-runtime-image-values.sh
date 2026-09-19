@@ -8,7 +8,7 @@ usage() {
   cat <<'EOF'
 Usage: update-runtime-image-values.sh \
   --component <control-plane|frontend|agent|runner|webhook|platform-reconciler> \
-  --repository <ghcr.io/envpilot/...> \
+  --repository <ghcr.io/envplane/...> \
   --tag <sha-40-hex> \
   --digest <sha256:64-hex> \
   --source-revision <40-hex> \
@@ -28,7 +28,7 @@ tag=""
 digest=""
 source_revision=""
 release=""
-values_file="deploy/helm/envpilot/values.yaml"
+values_file="deploy/helm/envplane/values.yaml"
 release_file=""
 report_file=""
 
@@ -49,12 +49,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$component" in
-  control-plane) section="envpilot-control-plane"; expected_repository="ghcr.io/envpilot/api" ;;
-  frontend) section="envpilot-frontend"; expected_repository="ghcr.io/envpilot/frontend" ;;
-  agent) section="envpilot-agent"; expected_repository="ghcr.io/envpilot/agent" ;;
-  runner) section="envpilot-runner"; expected_repository="ghcr.io/envpilot/runner" ;;
-  webhook) section="envpilot-webhook"; expected_repository="ghcr.io/envpilot/webhook" ;;
-  platform-reconciler) section="platformDependencyReconciler"; expected_repository="ghcr.io/envpilot/platform-reconciler" ;;
+  control-plane) section="envplane-control-plane"; expected_repository="ghcr.io/envplane/api" ;;
+  frontend) section="envplane-frontend"; expected_repository="ghcr.io/envplane/frontend" ;;
+  agent) section="envplane-agent"; expected_repository="ghcr.io/envplane/agent" ;;
+  runner) section="envplane-runner"; expected_repository="ghcr.io/envplane/runner" ;;
+  webhook) section="envplane-webhook"; expected_repository="ghcr.io/envplane/webhook" ;;
+  platform-reconciler) section="platformDependencyReconciler"; expected_repository="ghcr.io/envplane/platform-reconciler" ;;
   *) die "unsupported component: $component" ;;
 esac
 
@@ -63,6 +63,7 @@ esac
 [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || die "digest must be a lowercase sha256 digest"
 [[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] || die "source revision must be a full lowercase commit SHA"
 [[ -n "$release" ]] || release="$tag"
+[[ "$release" =~ ^sha-[0-9a-f]{40}$ ]] || die "release must be sha- followed by a full lowercase commit SHA"
 [[ -f "$values_file" ]] || die "values file not found: $values_file"
 
 case "$component" in

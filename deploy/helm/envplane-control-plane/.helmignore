@@ -1,0 +1,4 @@
+# Test helpers may create these transient directories while chart tests run.
+# They are not chart sources and must never be included while Helm packages
+# this child chart as a file:// dependency of the umbrella.
+tmpcharts-*

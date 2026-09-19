@@ -1,0 +1,15 @@
+apiVersion: v2
+name: envplane-frontend
+description: EnvPlane browser frontend
+type: application
+version: 0.2.1
+appVersion: "0.1.5"
+keywords:
+  - envplane
+  - frontend
+  - ui
+home: https://envplane.local
+sources:
+  - https://github.com/envplane/frontend
+maintainers:
+  - name: EnvPlane Platform Team

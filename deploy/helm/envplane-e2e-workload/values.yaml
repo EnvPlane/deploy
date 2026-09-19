@@ -1,0 +1,55 @@
+# This chart intentionally has no application credentials or external service
+# dependencies. The pause image is small and commonly cached by minikube; set
+# image.repository/tag or image.digest if the target cluster uses a private
+# mirror. Digest takes precedence over tag.
+image:
+  repository: registry.k8s.io/pause
+  tag: "3.10"
+  digest: ""
+  pullPolicy: IfNotPresent
+  sourceRevision: ""
+  release: ""
+
+imagePullSecrets: []
+
+replicaCount: 1
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 16Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+# The fixture image exposes the workload TCP contract on port 8080. Keep
+# probes configurable because older isolated test environments may not expose
+# the contract while they are being migrated.
+probes:
+  enabled: true
+  port: 8080
+  liveness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 2
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+service:
+  port: 80

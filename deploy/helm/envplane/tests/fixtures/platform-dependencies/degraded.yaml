@@ -1,0 +1,11 @@
+platformDependencies:
+  ingress: {mode: existing, provider: nginx, existingClassName: orphan-nginx}
+  dns:
+    mode: existing
+    provider: external-dns
+    namespace: envplane
+    credentials: {existingSecret: dns-credentials}
+    domainFilters: [example.test]
+    ownershipId: envplane
+    policy: sync
+  storage: {mode: existing, existingClassName: unavailable-storage}

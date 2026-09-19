@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Upgrade a published EnvPilot umbrella while retaining operator configuration.
+# Upgrade a published EnvPlane umbrella while retaining operator configuration.
 #
 # Helm --reuse-values preserves the complete nested values tree from the prior
 # release. That silently retains old runtime image digests even when the new
@@ -11,9 +11,9 @@ set -euo pipefail
 # image override before Helm changes the release.
 
 release=""
-chart="oci://ghcr.io/envpilot/envpilot"
+chart="oci://ghcr.io/envplane/envplane"
 version=""
-namespace="envpilot"
+namespace="envplane"
 operator_values=""
 kube_context=""
 timeout="15m"

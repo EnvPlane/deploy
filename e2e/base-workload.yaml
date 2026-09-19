@@ -1,18 +1,18 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: envpilot-e2e-base
+  name: envplane-e2e-base
   labels:
-    envpilot.io/e2e-fixture: "true"
+    envplane.io/e2e-fixture: "true"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: e2e-base-workload
-  namespace: envpilot-e2e-base
+  namespace: envplane-e2e-base
   labels:
     app.kubernetes.io/name: e2e-base-workload
-    envpilot.io/e2e-fixture: "true"
+    envplane.io/e2e-fixture: "true"
 spec:
   replicas: 1
   selector:

@@ -6,19 +6,19 @@
 # tunnel or port-forward.
 #
 # Usage:
-#   ENVPILOT_AGENT_HELM_COMMAND='kubectl run ... && helm upgrade ...' \
+#   ENVPLANE_AGENT_HELM_COMMAND='kubectl run ... && helm upgrade ...' \
 #     ./scripts/minikube-agent-e2e.sh <target-profile>
 set -euo pipefail
 
 DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-target_profile="${1:-${ENVPILOT_AGENT_TARGET_MINIKUBE_PROFILE:-}}"
-command_to_test="${ENVPILOT_AGENT_HELM_COMMAND:-}"
-agent_namespace="${ENVPILOT_AGENT_E2E_NAMESPACE:-envpilot-system}"
-agent_deployment="${ENVPILOT_AGENT_E2E_DEPLOYMENT:-envpilot-agent}"
+target_profile="${1:-${ENVPLANE_AGENT_TARGET_MINIKUBE_PROFILE:-}}"
+command_to_test="${ENVPLANE_AGENT_HELM_COMMAND:-}"
+agent_namespace="${ENVPLANE_AGENT_E2E_NAMESPACE:-envplane-system}"
+agent_deployment="${ENVPLANE_AGENT_E2E_DEPLOYMENT:-envplane-agent}"
 
 [[ -n "$target_profile" ]] || { echo "ERROR: target Kubernetes context is required" >&2; exit 1; }
-[[ -n "$command_to_test" ]] || { echo "ERROR: set ENVPILOT_AGENT_HELM_COMMAND to the wizard's displayed Helm command" >&2; exit 1; }
-if [[ "$command_to_test" == *"host.minikube.internal"* || "$command_to_test" == *"envpilot.local"* ]]; then
+[[ -n "$command_to_test" ]] || { echo "ERROR: set ENVPLANE_AGENT_HELM_COMMAND to the wizard's displayed Helm command" >&2; exit 1; }
+if [[ "$command_to_test" == *"host.minikube.internal"* || "$command_to_test" == *"envplane.local"* ]]; then
   echo "ERROR: generated command uses a host-local endpoint. Configure the control plane with a stable remote target-pod-reachable endpoint first." >&2
   exit 1
 fi
