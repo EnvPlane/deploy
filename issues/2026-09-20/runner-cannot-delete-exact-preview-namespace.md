@@ -9,7 +9,7 @@ exact preview namespace but could not delete it.
 
 ## Expected
 
-The Runner must remove an EnvPlane-owned preview namespace after the guarded
+The Runner must remove an envplane-owned preview namespace after the guarded
 Helm cleanup. It must not gain authority over arbitrary namespaces.
 
 ## Implementation prompt
