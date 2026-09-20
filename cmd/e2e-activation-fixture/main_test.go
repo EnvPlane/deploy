@@ -62,7 +62,7 @@ func TestSignAcceptsRequestedLimits(t *testing.T) {
 	publicPath := filepath.Join(dir, "public.json")
 	codePath := filepath.Join(dir, "code")
 	generate([]string{"--private-key-output", privatePath, "--public-keys-output", publicPath})
-	sign([]string{"--private-key", privatePath, "--output", codePath, "--installation-id", "installation", "--tenant-id", "tenant", "--projects-max", "5", "--environments-active-max", "20", "--expires-in", "1h"})
+	sign([]string{"--private-key", privatePath, "--output", codePath, "--installation-id", "installation", "--tenant-id", "tenant", "--projects-max", "5", "--remote-clusters-max", "1", "--environments-active-max", "20", "--expires-in", "1h"})
 	raw, err := os.ReadFile(codePath)
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestSignAcceptsRequestedLimits(t *testing.T) {
 	if err := json.Unmarshal(payload, &parsed); err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Grant.Limits["projects.max"] != 5 || parsed.Grant.Limits["environments.active.max"] != 20 {
+	if parsed.Grant.Limits["projects.max"] != 5 || parsed.Grant.Limits["clusters.managed.max"] != 1 || parsed.Grant.Limits["environments.active.max"] != 20 {
 		t.Fatalf("limits = %#v", parsed.Grant.Limits)
 	}
 }
