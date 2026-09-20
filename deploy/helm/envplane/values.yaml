@@ -46,7 +46,10 @@ global:
   # in-place upgrades and rollback.
   envplane: {}
   envplane:
-    publicURL: ""
+    # The zero-values release is reached through the documented frontend
+    # port-forward. Operators must replace this with their canonical HTTPS
+    # origin before enabling OAuth or a public access profile.
+    publicURL: "http://127.0.0.1:3000"
     # Runtime image registry contract. Set mode=existing and reference a
     # Secret containing .dockerconfigjson for private images. The Secret name
     # and pull references are safe metadata; credentials never enter values.
