@@ -33,7 +33,9 @@ grep -q 'ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF' <<<"$rendered"
 cp -R "$root/deploy/helm" "$tmp/helm"
 refresh_chart="$tmp/helm/envplane"
 runner_chart="$tmp/helm/envplane-runner/Chart.yaml"
-sed -i.bak 's/^version: 0.4.6$/version: 0.3.1/' "$runner_chart"
+# The production Runner chart version changes frequently.  The fixture only
+# needs a different, valid version to verify that a stale lock is rejected.
+sed -i.bak 's/^version: .*/version: 0.3.1/' "$runner_chart"
 rm -f "$runner_chart.bak"
 "$root/scripts/update-umbrella-chart-dependency.sh" --component runner --version 0.3.1 --chart-file "$refresh_chart/Chart.yaml" --values-file "$refresh_chart/values.yaml" >/dev/null
 "$root/scripts/update-umbrella-chart-dependency.sh" --component webhook --version 0.1.6 --chart-file "$refresh_chart/Chart.yaml" --values-file "$refresh_chart/values.yaml" >/dev/null

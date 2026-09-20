@@ -10,12 +10,12 @@ dependencies:
   version: 0.2.24
 - name: envplane-runner
   repository: file://../envplane-runner
-  version: 0.4.6
+  version: 0.4.7
 - name: envplane-webhook
   repository: file://../envplane-webhook
   version: 0.1.6
 - name: envplane-e2e-workload
   repository: file://../envplane-e2e-workload
   version: 0.1.0
-digest: sha256:5ab2a9afea3f86f44a22cbb34404227b787c418b5cbb9398bf5aab3f9e727ed8
-generated: "2026-09-17T19:22:41.029727+02:00"
+digest: sha256:18964202cb244ca499b1751a1a61475a536d360235d3d71fc9bef07fed5e1570
+generated: "2026-09-20T21:14:05.541614+02:00"
