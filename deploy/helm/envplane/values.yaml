@@ -350,11 +350,11 @@ envplane-control-plane:
     enabled: true
   image:
     repository: ghcr.io/envplane/api
-    tag: "sha-391213b124c0c5489183525bf1b42fbbf58d848a"
-    digest: "sha256:88882272607b96d34212a7416db28b36975780d67fb7eca6cf7b61dd219065ae"
+    tag: "sha-acf85648fccac196df5362446a7edfaa692baf8c"
+    digest: "sha256:203e0aa8a900154841a75beb7ea31b0a71650c1e16f496001e81824b323a3955"
     pullPolicy: IfNotPresent
-    sourceRevision: "391213b124c0c5489183525bf1b42fbbf58d848a"
-    release: "sha-391213b124c0c5489183525bf1b42fbbf58d848a"
+    sourceRevision: "acf85648fccac196df5362446a7edfaa692baf8c"
+    release: "sha-acf85648fccac196df5362446a7edfaa692baf8c"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
