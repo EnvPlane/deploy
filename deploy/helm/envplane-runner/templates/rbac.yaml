@@ -296,15 +296,17 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 rules:
-  # Namespace objects are cluster-scoped. Cleanup verifies EnvPlane ownership
-  # before uninstalling a release, so grant get only for exact writer targets.
+  # Namespace objects are cluster-scoped. Cleanup verifies envplane ownership
+  # before removing a generated preview namespace. Only project-scoped writer
+  # modes receive delete; the standalone release-namespace default remains
+  # read-only and can never remove its own release namespace.
   - apiGroups: [""]
     resources: ["namespaces"]
     resourceNames:
       {{- range ($namespaceReaderTargets | uniq | sortAlpha) }}
       - {{ . | quote }}
       {{- end }}
-    verbs: ["get"]
+    verbs: ["get"{{- if ne $writerMode "releaseNamespace" }},"delete"{{- end }}]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
