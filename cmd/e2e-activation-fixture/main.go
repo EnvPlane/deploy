@@ -123,11 +123,15 @@ func sign(args []string) {
 	if _, err := rand.Read(nonce); err != nil {
 		fatal(err)
 	}
+	features := map[string]bool{"e2e": true}
+	if *remoteClustersMax > 0 {
+		features["clusters"] = true
+	}
 	payload, err := json.Marshal(envelope{
 		Version: "v1", KeyID: keyID, Algorithm: "Ed25519",
 		Grant: grant{
 			SchemaVersion: "v1", InstallationID: *installationID, TenantID: *tenantID,
-			SKU: "e2e", PlanID: "e2e", PlanVersion: "1", Features: map[string]bool{"e2e": true},
+			SKU: "e2e", PlanID: "e2e", PlanVersion: "1", Features: features,
 			Limits: map[string]int64{
 				"projects.max":            *projectsMax,
 				"clusters.managed.max":    *remoteClustersMax,

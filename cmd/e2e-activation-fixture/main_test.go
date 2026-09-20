@@ -79,4 +79,7 @@ func TestSignAcceptsRequestedLimits(t *testing.T) {
 	if parsed.Grant.Limits["projects.max"] != 5 || parsed.Grant.Limits["clusters.managed.max"] != 1 || parsed.Grant.Limits["environments.active.max"] != 20 {
 		t.Fatalf("limits = %#v", parsed.Grant.Limits)
 	}
+	if !parsed.Grant.Features["clusters"] {
+		t.Fatalf("managed cluster limit must grant the clusters feature: %#v", parsed.Grant.Features)
+	}
 }
