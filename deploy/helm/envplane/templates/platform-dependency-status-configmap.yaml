@@ -5,7 +5,11 @@
 {{- $access := .Values.access | default dict -}}
 {{- $accessMode := default "disabled" $access.mode -}}
 {{- $accessIngress := $access.ingress | default dict -}}
-{{- $accessLocalHTTP := and (eq $accessMode "ingress") (default false $accessIngress.allowInsecureHttp) (not (and $accessIngress.tls $accessIngress.tls.enabled)) -}}
+{{- $global := default dict .Values.global -}}
+{{- $globalEnvPlane := default dict $global.envplane -}}
+{{- $publicURL := trim (default "" $globalEnvPlane.publicURL) -}}
+{{- $portForwardLocalHTTP := and (eq $accessMode "disabled") (eq $publicURL "http://127.0.0.1:3000") -}}
+{{- $accessLocalHTTP := or $portForwardLocalHTTP (and (eq $accessMode "ingress") (default false $accessIngress.allowInsecureHttp) (not (and $accessIngress.tls $accessIngress.tls.enabled))) -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -15,11 +19,10 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: control-plane
 data:
-  # access.ingress.allowInsecureHttp is the umbrella's explicit local-only
-  # consent. Propagate it to the API so http://*.local installations neither
-  # reject their public URL nor issue Secure-only OAuth cookies. Project-owned
-  # Agents contact the in-cluster control-plane Service over HTTP too; they
-  # need the same explicit local-only consent before they can run discovery.
+  # The documented zero-values port-forward and an explicit local-only ingress
+  # profile are the only HTTP consents. Propagate them to the API so local
+  # first-run claims can issue a non-Secure setup cookie; public HTTPS profiles
+  # retain HTTPS-only transport and Secure cookies.
   ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: {{ ternary "true" "false" $accessLocalHTTP | quote }}
   ENVPLANE_OAUTH_COOKIE_SECURE: {{ ternary "false" "true" $accessLocalHTTP | quote }}
   ENVPLANE_SAME_CLUSTER_PROJECT_EXECUTORS_ALLOW_INSECURE_CONTROL_PLANE: {{ ternary "true" "false" $accessLocalHTTP | quote }}
