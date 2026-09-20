@@ -119,8 +119,11 @@ global:
       # explicitly configured HTTP control plane.
       allowInsecureControlPlane: false
       # Direct OCI and HTTP(S) charts are denied by project Runners unless
-      # their host is explicitly listed here. This carries no credentials.
-      helmAllowedChartHosts: []
+      # their host is explicitly listed here. The zero-setup Helm Direct
+      # default below is a public GHCR chart, so its host is allowlisted
+      # without granting registry credentials.
+      helmAllowedChartHosts:
+        - ghcr.io
       discovery:
         namespaces: []
       # Optional private-registry override. Leave both fields empty for public

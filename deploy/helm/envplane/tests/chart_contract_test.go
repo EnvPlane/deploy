@@ -469,6 +469,7 @@ func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *te
 		"bootstrapDefaults:",
 		"chartRef: oci://ghcr.io/envplane/envplane-e2e-workload",
 		`chartVersion: "0.1.0"`,
+		"helmAllowedChartHosts:\n        - ghcr.io",
 		"e2eWorkload:",
 		"enabled: false",
 	} {
