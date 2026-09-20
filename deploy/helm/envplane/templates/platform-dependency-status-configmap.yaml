@@ -6,8 +6,8 @@
 {{- $accessMode := default "disabled" $access.mode -}}
 {{- $accessIngress := $access.ingress | default dict -}}
 {{- $global := default dict .Values.global -}}
-{{- $globalEnvPlane := default dict $global.envplane -}}
-{{- $publicURL := trim (default "" $globalEnvPlane.publicURL) -}}
+{{- $globalEnvplane := default dict $global.envplane -}}
+{{- $publicURL := trim (default "" $globalEnvplane.publicURL) -}}
 {{- $portForwardLocalHTTP := and (eq $accessMode "disabled") (eq $publicURL "http://127.0.0.1:3000") -}}
 {{- $accessLocalHTTP := or $portForwardLocalHTTP (and (eq $accessMode "ingress") (default false $accessIngress.allowInsecureHttp) (not (and $accessIngress.tls $accessIngress.tls.enabled))) -}}
 apiVersion: v1
