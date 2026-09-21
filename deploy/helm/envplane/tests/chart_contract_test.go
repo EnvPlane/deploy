@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
@@ -17,6 +18,48 @@ import (
 
 var buildUmbrellaDependencies sync.Once
 var umbrellaChartFixture string
+
+const helmDependencyBuildAttempts = 3
+
+func buildHelmDependencies(chartPath string) ([]byte, error) {
+	var output []byte
+	var err error
+	for attempt := 1; attempt <= helmDependencyBuildAttempts; attempt++ {
+		command := exec.Command("helm", "dependency", "build", "--skip-refresh", chartPath)
+		output, err = command.CombinedOutput()
+		if err == nil || !transientHelmDependencyError(string(output)) || attempt == helmDependencyBuildAttempts {
+			return output, err
+		}
+		time.Sleep(time.Duration(attempt) * time.Second)
+	}
+	return output, err
+}
+
+func transientHelmDependencyError(output string) bool {
+	output = strings.ToLower(output)
+	for _, marker := range []string{
+		"connection reset by peer",
+		"unexpected eof",
+		"tls handshake timeout",
+		"i/o timeout",
+		"temporarily unavailable",
+		"server returned status code 5",
+	} {
+		if strings.Contains(output, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestTransientHelmDependencyError(t *testing.T) {
+	if !transientHelmDependencyError("failed to fetch chart: read: connection reset by peer") {
+		t.Fatal("connection reset must be retryable")
+	}
+	if transientHelmDependencyError("Error: chart metadata is invalid") {
+		t.Fatal("deterministic chart validation error must not be retryable")
+	}
+}
 
 func withFixturePostgres(values []string) []string {
 	base := []string{
@@ -60,8 +103,7 @@ func buildDependencies(t *testing.T) {
 				copyChartTree(t, dependencySource, filepath.Join(fixtureRoot, dependency))
 			}
 		}
-		cmd := exec.Command("helm", "dependency", "build", "--skip-refresh", umbrellaChartFixture)
-		output, err := cmd.CombinedOutput()
+		output, err := buildHelmDependencies(umbrellaChartFixture)
 		if err != nil {
 			t.Fatalf("build umbrella dependencies: %v\n%s", err, output)
 		}
@@ -295,8 +337,7 @@ func renderChildChart(t *testing.T, chartName string, values ...string) string {
 		copyChartTree(t, filepath.Join(sourceRoot, "envplane-frontend"), filepath.Join(temporaryRoot, "envplane-frontend"))
 	}
 
-	dependencies := exec.Command("helm", "dependency", "build", "--skip-refresh", chartPath)
-	output, err := dependencies.CombinedOutput()
+	output, err := buildHelmDependencies(chartPath)
 	if err != nil {
 		t.Fatalf("build %s child dependencies: %v\n%s", chartName, err, output)
 	}
@@ -360,8 +401,7 @@ func renderPublishedUmbrella(t *testing.T, values ...string) (string, error) {
 	} {
 		copyChartTree(t, filepath.Join(filepath.Dir(sourceChart), dependency), filepath.Join(filepath.Dir(temporaryChart), dependency))
 	}
-	dependencies := exec.Command("helm", "dependency", "build", "--skip-refresh", temporaryChart)
-	if output, err := dependencies.CombinedOutput(); err != nil {
+	if output, err := buildHelmDependencies(temporaryChart); err != nil {
 		t.Fatalf("build published umbrella test dependencies: %v\n%s", err, output)
 	}
 	manifestPath := filepath.Join(temporaryChart, "compatibility", "release.json")
@@ -1285,8 +1325,7 @@ func TestReleaseOwnedConfigMapsAreRevisionScopedForServerSideUpgrades(t *testing
 	}
 	copyChartTree(t, filepath.Join(canonicalRoot, "envplane-control-plane"), childPath)
 	copyChartTree(t, filepath.Join(canonicalRoot, "envplane-frontend"), filepath.Join(childRoot, "envplane-frontend"))
-	dependencies := exec.Command("helm", "dependency", "build", "--skip-refresh", childPath)
-	dependencyOutput, err := dependencies.CombinedOutput()
+	dependencyOutput, err := buildHelmDependencies(childPath)
 	if err != nil {
 		t.Fatalf("build control-plane child dependencies: %v\n%s", err, dependencyOutput)
 	}
