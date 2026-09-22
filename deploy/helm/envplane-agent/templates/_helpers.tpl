@@ -102,6 +102,20 @@ envplane.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 {{- end }}
 {{- end -}}
 
+{{- /*
+The full managed lifecycle contract belongs in annotations. In particular,
+compatibilityPin and trustRevision are sha256 values (71 characters including
+the prefix), which Kubernetes rejects as label values. Keep the PVC label
+surface deliberately small: release ownership is established from Helm values,
+not from mutable Kubernetes labels.
+*/ -}}
+{{- define "envplane-agent.managedRemoteLabels" -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if (get $managedRemote "enabled") }}
+envplane.io/managed-remote: "true"
+{{- end }}
+{{- end -}}
+
 {{- define "envplane-agent.validateManagedRemote" -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- if (get $managedRemote "enabled") -}}

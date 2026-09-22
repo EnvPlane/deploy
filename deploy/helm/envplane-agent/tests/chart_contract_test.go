@@ -655,6 +655,24 @@ func TestAgentChartRendersDefaultAuthPersistencePVC(t *testing.T) {
 	}
 }
 
+func TestAgentChartKeepsManagedRemoteSHAValuesOutOfPVCLabels(t *testing.T) {
+	pvc, err := os.ReadFile("../templates/auth-pvc.yaml")
+	if err != nil {
+		t.Fatalf("read Agent auth PVC template: %v", err)
+	}
+	text := string(pvc)
+	labelsEnd := strings.Index(text, "  annotations:")
+	if labelsEnd < 0 {
+		t.Fatalf("Agent auth PVC must declare annotations: %s", text)
+	}
+	if strings.Contains(text[:labelsEnd], "managedRemoteMetadata\" . | nindent 4") {
+		t.Fatalf("managed remote metadata includes sha256 revisions and must not be rendered as PVC labels: %s", text)
+	}
+	if !strings.Contains(text[:labelsEnd], "managedRemoteLabels\" . | nindent 4") || !strings.Contains(text[labelsEnd:], "managedRemoteMetadata\" . | nindent 4") {
+		t.Fatalf("managed remote PVC must use safe labels and preserve lifecycle metadata in annotations: %s", text)
+	}
+}
+
 func TestAgentChartRendersGenerationScopedAuthPersistenceClaim(t *testing.T) {
 	commandArgs := []string{
 		"template", "envplane-agent", "..",

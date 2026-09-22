@@ -100,6 +100,14 @@ envplane.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 {{- end }}
 {{- end -}}
 
+{{- /* Full sha256 lifecycle revisions cannot be Kubernetes label values. */ -}}
+{{- define "envplane-runner.managedRemoteLabels" -}}
+{{- $managedRemote := default (dict) .Values.managedRemote -}}
+{{- if (get $managedRemote "enabled") }}
+envplane.io/managed-remote: "true"
+{{- end }}
+{{- end -}}
+
 {{- define "envplane-runner.validateManagedRemote" -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- if (get $managedRemote "enabled") -}}

@@ -5,6 +5,8 @@ metadata:
   name: {{ default (printf "%s-auth" (include "envplane-runner.fullname" .)) .Values.controlPlane.authPersistence.claimName }}
   labels:
     {{- include "envplane-runner.labels" . | nindent 4 }}
+    {{- include "envplane-runner.managedRemoteLabels" . | nindent 4 }}
+  annotations:
     {{- include "envplane-runner.managedRemoteMetadata" . | nindent 4 }}
 spec:
   accessModes:
