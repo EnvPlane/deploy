@@ -27,3 +27,11 @@ does not exist on the target cluster.
 - PVC annotations retain the exact values.
 - A missing discovery namespace is reported as an actionable prerequisite,
   without granting namespace creation permissions beyond runtime namespaces.
+
+## Release packaging follow-up
+
+Any change under a published child chart must increment that chart's semantic
+version and update the umbrella dependency pin. Otherwise a new umbrella
+release resolves the previously published immutable child artifact and omits
+the fix. This incident requires Agent `0.2.25` and Runner `0.4.8` before the
+next umbrella release is created.
