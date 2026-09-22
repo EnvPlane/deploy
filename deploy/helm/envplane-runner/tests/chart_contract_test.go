@@ -267,6 +267,12 @@ func TestRunnerChartManagedRemoteWithoutConcreteFeatureNamespaceDoesNotGrantWrit
 	if strings.Contains(rendered, "feature-env-writer") || strings.Contains(rendered, "resources:\n      - secrets") {
 		t.Fatalf("a remote Runner with no concrete feature namespace must not receive broad Helm Secret RBAC:\n%s", rendered)
 	}
+	if !strings.Contains(rendered, `value: "disabled"`) {
+		t.Fatalf("a remote Runner with no concrete feature namespace must render disabled writer mode:\n%s", rendered)
+	}
+	if strings.Contains(rendered, `value: "preconfiguredNamespaces"`) {
+		t.Fatalf("a remote Runner with no concrete feature namespace must not render an empty preconfigured writer mode:\n%s", rendered)
+	}
 }
 
 func TestRunnerChartUsesPersistentImage(t *testing.T) {

@@ -10,6 +10,9 @@
 {{- $controlPlaneTLS := default (dict) (get $controlPlane "tls") -}}
 {{- $featureEnvWriter := default (dict) .Values.rbac.featureEnvWriter -}}
 {{- $featureEnvWriterMode := default "releaseNamespace" $featureEnvWriter.mode -}}
+{{- if not (default false (get $featureEnvWriter "enabled")) -}}
+{{- $featureEnvWriterMode = "disabled" -}}
+{{- end -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- $managedRemoteEnabled := eq (include "envplane-runner.managedRemoteEnabled" .) "true" -}}
 {{- $sameClusterProjectExecutors := default (dict) (get $globalEnvPlane "sameClusterProjectExecutors") -}}
