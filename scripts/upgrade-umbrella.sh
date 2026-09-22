@@ -55,6 +55,13 @@ done
 [[ -f "$operator_values" ]] || { echo "--operator-values must name an existing durable values file" >&2; exit 2; }
 
 args=(upgrade --install "$release" "$chart" --version "$version" --namespace "$namespace" --values "$operator_values" --reset-values --timeout "$timeout")
+# Helm 4 defaults to server-side apply. Runtime-owned status ConfigMaps and
+# operator-patched workloads can then conflict with Helm's field manager on
+# upgrade or rollback. Use the compatible client-side update when available;
+# Helm 3 clients without this flag keep their existing behavior.
+if [[ "$(helm upgrade --help)" == *--server-side* ]]; then
+  args+=(--server-side=false)
+fi
 [[ -n "$kube_context" ]] && args+=(--kube-context "$kube_context")
 [[ "$create_namespace" == true ]] && args+=(--create-namespace)
 [[ "$wait" == true ]] && args+=(--wait)

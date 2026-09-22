@@ -1785,7 +1785,7 @@ func TestUmbrellaUpgradeWrapperPreservesOperatorValuesWithoutReusingArtifactPins
 		t.Fatal(err)
 	}
 	for _, expected := range []string{
-		"--operator-values", "--reset-values", "--version", "--timeout", "Do not echo values",
+		"--operator-values", "--reset-values", "--server-side=false", "--version", "--timeout", "Do not echo values",
 		"compatibility manifest rejects a conflicting", "--reuse-values",
 	} {
 		if !strings.Contains(string(wrapper), expected) {

@@ -123,6 +123,8 @@ scripts/upgrade-umbrella.sh \
 The wrapper always passes `--reset-values`. Do not replace it with
 `--reuse-values`; that can retain stale nested image selections. If no operator
 values are needed, use an empty, non-secret YAML document (`{}`).
+With Helm 4, the wrapper uses client-side updates to avoid server-side field
+ownership conflicts with runtime status ConfigMaps or operator-patched Pods.
 
 For rollback:
 
