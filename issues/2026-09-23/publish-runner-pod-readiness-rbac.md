@@ -18,7 +18,8 @@ Publish the canonical Runner chart under a new immutable version and select it i
 - Upgraded only isolated project Runner `ep-runner-8cf93a7ffc80` to local chart `0.4.10` with existing values; Helm revision 7 is deployed.
 - The Runner service account can list Pods in `envplane-e2e-pr-9002` but cannot list Pods in `default`.
 - A new `Refresh status` completed successfully; `e2e-remote-smoke-local-375` returned to Ready and the old Forbidden error cleared.
+- Published umbrella `0.4.388` contains Runner chart `0.4.10` and was deployed as isolated management release revision 23. The remote project Runner is on chart `0.4.10`; its service account can list Pods in `envplane-e2e-pr-9002` but cannot create Pods there. A fresh Runner status command succeeded, and the environment remained Ready after page reload.
 
 ## Status
 
-Fixed locally. Published OCI chart and a new umbrella release remain pending; the isolated test Runner already uses the local chart.
+Fixed and verified on published umbrella `0.4.388` in the isolated management/remote E2E clusters.
