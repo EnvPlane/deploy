@@ -387,6 +387,8 @@ spec:
               value: {{ ternary (get $license "graceDays") 14 (hasKey $license "graceDays") | quote }}
             - name: ENVPLANE_REMOTE_CLUSTER_RECONCILER_ENABLED
               value: {{ $remoteClusterReconcilerEnabled | quote }}
+            - name: ENVPLANE_REMOTE_PROJECT_HELM_ALLOWED_CHART_HOSTS
+              value: {{ join "," (default (list) $remoteClusterReconciler.helmAllowedChartHosts) | quote }}
             {{- if $remoteClusterReconcilerEnabled }}
             # Always derive the normal leader-election namespace from the Pod,
             # not from a hard-coded default. This keeps the Lease and its

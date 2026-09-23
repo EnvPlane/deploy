@@ -438,7 +438,13 @@
             "remoteClusterReconciler": {
               "type": "object",
               "additionalProperties": false,
-              "properties": { "enabled": { "type": "boolean" } }
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "helmAllowedChartHosts": {
+                  "type": "array",
+                  "items": { "type": "string", "minLength": 1 }
+                }
+              }
             },
             "remoteControlPlane": {
               "type": "object",

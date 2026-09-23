@@ -523,6 +523,8 @@ func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *te
 		`value: "oci://ghcr.io/envplane/envplane-e2e-workload"`,
 		"name: ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_VERSION",
 		`value: "0.1.0"`,
+		"name: ENVPLANE_REMOTE_PROJECT_HELM_ALLOWED_CHART_HOSTS",
+		`value: "ghcr.io"`,
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("active umbrella render missing Helm Direct bootstrap default %q:\n%s", expected, rendered)

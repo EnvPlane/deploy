@@ -89,6 +89,10 @@ global:
     # contains no target-cluster endpoint or credential material.
     remoteClusterReconciler:
       enabled: false
+      # Remote project Runners may fetch only charts from these hosts. The
+      # zero-setup Helm Direct chart is public on GHCR; this is not a credential.
+      helmAllowedChartHosts:
+        - ghcr.io
     # Published umbrella releases mount their signed declaration into the
     # control plane. The API validates install-flow contracts and rollout mode
     # before changing first-run or activation state.
