@@ -408,6 +408,9 @@ func TestRunnerChartDefaultRBACIsLeastPrivilege(t *testing.T) {
 	if !docHasAnyResource(writerDoc, "secrets") || !docHasAnyVerb(writerDoc, `"create"`, `"delete"`) {
 		t.Fatalf("feature-env-writer must manage namespace-scoped Helm release secrets:\n%s", writerDoc)
 	}
+	if !strings.Contains(writerDoc, `resources: ["pods"]`) || !strings.Contains(writerDoc, `verbs: ["get","list","watch"]`) {
+		t.Fatalf("feature-env-writer must have namespace-scoped Pod readiness reads:\n%s", writerDoc)
+	}
 	if docHasAnyResource(writerDoc, "networkpolicies", "helmreleases", "kustomizations", "gitrepositories") {
 		t.Fatalf("feature-env-writer optional capabilities must be disabled by default:\n%s", writerDoc)
 	}

@@ -22,6 +22,11 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 rules:
+  # Helm status inspects workload Pods after install. This is read-only and
+  # remains scoped to the exact feature namespace, never the whole cluster.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get","list","watch"]
   - apiGroups: [""]
     resources:
       - configmaps
