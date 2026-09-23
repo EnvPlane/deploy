@@ -1,0 +1,35 @@
+# Local development only: this permits insecure HTTP on envplane.local.
+# Do not use these values for a public or production installation.
+# Durable operator configuration for the local bethunder-local installation.
+# Runtime image pins deliberately remain in the signed umbrella release.
+access:
+  mode: ingress
+  ingress:
+    className: nginx
+    host: envplane.local
+    allowInsecureHttp: true
+
+global:
+  envplane:
+    publicURL: http://envplane.local
+    currentClusterDiscovery:
+      enabled: true
+    sameClusterProjectExecutors:
+      enabled: true
+      namespace: envplane-executors
+      helmAllowedChartHosts:
+        - ghcr.io
+
+envplane-control-plane:
+  publicURL: http://envplane.local
+  env:
+    ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: true
+  rbac:
+    currentClusterDiscovery:
+      enabled: true
+    sameClusterProjectExecutors:
+      enabled: true
+      namespace: envplane-executors
+
+platformDependencyReconciler:
+  enabled: true
