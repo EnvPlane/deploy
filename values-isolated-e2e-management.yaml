@@ -1,0 +1,22 @@
+# Isolated Kind management-cluster E2E profile, not a production installation.
+# Keep image pins in the signed umbrella release; this file contains only
+# operator settings that must survive an upgrade with --reset-values.
+global:
+  envplane:
+    remoteClusterReconciler:
+      enabled: true
+    sameClusterProjectExecutors:
+      helmAllowedChartHosts:
+        - ghcr.io
+
+envplane-control-plane:
+  commercialization:
+    license:
+      activationPublicKeysJSON: '[{"keyId":"clean-cluster-e2e","algorithm":"Ed25519","publicKey":"K9impNiN6OyRR3GT5WzsMnMsP2CrBbvEJMEkcgctmTg","status":"active"}]'
+  rbac:
+    remoteClusterCredentials:
+      enabled: true
+      namespaces:
+        - envplane-e2e
+    remoteClusterReconciler:
+      enabled: true
