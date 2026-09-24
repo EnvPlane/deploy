@@ -11,12 +11,12 @@ RBAC, and anonymous access to `ghcr.io`.
 
 <!-- envplane:canonical-install-command:start -->
 ```bash
-helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.403 --namespace envplane --create-namespace --wait
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.404 --namespace envplane --create-namespace --wait
 ```
 <!-- envplane:canonical-install-command:end -->
 
 <!-- envplane:stable-release-links:start -->
-Stable release: `0.4.403` · [versioned installation guide](https://github.com/envplane/deploy/blob/32021eef378d71e1608f78b28a3e153076f21380/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
+Stable release: `0.4.404` · [versioned installation guide](https://github.com/envplane/deploy/blob/49d1a6863d59f5e99efd3706fe6a027f7a04e2b9/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
 <!-- envplane:stable-release-links:end -->
 
 Then verify the workloads and open first-run:
