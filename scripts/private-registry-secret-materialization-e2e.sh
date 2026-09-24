@@ -269,15 +269,24 @@ kubectl --context "kind-$cluster" -n "$base_namespace" create secret docker-regi
 kubectl --context "kind-$cluster" -n "$base_namespace" create secret generic application-source --from-literal=config="$application_secret" >/dev/null
 set_sm09_phase "wait for control-plane rollout"
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-control-plane --timeout=5m
+if ! kubectl --context "kind-$cluster" -n "$namespace" get deployment envplane-control-plane -o json |
+  jq -e --arg token "$api_token" '[.spec.template.spec.containers[] | select(.name == "api") | .env[]? | select(.name == "ENVPLANE_API_WRITE_TOKEN" and .value == $token)] | length == 1' >/dev/null; then
+  echo "SM-09 control-plane deployment did not receive the fixture API token" >&2
+  exit 1
+fi
+runtime_api_token="$(kubectl --context "kind-$cluster" -n "$namespace" exec deployment/envplane-control-plane -c api -- printenv ENVPLANE_API_WRITE_TOKEN)"
+if [[ "$runtime_api_token" != "$api_token" ]]; then
+  echo "SM-09 control-plane process did not receive the fixture API token" >&2
+  exit 1
+fi
+unset runtime_api_token
 set_sm09_phase "wait for Agent rollout"
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-agent --timeout=5m
 
-api_port=18080
 set_sm09_phase "start control-plane API port-forward"
-kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane "$api_port:8080" >"$tmp/port-forward.log" 2>&1 &
+kubectl --context "kind-$cluster" -n "$namespace" port-forward svc/envplane-control-plane :8080 >"$tmp/port-forward.log" 2>&1 &
 api_port_forward_pid=$!
 pids+=("$api_port_forward_pid")
-api="http://127.0.0.1:$api_port"
 frontend_port=13000
 tenant_id="${ENVPLANE_SM09_TENANT_ID:-default}"
 if [[ "$first_run_browser_gate" == "1" ]]; then
@@ -289,18 +298,42 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
   pids+=("$frontend_port_forward_pid")
 fi
 
+wait_for_port_forward_binding() {
+  local pid="$1" label="$2" log_file="$3" target_port="$4" expected_local_port="${5:-}" attempt local_port
+  for attempt in $(seq 1 90); do
+    if ! kill -0 "$pid" >/dev/null 2>&1; then
+      echo "SM-09 $label port-forward exited before binding" >&2
+      tail -40 "$log_file" >&2 || true
+      return 1
+    fi
+    local_port="$(awk -v target="$target_port" '$1 == "Forwarding" && $2 == "from" && $4 == "->" && $5 == target && $3 ~ /^127[.]0[.]0[.]1:[0-9]+$/ {split($3, address, ":"); print address[2]; exit}' "$log_file")"
+    if [[ -n "$local_port" ]]; then
+      if [[ -n "$expected_local_port" && "$local_port" != "$expected_local_port" ]]; then
+        echo "SM-09 $label port-forward bound an unexpected local port" >&2
+        return 1
+      fi
+      printf '%s\n' "$local_port"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "SM-09 $label port-forward did not bind within 90 seconds" >&2
+  tail -40 "$log_file" >&2 || true
+  return 1
+}
+
 wait_for_port_forward() {
   local pid="$1" label="$2" log_file="$3" url="$4" attempt
   for attempt in $(seq 1 90); do
-    if curl --noproxy '*' --silent --show-error --fail \
-      -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" \
-      "$url" >/dev/null 2>&1; then
-      return 0
-    fi
     if ! kill -0 "$pid" >/dev/null 2>&1; then
       echo "SM-09 $label port-forward exited before becoming reachable" >&2
       tail -40 "$log_file" >&2 || true
       return 1
+    fi
+    if curl --noproxy '*' --silent --show-error --fail \
+      -H "Authorization: Bearer $api_token" -H "x-envplane-tenant: $tenant_id" \
+      "$url" >/dev/null 2>&1; then
+      return 0
     fi
     sleep 1
   done
@@ -310,9 +343,12 @@ wait_for_port_forward() {
 }
 
 set_sm09_phase "wait for control-plane API port-forward"
+api_port="$(wait_for_port_forward_binding "$api_port_forward_pid" "control-plane API" "$tmp/port-forward.log" 8080)"
+api="http://127.0.0.1:$api_port"
 wait_for_port_forward "$api_port_forward_pid" "control-plane API" "$tmp/port-forward.log" "$api/api/v1/health"
 if [[ "$first_run_browser_gate" == "1" ]]; then
   set_sm09_phase "wait for frontend port-forward"
+  wait_for_port_forward_binding "$frontend_port_forward_pid" "frontend" "$tmp/frontend-port-forward.log" 3000 "$frontend_port" >/dev/null
   wait_for_port_forward "$frontend_port_forward_pid" "frontend" "$tmp/frontend-port-forward.log" "http://127.0.0.1:$frontend_port/"
 fi
 

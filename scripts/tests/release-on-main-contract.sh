@@ -325,6 +325,12 @@ grep -Fq 'ENVPLANE_API_WRITE_TOKEN: $api_token' "$secret_lifecycle_harness" &&
   echo "private-registry lifecycle harness must use its disposable authenticated API client" >&2
   exit 1
 }
+grep -Fq 'port-forward svc/envplane-control-plane :8080' "$secret_lifecycle_harness" &&
+  grep -Fq 'wait_for_port_forward_binding "$api_port_forward_pid"' "$secret_lifecycle_harness" &&
+  grep -Fq 'wait_for_port_forward_binding "$frontend_port_forward_pid"' "$secret_lifecycle_harness" || {
+  echo "private-registry lifecycle harness must verify its own port-forward binding before probing endpoints" >&2
+  exit 1
+}
 
 grep -Fq 'SM-09 API request failed:' "$secret_lifecycle_harness" || {
   echo "private-registry lifecycle harness must emit redacted Bootstrap API diagnostics" >&2
