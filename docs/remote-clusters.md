@@ -114,3 +114,33 @@ ENVPLANE_E2E_SCM_TOKEN_FILE=/secure/path/scm-token \
 
 CI may create disposable clusters for this harness, but neither the chart nor
 the product creates clusters or private-network infrastructure.
+
+### Reusable isolated Kind browser fixture
+
+For the local two-Kind-cluster fixture only, run
+`scripts/run-isolated-real-cluster-playwright.sh` instead of calling Playwright
+directly. It checks the mounted private endpoint certificate before testing and
+renews it when less than seven days remain. Renewal stages overlapping trust,
+updates only the named test TLS/CA Secrets, restarts the endpoint and only the
+target Deployments that mount the matching CA Secret, and then removes the old
+trust anchor. It refuses non-Kind contexts. The browser storage-state file
+must be fresh and private; the script never reads or prints its cookie values.
+
+```sh
+ENVPLANE_E2E_MANAGEMENT_CONTEXT=kind-envplane-e2e-management \
+ENVPLANE_E2E_TARGET_CONTEXT=kind-envplane-e2e-remote \
+ENVPLANE_E2E_REMOTE_CLUSTER_ID=e2e-remote-353 \
+ENVPLANE_E2E_STORAGE_STATE=/private/tmp/current-e2e-storage-state.json \
+ENVPLANE_E2E_BASE_URL=http://127.0.0.1:3000 \
+ENVPLANE_E2E_API_URL=http://127.0.0.1:18080 \
+./scripts/run-isolated-real-cluster-playwright.sh
+```
+
+Run `scripts/ensure-isolated-e2e-tls.sh check` with the three cluster variables
+above for a read-only preflight. It reports certificate expiry and remaining
+seconds, and fails when the endpoint identity, remaining lifetime, or exact
+single-certificate trust copies do not match. `ensure` is the only mutating
+mode. Override `ENVPLANE_E2E_TLS_MIN_VALID_SECONDS` and
+`ENVPLANE_E2E_TLS_VALID_DAYS` only for isolated fixture tests. For other
+platform-owned HTTPS endpoints, renew certificates through the platform's own
+certificate manager instead.

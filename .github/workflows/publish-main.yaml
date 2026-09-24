@@ -117,6 +117,8 @@ jobs:
         run: ./scripts/tests/published-remote-cluster-lifecycle-contract.sh
       - name: Verify published two-cluster RemoteCluster contract
         run: ./scripts/tests/published-remote-cluster-two-cluster-contract.sh
+      - name: Verify isolated E2E TLS renewal contract
+        run: ./scripts/tests/isolated-e2e-tls-contract.sh
       - name: Lint canonical charts
         shell: bash
         run: |
