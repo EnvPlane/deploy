@@ -454,6 +454,13 @@ grep -Fq 'verify-frontend-component-repair-controls.sh' "$workflow" || {
   exit 1
 }
 
+for marker in 'Provider credential' 'Save provider key' 'anthropic'; do
+  grep -Fq "$marker" "$frontend_smoke" || {
+    echo "frontend image smoke must verify the Settings-managed AI provider controls" >&2
+    exit 1
+  }
+done
+
 grep -Fq 'ENVPLANE_ARTIFACT_WAIT_ATTEMPTS' "$frontend_smoke" &&
 grep -Fq 'image="$repository@$expected_digest"' "$frontend_smoke" || {
   echo "frontend component smoke must retry publication visibility and inspect the immutable digest" >&2

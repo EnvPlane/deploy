@@ -64,7 +64,14 @@ docker pull "$image" >/dev/null
 container="$(docker create "$image")"
 docker cp "$container:/app/.next" "$tmp/.next"
 
-for marker in 'Configured application components' 'Save component changes' 'Component ID' 'Default branch'; do
+for marker in \
+  'Configured application components' \
+  'Save component changes' \
+  'Component ID' \
+  'Default branch' \
+  'Provider credential' \
+  'Save provider key' \
+  'anthropic'; do
   if ! grep -R -a -F -q -- "$marker" "$tmp/.next"; then
     echo "frontend image is missing required component-repair control: $marker" >&2
     exit 1
