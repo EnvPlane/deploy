@@ -204,6 +204,14 @@ jobs:
           ./scripts/verify-frontend-component-repair-controls.sh \
             --image "$(jq -er '.images.frontend.repository + ":" + .images.frontend.tag' "$REPORT")" \
             --digest "$(jq -er '.images.frontend.digest' "$REPORT")"
+      - name: Smoke-check AI provider routes in control-plane image
+        env:
+          REPORT: ${{ steps.artifacts.outputs.report }}
+        run: |
+          set -euo pipefail
+          ./scripts/verify-control-plane-ai-provider-routes.sh \
+            --image "$(jq -er '.images.controlPlane.repository + ":" + .images.controlPlane.tag' "$REPORT")" \
+            --digest "$(jq -er '.images.controlPlane.digest' "$REPORT")"
       - name: Apply latest image pins in the ephemeral release workspace
         env:
           REPORT: ${{ steps.artifacts.outputs.report }}

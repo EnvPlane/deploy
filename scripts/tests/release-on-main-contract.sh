@@ -8,6 +8,7 @@ resolver="$root/scripts/resolve-latest-published-artifacts.sh"
 child_publisher="$root/scripts/publish-selected-child-charts.sh"
 freshness_gate="$root/scripts/ensure-current-compatible-artifact.sh"
 frontend_smoke="$root/scripts/verify-frontend-component-repair-controls.sh"
+control_plane_ai_smoke="$root/scripts/verify-control-plane-ai-provider-routes.sh"
 secret_lifecycle_harness="$root/scripts/private-registry-secret-materialization-e2e.sh"
 anonymous_oci_harness="$root/scripts/verify-anonymous-oci-artifacts.sh"
 runtime_receiver="$root/.github/workflows/propose-runtime-image-update.yaml"
@@ -453,6 +454,18 @@ grep -Fq 'verify-frontend-component-repair-controls.sh' "$workflow" || {
   echo "release must verify editable component controls in the pinned frontend digest" >&2
   exit 1
 }
+
+grep -Fq 'verify-control-plane-ai-provider-routes.sh' "$workflow" || {
+  echo "release must verify AI provider routes in the pinned control-plane digest" >&2
+  exit 1
+}
+
+for marker in '/api/v1/tenants/{tenantID}/ai-provider-credentials' 'https://api.anthropic.com/v1/messages'; do
+  grep -Fq "$marker" "$control_plane_ai_smoke" || {
+    echo "control-plane image smoke must verify AI provider runtime markers" >&2
+    exit 1
+  }
+done
 
 for marker in 'Provider credential' 'Save provider key' 'anthropic'; do
   grep -Fq "$marker" "$frontend_smoke" || {
