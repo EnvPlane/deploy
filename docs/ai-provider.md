@@ -1,12 +1,20 @@
 # AI provider configuration
 
-AI is disabled by default. Enabling it does not create an API endpoint or grant
+AI runtime support is installed by default, but it remains unavailable until the
+tenant has both an AI entitlement and an enabled Settings policy. Enabling it
+does not create an API endpoint or grant
 the provider access to Agents, Runners, Kubernetes, or control-plane actions.
 The control plane sends only the bounded, redacted context produced by the
 versioned AI context builder.
 
-Configure the OpenAI adapter with a Kubernetes Secret reference. Do not put a
-key in Helm values, Git, logs, or API responses:
+Configure the tenant provider in **Settings → AI**. Select the provider mode,
+approved model and endpoint policy, then paste the provider key in the
+write-only **Provider credential** field. EnvPlane stores that value only in its
+chart-managed Kubernetes Secret; it is never returned by the API, added to Git,
+or placed in Helm values. The chart provisions the empty Secret and scoped RBAC
+automatically.
+
+Helm values are now for non-secret platform restrictions only:
 
 ```yaml
 commercialization:
@@ -14,14 +22,15 @@ commercialization:
     enabled: true
     provider: openai
     model: gpt-5.4
-    apiKeySecretRef:
-      name: envplane-ai-provider
-      key: api-key
     maxContextBytes: 65536
     maxOutputTokens: 512
     timeoutSeconds: 10
     maxRetries: 2
 ```
+
+An existing `apiKeySecretRef` remains a deprecated operator fallback for
+air-gapped migration and is used only when no Settings-managed credential is
+present. New installations must not configure it.
 
 The model must be present in the server-side allowlist. The adapter uses the
 Responses API with `store: false`, strict Structured Outputs JSON Schema, a

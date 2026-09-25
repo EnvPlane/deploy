@@ -331,7 +331,7 @@ envplane-control-plane:
     tokenKey: receiver-token
   commercialization:
     ai:
-      enabled: false
+      enabled: true
       airGap: false
       offlineModelBundle: ""
       provider: openai

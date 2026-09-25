@@ -64,6 +64,10 @@ app.kubernetes.io/component: control-plane
 {{- end -}}
 {{- end -}}
 
+{{- define "envplane-control-plane.aiProviderManagedSecretName" -}}
+{{- printf "%s-ai-provider" (include "envplane-control-plane.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
 {{/*
 The control plane cannot safely persist SCM credentials without this key.
 Use a chart-owned Secret by default so a clean install has no hidden manual

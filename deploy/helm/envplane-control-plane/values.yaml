@@ -185,13 +185,17 @@ secretEnv: {}
 # ENVPLANE_* variables remain accepted by the application for upgrades.
 commercialization:
   ai:
-    enabled: false
+    # The capability remains license- and tenant-policy-gated. Enable the
+    # runtime by default so Settings → AI can complete a clean installation.
+    enabled: true
     airGap: false
     offlineModelBundle: ""
     provider: openai
     model: ""
     allowedHosts:
       - api.openai.com
+    # Deprecated operator fallback only. Configure tenant credentials in
+    # Settings → AI; do not put provider keys into Helm values.
     apiKeySecretRef:
       name: ""
       key: api-key
