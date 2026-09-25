@@ -354,7 +354,7 @@ spec:
               value: {{ get $ai "model" | quote }}
             {{- end }}
             - name: ENVPLANE_AI_ALLOWED_HOSTS
-              value: {{ join "," (default (list "api.openai.com") (get $ai "allowedHosts")) | quote }}
+              value: {{ join "," (default (list "api.openai.com" "api.anthropic.com") (get $ai "allowedHosts")) | quote }}
             {{- if get $aiAPIKeyRef "name" }}
             # Deprecated operator fallback. Settings → AI takes precedence and
             # stores tenant keys in the chart-managed Secret above.

@@ -194,6 +194,7 @@ commercialization:
     model: ""
     allowedHosts:
       - api.openai.com
+      - api.anthropic.com
     # Deprecated operator fallback only. Configure tenant credentials in
     # Settings → AI; do not put provider keys into Helm values.
     apiKeySecretRef:

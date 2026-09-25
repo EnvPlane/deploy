@@ -119,6 +119,22 @@ func TestControlPlaneChartManagesCredentialEncryptionKey(t *testing.T) {
 	}
 }
 
+func TestControlPlaneChartAllowsOfficialAIProvidersByDefault(t *testing.T) {
+	rendered := renderControlPlaneChart(t)
+	const expected = `name: ENVPLANE_AI_ALLOWED_HOSTS
+              value: "api.openai.com,api.anthropic.com"`
+	if !strings.Contains(rendered, expected) {
+		t.Fatalf("zero-values render must allow both official AI provider hosts:\\n%s", rendered)
+	}
+
+	overridden := renderControlPlaneChart(t, "--set", "commercialization.ai.allowedHosts[0]=ai.example.test")
+	const expectedOverride = `name: ENVPLANE_AI_ALLOWED_HOSTS
+              value: "ai.example.test"`
+	if !strings.Contains(overridden, expectedOverride) {
+		t.Fatalf("explicit AI allowedHosts must remain unchanged:\\n%s", overridden)
+	}
+}
+
 func TestControlPlaneChartUsesWritableDataAndGitOpsPathsFromEnv(t *testing.T) {
 	rendered := renderControlPlaneChart(t,
 		"--set", "env.ENVPLANE_DATA_DIR=/custom/envplane-data",
