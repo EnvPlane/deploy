@@ -29,12 +29,12 @@ The preflight reads no Secret data and creates no cluster resources.
 
 <!-- envplane:canonical-install-command:start -->
 ```bash
-helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.416 --namespace envplane --create-namespace --wait
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.417 --namespace envplane --create-namespace --wait
 ```
 <!-- envplane:canonical-install-command:end -->
 
 <!-- envplane:stable-release-links:start -->
-Stable release: `0.4.416` · [versioned installation guide](https://github.com/envplane/deploy/blob/5fd372e2b4200cd21fb6dc02f9f878fd444b5797/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
+Stable release: `0.4.417` · [versioned installation guide](https://github.com/envplane/deploy/blob/7b50e40eea825dbd33b779f39b6837cc54de7d3d/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
 <!-- envplane:stable-release-links:end -->
 
 The selected version and command are generated from the same signed stable
