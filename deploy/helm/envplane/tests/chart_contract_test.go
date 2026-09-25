@@ -87,6 +87,15 @@ func TestIngressWebhookReceiverInstallsLeastPrivilegeStatusObserver(t *testing.T
 	}
 }
 
+func TestUmbrellaDefaultsPreserveOfficialAIProviderHosts(t *testing.T) {
+	rendered := renderUmbrella(t)
+	const expected = `name: ENVPLANE_AI_ALLOWED_HOSTS
+              value: "api.openai.com,api.anthropic.com"`
+	if !strings.Contains(rendered, expected) {
+		t.Fatalf("umbrella zero-values render must preserve both official AI provider hosts:\\n%s", rendered)
+	}
+}
+
 func withFixturePostgres(values []string) []string {
 	base := []string{
 		"--set", "envplane-control-plane.postgres.auth.password=test-fixture-password",

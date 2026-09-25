@@ -338,6 +338,7 @@ envplane-control-plane:
       model: ""
       allowedHosts:
         - api.openai.com
+        - api.anthropic.com
       apiKeySecretRef:
         name: ""
         key: api-key
@@ -424,6 +425,7 @@ envplane-control-plane:
       model: ""
       allowedHosts:
         - api.openai.com
+        - api.anthropic.com
       apiKeySecretRef:
         name: ""
         key: api-key
