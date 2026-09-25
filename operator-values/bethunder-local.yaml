@@ -31,6 +31,11 @@ global:
 envplane-control-plane:
   # LOCAL DEVELOPMENT ONLY: canonical callback origin for the minikube ingress.
   publicURL: http://envplane.local
+  commercialization:
+    ai:
+      # Provider credentials are configured per tenant in Settings -> AI and
+      # stored in the chart-managed Secret, never in this operator file.
+      enabled: true
   env:
     # LOCAL DEVELOPMENT ONLY: this profile intentionally uses HTTP on a
     # disposable minikube host. Production/operator values must omit this.
