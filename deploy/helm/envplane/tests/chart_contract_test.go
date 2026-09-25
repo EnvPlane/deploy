@@ -61,6 +61,32 @@ func TestTransientHelmDependencyError(t *testing.T) {
 	}
 }
 
+func TestIngressWebhookReceiverInstallsLeastPrivilegeStatusObserver(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "webhook.enabled=true",
+		"--set", "webhook.publicEndpoint.mode=ingress",
+		"--set", "webhook.publicEndpoint.host=hooks.example.test",
+		"--set", "webhook.publicEndpoint.tls.secretName=webhook-tls",
+	)
+	for _, expected := range []string{
+		"name: envplane-webhook-receiver-status-observer",
+		"command: [\"/usr/local/bin/webhook-status-observer\"]",
+		"ENVPLANE_WEBHOOK_RECEIVER_OBSERVED_AT: \"\"",
+		"resources: [\"configmaps\"]",
+		"verbs: [\"get\", \"update\", \"patch\"]",
+		"resources: [\"ingresses\"]",
+		"resources: [\"secrets\"]",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("rendered ingress observer must contain %q", expected)
+		}
+	}
+	local := renderUmbrella(t, "--set", "webhook.enabled=true")
+	if strings.Contains(local, "webhook-receiver-status-observer") {
+		t.Fatal("local webhook mode must not install the status observer")
+	}
+}
+
 func withFixturePostgres(values []string) []string {
 	base := []string{
 		"--set", "envplane-control-plane.postgres.auth.password=test-fixture-password",

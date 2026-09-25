@@ -1,0 +1,115 @@
+{{- if .Values.webhook.enabled }}
+{{- $endpoint := default dict .Values.webhook.publicEndpoint -}}
+{{- $mode := lower (default "local" $endpoint.mode) -}}
+{{- $observer := default dict .Values.webhook.statusObserver -}}
+{{- if and (eq $mode "ingress") (default true $observer.enabled) }}
+{{- $controlPlane := index .Values "envplane-control-plane" -}}
+{{- $image := default dict $controlPlane.image -}}
+{{- $imageRef := printf "%s:%s" $image.repository $image.tag -}}
+{{- if $image.digest }}{{- $imageRef = printf "%s@%s" $image.repository $image.digest -}}{{- end }}
+{{- $serviceAccount := printf "%s-webhook-receiver-status-observer" .Release.Name -}}
+{{- $statusMap := printf "%s-webhook-receiver-status" .Release.Name -}}
+{{- $ingress := printf "%s-webhook-receiver" .Release.Name -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $serviceAccount }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: webhook-receiver-status-observer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $serviceAccount }}
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["{{ $statusMap }}"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["{{ required "webhook.publicEndpoint.tls.secretName is required when mode=ingress" $endpoint.tls.secretName }}"]
+    verbs: ["get"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    resourceNames: ["{{ $ingress }}"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $serviceAccount }}
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccount }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $serviceAccount }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $serviceAccount }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: envplane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: webhook-receiver-status-observer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: envplane
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: webhook-receiver-status-observer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: envplane
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: webhook-receiver-status-observer
+    spec:
+      serviceAccountName: {{ $serviceAccount }}
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with $controlPlane.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: observer
+          image: {{ $imageRef | quote }}
+          imagePullPolicy: {{ default "IfNotPresent" $image.pullPolicy }}
+          command: ["/usr/local/bin/webhook-status-observer"]
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENVPLANE_WEBHOOK_RECEIVER_STATUS_CONFIGMAP
+              value: {{ $statusMap | quote }}
+            - name: ENVPLANE_WEBHOOK_RECEIVER_INGRESS_NAME
+              value: {{ $ingress | quote }}
+            - name: ENVPLANE_WEBHOOK_RECEIVER_SERVICE_NAME
+              value: "envplane-webhook"
+            - name: ENVPLANE_WEBHOOK_RECEIVER_STATUS_INTERVAL_SECONDS
+              value: {{ default 30 $observer.intervalSeconds | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          resources:
+            {{- toYaml (default dict $observer.resources) | nindent 12 }}
+{{- end }}
+{{- end }}

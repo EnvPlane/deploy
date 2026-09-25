@@ -64,4 +64,5 @@ data:
   ENVPLANE_WEBHOOK_RECEIVER_TLS_STATE: {{- if eq $mode "ingress" }} "pending"{{- else if eq $mode "external" }} "external"{{- else }} "not_applicable"{{- end }}
   ENVPLANE_WEBHOOK_RECEIVER_RUNTIME_STATE: {{- if eq $mode "external" }} "external"{{- else }} "unknown"{{- end }}
   ENVPLANE_WEBHOOK_RECEIVER_READINESS: {{- if eq $mode "ingress" }} "pending"{{- else if eq $mode "external" }} "external"{{- else }} "public_endpoint_required"{{- end }}
+  ENVPLANE_WEBHOOK_RECEIVER_OBSERVED_AT: ""
 {{- end }}

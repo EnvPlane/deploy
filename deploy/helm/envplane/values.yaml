@@ -34,6 +34,12 @@ webhook:
     annotations: {}
     tls:
       secretName: ""
+  # In ingress mode, publish independently observed readiness into the
+  # receiver-status ConfigMap. The control plane only reads that ConfigMap.
+  statusObserver:
+    enabled: true
+    intervalSeconds: 30
+    resources: {}
 
 # Cross-child first-start registration for an Agent and Runner installed in
 # this same release/cluster. `managed` creates one Helm-owned Secret and keeps
