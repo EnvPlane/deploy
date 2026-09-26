@@ -24,7 +24,10 @@
 {{- fail "capabilities.loadBalancer must be auto, supported, or unsupported" -}}
 {{- end -}}
 {{- if eq $discoveryScope "namespace" -}}
-{{- $watchNamespaces = .Values.rbac.discovery.namespaces -}}
+{{- $watchNamespaces = list -}}
+{{- range .Values.rbac.discovery.namespaces -}}
+{{- $watchNamespaces = append $watchNamespaces (default $.Release.Namespace .) -}}
+{{- end -}}
 {{- end -}}
 {{- if $managedRemoteEnabled -}}
 {{- $watchNamespaces = get $managedRemote "targetNamespaces" -}}

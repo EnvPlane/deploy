@@ -302,6 +302,16 @@ func TestAgentChartGrantsEveryCapabilityScannerRead(t *testing.T) {
 }
 
 func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
+	defaultNamespaceScoped := renderAgentChart(t)
+	for _, expected := range []string{
+		`name: ENVPLANE_WATCH_NAMESPACES`,
+		`value: "default"`,
+	} {
+		if !strings.Contains(defaultNamespaceScoped, expected) {
+			t.Fatalf("default namespace-scoped discovery missing %q:\n%s", expected, defaultNamespaceScoped)
+		}
+	}
+
 	namespaceScoped := renderAgentChart(t,
 		"--set", "rbac.discovery.scope=namespace",
 		"--set", "rbac.discovery.namespaces[0]=team-a",
