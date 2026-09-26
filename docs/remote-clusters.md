@@ -50,6 +50,14 @@ The reconciler validates access, installs only canonical Agent/Runner charts fro
 
 Use **Retry** for transient failures, **Rotate managed identity** after a stale bootstrap identity, and **Repair** after endpoint/RBAC correction. These are audited API actions; they do not reveal or reuse raw bootstrap tokens.
 
+## Project-owned namespaces
+
+For a project targeting a connected cluster, open its **Bootstrap → Project-owned namespaces** panel and request a suffix. The server combines the remote target's configured allowed prefix, project ID, and suffix, checks the dedicated-namespace policy and limit, and queues reconciliation. A `202` response means *requested*, not created. The panel shows `ready` only after the target namespace and exact Agent/Runner access have reconciled and both runtimes have fresh heartbeats.
+
+The target credential held by the management reconciler must be allowed to get/create Namespaces and install the project Agent/Runner Role and RoleBinding in the new namespace. Kubernetes RBAC cannot restrict `namespaces/create` by `resourceNames`; do **not** grant this cluster-wide verb to a project Runner. The management reconciler validates the requested name and refuses to adopt an existing namespace without matching project, target-cluster, and tenant ownership metadata. Project Agent/Runner permissions remain namespace-scoped after creation.
+
+Project-owned namespaces are not automatically deleted when the project record is removed, because the namespace may contain durable user workloads. Operators must review their contents and remove them explicitly. Environment namespaces keep their existing separate lifecycle.
+
 ## Upgrade, migration, and removal
 
 Every reconciled component records an immutable compatibility-manifest hash and desired generation. Upgrades use exact OCI chart versions and image digests; Helm upgrades are atomic. An earlier signed umbrella compatibility set is the only rollback target.
