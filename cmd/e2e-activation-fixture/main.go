@@ -105,6 +105,7 @@ func sign(args []string) {
 	projectsMax := flags.Int64("projects-max", 5, "maximum projects")
 	remoteClustersMax := flags.Int64("remote-clusters-max", 1, "maximum managed remote clusters")
 	environmentsMax := flags.Int64("environments-active-max", 5, "maximum active environments")
+	enableAllAI := flags.Bool("enable-all-ai", false, "grant every supported AI entitlement and generous AI limits")
 	expiresIn := flags.Duration("expires-in", 15*time.Second, "positive lifetime")
 	_ = flags.Parse(args)
 	if *privatePath == "" || *outputPath == "" || strings.TrimSpace(*installationID) == "" || strings.TrimSpace(*tenantID) == "" || *projectsMax < 0 || *remoteClustersMax < 0 || *environmentsMax < 0 || *expiresIn <= 0 {
@@ -127,16 +128,29 @@ func sign(args []string) {
 	if *remoteClustersMax > 0 {
 		features["clusters"] = true
 	}
+	limits := map[string]int64{
+		"projects.max":            *projectsMax,
+		"clusters.managed.max":    *remoteClustersMax,
+		"environments.active.max": *environmentsMax,
+	}
+	if *enableAllAI {
+		for _, feature := range []string{
+			"ai.diagnosis", "ai.bootstrap", "ai.configuration", "ai.environment_create", "ai.finops", "ai.approved_actions",
+			"ai.gitops", "ai.kubernetes", "ai.scm", "ai.release", "ai.incident", "ai.security",
+		} {
+			features[feature] = true
+		}
+		limits["ai.runs.max_concurrent"] = 100
+		limits["ai.runs.max_requests"] = 10000
+		limits["ai.context.max_bytes"] = 1048576
+		limits["ai.output.max_tokens"] = 32768
+	}
 	payload, err := json.Marshal(envelope{
 		Version: "v1", KeyID: keyID, Algorithm: "Ed25519",
 		Grant: grant{
 			SchemaVersion: "v1", InstallationID: *installationID, TenantID: *tenantID,
 			SKU: "e2e", PlanID: "e2e", PlanVersion: "1", Features: features,
-			Limits: map[string]int64{
-				"projects.max":            *projectsMax,
-				"clusters.managed.max":    *remoteClustersMax,
-				"environments.active.max": *environmentsMax,
-			},
+			Limits: limits,
 			IssuedAt: now, NotBefore: now, ExpiresAt: now.Add(*expiresIn), LicenseID: "clean-cluster-e2e",
 			Nonce:      base64.RawURLEncoding.EncodeToString(nonce),
 			Commercial: commercial{Currency: "EUR", AmountMinor: 0, BillingInterval: "test", TaxMode: "exclusive"},

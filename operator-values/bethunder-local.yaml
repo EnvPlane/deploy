@@ -32,6 +32,10 @@ envplane-control-plane:
   # LOCAL DEVELOPMENT ONLY: canonical callback origin for the minikube ingress.
   publicURL: http://envplane.local
   commercialization:
+    license:
+      # Public key for the locally issued development activation grant. The
+      # matching private key is held outside this repository.
+      activationPublicKeysJSON: '[{"keyId":"clean-cluster-e2e","algorithm":"Ed25519","publicKey":"A5jclltJd9t/yUcxHIgJQa2tvJREV6zFdkUecFOQ3/I","status":"active"}]'
     ai:
       # Provider credentials are configured per tenant in Settings -> AI and
       # stored in the chart-managed Secret, never in this operator file.
