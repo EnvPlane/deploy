@@ -480,6 +480,31 @@ func TestAgentChartPreservesMaterializationRBACDocumentBoundaries(t *testing.T) 
 	}
 }
 
+func TestAgentFluxSourceWriterUsesConfiguredResourceNames(t *testing.T) {
+	rendered := renderAgentChart(t,
+		"--set", "rbac.fluxSourceWriter.enabled=true",
+		"--set", "rbac.fluxSourceWriter.namespace=gitops-system",
+		"--set", "rbac.fluxSourceWriter.gitRepositoryName=delivery-source-17",
+		"--set", "rbac.fluxSourceWriter.credentialSecretName=delivery-source-17-auth",
+		"--set", "rbac.fluxSourceWriter.kustomizationName=rollout-shared-17",
+	)
+	for _, expected := range []string{
+		`namespace: "gitops-system"`,
+		`resourceNames: ["delivery-source-17"]`,
+		`resourceNames: ["delivery-source-17-auth"]`,
+		`resourceNames: ["rollout-shared-17"]`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("Flux writer RBAC missing configured value %q:\n%s", expected, rendered)
+		}
+	}
+	for _, forbidden := range []string{`resourceNames: ["app"]`, `resourceNames: ["app2"]`} {
+		if strings.Contains(rendered, forbidden) {
+			t.Fatalf("Flux writer RBAC contains example-only resource name %q:\n%s", forbidden, rendered)
+		}
+	}
+}
+
 func TestAgentAPIToRBACContractKeepsSecretReadsOptIn(t *testing.T) {
 	defaultRender := renderAgentChart(t)
 	if strings.Contains(defaultRender, "resources: [\"secrets\"]") {
