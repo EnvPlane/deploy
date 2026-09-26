@@ -72,6 +72,8 @@ func TestIngressWebhookReceiverInstallsLeastPrivilegeStatusObserver(t *testing.T
 		"name: envplane-webhook-receiver-status-observer",
 		"command: [\"/usr/local/bin/webhook-status-observer\"]",
 		"ENVPLANE_WEBHOOK_RECEIVER_OBSERVED_AT: \"\"",
+		"ENVPLANE_WEBHOOK_RECEIVER_SERVICE_PORT",
+		"value: \"8080\"",
 		"resources: [\"configmaps\"]",
 		"verbs: [\"get\", \"update\", \"patch\"]",
 		"resources: [\"ingresses\"]",
@@ -80,6 +82,13 @@ func TestIngressWebhookReceiverInstallsLeastPrivilegeStatusObserver(t *testing.T
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered ingress observer must contain %q", expected)
 		}
+	}
+	statusTemplate, err := os.ReadFile("../templates/webhook-public-endpoint.yaml")
+	if err != nil {
+		t.Fatalf("read webhook status template: %v", err)
+	}
+	if !strings.Contains(string(statusTemplate), `lookup "v1" "ConfigMap"`) {
+		t.Fatal("webhook status template must preserve observer-owned fields across Helm upgrades")
 	}
 	local := renderUmbrella(t, "--set", "webhook.enabled=true")
 	if strings.Contains(local, "webhook-receiver-status-observer") {

@@ -2,6 +2,8 @@
 {{- $endpoint := default dict .Values.webhook.publicEndpoint -}}
 {{- $mode := lower (default "local" $endpoint.mode) -}}
 {{- $observer := default dict .Values.webhook.statusObserver -}}
+{{- $webhook := default dict (index .Values "envplane-webhook") -}}
+{{- $webhookService := default dict (get $webhook "service") -}}
 {{- if and (eq $mode "ingress") (default true $observer.enabled) }}
 {{- $controlPlane := index .Values "envplane-control-plane" -}}
 {{- $image := default dict $controlPlane.image -}}
@@ -102,6 +104,8 @@ spec:
               value: {{ $ingress | quote }}
             - name: ENVPLANE_WEBHOOK_RECEIVER_SERVICE_NAME
               value: "envplane-webhook"
+            - name: ENVPLANE_WEBHOOK_RECEIVER_SERVICE_PORT
+              value: {{ default 8080 (get $webhookService "port") | quote }}
             - name: ENVPLANE_WEBHOOK_RECEIVER_STATUS_INTERVAL_SECONDS
               value: {{ default 30 $observer.intervalSeconds | quote }}
           securityContext:

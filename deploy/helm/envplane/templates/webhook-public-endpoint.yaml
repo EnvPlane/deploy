@@ -4,6 +4,9 @@
 {{- $url := trim (default "" $endpoint.url) -}}
 {{- $host := trim (default "" $endpoint.host) -}}
 {{- $tls := default dict $endpoint.tls -}}
+{{- $statusName := printf "%s-webhook-receiver-status" .Release.Name -}}
+{{- $existingStatus := lookup "v1" "ConfigMap" .Release.Namespace $statusName -}}
+{{- $existingStatusData := default dict (get $existingStatus "data") -}}
 {{- if and (ne $mode "local") (ne $mode "ingress") (ne $mode "external") }}
 {{- fail "webhook.publicEndpoint.mode must be local, ingress, or external" }}
 {{- end }}
@@ -47,7 +50,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-webhook-receiver-status
+  name: {{ $statusName }}
   labels:
     app.kubernetes.io/name: envplane
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -59,10 +62,10 @@ data:
   # They are diagnostic-only. Compile gating uses the per-project delivery proof.
   ENVPLANE_WEBHOOK_RECEIVER_MODE: {{ $mode | quote }}
   ENVPLANE_WEBHOOK_RECEIVER_PUBLIC_URL: {{- if eq $mode "ingress" }} {{ printf "https://%s" $host | quote }}{{- else if eq $mode "external" }} {{ $url | quote }}{{- else }} ""{{- end }}
-  ENVPLANE_WEBHOOK_RECEIVER_INGRESS_STATE: {{- if eq $mode "ingress" }} "pending"{{- else if eq $mode "external" }} "external"{{- else }} "not_configured"{{- end }}
-  ENVPLANE_WEBHOOK_RECEIVER_DNS_STATE: "unknown"
-  ENVPLANE_WEBHOOK_RECEIVER_TLS_STATE: {{- if eq $mode "ingress" }} "pending"{{- else if eq $mode "external" }} "external"{{- else }} "not_applicable"{{- end }}
-  ENVPLANE_WEBHOOK_RECEIVER_RUNTIME_STATE: {{- if eq $mode "external" }} "external"{{- else }} "unknown"{{- end }}
-  ENVPLANE_WEBHOOK_RECEIVER_READINESS: {{- if eq $mode "ingress" }} "pending"{{- else if eq $mode "external" }} "external"{{- else }} "public_endpoint_required"{{- end }}
-  ENVPLANE_WEBHOOK_RECEIVER_OBSERVED_AT: ""
+  ENVPLANE_WEBHOOK_RECEIVER_INGRESS_STATE: {{ default (ternary "pending" (ternary "external" "not_configured" (eq $mode "external")) (eq $mode "ingress")) (get $existingStatusData "ENVPLANE_WEBHOOK_RECEIVER_INGRESS_STATE") | quote }}
+  ENVPLANE_WEBHOOK_RECEIVER_DNS_STATE: {{ default "unknown" (get $existingStatusData "ENVPLANE_WEBHOOK_RECEIVER_DNS_STATE") | quote }}
+  ENVPLANE_WEBHOOK_RECEIVER_TLS_STATE: {{ default (ternary "pending" (ternary "external" "not_applicable" (eq $mode "external")) (eq $mode "ingress")) (get $existingStatusData "ENVPLANE_WEBHOOK_RECEIVER_TLS_STATE") | quote }}
+  ENVPLANE_WEBHOOK_RECEIVER_RUNTIME_STATE: {{ default (ternary "unknown" "external" (eq $mode "external")) (get $existingStatusData "ENVPLANE_WEBHOOK_RECEIVER_RUNTIME_STATE") | quote }}
+  ENVPLANE_WEBHOOK_RECEIVER_READINESS: {{ default (ternary "pending" (ternary "external" "public_endpoint_required" (eq $mode "external")) (eq $mode "ingress")) (get $existingStatusData "ENVPLANE_WEBHOOK_RECEIVER_READINESS") | quote }}
+  ENVPLANE_WEBHOOK_RECEIVER_OBSERVED_AT: {{ default "" (get $existingStatusData "ENVPLANE_WEBHOOK_RECEIVER_OBSERVED_AT") | quote }}
 {{- end }}
