@@ -19,7 +19,7 @@ global:
     firstStartRegistration:
       mode: managed
       cluster:
-        id: docker-desktop
+        id: management-cluster
     sameClusterProjectExecutors:
       enabled: true
       namespace: envplane-executors
