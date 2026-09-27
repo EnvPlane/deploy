@@ -27,6 +27,8 @@ global:
       registry:
         existingSecret: ""
         imagePullSecret: ""
+    remoteClusterReconciler:
+      enabled: true
 
 envplane-control-plane:
   allowInsecureLocalDevelopment: true
@@ -40,7 +42,20 @@ envplane-control-plane:
     ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT: "true"
     ENVPLANE_ENABLE_GIT_COMMIT: "true"
     ENVPLANE_ENABLE_GIT_PUSH: "true"
+    ENVPLANE_BUDGET_CURRENCY: EUR
+  commercialization:
+    ai:
+      enabled: true
+    license:
+      activationPublicKeysJSON: '[{"keyId":"envplane-e2e-local","algorithm":"Ed25519","publicKey":"1TLkfsBFD0dqFw3RVDRogFsrEYEScoQFvn3UN48Y36o","status":"active"}]'
+  publicURL: http://envplane.local
   rbac:
+    remoteClusterCredentials:
+      enabled: true
+      namespaces:
+        - envplane
+    remoteClusterReconciler:
+      enabled: true
     sameClusterProjectExecutors:
       enabled: true
       namespace: envplane-executors
@@ -74,6 +89,21 @@ envplane-runner:
   controlPlane:
     allowInsecure: true
 
+envplane-webhook:
+  service:
+    port: 80
+
+webhook:
+  enabled: true
+  publicEndpoint:
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    className: nginx
+    host: allen-memorial-firewire-ballet.trycloudflare.com
+    mode: ingress
+    tls:
+      secretName: envplane-webhook-cf-tls
+
 access:
   mode: ingress
   ingress:
@@ -85,8 +115,4 @@ access:
 
 platformDependencies:
   ingress:
-    mode: existing
-    provider: nginx
-    existingClassName: nginx
-    namespace: ingress-nginx
-    ownership: external
+    mode: disabled
