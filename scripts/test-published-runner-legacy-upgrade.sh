@@ -63,4 +63,38 @@ test "$ca_env_count" = 0 || {
   exit 1
 }
 
-echo "published Runner legacy --reuse-values remote upgrade passed"
+# Controller-managed remote Runners receive their exact target namespaces from
+# the management plane. Rendering a dynamic ClusterRole/ClusterRoleBinding for
+# those targets would let every revision create a new cluster-wide object and
+# leaves stale RBAC behind after a project is deleted. Verify the OCI chart
+# that was just published has only the namespaced writer roles for this mode.
+managed_remote_render="$(helm template managed-remote "$ENVPLANE_RUNNER_UPGRADE_CHART" \
+  --version "$ENVPLANE_RUNNER_UPGRADE_VERSION" \
+  --namespace envplane-system \
+  --set managedRemote.enabled=true \
+  --set managedRemote.remoteClusterId=target-cluster-a \
+  --set managedRemote.projectId=project-a \
+  --set managedRemote.authRevision=bootstrap-r2 \
+  --set managedRemote.compatibilityPin=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  --set managedRemote.generation=2 \
+  --set 'managedRemote.targetNamespaces[0]=project-a-pr-1' \
+  --set controlPlane.endpointMode=remote \
+  --set controlPlane.url=https://control.example.test \
+  --set controlPlane.existingSecret=project-a-runner-bootstrap \
+  --set rbac.discovery.scope=namespace \
+  --set rbac.discovery.namespace=envplane-system \
+  --set rbac.featureEnvWriter.mode=preconfiguredNamespaces \
+  --set 'rbac.featureEnvWriter.namespaces[0]=project-a-pr-1')"
+
+if grep -Fq 'feature-env-namespace-reader' <<<"$managed_remote_render"; then
+  echo "published managed remote Runner chart still renders dynamic namespace-reader Cluster RBAC" >&2
+  exit 1
+fi
+for expected in 'kind: Role' 'name: managed-remote-envplane-runner-feature-env-writer' 'namespace: project-a-pr-1'; do
+  grep -Fq "$expected" <<<"$managed_remote_render" || {
+    echo "published managed remote Runner chart is missing expected namespaced RBAC: $expected" >&2
+    exit 1
+  }
+done
+
+echo "published Runner legacy upgrade and managed remote RBAC contract passed"

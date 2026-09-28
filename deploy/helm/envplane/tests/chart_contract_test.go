@@ -2175,6 +2175,37 @@ func TestUmbrellaPackageVendorsDependencies(t *testing.T) {
 	}
 }
 
+func TestUmbrellaManagedRemoteRunnerUsesOnlyNamespacedFeatureEnvironmentRBAC(t *testing.T) {
+	rendered := renderUmbrella(t,
+		"--set", "envplane-runner.managedRemote.enabled=true",
+		"--set", "envplane-runner.managedRemote.remoteClusterId=target-cluster-a",
+		"--set", "envplane-runner.managedRemote.projectId=project-a",
+		"--set", "envplane-runner.managedRemote.authRevision=bootstrap-r2",
+		"--set", "envplane-runner.managedRemote.compatibilityPin=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"--set", "envplane-runner.managedRemote.generation=2",
+		"--set", "envplane-runner.managedRemote.targetNamespaces[0]=project-a-pr-1",
+		"--set", "envplane-runner.controlPlane.endpointMode=remote",
+		"--set", "envplane-runner.controlPlane.url=https://control.example.test",
+		"--set", "envplane-runner.controlPlane.existingSecret=project-a-runner-bootstrap",
+		"--set", "envplane-runner.rbac.discovery.scope=namespace",
+		"--set", "envplane-runner.rbac.discovery.namespace=envplane-system",
+		"--set", "envplane-runner.rbac.featureEnvWriter.mode=preconfiguredNamespaces",
+		"--set", "envplane-runner.rbac.featureEnvWriter.namespaces[0]=project-a-pr-1",
+	)
+	if strings.Contains(rendered, "envplane-runner-feature-env-namespace-reader") {
+		t.Fatalf("controller-managed remote Runner must not render dynamic namespace-reader Cluster RBAC:\n%s", rendered)
+	}
+	for _, expected := range []string{
+		"kind: Role",
+		"name: envplane-runner-feature-env-writer",
+		"namespace: project-a-pr-1",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("controller-managed remote Runner is missing namespaced feature-environment RBAC %q:\n%s", expected, rendered)
+		}
+	}
+}
+
 func TestUmbrellaDocumentsInstallerMigration(t *testing.T) {
 	readme, err := os.ReadFile("../README.md")
 	if err != nil {
