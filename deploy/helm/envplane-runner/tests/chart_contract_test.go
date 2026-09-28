@@ -200,15 +200,9 @@ func TestRunnerChartManagedRemoteUsesProjectScopedWriterRBAC(t *testing.T) {
 			t.Fatalf("managed remote runner render must not contain %q:\n%s", forbidden, rendered)
 		}
 	}
-	namespaceReader := findResourceDoc(renderedDocs(rendered), "ClusterRole", "envplane-runner-feature-env-namespace-reader", "")
-	for _, expected := range []string{"resources: [\"namespaces\"]", "- \"project-a-pr-1\"", "- \"project-a-pr-2\"", "verbs: [\"get\",\"delete\"]"} {
-		if !strings.Contains(namespaceReader, expected) {
-			t.Fatalf("managed remote namespace ownership reader missing %q:\n%s", expected, namespaceReader)
-		}
-	}
-	for _, forbidden := range []string{"list", "watch", "create", "update", "patch"} {
-		if strings.Contains(namespaceReader, forbidden) {
-			t.Fatalf("managed remote namespace ownership reader grants %q:\n%s", forbidden, namespaceReader)
+	for _, kind := range []string{"ClusterRole", "ClusterRoleBinding"} {
+		if doc := findResourceDoc(renderedDocs(rendered), kind, "envplane-runner-feature-env-namespace-reader", ""); doc != "" {
+			t.Fatalf("managed remote Runner must delegate namespace lifecycle to the management plane, not render dynamic %s:\n%s", kind, doc)
 		}
 	}
 
