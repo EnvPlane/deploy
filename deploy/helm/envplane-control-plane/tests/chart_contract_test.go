@@ -172,11 +172,11 @@ func TestControlPlaneChartUsesValidGoMemoryLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read values file: %v", err)
 	}
-	if !strings.Contains(string(values), "gomemlimit: 1600MiB") {
+	if !strings.Contains(string(values), "gomemlimit: 3200MiB") {
 		t.Fatalf("default GOMEMLIMIT must use a Go-valid binary suffix: %s", values)
 	}
 	rendered := renderControlPlaneChart(t)
-	if !strings.Contains(rendered, "name: GOMEMLIMIT\n              value: \"1600MiB\"") {
+	if !strings.Contains(rendered, "name: GOMEMLIMIT\n              value: \"3200MiB\"") {
 		t.Fatalf("rendered control-plane deployment must set a Go-valid GOMEMLIMIT:\n%s", rendered)
 	}
 }

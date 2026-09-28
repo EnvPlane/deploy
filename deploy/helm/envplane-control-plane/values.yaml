@@ -388,12 +388,15 @@ resources:
     memory: 512Mi
   limits:
     cpu: 2000m
-    memory: 2Gi
+    # The control plane embeds the Helm and Kubernetes clients used for
+    # remote-project reconciliation. Two concurrent project release plans can
+    # exceed the former 2 GiB cap during chart discovery and atomic upgrades.
+    memory: 4Gi
 
 runtime:
   # Go accepts binary memory suffixes only when they include the B (for
   # example MiB). "1600Mi" makes the runtime abort during process startup.
-  gomemlimit: 1600MiB
+  gomemlimit: 3200MiB
 
 autoscaling:
   # The control plane has security-sensitive process state that is local to
