@@ -176,6 +176,10 @@ spec:
               value: {{ .Values.agent.heartbeatSeconds | quote }}
             - name: ENVPLANE_FLUX_NAMESPACE
               value: {{ .Values.flux.namespace | quote }}
+            {{- with .Values.rbac.fluxStatus.kustomizationName }}
+            - name: ENVPLANE_FLUX_STATUS_KUSTOMIZATION_NAME
+              value: {{ . | quote }}
+            {{- end }}
             {{- if .Values.agent.authPersistence.enabled }}
             - name: ENVPLANE_AGENT_AUTH_TOKEN_FILE
               value: {{ printf "%s/%s" (.Values.agent.authPersistence.mountPath | trimSuffix "/") .Values.agent.authPersistence.fileName | quote }}

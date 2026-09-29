@@ -207,7 +207,12 @@ metadata:
 rules:
   - apiGroups: ["kustomize.toolkit.fluxcd.io"]
     resources: ["kustomizations"]
+    {{- with .Values.rbac.fluxStatus.kustomizationName }}
+    resourceNames: [{{ . | quote }}]
+    verbs: ["get"]
+    {{- else }}
     verbs: ["get","list","watch"]
+    {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

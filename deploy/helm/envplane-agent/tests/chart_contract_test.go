@@ -409,12 +409,15 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 		"--set", "rbac.discovery.readSecrets=true",
 		"--set", "rbac.fluxStatus.enabled=true",
 		"--set", "rbac.fluxStatus.namespace=flux-system",
+		"--set", "rbac.fluxStatus.kustomizationName=checkout-prs",
 	)
 	for _, expected := range []string{
 		"name: envplane-agent-flux-status-reader",
 		`namespace: "flux-system"`,
 		`resources: ["kustomizations"]`,
-		`verbs: ["get","list","watch"]`,
+		`resourceNames: ["checkout-prs"]`,
+		`verbs: ["get"]`,
+		"ENVPLANE_FLUX_STATUS_KUSTOMIZATION_NAME",
 	} {
 		if !strings.Contains(fluxStatus, expected) {
 			t.Fatalf("Flux status RBAC missing %q:\n%s", expected, fluxStatus)

@@ -206,6 +206,9 @@ rbac:
   fluxStatus:
     enabled: false
     namespace: ""
+    # When set, Agent reads only this project-owned Kustomization by name.
+    # Empty preserves legacy list/watch behavior for explicitly broad roles.
+    kustomizationName: ""
   fluxSourceWriter:
     # Project-scoped reconciliation of the GitRepository and Kustomization used by Flux.
     # The Agent verifies EnvPlane ownership before applying either resource.
