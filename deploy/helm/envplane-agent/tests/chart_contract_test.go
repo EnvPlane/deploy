@@ -78,6 +78,7 @@ func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
 		"ENVPLANE_AGENT_REGISTRATION_TOKEN",
 		"ENVPLANE_WATCH_NAMESPACE_SELECTOR",
 		"ENVPLANE_WATCH_EXCLUDED_NAMESPACES",
+		"ENVPLANE_REQUIRE_ENVIRONMENT_LABEL",
 		"volumeMounts:",
 		"volumes:",
 		"authPersistence",

@@ -155,6 +155,11 @@ installValidation:
 
 watch:
   namespaces: []
+  # When enabled, report namespace status only for namespaces explicitly
+  # labelled by the control plane with envplane.io/environment-id. Remote
+  # project Agents enable this to avoid treating bootstrap namespaces that
+  # happen to match the legacy name pattern as feature environments.
+  requireEnvironmentLabel: false
   # Empty means discover every namespace except excludeNamespaces. Set a
   # Kubernetes label selector only when discovery must be narrowed explicitly.
   namespaceLabelSelector: ""

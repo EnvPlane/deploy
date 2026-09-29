@@ -162,6 +162,8 @@ spec:
               value: {{ .Values.watch.namespaceLabelSelector | quote }}
             - name: ENVPLANE_WATCH_EXCLUDED_NAMESPACES
               value: {{ join "," .Values.watch.excludeNamespaces | quote }}
+            - name: ENVPLANE_REQUIRE_ENVIRONMENT_LABEL
+              value: {{ .Values.watch.requireEnvironmentLabel | quote }}
             - name: ENVPLANE_DISCOVERY_READ_SECRETS
               value: {{ .Values.rbac.discovery.readSecrets | quote }}
             {{- if .Values.rbac.discovery.namespaceInventoryRead }}
