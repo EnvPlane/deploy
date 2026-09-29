@@ -195,6 +195,10 @@ rbac:
       # when the operator deliberately grants cross-namespace discovery.
       - ""
     clusterCapabilityRead: false
+    # Bind these pre-installed, read-only ClusterRoles instead of rendering a
+    # release-named ClusterRole. Managed remote installations use this to keep
+    # cluster RBAC stable for arbitrary project and release names.
+    existingClusterRoles: []
     # Enables metadata GETs for only the explicit workload namespace
     # allowlist. Namespace objects are cluster-scoped, so namespaced Roles
     # cannot authorize the Agent's selected-namespace sync path.

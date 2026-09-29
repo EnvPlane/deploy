@@ -78,6 +78,7 @@ jobs:
       - name: Guard webhook legacy fallback removal deadline
         run: go test ./deploy/helm/envplane-webhook/tests
       - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
+      - run: bash scripts/tests/remote-cluster-rbac-profile-contract.sh
       - run: bash scripts/tests/github-actions-pinned-contract.sh
       - name: Check packaged file dependencies and vendored chart drift
         run: bash scripts/check-vendored-chart-drift.sh

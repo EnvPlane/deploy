@@ -50,6 +50,33 @@ The reconciler validates access, installs only canonical Agent/Runner charts fro
 
 Use **Retry** for transient failures, **Rotate managed identity** after a stale bootstrap identity, and **Repair** after endpoint/RBAC correction. These are audited API actions; they do not reveal or reuse raw bootstrap tokens.
 
+### Prepare target RBAC once
+
+Before saving a Remote Cluster, render and review the fixed target profile. It
+uses the chosen cluster ID only in resource names; it does not depend on a
+project ID, a Helm release name, a token, or a kubeconfig. Add every existing
+namespace that the target Agent/Runner must manage or discover. Future
+project-owned namespaces are intentionally not listed here.
+
+```sh
+./scripts/render-remote-cluster-rbac-profile.sh \
+  --cluster-id customer-west \
+  --runtime-namespace envplane-system \
+  --managed-namespace base-api \
+  --managed-namespace base-web > customer-west-envplane-rbac.yaml
+kubectl --context customer-west apply -f customer-west-envplane-rbac.yaml
+```
+
+Create the target kubeconfig for the generated ServiceAccount according to the
+cluster's normal authentication policy, store it in the management-cluster
+Secret requested by the UI, and then save the Remote Cluster. The profile has
+no workload permission outside the namespaces explicitly passed above. It
+pre-installs fixed read-only capability roles and bounded project parent roles;
+the reconciler may bind those parent roles only after it has created and
+verified a project-owned namespace. This removes the former requirement to
+grant `clusterroles/create` or `clusterroles/escalate` for every generated
+Agent release.
+
 ## Project-owned namespaces
 
 For a project targeting a connected cluster, open its **Bootstrap → Project-owned namespaces** panel and request a suffix. The server combines the remote target's configured allowed prefix, project ID, and suffix, checks the dedicated-namespace policy and limit, and queues reconciliation. A `202` response means *requested*, not created. The panel shows `ready` only after the target namespace and exact Agent/Runner access have reconciled and both runtimes have fresh heartbeats.

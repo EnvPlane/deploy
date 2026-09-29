@@ -52,6 +52,7 @@
 {{- $clusterCapabilityRead := default false .Values.rbac.discovery.clusterCapabilityRead -}}
 {{- $namespaceMetadataRead := default false .Values.rbac.discovery.namespaceMetadataRead -}}
 {{- $namespaceInventoryRead := default false .Values.rbac.discovery.namespaceInventoryRead -}}
+{{- $existingClusterRoles := default (list) .Values.rbac.discovery.existingClusterRoles -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- if eq (include "envplane-agent.managedRemoteEnabled" .) "true" -}}
 {{- $scope = "namespace" -}}
@@ -95,6 +96,30 @@ roleRef:
   name: {{ $fullName }}-discovery-reader
 {{ end }}
 {{- if or $clusterCapabilityRead $namespaceMetadataRead $namespaceInventoryRead }}
+{{- if $existingClusterRoles }}
+{{- if $namespaceMetadataRead }}{{ fail "rbac.discovery.namespaceMetadataRead cannot use pre-installed cluster roles" }}{{ end }}
+{{- range $roleName := $existingClusterRoles }}
+{{- if not $roleName }}{{ fail "rbac.discovery.existingClusterRoles cannot contain an empty role name" }}{{ end }}
+---
+# Managed remote installations may bind an operator-provisioned, read-only
+# capability role instead of rendering a release-named ClusterRole. This keeps
+# the target credential independent of project/release names.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s-%s" $fullName $roleName | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "envplane-agent.labels" $ | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $roleName }}
+{{- end }}
+{{- else }}
 ---
 # Project-owned same-cluster Agents use namespace-scoped discovery for
 # workloads. Namespace objects themselves are cluster-scoped, so permit GET
@@ -148,6 +173,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ $fullName }}-cluster-capability-reader
+{{- end }}
 {{- end }}
 {{- else if eq $scope "cluster" }}
 apiVersion: rbac.authorization.k8s.io/v1
