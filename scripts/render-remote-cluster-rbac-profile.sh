@@ -12,7 +12,8 @@ Usage: render-remote-cluster-rbac-profile.sh --cluster-id ID [options]
 Options:
   --runtime-namespace NAME   Namespace for the envplane target runtimes (default: envplane-system)
   --service-account NAME     ServiceAccount used by the target kubeconfig (default: envplane-remote-cluster-ID)
-  --managed-namespace NAME   Existing namespace whose runtime/discovery resources envplane may manage; repeatable
+  --managed-namespace NAME   Existing namespace for read-only workload discovery; repeatable
+  --flux-namespace NAME      Existing namespace that also permits read-only Flux status; repeatable
   --help                     Show this help
 EOF
 }
@@ -21,6 +22,7 @@ cluster_id=""
 runtime_namespace="envplane-system"
 service_account=""
 managed_namespaces=()
+flux_namespaces=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,6 +30,7 @@ while [[ $# -gt 0 ]]; do
     --runtime-namespace) runtime_namespace="${2:-}"; shift 2 ;;
     --service-account) service_account="${2:-}"; shift 2 ;;
     --managed-namespace) managed_namespaces+=("${2:-}"); shift 2 ;;
+    --flux-namespace) flux_namespaces+=("${2:-}"); shift 2 ;;
     --help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -47,6 +50,12 @@ if [[ ! "$service_account" =~ $dns_label ]] || [[ ${#service_account} -gt 63 ]];
   echo "service account name must be a Kubernetes DNS label up to 63 characters" >&2
   exit 2
 fi
+for namespace in "${flux_namespaces[@]}"; do
+  if [[ ! "$namespace" =~ $dns_label ]] || [[ ${#namespace} -gt 63 ]]; then
+    echo "Flux namespace names must be Kubernetes DNS labels up to 63 characters" >&2
+    exit 2
+  fi
+done
 
 prefix="envplane-remote-cluster-$cluster_id"
 installer_principal="system:serviceaccount:$runtime_namespace:$service_account"
@@ -228,15 +237,6 @@ rules:
   - apiGroups: ["policy"]
     resources: ["poddisruptionbudgets"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
-    resources: ["kustomizations"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["helm.toolkit.fluxcd.io"]
-    resources: ["helmreleases"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["source.toolkit.fluxcd.io"]
-    resources: ["gitrepositories", "helmrepositories", "ocirepositories", "buckets"]
-    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -263,14 +263,13 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 EOF
 
-for namespace in "${all_namespaces[@]}"; do
-  cat <<EOF
+cat <<EOF
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: $prefix-runtime-manager
-  namespace: $namespace
+  namespace: $runtime_namespace
 rules:
   - apiGroups: [""]
     resources: ["configmaps", "events", "persistentvolumeclaims", "pods", "secrets", "serviceaccounts", "services"]
@@ -295,7 +294,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: $prefix-runtime-manager
-  namespace: $namespace
+  namespace: $runtime_namespace
 subjects:
   - kind: ServiceAccount
     name: $service_account
@@ -304,5 +303,84 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: $prefix-runtime-manager
+EOF
+
+for namespace in "${managed_namespaces[@]}"; do
+  [[ "$namespace" == "$runtime_namespace" ]] && continue
+  cat <<EOF
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: $prefix-discovery-reader
+  namespace: $namespace
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "events", "persistentvolumeclaims", "serviceaccounts", "services", "pods", "resourcequotas", "limitranges"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: $prefix-discovery-reader
+  namespace: $namespace
+subjects:
+  - kind: ServiceAccount
+    name: $service_account
+    namespace: $runtime_namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: $prefix-discovery-reader
+EOF
+done
+
+for namespace in "${flux_namespaces[@]}"; do
+  cat <<EOF
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: $prefix-flux-reader
+  namespace: $namespace
+rules:
+  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
+    resources: ["kustomizations"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["helm.toolkit.fluxcd.io"]
+    resources: ["helmreleases"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["source.toolkit.fluxcd.io"]
+    resources: ["gitrepositories", "helmrepositories", "ocirepositories", "buckets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: $prefix-flux-reader
+  namespace: $namespace
+subjects:
+  - kind: ServiceAccount
+    name: $service_account
+    namespace: $runtime_namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: $prefix-flux-reader
 EOF
 done

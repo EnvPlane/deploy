@@ -71,7 +71,12 @@ kubectl --context customer-west apply -f customer-west-envplane-rbac.yaml
 
 Create the target kubeconfig for the generated ServiceAccount according to the
 cluster's normal authentication policy, store it in the management-cluster
-Secret requested by the UI, and then save the Remote Cluster. The profile has
+Secret requested by the UI, and then save the Remote Cluster. The profile gives
+`--managed-namespace` only read-only discovery access; it does not grant
+Secrets or write verbs there. Runtime mutation permissions remain in the
+runtime namespace, while feature-writer access is bound only by the reconciler
+into verified project-owned namespaces. Add `--flux-namespace NAME` only when
+read-only Flux status is explicitly needed. The profile has
 no workload permission outside the namespaces explicitly passed above. It
 pre-installs fixed read-only capability roles and bounded project parent roles;
 the reconciler may bind those parent roles only after it has created and

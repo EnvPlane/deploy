@@ -1,6 +1,6 @@
 # AUD-004: Discovery namespace selection grants workload and Secret mutations
 
-Status: confirmed by source audit; not fixed.
+Status: fixed locally in the target RBAC profile; CI pending.
 Priority: P1
 Estimated effort: M
 

@@ -16,6 +16,18 @@ grep -A12 -F 'name: envplane-remote-cluster-customer-west-namespace-metadata-rea
 grep -A8 -F '      - envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered" | grep -Fq 'verbs: ["get", "update", "patch"]'
 grep -Fq 'name: envplane-remote-cluster-customer-west-feature-env-writer-parent' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-runtime-manager' "$rendered"
+grep -Fq 'name: envplane-remote-cluster-customer-west-discovery-reader' "$rendered"
+discovery="$(awk '/name: envplane-remote-cluster-customer-west-discovery-reader$/{capture=1} capture{print} /^---$/{if (capture) exit}' "$rendered")"
+if grep -Eq 'secrets|create|update|patch|delete' <<<"$discovery"; then
+  echo 'discovery-only Role must not grant Secret access or write verbs' >&2
+  exit 1
+fi
+if grep -Fq 'name: envplane-remote-cluster-customer-west-flux-reader' "$rendered"; then
+  echo 'Flux scope must remain opt-in' >&2
+  exit 1
+fi
+flux_rendered="$(bash "$renderer" --cluster-id customer-west --managed-namespace base-api --flux-namespace base-api)"
+grep -Fq 'name: envplane-remote-cluster-customer-west-flux-reader' <<<"$flux_rendered"
 grep -Fq 'namespace: base-api' "$rendered"
 grep -Fq 'kind: ValidatingAdmissionPolicy' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-installer-clusterrolebinding-scope' "$rendered"
