@@ -10,6 +10,9 @@ bash "$renderer" --cluster-id customer-west --runtime-namespace envplane-system 
 
 grep -Fq 'name: envplane-remote-cluster-customer-west-cluster-capability-reader' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-namespace-inventory-reader' "$rendered"
+grep -Fq 'name: envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered"
+grep -A5 -F 'name: envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered" | grep -Fq 'resourceNames:'
+grep -A12 -F 'name: envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered" | grep -Fq '      - base-api'
 grep -Fq 'name: envplane-remote-cluster-customer-west-feature-env-writer-parent' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-runtime-manager' "$rendered"
 grep -Fq 'namespace: base-api' "$rendered"
@@ -45,6 +48,7 @@ helm template remote-agent "$chart" --namespace envplane-system \
   --set rbac.discovery.clusterCapabilityRead=true \
   --set 'rbac.discovery.existingClusterRoles[0]=envplane-remote-cluster-customer-west-cluster-capability-reader' \
   --set 'rbac.discovery.existingClusterRoles[1]=envplane-remote-cluster-customer-west-namespace-inventory-reader' \
+  --set 'rbac.discovery.existingClusterRoles[2]=envplane-remote-cluster-customer-west-namespace-metadata-reader' \
   --set 'rbac.discovery.namespaces[0]=base-api' \
   --set managedRemote.enabled=true \
   --set managedRemote.remoteClusterId=customer-west \

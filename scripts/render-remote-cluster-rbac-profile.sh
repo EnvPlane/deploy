@@ -52,6 +52,7 @@ prefix="envplane-remote-cluster-$cluster_id"
 installer_principal="system:serviceaccount:$runtime_namespace:$service_account"
 capability_role="$prefix-cluster-capability-reader"
 inventory_role="$prefix-namespace-inventory-reader"
+metadata_role="$prefix-namespace-metadata-reader"
 all_namespaces=("$runtime_namespace")
 for namespace in "${managed_namespaces[@]}"; do
   if [[ ! "$namespace" =~ $dns_label ]] || [[ ${#namespace} -gt 63 ]]; then
@@ -100,6 +101,7 @@ rules:
     resourceNames:
       - $prefix-cluster-capability-reader
       - $prefix-namespace-inventory-reader
+      - $prefix-namespace-metadata-reader
       - $prefix-rbac-manager
       - $prefix-discovery-parent
       - $prefix-feature-env-writer-parent
@@ -134,10 +136,10 @@ spec:
     - expression: >-
         request.userInfo.username != "$installer_principal" ||
         (request.operation == "DELETE"
-          ? ["$capability_role", "$inventory_role"].exists(name, name == oldObject.roleRef.name) &&
+          ? ["$capability_role", "$inventory_role", "$metadata_role"].exists(name, name == oldObject.roleRef.name) &&
             oldObject.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
             oldObject.metadata.labels['app.kubernetes.io/component'] == "cluster-agent"
-          : ["$capability_role", "$inventory_role"].exists(name, name == object.roleRef.name) &&
+          : ["$capability_role", "$inventory_role", "$metadata_role"].exists(name, name == object.roleRef.name) &&
             object.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
             object.metadata.labels['app.kubernetes.io/component'] == "cluster-agent")
       message: "remote installer may bind or remove only its read-only capability roles"
@@ -173,6 +175,21 @@ rules:
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: $prefix-namespace-metadata-reader
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames:
+EOF
+for namespace in "${all_namespaces[@]}"; do
+  printf '      - %s\n' "$namespace"
+done
+cat <<EOF
+    verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

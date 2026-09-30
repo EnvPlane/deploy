@@ -1,6 +1,6 @@
 # AUD-003: Project Agent loses access to Namespace metadata
 
-Status: confirmed by source audit; not fixed.
+Status: fixed locally across deploy, control-plane, and agent; CI pending.
 Priority: P1
 Estimated effort: M
 
