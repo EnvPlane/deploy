@@ -17,6 +17,8 @@ grep -A8 -F '      - envplane-remote-cluster-customer-west-namespace-metadata-re
 grep -Fq 'name: envplane-remote-cluster-customer-west-feature-env-writer-parent' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-runtime-manager' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-discovery-reader' "$rendered"
+grep -Fq 'name: envplane-remote-cluster-customer-west-discovery-parent' "$rendered"
+grep -Fq 'namespace: base-api' "$rendered"
 discovery="$(awk '/name: envplane-remote-cluster-customer-west-discovery-reader$/{capture=1} capture{print} /^---$/{if (capture) exit}' "$rendered")"
 if grep -Eq 'secrets|create|update|patch|delete' <<<"$discovery"; then
   echo 'discovery-only Role must not grant Secret access or write verbs' >&2
@@ -50,6 +52,10 @@ if grep -A8 -F 'resources: ["clusterroles"]' "$rendered" | grep -Fq '"create"'; 
 fi
 if bash "$renderer" --cluster-id 'BAD_Name' >/dev/null 2>&1; then
   echo 'renderer accepted an invalid cluster ID' >&2
+  exit 1
+fi
+if bash "$renderer" --cluster-id customer-west --service-account custom-agent >/dev/null 2>&1; then
+  echo 'renderer accepted an unsupported custom ServiceAccount identity' >&2
   exit 1
 fi
 

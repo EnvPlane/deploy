@@ -11,7 +11,6 @@ Usage: render-remote-cluster-rbac-profile.sh --cluster-id ID [options]
 
 Options:
   --runtime-namespace NAME   Namespace for the envplane target runtimes (default: envplane-system)
-  --service-account NAME     ServiceAccount used by the target kubeconfig (default: envplane-remote-cluster-ID)
   --managed-namespace NAME   Existing namespace for read-only workload discovery; repeatable
   --flux-namespace NAME      Existing namespace that also permits read-only Flux status; repeatable
   --help                     Show this help
@@ -20,7 +19,6 @@ EOF
 
 cluster_id=""
 runtime_namespace="envplane-system"
-service_account=""
 managed_namespaces=()
 flux_namespaces=()
 
@@ -28,7 +26,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --cluster-id) cluster_id="${2:-}"; shift 2 ;;
     --runtime-namespace) runtime_namespace="${2:-}"; shift 2 ;;
-    --service-account) service_account="${2:-}"; shift 2 ;;
     --managed-namespace) managed_namespaces+=("${2:-}"); shift 2 ;;
     --flux-namespace) flux_namespaces+=("${2:-}"); shift 2 ;;
     --help) usage; exit 0 ;;
@@ -43,13 +40,7 @@ for value in "$cluster_id" "$runtime_namespace"; do
     exit 2
   fi
 done
-if [[ -z "$service_account" ]]; then
-  service_account="envplane-remote-cluster-$cluster_id"
-fi
-if [[ ! "$service_account" =~ $dns_label ]] || [[ ${#service_account} -gt 63 ]]; then
-  echo "service account name must be a Kubernetes DNS label up to 63 characters" >&2
-  exit 2
-fi
+service_account="envplane-remote-cluster-$cluster_id"
 for namespace in "${flux_namespaces[@]}"; do
   if [[ ! "$namespace" =~ $dns_label ]] || [[ ${#namespace} -gt 63 ]]; then
     echo "Flux namespace names must be Kubernetes DNS labels up to 63 characters" >&2
@@ -347,6 +338,20 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: $prefix-discovery-reader
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: $prefix-discovery-parent
+  namespace: $namespace
+subjects:
+  - kind: ServiceAccount
+    name: $service_account
+    namespace: $runtime_namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: $prefix-discovery-parent
 EOF
 done
 
