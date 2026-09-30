@@ -193,9 +193,13 @@ spec:
     - expression: >-
         request.userInfo.username != "$installer_principal" ||
         (request.operation == "DELETE"
-          ? ["$capability_role", "$inventory_role", "$metadata_role"].exists(name, name == oldObject.roleRef.name) &&
+          ? ((["$capability_role", "$inventory_role", "$metadata_role"].exists(name, name == oldObject.roleRef.name)) ||
+              (oldObject.metadata.name.matches('^ep-agent-[a-z0-9-]+-envplane-agent-cluster-capability-reader$') &&
+               oldObject.roleRef.name == oldObject.metadata.name &&
+               oldObject.subjects.exists(subject, subject.kind == "ServiceAccount" && subject.namespace == "$runtime_namespace"))) &&
             oldObject.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
-            oldObject.metadata.labels['app.kubernetes.io/component'] == "cluster-agent"
+            oldObject.metadata.labels['app.kubernetes.io/component'] == "cluster-agent" &&
+            oldObject.metadata.labels['app.kubernetes.io/name'] == "envplane-agent"
           : ["$capability_role", "$inventory_role", "$metadata_role"].exists(name, name == object.roleRef.name) &&
             object.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
             object.metadata.labels['app.kubernetes.io/component'] == "cluster-agent")
