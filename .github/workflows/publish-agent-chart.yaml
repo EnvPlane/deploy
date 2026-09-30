@@ -36,6 +36,18 @@ jobs:
           digest="$(printf '%s\n' "$output" | awk '/^Digest:/{print $2; exit}')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Verify published chart contents
+        env:
+          CHART_VERSION: ${{ steps.chart.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p verify-chart
+          helm pull oci://ghcr.io/envplane/envplane-agent --version "$CHART_VERSION" --destination verify-chart
+          archive="verify-chart/envplane-agent-${CHART_VERSION}.tgz"
+          [[ -s "$archive" ]]
+          helm show chart "$archive" | grep -Fxq "version: $CHART_VERSION"
+          helm show all "$archive" | grep -Fq 'existingClusterRoles'
+          helm show all "$archive" | grep -Fq 'readFlux'
       - id: dispatch_auth
         env:
           CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
