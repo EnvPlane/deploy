@@ -106,6 +106,11 @@ rules:
       - $prefix-discovery-parent
       - $prefix-feature-env-writer-parent
     verbs: ["bind"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    resourceNames:
+      - $prefix-namespace-metadata-reader
+    verbs: ["get", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

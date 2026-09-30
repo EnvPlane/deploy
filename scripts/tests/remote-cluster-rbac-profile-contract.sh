@@ -13,6 +13,7 @@ grep -Fq 'name: envplane-remote-cluster-customer-west-namespace-inventory-reader
 grep -Fq 'name: envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered"
 grep -A5 -F 'name: envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered" | grep -Fq 'resourceNames:'
 grep -A12 -F 'name: envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered" | grep -Fq '      - base-api'
+grep -A8 -F '      - envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered" | grep -Fq 'verbs: ["get", "update", "patch"]'
 grep -Fq 'name: envplane-remote-cluster-customer-west-feature-env-writer-parent' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-runtime-manager' "$rendered"
 grep -Fq 'namespace: base-api' "$rendered"

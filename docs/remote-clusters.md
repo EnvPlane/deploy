@@ -55,8 +55,10 @@ Use **Retry** for transient failures, **Rotate managed identity** after a stale 
 Before saving a Remote Cluster, render and review the fixed target profile. It
 uses the chosen cluster ID only in resource names; it does not depend on a
 project ID, a Helm release name, a token, or a kubeconfig. Add every existing
-namespace that the target Agent/Runner must manage or discover. Future
-project-owned namespaces are intentionally not listed here.
+namespace that the target Agent/Runner must manage or discover. The
+reconciler updates the fixed namespace-metadata reader with each validated
+project namespace, so future project-owned namespaces remain bounded to the
+current discovery set without granting namespace list/watch access.
 
 ```sh
 ./scripts/render-remote-cluster-rbac-profile.sh \
