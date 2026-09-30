@@ -1,6 +1,6 @@
 # Project agents cannot recover after bootstrap credential expiry
 
-Status: reproduced live; root cause of missing recovery not yet established.
+Status: diagnosed; readiness fix tested locally; live RBAC repair and recovery verification pending.
 Release: umbrella 0.4.541, management context envplane, target bethunder-local.
 
 ## Evidence
@@ -27,3 +27,25 @@ reconciliation. Verify recovery live without modifying application workloads.
 Local UI and the newly created temporary Cloudflare tunnel return HTTP 200.
 Public API authorization probing was blocked by tool safety review and was not
 performed. Remote lifecycle E2E remains blocked by agent registration.
+
+## Diagnosis and local fix
+
+The persisted recovery intents exist for both projects. Management logs report
+`remote Kubernetes access validation failed`; RemoteAccess is False due to RBAC.
+An authenticated endpoint heartbeat incorrectly overwrote the phase to healthy
+and cleared the repair action without resolving that condition.
+
+Read-only impersonation checks confirm that the installer ServiceAccount
+`envplane-system/envplane-remote-cluster-bethunder-local` lacks bind and update
+on `envplane-remote-cluster-bethunder-local-namespace-metadata-reader`.
+Do not bypass credential validation or token expiry to recover.
+
+The control-plane fix preserves the failed access status through endpoint
+reports and rejects contradictory healthy status in readiness evaluation.
+Regression tests cover recovery after access validation and replacement of an
+expired token while a recovery intent is pending. All tests in internal/app,
+internal/remoteclusters and internal/server passed locally.
+
+Remaining live step: review and apply the current installer RBAC profile, then
+verify queued reconciliation issues credentials and both agents heartbeat.
+This ticket is not closed until that live check succeeds.
