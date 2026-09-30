@@ -606,6 +606,9 @@ envplane-agent:
     id: ""
     authPersistence:
       enabled: true
+      # managed creates one retained PVC per runtime; externalSecret uses an
+      # already-issued token Secret; externalPVC uses an existing claim.
+      mode: ""
       existingClaim: ""
       existingSecret: ""
       storageClassName: ""
@@ -639,6 +642,9 @@ envplane-runner:
     configTokenKey: project-config-token
     authPersistence:
       enabled: true
+      # managed creates one retained PVC per runtime; externalSecret uses an
+      # already-issued token Secret; externalPVC uses an existing claim.
+      mode: ""
       existingClaim: ""
       existingSecret: ""
       storageClassName: ""

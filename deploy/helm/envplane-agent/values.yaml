@@ -122,6 +122,10 @@ agent:
   heartbeatSeconds: 30
   authPersistence:
     enabled: true
+    # Durable modes are mutually exclusive: managed creates a retained PVC,
+    # externalSecret reads an issued token from a Secret, and externalPVC uses
+    # an existing claim. Leave mode empty to infer legacy values safely.
+    mode: ""
     # Writable path used by ENVPLANE_AGENT_AUTH_TOKEN_FILE. The agent writes the
     # issued agentAuthToken here after the one-time registration exchange and
     # reads it on restart instead of reusing the consumed bootstrap token.
@@ -129,7 +133,8 @@ agent:
     fileName: agent-auth-token
     volumeName: agent-auth-token
     # Create a small PVC by default so rollout-created pods do not reuse the
-    # consumed one-time bootstrap token. Set createClaim=false to use emptyDir.
+    # consumed one-time bootstrap token. createClaim=false is a legacy,
+    # explicitly ephemeral compatibility mode and is not restart-durable.
     createClaim: true
     claimName: ""
     storageClassName: ""

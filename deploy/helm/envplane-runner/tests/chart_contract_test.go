@@ -322,14 +322,18 @@ func TestRunnerChartDocumentsAuthPersistenceSecret(t *testing.T) {
 	if !strings.Contains(rendered, "key: \"runner-auth-token\"") {
 		t.Fatalf("rendered chart missing persisted auth secret key:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "ENVPLANE_RUNNER_AUTH_TOKEN_FILE") {
-		t.Fatalf("rendered chart missing persisted runner auth token file:\n%s", rendered)
+	if strings.Contains(rendered, "ENVPLANE_RUNNER_AUTH_TOKEN_FILE") || strings.Contains(rendered, "kind: PersistentVolumeClaim") {
+		t.Fatalf("external Secret mode must not require a PVC or token file:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "kind: PersistentVolumeClaim") {
-		t.Fatalf("rendered chart missing default auth persistence PVC:\n%s", rendered)
-	}
-	if !strings.Contains(rendered, "claimName: \"envplane-runner-auth\"") {
-		t.Fatalf("rendered chart missing auth PVC claim reference:\n%s", rendered)
+}
+
+func TestRunnerChartExternalPVCUsesExistingClaim(t *testing.T) {
+	rendered := renderRunnerChart(t,
+		"--set", "controlPlane.authPersistence.mode=externalPVC",
+		"--set", "controlPlane.authPersistence.existingClaim=runner-auth-claim",
+	)
+	if !strings.Contains(rendered, `claimName: "runner-auth-claim"`) || strings.Contains(rendered, "kind: PersistentVolumeClaim") {
+		t.Fatalf("external PVC mode rendered an unexpected claim:\n%s", rendered)
 	}
 }
 

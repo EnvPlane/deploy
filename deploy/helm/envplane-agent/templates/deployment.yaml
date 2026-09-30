@@ -182,7 +182,7 @@ spec:
             - name: ENVPLANE_FLUX_STATUS_KUSTOMIZATION_NAME
               value: {{ . | quote }}
             {{- end }}
-            {{- if .Values.agent.authPersistence.enabled }}
+            {{- if and .Values.agent.authPersistence.enabled (ne (include "envplane-agent.authPersistenceMode" .) "externalSecret") }}
             - name: ENVPLANE_AGENT_AUTH_TOKEN_FILE
               value: {{ printf "%s/%s" (.Values.agent.authPersistence.mountPath | trimSuffix "/") .Values.agent.authPersistence.fileName | quote }}
             {{- end }}
@@ -230,7 +230,7 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if .Values.agent.authPersistence.enabled }}
+          {{- if and .Values.agent.authPersistence.enabled (ne (include "envplane-agent.authPersistenceMode" .) "externalSecret") }}
           volumeMounts:
             - name: {{ .Values.agent.authPersistence.volumeName | quote }}
               mountPath: {{ .Values.agent.authPersistence.mountPath | quote }}
@@ -245,13 +245,14 @@ spec:
               mountPath: {{ $controlPlaneTLS.mountPath | quote }}
               readOnly: true
           {{- end }}
-      {{- if .Values.agent.authPersistence.enabled }}
+      {{- if and .Values.agent.authPersistence.enabled (ne (include "envplane-agent.authPersistenceMode" .) "externalSecret") }}
       volumes:
         - name: {{ .Values.agent.authPersistence.volumeName | quote }}
-          {{- if .Values.agent.authPersistence.existingClaim }}
+          {{- $authMode := include "envplane-agent.authPersistenceMode" . }}
+          {{- if eq $authMode "externalPVC" }}
           persistentVolumeClaim:
             claimName: {{ .Values.agent.authPersistence.existingClaim | quote }}
-          {{- else if .Values.agent.authPersistence.createClaim }}
+          {{- else if eq $authMode "managed" }}
           persistentVolumeClaim:
             claimName: {{ default (printf "%s-auth" (include "envplane-agent.fullname" .)) .Values.agent.authPersistence.claimName | quote }}
           {{- else }}

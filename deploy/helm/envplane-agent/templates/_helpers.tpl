@@ -43,6 +43,26 @@ app.kubernetes.io/component: cluster-agent
 {{- end -}}
 {{- end -}}
 
+{{- define "envplane-agent.authPersistenceMode" -}}
+{{- $auth := default (dict) .Values.agent.authPersistence -}}
+{{- $requested := default "" (get $auth "mode") -}}
+{{- $secret := default "" (get $auth "existingSecret") -}}
+{{- $claim := default "" (get $auth "existingClaim") -}}
+{{- $createClaim := default true (get $auth "createClaim") -}}
+{{- $mode := $requested -}}
+{{- if eq $mode "" -}}
+  {{- if and $secret $claim }}{{ fail "agent.authPersistence existingSecret and existingClaim are mutually exclusive" }}{{ end -}}
+  {{- if $secret }}{{ $mode = "externalSecret" }}{{ else if $claim }}{{ $mode = "externalPVC" }}{{ else if $createClaim }}{{ $mode = "managed" }}{{ else }}{{ $mode = "ephemeral" }}{{ end -}}
+{{- end -}}
+{{- if not (has $mode (list "managed" "externalSecret" "externalPVC" "ephemeral")) }}{{ fail "agent.authPersistence.mode must be managed, externalSecret, externalPVC, or ephemeral" }}{{ end -}}
+{{- if and (eq $mode "managed") (or $secret $claim) }}{{ fail "agent.authPersistence.mode=managed cannot set existingSecret or existingClaim" }}{{ end -}}
+{{- if and (eq $mode "externalSecret") (or (not $secret) $claim) }}{{ fail "agent.authPersistence.mode=externalSecret requires existingSecret and forbids existingClaim" }}{{ end -}}
+{{- if and (eq $mode "externalPVC") (or (not $claim) $secret) }}{{ fail "agent.authPersistence.mode=externalPVC requires existingClaim and forbids existingSecret" }}{{ end -}}
+{{- if and (eq $mode "ephemeral") (or $secret $claim) }}{{ fail "agent.authPersistence.mode=ephemeral cannot set existingSecret or existingClaim" }}{{ end -}}
+{{- if and (eq $mode "managed") (not $createClaim) }}{{ fail "agent.authPersistence.mode=managed requires createClaim=true" }}{{ end -}}
+{{- $mode -}}
+{{- end -}}
+
 {{- define "envplane-agent.tokenSecretName" -}}
 {{- $global := default (dict) .Values.global -}}
 {{- $envplane := include "envplane-agent.globalConfig" . | fromJson -}}

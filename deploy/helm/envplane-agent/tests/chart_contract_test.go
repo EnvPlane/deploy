@@ -716,8 +716,8 @@ func TestAgentChartRendersAuthTokenPersistenceEnvAndVolume(t *testing.T) {
 		"template", "envplane-agent", "..",
 		"--set", "controlPlane.existingSecret=envplane-agent-bootstrap",
 		"--set", "bootstrap.projectId=project-1",
+		"--set", "agent.authPersistence.mode=externalPVC",
 		"--set", "agent.authPersistence.existingClaim=envplane-agent-auth",
-		"--set", "agent.authPersistence.existingSecret=envplane-agent-auth-secret",
 	}
 	cmd := exec.Command("helm", commandArgs...)
 	cmd.Dir = "."
@@ -731,13 +731,32 @@ func TestAgentChartRendersAuthTokenPersistenceEnvAndVolume(t *testing.T) {
 		`value: "/var/lib/envplane-agent/auth/agent-auth-token"`,
 		`mountPath: "/var/lib/envplane-agent/auth"`,
 		`claimName: "envplane-agent-auth"`,
-		`name: "envplane-agent-auth-secret"`,
-		`key: "agent-auth-token"`,
 		"fsGroup: 65532",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("rendered chart missing %q:\n%s", expected, rendered)
 		}
+	}
+}
+
+func TestAgentChartExternalSecretAvoidsPVCAndFileDependency(t *testing.T) {
+	rendered := renderAgentChart(t,
+		"--set", "agent.authPersistence.mode=externalSecret",
+		"--set", "agent.authPersistence.existingSecret=envplane-agent-auth-secret",
+	)
+	if !strings.Contains(rendered, "ENVPLANE_AGENT_AUTH_TOKEN") || !strings.Contains(rendered, `name: "envplane-agent-auth-secret"`) {
+		t.Fatalf("external Secret mode missing Secret token reference:\n%s", rendered)
+	}
+	if strings.Contains(rendered, "kind: PersistentVolumeClaim") || strings.Contains(rendered, "ENVPLANE_AGENT_AUTH_TOKEN_FILE") || strings.Contains(rendered, "volumeMounts:") {
+		t.Fatalf("external Secret mode must not require a PVC or token file:\n%s", rendered)
+	}
+}
+
+func TestAgentChartRejectsConflictingAuthPersistenceReferences(t *testing.T) {
+	cmd := exec.Command("helm", "template", "envplane-agent", "..", "--set", "agent.authPersistence.existingClaim=claim", "--set", "agent.authPersistence.existingSecret=secret")
+	cmd.Dir = "."
+	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "mutually exclusive") {
+		t.Fatalf("conflicting auth persistence references unexpectedly rendered: %v\n%s", err, output)
 	}
 }
 

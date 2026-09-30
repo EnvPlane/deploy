@@ -199,7 +199,7 @@ spec:
                   name: {{ .Values.controlPlane.authPersistence.existingSecret | quote }}
                   key: {{ .Values.controlPlane.authPersistence.runnerAuthTokenKey | quote }}
             {{- end }}
-            {{- if .Values.controlPlane.authPersistence.enabled }}
+            {{- if and .Values.controlPlane.authPersistence.enabled (ne (include "envplane-runner.authPersistenceMode" .) "externalSecret") }}
             - name: ENVPLANE_RUNNER_AUTH_TOKEN_FILE
               value: {{ printf "%s/%s" .Values.controlPlane.authPersistence.mountPath .Values.controlPlane.authPersistence.fileName | quote }}
             {{- end }}
@@ -218,7 +218,7 @@ spec:
               mountPath: {{ $controlPlaneTLS.mountPath | quote }}
               readOnly: true
           {{- end }}
-          {{- if .Values.controlPlane.authPersistence.enabled }}
+          {{- if and .Values.controlPlane.authPersistence.enabled (ne (include "envplane-runner.authPersistenceMode" .) "externalSecret") }}
             - name: {{ .Values.controlPlane.authPersistence.volumeName }}
               mountPath: {{ .Values.controlPlane.authPersistence.mountPath | quote }}
           {{- end }}
@@ -271,12 +271,13 @@ spec:
               - key: {{ $controlPlaneTLS.caKey | quote }}
                 path: {{ $controlPlaneTLS.caKey | quote }}
       {{- end }}
-      {{- if .Values.controlPlane.authPersistence.enabled }}
+      {{- if and .Values.controlPlane.authPersistence.enabled (ne (include "envplane-runner.authPersistenceMode" .) "externalSecret") }}
         - name: {{ .Values.controlPlane.authPersistence.volumeName }}
-          {{- if .Values.controlPlane.authPersistence.existingClaim }}
+          {{- $authMode := include "envplane-runner.authPersistenceMode" . }}
+          {{- if eq $authMode "externalPVC" }}
           persistentVolumeClaim:
             claimName: {{ .Values.controlPlane.authPersistence.existingClaim | quote }}
-          {{- else if .Values.controlPlane.authPersistence.createClaim }}
+          {{- else if eq $authMode "managed" }}
           persistentVolumeClaim:
             claimName: {{ default (printf "%s-auth" (include "envplane-runner.fullname" .)) .Values.controlPlane.authPersistence.claimName | quote }}
           {{- else }}

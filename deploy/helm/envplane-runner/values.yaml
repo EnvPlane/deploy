@@ -88,6 +88,10 @@ controlPlane:
   heartbeatIntervalSeconds: 30
   reportTimeoutSeconds: 10
   authPersistence:
+    # Durable modes are mutually exclusive: managed creates a retained PVC,
+    # externalSecret reads an issued token from a Secret, and externalPVC uses
+    # an existing claim. Leave mode empty to infer legacy values safely.
+    mode: ""
     # Persist the post-registration runnerAuthToken on a writable volume so
     # normal container/pod restarts do not reuse the one-time bootstrap token.
     enabled: true
@@ -95,7 +99,8 @@ controlPlane:
     fileName: runner-auth-token
     volumeName: runner-auth
     # Create a small PVC by default. This keeps the runtime auth token across
-    # rollout-created pod replacements. Set createClaim=false to use emptyDir.
+    # rollout-created pod replacements. createClaim=false is a legacy,
+    # explicitly ephemeral compatibility mode and is not restart-durable.
     createClaim: true
     claimName: ""
     storageClassName: ""

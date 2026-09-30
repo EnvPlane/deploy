@@ -1,4 +1,5 @@
-{{- if and .Values.controlPlane.authPersistence.enabled .Values.controlPlane.authPersistence.createClaim (not .Values.controlPlane.authPersistence.existingClaim) -}}
+{{- $mode := include "envplane-runner.authPersistenceMode" . -}}
+{{- if and .Values.controlPlane.authPersistence.enabled (eq $mode "managed") -}}
 {{- $retentionPolicy := default "retain" .Values.controlPlane.authPersistence.retentionPolicy -}}
 {{- if not (has $retentionPolicy (list "retain" "purge")) }}{{ fail "controlPlane.authPersistence.retentionPolicy must be retain or purge" }}{{ end }}
 apiVersion: v1
