@@ -1,10 +1,14 @@
 package tests
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func TestAgentChartDefinesHelmInstallAndRBACContract(t *testing.T) {
@@ -443,6 +447,64 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 	}
 }
 
+func TestAgentChartCapabilityBindingsHaveUniqueDNSIdentities(t *testing.T) {
+	cases := []struct {
+		name      string
+		release   string
+		namespace string
+		roleNames []string
+	}{
+		{name: "short names", release: "remote-agent", namespace: "customer-west", roleNames: []string{"feature-env-writer-parent", "feature-env-reader-parent"}},
+		{name: "maximum length names", release: strings.Repeat("r", 53), namespace: strings.Repeat("n", 63), roleNames: []string{
+			strings.Repeat("w", 63), strings.Repeat("r", 62) + "x",
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			args := []string{"--namespace", tc.namespace, "--set", "rbac.discovery.scope=namespace", "--set", "rbac.discovery.namespaces[0]=" + tc.namespace, "--set", "rbac.discovery.clusterCapabilityRead=true"}
+			for i, roleName := range tc.roleNames {
+				args = append(args, "--set", fmt.Sprintf("rbac.discovery.existingClusterRoles[%d]=%s", i, roleName))
+			}
+			rendered := renderAgentChartWithRelease(t, tc.release, args...)
+			identities := yamlObjectIdentities(t, rendered)
+			seen := map[string]struct{}{}
+			bindings := capabilityBindingNames(t, rendered)
+			if len(bindings) != len(tc.roleNames) {
+				t.Fatalf("expected %d capability bindings, got %d: %v", len(tc.roleNames), len(bindings), bindings)
+			}
+			for _, identity := range identities {
+				if _, exists := seen[identity]; exists {
+					t.Fatalf("duplicate YAML object identity %q", identity)
+				}
+				seen[identity] = struct{}{}
+			}
+			for roleName, bindingName := range bindings {
+				if len(bindingName) > 63 || strings.HasSuffix(bindingName, "-") || strings.Contains(bindingName, "--") {
+					t.Fatalf("invalid capability binding name %q for role %q", bindingName, roleName)
+				}
+			}
+		})
+	}
+}
+
+func TestAgentChartCapabilityBindingNamesRemainStableAcrossUpgrade(t *testing.T) {
+	render := func(roleNames ...string) string {
+		args := []string{"--namespace", "customer-west", "--set", "rbac.discovery.scope=namespace", "--set", "rbac.discovery.namespaces[0]=customer-west", "--set", "rbac.discovery.clusterCapabilityRead=true"}
+		for i, roleName := range roleNames {
+			args = append(args, "--set", fmt.Sprintf("rbac.discovery.existingClusterRoles[%d]=%s", i, roleName))
+		}
+		return renderAgentChartWithRelease(t, "remote-agent", args...)
+	}
+	initial := capabilityBindingNames(t, render("feature-env-writer-parent", "feature-env-reader-parent"))
+	upgraded := capabilityBindingNames(t, render("feature-env-reader-parent", "feature-env-auditor-parent"))
+	if initial["feature-env-reader-parent"] != upgraded["feature-env-reader-parent"] {
+		t.Fatalf("unchanged capability role changed binding identity across upgrade: before=%q after=%q", initial["feature-env-reader-parent"], upgraded["feature-env-reader-parent"])
+	}
+	if initial["feature-env-writer-parent"] == upgraded["feature-env-auditor-parent"] {
+		t.Fatalf("different capability roles reused the same binding identity: %v", upgraded)
+	}
+}
+
 func TestAgentChartPreservesMaterializationRBACDocumentBoundaries(t *testing.T) {
 	rendered := renderAgentChart(t,
 		"--set", "rbac.materialization.enabled=true",
@@ -777,4 +839,64 @@ func renderAgentChartWithRelease(t *testing.T, releaseName string, args ...strin
 		t.Fatalf("helm template failed: %v\n%s", err, output)
 	}
 	return string(output)
+}
+
+func yamlObjectIdentities(t *testing.T, rendered string) []string {
+	t.Helper()
+	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rendered), 4096)
+	var identities []string
+	for {
+		var raw map[string]interface{}
+		if err := decoder.Decode(&raw); err != nil {
+			if err == io.EOF {
+				break
+			}
+			t.Fatalf("decode rendered YAML: %v", err)
+		}
+		if len(raw) == 0 {
+			continue
+		}
+		metadata, ok := raw["metadata"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		identities = append(identities, fmt.Sprintf("%v|%v|%v|%v", raw["apiVersion"], raw["kind"], metadata["namespace"], metadata["name"]))
+	}
+	return identities
+}
+
+func capabilityBindingNames(t *testing.T, rendered string) map[string]string {
+	t.Helper()
+	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rendered), 4096)
+	bindings := map[string]string{}
+	for {
+		var raw map[string]interface{}
+		if err := decoder.Decode(&raw); err != nil {
+			if err == io.EOF {
+				break
+			}
+			t.Fatalf("decode rendered YAML: %v", err)
+		}
+		if len(raw) == 0 || raw["kind"] != "ClusterRoleBinding" {
+			continue
+		}
+		metadata, ok := raw["metadata"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("ClusterRoleBinding has no metadata: %#v", raw)
+		}
+		roleRef, ok := raw["roleRef"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("ClusterRoleBinding has no roleRef: %#v", raw)
+		}
+		roleName, ok := roleRef["name"].(string)
+		if !ok {
+			t.Fatalf("ClusterRoleBinding roleRef has no name: %#v", roleRef)
+		}
+		bindingName, ok := metadata["name"].(string)
+		if !ok {
+			t.Fatalf("ClusterRoleBinding metadata has no name: %#v", metadata)
+		}
+		bindings[roleName] = bindingName
+	}
+	return bindings
 }

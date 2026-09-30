@@ -100,6 +100,9 @@ roleRef:
 {{- if $namespaceMetadataRead }}{{ fail "rbac.discovery.namespaceMetadataRead cannot use pre-installed cluster roles" }}{{ end }}
 {{- range $roleName := $existingClusterRoles }}
 {{- if not $roleName }}{{ fail "rbac.discovery.existingClusterRoles cannot contain an empty role name" }}{{ end }}
+{{- $bindingIdentity := printf "%s|%s|%s" $.Release.Name $.Release.Namespace $roleName -}}
+{{- $bindingHash := sha256sum $bindingIdentity | trunc 10 -}}
+{{- $bindingPrefix := printf "%s-capability" $fullName | trunc 52 | trimSuffix "-" -}}
 ---
 # Managed remote installations may bind an operator-provisioned, read-only
 # capability role instead of rendering a release-named ClusterRole. This keeps
@@ -107,7 +110,7 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ printf "%s-%s" $fullName $roleName | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-%s" $bindingPrefix $bindingHash }}
   labels:
     {{- include "envplane-agent.labels" $ | nindent 4 }}
 subjects:
@@ -118,7 +121,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ $roleName }}
-{{- end }}
+{{ end }}
 {{- else }}
 ---
 # Project-owned same-cluster Agents use namespace-scoped discovery for

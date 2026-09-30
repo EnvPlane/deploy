@@ -1,6 +1,6 @@
 # AUD-002: Two fixed capability bindings render with the same Kubernetes identity
 
-Status: confirmed by source audit and local rendering; not fixed.
+Status: fixed locally in the envplane-agent child chart; CI and release verification pending.
 Priority: P1
 Estimated effort: S
 
