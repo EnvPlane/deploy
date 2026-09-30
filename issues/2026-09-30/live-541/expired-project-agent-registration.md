@@ -1,6 +1,6 @@
 # Project agents cannot recover after bootstrap credential expiry
 
-Status: diagnosed; readiness fix tested locally; live RBAC repair and recovery verification pending.
+Status: recovery verified live on 2026-09-30; follow-up hardening committed locally.
 Release: umbrella 0.4.541, management context envplane, target bethunder-local.
 
 ## Evidence
@@ -49,3 +49,18 @@ internal/remoteclusters and internal/server passed locally.
 Remaining live step: review and apply the current installer RBAC profile, then
 verify queued reconciliation issues credentials and both agents heartbeat.
 This ticket is not closed until that live check succeeds.
+
+## Live recovery result
+
+The RBAC profile was re-rendered for the four configured application namespaces
+and `flux-system`, reviewed with server-side dry-run, then applied. The
+installer ServiceAccount now passes the required bind, update and create
+preflight checks. The reconciler minted replacement credentials and rolled
+both project Agent/Runner pairs. Both `app` and `app2` reached a succeeded
+executor reconciliation state, their runtime recovery markers were cleared,
+and all four project workloads are Ready 1/1.
+
+During migration, the admission policy initially blocked removal of a
+Helm-owned legacy capability binding. The renderer now permits only that
+strictly identified legacy deletion pattern; it does not broaden create or
+update rights. The policy behavior is covered by server-side dry-run.
