@@ -83,6 +83,13 @@ For a project targeting a connected cluster, open its **Bootstrap → Project-ow
 
 The target credential held by the management reconciler must be allowed to get/create Namespaces and install the project Agent/Runner Role and RoleBinding in the new namespace. Kubernetes RBAC cannot restrict `namespaces/create` by `resourceNames`; do **not** grant this cluster-wide verb to a project Runner. The management reconciler validates the requested name and refuses to adopt an existing namespace without matching project, target-cluster, and tenant ownership metadata. Project Agent/Runner permissions remain namespace-scoped after creation.
 
+The generated profile also installs a `ValidatingAdmissionPolicy` for the
+installer identity. It permits ClusterRoleBindings only for the fixed
+read-only capability roles and Helm-managed Agent bindings; project workload
+access must use the reconciler-created namespace RoleBindings. The policy also
+blocks that installer identity from deleting or updating unrelated
+ClusterRoleBindings. Keep this policy with the profile during upgrades.
+
 Project-owned namespaces are not automatically deleted when the project record is removed, because the namespace may contain durable user workloads. Operators must review their contents and remove them explicitly. Environment namespaces keep their existing separate lifecycle.
 
 ## Upgrade, migration, and removal

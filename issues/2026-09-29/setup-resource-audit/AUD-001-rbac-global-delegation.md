@@ -1,6 +1,6 @@
 # AUD-001: Cluster-scoped binding can bypass intended namespace boundary
 
-Status: confirmed by source audit; not fixed.
+Status: fix implemented locally; CI and live target-cluster verification pending.
 Priority: P1
 Estimated effort: Security design + integration tests; L
 
@@ -8,7 +8,7 @@ Estimated effort: Security design + integration tests; L
 
 deploy/scripts/render-remote-cluster-rbac-profile.sh:85-103; control-plane/internal/server/remote_project_reconciler.go:454-485
 
-Installer can create ClusterRoleBindings and bind the feature-env-writer-parent ClusterRole. Those permissions compose into cluster-wide workload/Secret access; ownership checks in the API do not constrain direct use of the credential. It can also delete unrelated bindings. This contradicts the published isolation claim.
+Installer can create ClusterRoleBindings and bind the feature-env-writer-parent ClusterRole. Those permissions compose into cluster-wide workload/Secret access; ownership checks in the API do not constrain direct use of the credential. It can also delete unrelated bindings. This contradicts the published isolation claim. The profile now adds an admission policy that limits the installer identity to Helm-managed Agent bindings for fixed read-only capability roles and blocks unrelated binding deletion/update.
 
 ## Implementation prompt for Codex
 

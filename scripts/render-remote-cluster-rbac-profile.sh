@@ -49,6 +49,9 @@ if [[ ! "$service_account" =~ $dns_label ]] || [[ ${#service_account} -gt 63 ]];
 fi
 
 prefix="envplane-remote-cluster-$cluster_id"
+installer_principal="system:serviceaccount:$runtime_namespace:$service_account"
+capability_role="$prefix-cluster-capability-reader"
+inventory_role="$prefix-namespace-inventory-reader"
 all_namespaces=("$runtime_namespace")
 for namespace in "${managed_namespaces[@]}"; do
   if [[ ! "$namespace" =~ $dns_label ]] || [[ ${#namespace} -gt 63 ]]; then
@@ -114,6 +117,38 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: $prefix-installer
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: $prefix-installer-clusterrolebinding-scope
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["rbac.authorization.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["clusterrolebindings"]
+  validations:
+    - expression: >-
+        request.userInfo.username != "$installer_principal" ||
+        (request.operation == "DELETE"
+          ? ["$capability_role", "$inventory_role"].exists(name, name == oldObject.roleRef.name) &&
+            oldObject.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
+            oldObject.metadata.labels['app.kubernetes.io/component'] == "cluster-agent"
+          : ["$capability_role", "$inventory_role"].exists(name, name == object.roleRef.name) &&
+            object.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
+            object.metadata.labels['app.kubernetes.io/component'] == "cluster-agent")
+      message: "remote installer may bind or remove only its read-only capability roles"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: $prefix-installer-clusterrolebinding-scope
+spec:
+  policyName: $prefix-installer-clusterrolebinding-scope
+  validationActions: ["Deny"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

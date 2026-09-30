@@ -13,6 +13,17 @@ grep -Fq 'name: envplane-remote-cluster-customer-west-namespace-inventory-reader
 grep -Fq 'name: envplane-remote-cluster-customer-west-feature-env-writer-parent' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-runtime-manager' "$rendered"
 grep -Fq 'namespace: base-api' "$rendered"
+grep -Fq 'kind: ValidatingAdmissionPolicy' "$rendered"
+grep -Fq 'name: envplane-remote-cluster-customer-west-installer-clusterrolebinding-scope' "$rendered"
+grep -Fq 'oldObject.roleRef.name' "$rendered"
+grep -Fq "oldObject.metadata.labels['app.kubernetes.io/managed-by'] == \"Helm\"" "$rendered"
+grep -Fq "object.metadata.labels['app.kubernetes.io/component'] == \"cluster-agent\"" "$rendered"
+grep -Fq 'remote installer may bind or remove only its read-only capability roles' "$rendered"
+policy="$(awk '/kind: ValidatingAdmissionPolicy$/{capture=1} capture{print} /^---$/{if (capture) exit}' "$rendered")"
+if grep -Fq 'feature-env-writer-parent' <<<"$policy"; then
+  echo 'remote installer admission policy must not allow feature-env-writer-parent ClusterRoleBindings' >&2
+  exit 1
+fi
 if grep -Eq 'resources: \["\*"\]|verbs: \["\*"\]' "$rendered"; then
   echo 'remote cluster profile must not grant wildcard permissions' >&2
   exit 1
