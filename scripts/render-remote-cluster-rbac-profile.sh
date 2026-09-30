@@ -117,14 +117,21 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: $runtime_namespace
+  labels:
+    app.kubernetes.io/part-of: envplane
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
 ---
 apiVersion: v1
 kind: ServiceAccount
+automountServiceAccountToken: false
 metadata:
   name: $service_account
   namespace: $runtime_namespace
   labels:
     app.kubernetes.io/part-of: envplane
+    envplane.io/owner: local-platform
     envplane.io/remote-cluster-id: $cluster_id
 ---
 apiVersion: rbac.authorization.k8s.io/v1

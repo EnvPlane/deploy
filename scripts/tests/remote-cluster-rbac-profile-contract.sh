@@ -20,6 +20,9 @@ puts "renderer Kubernetes identities are unique"
 '
 
 grep -Fq 'name: envplane-remote-cluster-customer-west-cluster-capability-reader' "$rendered"
+grep -A8 -F 'kind: Namespace' "$rendered" | grep -Fq 'pod-security.kubernetes.io/enforce: restricted'
+grep -A12 -F 'kind: ServiceAccount' "$rendered" | grep -Fq 'automountServiceAccountToken: false'
+grep -A12 -F 'kind: ServiceAccount' "$rendered" | grep -Fq 'envplane.io/owner: local-platform'
 grep -Fq 'name: envplane-remote-cluster-customer-west-namespace-inventory-reader' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered"
 grep -A5 -F 'name: envplane-remote-cluster-customer-west-namespace-metadata-reader' "$rendered" | grep -Fq 'resourceNames:'
