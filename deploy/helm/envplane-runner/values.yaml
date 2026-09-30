@@ -103,6 +103,9 @@ controlPlane:
       - ReadWriteOnce
     size: 1Mi
     existingClaim: ""
+    # retain keeps a managed auth PVC across Helm uninstall; purge permits an
+    # explicit ownership-checked cleanup request from the reconciler.
+    retentionPolicy: retain
     # Optional post-registration credential Secret for externally managed
     # persistence. If set, the runner reads runnerAuthToken from this Secret.
     existingSecret: ""

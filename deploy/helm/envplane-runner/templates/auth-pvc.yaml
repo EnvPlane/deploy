@@ -1,4 +1,6 @@
 {{- if and .Values.controlPlane.authPersistence.enabled .Values.controlPlane.authPersistence.createClaim (not .Values.controlPlane.authPersistence.existingClaim) -}}
+{{- $retentionPolicy := default "retain" .Values.controlPlane.authPersistence.retentionPolicy -}}
+{{- if not (has $retentionPolicy (list "retain" "purge")) }}{{ fail "controlPlane.authPersistence.retentionPolicy must be retain or purge" }}{{ end }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -8,6 +10,10 @@ metadata:
     {{- include "envplane-runner.managedRemoteLabels" . | nindent 4 }}
   annotations:
     {{- include "envplane-runner.managedRemoteMetadata" . | nindent 4 }}
+    {{- if eq $retentionPolicy "retain" }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    envplane.io/auth-pvc-retention: {{ $retentionPolicy | quote }}
 spec:
   accessModes:
     {{- toYaml .Values.controlPlane.authPersistence.accessModes | nindent 4 }}

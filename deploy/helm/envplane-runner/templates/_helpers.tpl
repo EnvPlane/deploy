@@ -105,6 +105,7 @@ envplane.io/legacy-migration: {{ default false (get $managedRemote "allowLegacyM
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- if (get $managedRemote "enabled") }}
 envplane.io/managed-remote: "true"
+envplane.io/remote-cluster-id: {{ get $managedRemote "remoteClusterId" | quote }}
 {{- end }}
 {{- end -}}
 

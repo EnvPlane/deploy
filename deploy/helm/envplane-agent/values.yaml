@@ -138,6 +138,9 @@ agent:
     size: 1Mi
     # Set existingClaim to use an externally managed PVC.
     existingClaim: ""
+    # retain keeps a managed auth PVC across Helm uninstall; purge permits an
+    # explicit ownership-checked cleanup request from the reconciler.
+    retentionPolicy: retain
     emptyDir: {}
     # Optional externally managed Secret with an already issued agentAuthToken.
     # Use this when moving the agent between namespaces without reusing the

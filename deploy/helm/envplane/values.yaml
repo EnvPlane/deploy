@@ -609,6 +609,7 @@ envplane-agent:
       existingClaim: ""
       existingSecret: ""
       storageClassName: ""
+      retentionPolicy: retain
 
 envplane-runner:
   fullnameOverride: envplane-runner
@@ -641,6 +642,7 @@ envplane-runner:
       existingClaim: ""
       existingSecret: ""
       storageClassName: ""
+      retentionPolicy: retain
   helmRegistry:
     existingSecret: ""
     configKey: .dockerconfigjson

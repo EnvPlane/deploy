@@ -113,6 +113,7 @@ not from mutable Kubernetes labels.
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
 {{- if (get $managedRemote "enabled") }}
 envplane.io/managed-remote: "true"
+envplane.io/remote-cluster-id: {{ get $managedRemote "remoteClusterId" | quote }}
 {{- end }}
 {{- end -}}
 
