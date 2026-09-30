@@ -22,12 +22,21 @@ runtime_namespace="envplane-system"
 managed_namespaces=()
 flux_namespaces=()
 
+require_option_value() {
+  local option="$1"
+  if [[ $# -lt 2 || -z "${2:-}" || "${2:0:2}" == "--" ]]; then
+    echo "$option requires a non-empty value" >&2
+    usage >&2
+    exit 2
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --cluster-id) cluster_id="${2:-}"; shift 2 ;;
-    --runtime-namespace) runtime_namespace="${2:-}"; shift 2 ;;
-    --managed-namespace) managed_namespaces+=("${2:-}"); shift 2 ;;
-    --flux-namespace) flux_namespaces+=("${2:-}"); shift 2 ;;
+    --cluster-id) require_option_value "$@"; cluster_id="$2"; shift 2 ;;
+    --runtime-namespace) require_option_value "$@"; runtime_namespace="$2"; shift 2 ;;
+    --managed-namespace) require_option_value "$@"; managed_namespaces+=("$2"); shift 2 ;;
+    --flux-namespace) require_option_value "$@"; flux_namespaces+=("$2"); shift 2 ;;
     --help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -54,14 +63,50 @@ capability_role="$prefix-cluster-capability-reader"
 inventory_role="$prefix-namespace-inventory-reader"
 metadata_role="$prefix-namespace-metadata-reader"
 all_namespaces=("$runtime_namespace")
+unique_managed_namespaces=()
+append_unique_managed_namespace() {
+  local candidate="$1"
+  local existing
+  for existing in "${unique_managed_namespaces[@]}"; do
+    if [[ "$existing" == "$candidate" ]]; then
+      return 0
+    fi
+  done
+  unique_managed_namespaces+=("$candidate")
+}
+append_unique_namespace() {
+  local candidate="$1"
+  local existing
+  for existing in "${all_namespaces[@]}"; do
+    if [[ "$existing" == "$candidate" ]]; then
+      return 0
+    fi
+  done
+  all_namespaces+=("$candidate")
+}
 for namespace in "${managed_namespaces[@]}"; do
   if [[ ! "$namespace" =~ $dns_label ]] || [[ ${#namespace} -gt 63 ]]; then
     echo "managed namespace names must be Kubernetes DNS labels up to 63 characters" >&2
     exit 2
   fi
-  if [[ " $'\n'${all_namespaces[*]}$'\n' " != *$'\n'"$namespace"$'\n'* ]]; then
-    all_namespaces+=("$namespace")
-  fi
+  append_unique_managed_namespace "$namespace"
+  append_unique_namespace "$namespace"
+done
+managed_namespaces=("${unique_managed_namespaces[@]}")
+
+append_unique_flux_namespace() {
+  local candidate="$1"
+  local existing
+  for existing in "${validated_flux_namespaces[@]}"; do
+    if [[ "$existing" == "$candidate" ]]; then
+      return 0
+    fi
+  done
+  validated_flux_namespaces+=("$candidate")
+}
+validated_flux_namespaces=()
+for namespace in "${flux_namespaces[@]}"; do
+  append_unique_flux_namespace "$namespace"
 done
 
 cat <<EOF
@@ -355,7 +400,7 @@ roleRef:
 EOF
 done
 
-for namespace in "${flux_namespaces[@]}"; do
+for namespace in "${validated_flux_namespaces[@]}"; do
   cat <<EOF
 ---
 apiVersion: rbac.authorization.k8s.io/v1

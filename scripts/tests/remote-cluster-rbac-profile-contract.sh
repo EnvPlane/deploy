@@ -6,7 +6,18 @@ renderer="$root/scripts/render-remote-cluster-rbac-profile.sh"
 rendered="$(mktemp "${TMPDIR:-/tmp}/envplane-remote-rbac.XXXXXX")"
 trap 'rm -f "$rendered"' EXIT
 
-bash "$renderer" --cluster-id customer-west --runtime-namespace envplane-system --managed-namespace base-api >"$rendered"
+bash "$renderer" --cluster-id customer-west --runtime-namespace envplane-system --managed-namespace base-api --managed-namespace base-api >"$rendered"
+
+RENDERED="$rendered" ruby -ryaml -e '
+docs = YAML.load_stream(File.read(ENV.fetch("RENDERED"))).compact
+identities = docs.map do |doc|
+  next unless doc.is_a?(Hash) && doc["kind"] && doc.dig("metadata", "name")
+  [doc["apiVersion"], doc["kind"], doc.dig("metadata", "namespace").to_s, doc.dig("metadata", "name")]
+end.compact
+duplicates = identities.group_by(&:itself).select { |_identity, entries| entries.length > 1 }.keys
+abort "renderer emitted duplicate Kubernetes identities: #{duplicates.inspect}" unless duplicates.empty?
+puts "renderer Kubernetes identities are unique"
+'
 
 grep -Fq 'name: envplane-remote-cluster-customer-west-cluster-capability-reader' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-namespace-inventory-reader' "$rendered"
@@ -58,6 +69,12 @@ if bash "$renderer" --cluster-id customer-west --service-account custom-agent >/
   echo 'renderer accepted an unsupported custom ServiceAccount identity' >&2
   exit 1
 fi
+for option in --cluster-id --runtime-namespace --managed-namespace --flux-namespace; do
+  if bash "$renderer" "$option" >/dev/null 2>&1; then
+    echo "renderer accepted missing value for $option" >&2
+    exit 1
+  fi
+done
 
 chart="$root/deploy/helm/envplane-agent"
 agent_rendered="$(mktemp "${TMPDIR:-/tmp}/envplane-remote-agent-rbac.XXXXXX")"
