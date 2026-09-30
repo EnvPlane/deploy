@@ -210,6 +210,9 @@ rbac:
     # Secret reads are sensitive and disabled by default. Set true only when
     # manifest discovery must include Secret metadata for selected namespaces.
     readSecrets: false
+    # Flux reads are separate from workload discovery. Remote profiles disable
+    # this unless an explicit Flux scope is provisioned for the target.
+    readFlux: true
   # Grants a separate, read-only Role for observing Flux Kustomization status.
   # It does not inherit workload or Secret discovery permissions.
   fluxStatus:

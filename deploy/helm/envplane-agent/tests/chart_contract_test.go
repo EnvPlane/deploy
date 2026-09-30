@@ -584,6 +584,17 @@ func TestAgentAPIToRBACContractKeepsSecretReadsOptIn(t *testing.T) {
 	}
 }
 
+func TestAgentAPIToRBACContractKeepsFluxReadsExplicit(t *testing.T) {
+	remoteRender := renderAgentChart(t, "--set", "rbac.discovery.readFlux=false")
+	if strings.Contains(remoteRender, "kustomize.toolkit.fluxcd.io") || strings.Contains(remoteRender, "helm.toolkit.fluxcd.io") {
+		t.Fatalf("discovery RBAC must omit Flux reads when disabled:\n%s", remoteRender)
+	}
+	defaultRender := renderAgentChart(t)
+	if !strings.Contains(defaultRender, "kustomize.toolkit.fluxcd.io") {
+		t.Fatalf("default Agent RBAC must retain Flux compatibility")
+	}
+}
+
 func TestAgentChartRejectsIncompleteDiscoveryOrServiceAccountContracts(t *testing.T) {
 	for _, args := range [][]string{
 		{"--set", "serviceAccount.create=false"},
