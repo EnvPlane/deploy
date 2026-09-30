@@ -61,6 +61,8 @@ jobs:
           fi
           exit "$status"
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Check committed packaged charts before rebuild
+        run: bash scripts/check-vendored-chart-drift.sh
       - name: Lint canonical charts
         shell: bash
         run: |
@@ -80,8 +82,6 @@ jobs:
       - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
       - run: bash scripts/tests/remote-cluster-rbac-profile-contract.sh
       - run: bash scripts/tests/github-actions-pinned-contract.sh
-      - name: Check packaged file dependencies and vendored chart drift
-        run: bash scripts/check-vendored-chart-drift.sh
       - name: Check environment parity
         run: |
           helm dependency build --skip-refresh deploy/helm/envplane
