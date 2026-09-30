@@ -182,6 +182,10 @@ spec:
             - name: ENVPLANE_FLUX_STATUS_KUSTOMIZATION_NAME
               value: {{ . | quote }}
             {{- end }}
+            {{- if .Values.rbac.fluxStatus.environmentScoped }}
+            - name: ENVPLANE_FLUX_STATUS_ENVIRONMENT_SCOPED
+              value: "true"
+            {{- end }}
             {{- if and .Values.agent.authPersistence.enabled (ne (include "envplane-agent.authPersistenceMode" .) "externalSecret") }}
             - name: ENVPLANE_AGENT_AUTH_TOKEN_FILE
               value: {{ printf "%s/%s" (.Values.agent.authPersistence.mountPath | trimSuffix "/") .Values.agent.authPersistence.fileName | quote }}

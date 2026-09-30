@@ -238,8 +238,22 @@ metadata:
 rules:
   - apiGroups: ["kustomize.toolkit.fluxcd.io"]
     resources: ["kustomizations"]
+    {{- $kustomizationNames := list }}
     {{- with .Values.rbac.fluxStatus.kustomizationName }}
-    resourceNames: [{{ . | quote }}]
+    {{- $kustomizationNames = append $kustomizationNames . }}
+    {{- end }}
+    {{- range .Values.rbac.fluxStatus.kustomizationNames }}
+    {{- $kustomizationNames = append $kustomizationNames . }}
+    {{- end }}
+    {{- if $kustomizationNames }}
+    {{- if eq (len $kustomizationNames) 1 }}
+    resourceNames: [{{ index $kustomizationNames 0 | quote }}]
+    {{- else }}
+    resourceNames:
+    {{- range $name := $kustomizationNames }}
+      - {{ $name | quote }}
+    {{- end }}
+    {{- end }}
     verbs: ["get"]
     {{- else }}
     verbs: ["get","list","watch"]

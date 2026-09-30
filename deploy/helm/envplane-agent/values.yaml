@@ -229,6 +229,12 @@ rbac:
     # When set, Agent reads only this project-owned Kustomization by name.
     # Empty preserves legacy list/watch behavior for explicitly broad roles.
     kustomizationName: ""
+    # Exact environment Kustomizations the project Agent may observe. This
+    # keeps Flux status collection tenant/project scoped without list access.
+    kustomizationNames: []
+    # Agent derives the current environment Kustomization from its trusted
+    # environment ID and product label, then uses an exact GET.
+    environmentScoped: false
   fluxSourceWriter:
     # Project-scoped reconciliation of the GitRepository and Kustomization used by Flux.
     # The Agent verifies EnvPlane ownership before applying either resource.

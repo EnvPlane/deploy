@@ -437,6 +437,26 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 		t.Fatalf("Flux status Role must not inherit workload or Secret discovery permissions:\n%s", fluxRole)
 	}
 
+	environmentFluxStatus := renderAgentChart(t,
+		"--set", "rbac.discovery.scope=namespace",
+		"--set", "rbac.discovery.namespaces[0]=app",
+		"--set", "rbac.fluxStatus.enabled=true",
+		"--set", "rbac.fluxStatus.namespace=flux-system",
+		"--set", "rbac.fluxStatus.environmentScoped=true",
+		"--set", "rbac.fluxStatus.kustomizationNames[0]=checkout-42.generic",
+		"--set", "rbac.fluxStatus.kustomizationNames[1]=checkout-43.generic",
+	)
+	for _, expected := range []string{`- "checkout-42.generic"`, `- "checkout-43.generic"`, "ENVPLANE_FLUX_STATUS_ENVIRONMENT_SCOPED", `value: "true"`, `verbs: ["get"]`} {
+		if !strings.Contains(environmentFluxStatus, expected) {
+			t.Fatalf("environment Flux status RBAC missing %q:\n%s", expected, environmentFluxStatus)
+		}
+	}
+	environmentFluxRole := environmentFluxStatus[strings.Index(environmentFluxStatus, "name: envplane-agent-flux-status-reader"):]
+	environmentFluxRole = strings.Split(environmentFluxRole, "---")[0]
+	if strings.Contains(environmentFluxRole, `verbs: ["get","list","watch"]`) {
+		t.Fatalf("environment Flux status must not list a shared Flux namespace:\n%s", environmentFluxRole)
+	}
+
 	external := renderAgentChart(t,
 		"--set", "serviceAccount.create=false",
 		"--set", "serviceAccount.name=platform-agent",
