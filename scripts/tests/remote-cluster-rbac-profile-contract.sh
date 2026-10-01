@@ -73,6 +73,10 @@ if ! grep -Fq 'object.rules[0].resources == ["namespaces"]' "$rendered" || ! gre
   echo 'remote cluster profile must require concrete namespace-only Runner rules' >&2
   exit 1
 fi
+if ! grep -Fq 'object.metadata.name == "envplane-remote-cluster-customer-west-namespace-metadata-reader"' "$rendered"; then
+  echo 'remote cluster profile must retain bounded updates to the fixed namespace metadata reader' >&2
+  exit 1
+fi
 if ! grep -A6 -F 'resources: ["clusterroles"]' "$rendered" | grep -Fq 'verbs: ["bind"]'; then
   echo 'remote cluster profile must allow the bounded Runner ClusterRole to be bound' >&2
   exit 1

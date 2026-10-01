@@ -211,7 +211,8 @@ spec:
            oldObject.metadata.annotations['meta.helm.sh/release-name'] == oldObject.metadata.labels['app.kubernetes.io/instance'] &&
            oldObject.metadata.annotations['meta.helm.sh/release-namespace'] == "$runtime_namespace")
           :
-          (object.metadata.name.matches('^ep-runner-[a-z0-9-]+-envplane-runner-feature-env-namespace-reader$') &&
+          (object.metadata.name == "$prefix-namespace-metadata-reader" ||
+           (object.metadata.name.matches('^ep-runner-[a-z0-9-]+-envplane-runner-feature-env-namespace-reader$') &&
            object.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
            object.metadata.labels['app.kubernetes.io/name'] == "envplane-runner" &&
            object.metadata.annotations['meta.helm.sh/release-name'] == object.metadata.labels['app.kubernetes.io/instance'] &&
@@ -223,7 +224,7 @@ spec:
            object.rules[0].verbs.all(verb, verb == "get" || verb == "delete") &&
            object.rules[0].verbs.exists(verb, verb == "get") &&
            object.rules[0].resourceNames.size() >= 1 &&
-           object.rules[0].resourceNames.all(name, name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'))))
+           object.rules[0].resourceNames.all(name, name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')))))
       message: "remote installer may manage only bounded Helm-owned Runner namespace-reader ClusterRoles"
 ---
 apiVersion: admissionregistration.k8s.io/v1
