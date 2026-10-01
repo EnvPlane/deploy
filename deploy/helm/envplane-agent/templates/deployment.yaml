@@ -178,6 +178,8 @@ spec:
               value: {{ .Values.agent.heartbeatSeconds | quote }}
             - name: ENVPLANE_FLUX_NAMESPACE
               value: {{ .Values.flux.namespace | quote }}
+            - name: ENVPLANE_FLUX_STATUS_ENABLED
+              value: {{ .Values.rbac.fluxStatus.enabled | quote }}
             {{- with .Values.rbac.fluxStatus.kustomizationName }}
             - name: ENVPLANE_FLUX_STATUS_KUSTOMIZATION_NAME
               value: {{ . | quote }}

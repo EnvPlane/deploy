@@ -423,10 +423,17 @@ func TestAgentChartSupportsNamespaceScopedOrExternalRBAC(t *testing.T) {
 		`resourceNames: ["checkout-prs"]`,
 		`verbs: ["get"]`,
 		"ENVPLANE_FLUX_STATUS_KUSTOMIZATION_NAME",
+		"ENVPLANE_FLUX_STATUS_ENABLED",
+		`value: "true"`,
 	} {
 		if !strings.Contains(fluxStatus, expected) {
 			t.Fatalf("Flux status RBAC missing %q:\n%s", expected, fluxStatus)
 		}
+	}
+
+	disabledFluxStatus := renderAgentChart(t, "--set", "rbac.fluxStatus.enabled=false")
+	if !strings.Contains(disabledFluxStatus, "ENVPLANE_FLUX_STATUS_ENABLED") || !strings.Contains(disabledFluxStatus, `value: "false"`) {
+		t.Fatalf("disabled Flux status contract missing from Agent chart:\n%s", disabledFluxStatus)
 	}
 	fluxRoleStart := strings.Index(fluxStatus, "name: envplane-agent-flux-status-reader")
 	if fluxRoleStart < 0 {
