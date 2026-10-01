@@ -195,7 +195,12 @@ func TestRunnerChartManagedRemoteUsesProjectScopedWriterRBAC(t *testing.T) {
 			t.Fatalf("managed remote runner render missing %q:\n%s", expected, rendered)
 		}
 	}
-	for _, forbidden := range []string{"host.minikube.internal"} {
+	for _, forbidden := range []string{
+		"host.minikube.internal",
+		"apiGroups: [\"helm.toolkit.fluxcd.io\"]\n    resources:\n      - helmreleases\n    verbs: [\"get\",\"list\",\"watch\"]",
+		"apiGroups: [\"kustomize.toolkit.fluxcd.io\"]\n    resources:\n      - kustomizations\n    verbs: [\"get\",\"list\",\"watch\"]",
+		"apiGroups: [\"source.toolkit.fluxcd.io\"]\n    resources:\n      - gitrepositories\n    verbs: [\"get\",\"list\",\"watch\"]",
+	} {
 		if strings.Contains(rendered, forbidden) {
 			t.Fatalf("managed remote runner render must not contain %q:\n%s", forbidden, rendered)
 		}
