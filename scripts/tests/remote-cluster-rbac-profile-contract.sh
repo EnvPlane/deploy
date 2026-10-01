@@ -46,6 +46,7 @@ flux_rendered="$(bash "$renderer" --cluster-id customer-west --managed-namespace
 grep -Fq 'name: envplane-remote-cluster-customer-west-flux-reader' <<<"$flux_rendered"
 grep -Fq 'namespace: base-api' "$rendered"
 grep -Fq 'kind: ValidatingAdmissionPolicy' "$rendered"
+grep -Fq 'name: envplane-remote-cluster-customer-west-installer-clusterrole-scope' "$rendered"
 grep -Fq 'name: envplane-remote-cluster-customer-west-installer-clusterrolebinding-scope' "$rendered"
 grep -Fq 'oldObject.roleRef.name' "$rendered"
 grep -Fq "oldObject.metadata.name.matches('^ep-agent-" "$rendered"
@@ -53,7 +54,8 @@ grep -Fq 'oldObject.roleRef.name == oldObject.metadata.name' "$rendered"
 grep -Fq 'subject.namespace == "envplane-system"' "$rendered"
 grep -Fq "oldObject.metadata.labels['app.kubernetes.io/managed-by'] == \"Helm\"" "$rendered"
 grep -Fq "object.metadata.labels['app.kubernetes.io/component'] == \"cluster-agent\"" "$rendered"
-grep -Fq 'remote installer may bind or remove only its read-only capability roles' "$rendered"
+grep -Fq 'remote installer may manage only bounded Helm-owned Runner namespace-reader ClusterRoles' "$rendered"
+grep -Fq 'remote installer may bind only fixed capability roles or bounded Helm-owned Runner namespace readers' "$rendered"
 policy="$(awk '/kind: ValidatingAdmissionPolicy$/{capture=1} capture{print} /^---$/{if (capture) exit}' "$rendered")"
 if grep -Fq 'feature-env-writer-parent' <<<"$policy"; then
   echo 'remote installer admission policy must not allow feature-env-writer-parent ClusterRoleBindings' >&2
@@ -63,8 +65,20 @@ if grep -Eq 'resources: \["\*"\]|verbs: \["\*"\]' "$rendered"; then
   echo 'remote cluster profile must not grant wildcard permissions' >&2
   exit 1
 fi
-if grep -A8 -F 'resources: ["clusterroles"]' "$rendered" | grep -Fq '"create"'; then
-  echo 'remote cluster profile must not create release-named ClusterRoles' >&2
+if ! grep -Fq "object.metadata.name.matches('^ep-runner-" "$rendered"; then
+  echo 'remote cluster profile must limit dynamic Runner ClusterRoles by canonical release name' >&2
+  exit 1
+fi
+if ! grep -Fq 'object.rules[0].resources == ["namespaces"]' "$rendered" || ! grep -Fq 'object.rules[0].resourceNames.size() >= 1' "$rendered"; then
+  echo 'remote cluster profile must require concrete namespace-only Runner rules' >&2
+  exit 1
+fi
+if ! grep -A6 -F 'resources: ["clusterroles"]' "$rendered" | grep -Fq 'verbs: ["bind"]'; then
+  echo 'remote cluster profile must allow the bounded Runner ClusterRole to be bound' >&2
+  exit 1
+fi
+if ! grep -Fq 'object.subjects.size() == 1' "$rendered" || ! grep -Fq 'object.roleRef.name == object.metadata.name' "$rendered"; then
+  echo 'remote cluster profile must constrain dynamic Runner ClusterRoleBindings' >&2
   exit 1
 fi
 if bash "$renderer" --cluster-id 'BAD_Name' >/dev/null 2>&1; then

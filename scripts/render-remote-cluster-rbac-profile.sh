@@ -163,6 +163,18 @@ rules:
     resourceNames:
       - $prefix-namespace-metadata-reader
     verbs: ["get", "update", "patch"]
+  # Kubernetes RBAC cannot constrain create by resource name. The companion
+  # ValidatingAdmissionPolicy below therefore permits these verbs only for a
+  # Helm-owned Runner namespace-reader with the exact bounded rule shape.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["create", "get", "update", "patch", "delete"]
+  # The bind verb is evaluated by Kubernetes independently of admission. The
+  # admission policy below constrains every corresponding ClusterRoleBinding
+  # to a Helm-owned Runner namespace-reader with one local ServiceAccount.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["bind"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -176,6 +188,51 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: $prefix-installer
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: $prefix-installer-clusterrole-scope
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["rbac.authorization.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["clusterroles"]
+  validations:
+    - expression: >-
+        request.userInfo.username != "$installer_principal" ||
+        (request.operation == "DELETE" ?
+          (oldObject.metadata.name.matches('^ep-runner-[a-z0-9-]+-envplane-runner-feature-env-namespace-reader$') &&
+           oldObject.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
+           oldObject.metadata.labels['app.kubernetes.io/name'] == "envplane-runner" &&
+           oldObject.metadata.annotations['meta.helm.sh/release-name'] == oldObject.metadata.labels['app.kubernetes.io/instance'] &&
+           oldObject.metadata.annotations['meta.helm.sh/release-namespace'] == "$runtime_namespace")
+          :
+          (object.metadata.name.matches('^ep-runner-[a-z0-9-]+-envplane-runner-feature-env-namespace-reader$') &&
+           object.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
+           object.metadata.labels['app.kubernetes.io/name'] == "envplane-runner" &&
+           object.metadata.annotations['meta.helm.sh/release-name'] == object.metadata.labels['app.kubernetes.io/instance'] &&
+           object.metadata.annotations['meta.helm.sh/release-namespace'] == "$runtime_namespace" &&
+           object.rules.size() == 1 &&
+           object.rules[0].apiGroups == [""] &&
+           object.rules[0].resources == ["namespaces"] &&
+           object.rules[0].verbs.size() >= 1 &&
+           object.rules[0].verbs.all(verb, verb == "get" || verb == "delete") &&
+           object.rules[0].verbs.exists(verb, verb == "get") &&
+           object.rules[0].resourceNames.size() >= 1 &&
+           object.rules[0].resourceNames.all(name, name.matches('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'))))
+      message: "remote installer may manage only bounded Helm-owned Runner namespace-reader ClusterRoles"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: $prefix-installer-clusterrole-scope
+spec:
+  policyName: $prefix-installer-clusterrole-scope
+  validationActions: ["Deny"]
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
@@ -196,14 +253,27 @@ spec:
           ? ((["$capability_role", "$inventory_role", "$metadata_role"].exists(name, name == oldObject.roleRef.name)) ||
               (oldObject.metadata.name.matches('^ep-agent-[a-z0-9-]+-envplane-agent-cluster-capability-reader$') &&
                oldObject.roleRef.name == oldObject.metadata.name &&
-               oldObject.subjects.exists(subject, subject.kind == "ServiceAccount" && subject.namespace == "$runtime_namespace"))) &&
+               oldObject.subjects.exists(subject, subject.kind == "ServiceAccount" && subject.namespace == "$runtime_namespace")) ||
+              (oldObject.metadata.name.matches('^ep-runner-[a-z0-9-]+-envplane-runner-feature-env-namespace-reader$') &&
+               oldObject.roleRef.name == oldObject.metadata.name &&
+               oldObject.subjects.size() == 1 &&
+               oldObject.subjects[0].kind == "ServiceAccount" &&
+               oldObject.subjects[0].namespace == "$runtime_namespace")) &&
             oldObject.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
-            oldObject.metadata.labels['app.kubernetes.io/component'] == "cluster-agent" &&
-            oldObject.metadata.labels['app.kubernetes.io/name'] == "envplane-agent"
-          : ["$capability_role", "$inventory_role", "$metadata_role"].exists(name, name == object.roleRef.name) &&
+            ((oldObject.metadata.labels['app.kubernetes.io/component'] == "cluster-agent" &&
+              oldObject.metadata.labels['app.kubernetes.io/name'] == "envplane-agent") ||
+             oldObject.metadata.labels['app.kubernetes.io/name'] == "envplane-runner")
+          : (["$capability_role", "$inventory_role", "$metadata_role"].exists(name, name == object.roleRef.name) ||
+             (object.metadata.name.matches('^ep-runner-[a-z0-9-]+-envplane-runner-feature-env-namespace-reader$') &&
+              object.roleRef.name == object.metadata.name &&
+              object.subjects.size() == 1 &&
+              object.subjects[0].kind == "ServiceAccount" &&
+              object.subjects[0].namespace == "$runtime_namespace" &&
+              object.metadata.labels['app.kubernetes.io/name'] == "envplane-runner")) &&
             object.metadata.labels['app.kubernetes.io/managed-by'] == "Helm" &&
-            object.metadata.labels['app.kubernetes.io/component'] == "cluster-agent")
-      message: "remote installer may bind or remove only its read-only capability roles"
+            ((object.metadata.labels['app.kubernetes.io/component'] == "cluster-agent") ||
+             object.metadata.labels['app.kubernetes.io/name'] == "envplane-runner"))
+      message: "remote installer may bind only fixed capability roles or bounded Helm-owned Runner namespace readers"
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
