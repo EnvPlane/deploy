@@ -288,7 +288,7 @@ roleRef:
   kind: ClusterRole
   name: {{ $fullName }}-discovery-reader
 {{ end }}
-{{- if and $namespaceReaderTargets (not .Values.managedRemote.enabled) }}
+{{- if $namespaceReaderTargets }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -304,10 +304,10 @@ rules:
   # Namespace objects are cluster-scoped. Cleanup verifies envplane ownership
   # before removing a generated preview namespace. Only project-scoped writer
   # modes receive delete; the standalone release-namespace default remains
-  # read-only and can never remove its own release namespace. Controller-managed
-  # remote Runners deliberately omit this object: the management plane creates
-  # and retires exact project-owned namespaces before issuing Runner work, so a
-  # dynamic Helm release name never needs cluster-scoped RBAC.
+  # read-only and can never remove its own release namespace. A managed remote
+  # Runner receives only the concrete namespaces reconciled for its project;
+  # namespace objects are cluster-scoped, so a namespaced Role cannot grant
+  # this ownership check.
   - apiGroups: [""]
     resources: ["namespaces"]
     resourceNames:
