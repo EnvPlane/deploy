@@ -566,6 +566,28 @@ func TestAgentChartPreservesMaterializationRBACDocumentBoundaries(t *testing.T) 
 	}
 }
 
+func TestAgentChartAllowsGeneratedSecretTargetOnlyMaterializationRBAC(t *testing.T) {
+	rendered := renderAgentChart(t,
+		"--set", "rbac.materialization.enabled=true",
+		"--set", "rbac.materialization.items[0].id=generated",
+		"--set", "rbac.materialization.items[0].targetNamespace=feature",
+		"--set", "rbac.materialization.items[0].targetName=backend-secret",
+	)
+	for _, expected := range []string{
+		"name: envplane-agent-secret-target-generated\n",
+		"name: envplane-agent-secret-target-generated-binding\n",
+		`resourceNames: ["backend-secret"]`,
+		`verbs: ["create"]`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("target-only materialization RBAC missing %q:\n%s", expected, rendered)
+		}
+	}
+	if strings.Contains(rendered, "secret-source-generated") {
+		t.Fatalf("target-only materialization RBAC must not create a source Secret reader:\n%s", rendered)
+	}
+}
+
 func TestAgentFluxSourceWriterUsesConfiguredResourceNames(t *testing.T) {
 	rendered := renderAgentChart(t,
 		"--set", "rbac.fluxSourceWriter.enabled=true",
