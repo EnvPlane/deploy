@@ -2192,8 +2192,16 @@ func TestUmbrellaManagedRemoteRunnerUsesOnlyNamespacedFeatureEnvironmentRBAC(t *
 		"--set", "envplane-runner.rbac.featureEnvWriter.mode=preconfiguredNamespaces",
 		"--set", "envplane-runner.rbac.featureEnvWriter.namespaces[0]=project-a-pr-1",
 	)
-	if strings.Contains(rendered, "envplane-runner-feature-env-namespace-reader") {
-		t.Fatalf("controller-managed remote Runner must not render dynamic namespace-reader Cluster RBAC:\n%s", rendered)
+	for _, expected := range []string{
+		"kind: ClusterRole",
+		"kind: ClusterRoleBinding",
+		"name: envplane-runner-feature-env-namespace-reader",
+		`- "project-a-pr-1"`,
+		`verbs: ["get","delete"]`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("controller-managed remote Runner must render exact namespace ownership RBAC %q:\n%s", expected, rendered)
+		}
 	}
 	for _, expected := range []string{
 		"kind: Role",
