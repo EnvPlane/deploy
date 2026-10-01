@@ -1078,9 +1078,22 @@ func TestAccessRoutesBrowserAPIThroughFrontendProxy(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rendered := renderUmbrella(t, tc.values...)
-			apiPath := "path: /api"
+			healthPath := "- path: /api/v1/health"
+			apiPath := "- path: /api\n"
 			if tc.name == "gateway" {
-				apiPath = "value: /api"
+				healthPath = "value: /api/v1/health"
+				apiPath = "value: /api\n"
+			}
+			healthStart := strings.Index(rendered, healthPath)
+			if healthStart < 0 {
+				t.Fatalf("%s render is missing management health path:\\n%s", tc.name, rendered)
+			}
+			healthRoute := rendered[healthStart:]
+			if nextRoute := strings.Index(healthRoute[len(healthPath):], apiPath); nextRoute >= 0 {
+				healthRoute = healthRoute[:len(healthPath)+nextRoute]
+			}
+			if !strings.Contains(healthRoute, "name: envplane-control-plane") {
+				t.Fatalf("%s management health path must target the control-plane:\\n%s", tc.name, healthRoute)
 			}
 			apiStart := strings.Index(rendered, apiPath)
 			if apiStart < 0 {

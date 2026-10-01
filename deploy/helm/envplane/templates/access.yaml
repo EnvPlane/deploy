@@ -35,6 +35,15 @@ spec:
     - host: {{ $host | quote }}
       http:
         paths:
+          # Remote Agent and Runner installation preflights use this exact
+          # unauthenticated health probe before bootstrap credentials exist.
+          - path: /api/v1/health
+            pathType: Exact
+            backend:
+              service:
+                name: {{ $controlPlaneService }}
+                port:
+                  name: http
           - path: /api
             pathType: Prefix
             backend:
@@ -89,6 +98,13 @@ spec:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /api/v1/health
+      backendRefs:
+        - name: {{ $controlPlaneService }}
+          port: 8080
     - matches:
         - path:
             type: PathPrefix
