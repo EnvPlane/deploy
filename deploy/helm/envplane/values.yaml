@@ -302,11 +302,11 @@ platformDependencyReconciler:
   enabled: false
   image:
     repository: ghcr.io/envplane/platform-reconciler
-    tag: "sha-a6db493e67813981c84b5388162b4c3950a3b510"
-    digest: "sha256:58633d9e1f0f8a976e681a5cd2c271e6bfdb687ecba9c79b47f6ed60ff45225c"
+    tag: "sha-ffc1f1be9caa2e69450596f3bd07e89c0a82e69f"
+    digest: "sha256:a7d6e2503f573d7a9e0fa124aba3612fe861cd75a6132a2b798186bd23098165"
     pullPolicy: IfNotPresent
-    sourceRevision: "a6db493e67813981c84b5388162b4c3950a3b510"
-    release: "sha-a6db493e67813981c84b5388162b4c3950a3b510"
+    sourceRevision: "ffc1f1be9caa2e69450596f3bd07e89c0a82e69f"
+    release: "sha-ffc1f1be9caa2e69450596f3bd07e89c0a82e69f"
   # Required when the reconciler image is in a private registry.
   imagePullSecrets: []
   serviceAccount:
