@@ -81,6 +81,7 @@ jobs:
         run: go test ./deploy/helm/envplane-webhook/tests
       - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
       - run: bash scripts/tests/remote-cluster-rbac-profile-contract.sh
+      - run: bash scripts/tests/remote-project-binding-access-contract.sh
       - run: bash scripts/tests/github-actions-pinned-contract.sh
       - name: Check environment parity
         run: |
