@@ -93,12 +93,33 @@ if bash "$renderer" --cluster-id customer-west --service-account custom-agent >/
   echo 'renderer accepted an unsupported custom ServiceAccount identity' >&2
   exit 1
 fi
-for option in --cluster-id --runtime-namespace --managed-namespace --flux-namespace --project-id; do
+for option in --cluster-id --runtime-namespace --managed-namespace --flux-namespace --flux-status-reader-namespace --project-id; do
   if bash "$renderer" "$option" >/dev/null 2>&1; then
     echo "renderer accepted missing value for $option" >&2
     exit 1
   fi
 done
+
+if grep -Fq 'dynamic-flux-status-get-v1' "$rendered"; then
+  echo 'dynamic Flux parent must remain opt-in' >&2; exit 1
+fi
+status_profile="$(bash "$renderer" --cluster-id customer-west --runtime-namespace runtime --project-id arbitrary-orders --flux-status-reader-namespace team-flux --flux-status-reader-namespace team-flux)"
+PROFILE="$status_profile" ruby -ryaml -e '
+docs=YAML.load_stream(ENV.fetch("PROFILE")).compact
+name="envplane-remote-cluster-customer-west-flux-status-parent"
+roles=docs.select { |d| d["kind"] == "Role" && d.dig("metadata", "name") == name }
+abort "duplicate or missing Flux parent" unless roles.size == 1
+role=roles.first
+abort "wrong namespace" unless role.dig("metadata", "namespace") == "team-flux"
+expected=[{"apiGroups"=>["kustomize.toolkit.fluxcd.io"], "resources"=>["kustomizations"], "verbs"=>["get"]}]
+abort "Flux parent grants additional privileges" unless role["rules"] == expected
+binding=docs.find { |d| d["kind"] == "RoleBinding" && d.dig("metadata", "name") == name }
+abort "wrong installer identity" unless binding["subjects"] == [{"kind"=>"ServiceAccount", "name"=>"envplane-remote-cluster-customer-west", "namespace"=>"runtime"}]
+abort "wrong role reference" unless binding["roleRef"] == {"apiGroup"=>"rbac.authorization.k8s.io", "kind"=>"Role", "name"=>name}
+'
+if bash "$renderer" --cluster-id customer-west --flux-status-reader-namespace '../foreign' >/dev/null 2>&1; then
+  echo 'renderer accepted invalid Flux status namespace' >&2; exit 1
+fi
 
 reviewed="$(bash "$renderer" --cluster-id bethunder-local --project-id app --project-id arbitrary-orders --project-id app --runtime-namespace runtime)"
 PROFILE="$reviewed" ruby -ryaml -e '

@@ -13,6 +13,7 @@ Options:
   --runtime-namespace NAME   Namespace for the envplane target runtimes (default: envplane-system)
   --managed-namespace NAME   Existing namespace for read-only workload discovery; repeatable
   --flux-namespace NAME      Existing namespace that also permits read-only Flux status; repeatable
+  --flux-status-reader-namespace NAME  Opt-in installer get-only Kustomization delegation parent; repeatable
   --project-id ID            Include computed Agent binding identities for review; repeatable
   --help                     Show this help
 EOF
@@ -22,6 +23,7 @@ cluster_id=""
 runtime_namespace="envplane-system"
 managed_namespaces=()
 flux_namespaces=()
+flux_status_namespaces=()
 project_ids=()
 
 require_option_value() {
@@ -39,6 +41,7 @@ while [[ $# -gt 0 ]]; do
     --runtime-namespace) require_option_value "$@"; runtime_namespace="$2"; shift 2 ;;
     --managed-namespace) require_option_value "$@"; managed_namespaces+=("$2"); shift 2 ;;
     --flux-namespace) require_option_value "$@"; flux_namespaces+=("$2"); shift 2 ;;
+    --flux-status-reader-namespace) require_option_value "$@"; flux_status_namespaces+=("$2"); shift 2 ;;
     --project-id) require_option_value "$@"; project_ids+=("$2"); shift 2 ;;
     --help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -59,11 +62,24 @@ for project_id in "${project_ids[@]}"; do
   fi
 done
 service_account="envplane-remote-cluster-$cluster_id"
-for namespace in "${flux_namespaces[@]}"; do
+for namespace in "${flux_namespaces[@]}" "${flux_status_namespaces[@]}"; do
   if [[ ! "$namespace" =~ $dns_label ]] || [[ ${#namespace} -gt 63 ]]; then
     echo "Flux namespace names must be Kubernetes DNS labels up to 63 characters" >&2
     exit 2
   fi
+done
+
+# Explicit administrator opt-in: resourceNames cannot represent future feature
+# names. This get-only parent supports delegation to exact-name Agent Roles.
+# It also permits the installer to get other Kustomizations in this namespace.
+# Never enable this automatically for existing credentials or non-Flux targets.
+validated_flux_status_namespaces=()
+for namespace in "${flux_status_namespaces[@]}"; do
+  duplicate=false
+  for existing in "${validated_flux_status_namespaces[@]}"; do
+    [[ "$existing" != "$namespace" ]] || duplicate=true
+  done
+  [[ "$duplicate" == true ]] || validated_flux_status_namespaces+=("$namespace")
 done
 
 prefix="envplane-remote-cluster-$cluster_id"
@@ -548,5 +564,36 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: $prefix-flux-reader
+EOF
+done
+
+for namespace in "${validated_flux_status_namespaces[@]}"; do
+  cat <<EOF
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: $prefix-flux-status-parent
+  namespace: $namespace
+  annotations:
+    envplane.io/access-profile: dynamic-flux-status-get-v1
+rules:
+  - apiGroups: ["kustomize.toolkit.fluxcd.io"]
+    resources: ["kustomizations"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: $prefix-flux-status-parent
+  namespace: $namespace
+subjects:
+  - kind: ServiceAccount
+    name: $service_account
+    namespace: $runtime_namespace
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: $prefix-flux-status-parent
 EOF
 done

@@ -84,6 +84,29 @@ verified a project-owned namespace. This removes the former requirement to
 grant `clusterroles/create` or `clusterroles/escalate` for every generated
 Agent release.
 
+### Dynamic feature Kustomization status delegation
+
+For Flux projects with future feature environments, an administrator may add
+`--flux-status-reader-namespace flux-system` to the reviewed profile above.
+This separate opt-in grants the installer only `get` on Kustomizations in that
+namespace. It has no Secret, source, HelmRelease, list/watch, mutation, bind or
+escalate permission. It supports arbitrary configured project and environment
+names without a manual parent-role edit for every new feature.
+
+Important: Kubernetes RBAC cannot restrict future names by prefix. The installer
+can therefore read **any** Kustomization in the explicitly reviewed namespace;
+this is not foreign-project read isolation for the installer. Project Agents
+retain their computed exact-name status Roles; their scope is not widened.
+Use a dedicated Flux namespace or keep explicit per-environment parent grants
+if this metadata-read boundary is unacceptable. This flag does not grant the
+separate source-writer access required for GitOps setup.
+
+Existing credentials are never silently upgraded. Render, review and apply the
+profile with administrator credentials, then retry project provisioning. The
+control plane still checks exact required names before mutating Helm resources
+and fails closed when the parent grant is missing. Do not combine the broader
+`--flux-namespace` flag unless its additional discovery reads are also required.
+
 ### Project capability bindings are part of the initial access profile
 
 Use the full profile above, not a credential restricted to the three cluster
