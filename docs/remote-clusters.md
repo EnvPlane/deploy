@@ -84,6 +84,33 @@ verified a project-owned namespace. This removes the former requirement to
 grant `clusterroles/create` or `clusterroles/escalate` for every generated
 Agent release.
 
+### Project capability bindings are part of the initial access profile
+
+Use the full profile above, not a credential restricted to the three cluster
+runtime binding names. Initial connection preflight checks ClusterRoleBinding
+`get/create/update/patch/delete` for projects created later. Before each project
+Helm install, the server also derives its exact three Agent binding names from
+the actual release, runtime namespace and fixed capability roles and checks
+those names. A runtime-only credential is rejected before cluster installation;
+preflight and Retry never grant permissions themselves.
+
+Optionally add repeatable `--project-id orders --project-id payments` when
+rendering the full profile. The installer ClusterRole annotation
+`envplane.io/reviewed-project-bindings` lists the calculated chart identities for
+operator review (deduplicated, no credentials). The annotation is informational,
+not an authorization allowlist: the full profile supports arbitrary future IDs
+without another per-project operator patch.
+
+Kubernetes RBAC cannot match name prefixes. The full installer therefore can
+read ClusterRoleBinding metadata cluster-wide; admission cannot restrict GET.
+Writes remain constrained by the accompanying fail-closed admission policies,
+fixed capability roles and Helm-owned runtime identities. No Secret/workload
+access in baseline namespaces is added by this binding lifecycle permission.
+An operator must review and install the complete profile and its admission
+policies once. Already-connected targets using legacy exact-name profiles need
+that one-time migration, then **Retry project executors**; a code update cannot
+legitimately grant access that the target credential does not already possess.
+
 ## Project-owned namespaces
 
 For a project targeting a connected cluster, open its **Bootstrap → Project-owned namespaces** panel and request a suffix. The server combines the remote target's configured allowed prefix, project ID, and suffix, checks the dedicated-namespace policy and limit, and queues reconciliation. A `202` response means *requested*, not created. The panel shows `ready` only after the target namespace and exact Agent/Runner access have reconciled and both runtimes have fresh heartbeats.

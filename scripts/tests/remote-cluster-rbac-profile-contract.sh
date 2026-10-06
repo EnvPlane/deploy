@@ -93,12 +93,31 @@ if bash "$renderer" --cluster-id customer-west --service-account custom-agent >/
   echo 'renderer accepted an unsupported custom ServiceAccount identity' >&2
   exit 1
 fi
-for option in --cluster-id --runtime-namespace --managed-namespace --flux-namespace; do
+for option in --cluster-id --runtime-namespace --managed-namespace --flux-namespace --project-id; do
   if bash "$renderer" "$option" >/dev/null 2>&1; then
     echo "renderer accepted missing value for $option" >&2
     exit 1
   fi
 done
+
+reviewed="$(bash "$renderer" --cluster-id bethunder-local --project-id app --project-id arbitrary-orders --project-id app --runtime-namespace runtime)"
+PROFILE="$reviewed" ruby -ryaml -e '
+docs=YAML.load_stream(ENV.fetch("PROFILE")).compact
+role=docs.find { |d| d["kind"] == "ClusterRole" && d.dig("metadata", "name") == "envplane-remote-cluster-bethunder-local-installer" }
+abort "wrong profile version" unless role.dig("metadata", "annotations", "envplane.io/access-profile") == "dynamic-project-bindings-v1"
+names=role.dig("metadata", "annotations", "envplane.io/reviewed-project-bindings").split(",")
+abort "project bindings missing or duplicated" unless names.size == 6 && names.uniq.size == 6
+rule=role.fetch("rules").find { |r| r["resources"] == ["clusterrolebindings"] }
+abort "future project names incorrectly restricted" if rule.key?("resourceNames")
+abort "missing lifecycle verbs" unless (["get", "create", "update", "patch", "delete"] - rule.fetch("verbs")).empty?
+'
+for project_id in app arbitrary-orders; do
+  names="$(bash "$root/scripts/render-remote-project-binding-access.sh" --cluster-id bethunder-local --project-id "$project_id" --runtime-namespace runtime | awk '/^      - / {print $2}')"
+  while IFS= read -r name; do grep -Fq "$name" <<<"$reviewed"; done <<<"$names"
+done
+if bash "$renderer" --cluster-id customer-west --project-id '../foreign' >/dev/null 2>&1; then
+  echo 'renderer accepted invalid project ID' >&2; exit 1
+fi
 
 chart="$root/deploy/helm/envplane-agent"
 agent_rendered="$(mktemp "${TMPDIR:-/tmp}/envplane-remote-agent-rbac.XXXXXX")"
