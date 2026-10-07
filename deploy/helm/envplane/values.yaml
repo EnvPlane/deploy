@@ -531,11 +531,11 @@ envplane-frontend:
   fullnameOverride: envplane-frontend
   image:
     repository: ghcr.io/envplane/frontend
-    tag: "sha-49508278c87b02a1ec81e066c4c3fc66c3fd037e"
-    digest: "sha256:882140e400bad6196078ecd5e4be32856d2d4c07c36a7c318bb843dfdac07868"
+    tag: "sha-0dce7eed6041a4f01b6ff63baa08fd614dbe8a39"
+    digest: "sha256:66aa2c7138ece63709f983899e3801374f670823a8708b55e87dbfc27af656e1"
     pullPolicy: IfNotPresent
-    sourceRevision: "49508278c87b02a1ec81e066c4c3fc66c3fd037e"
-    release: "sha-49508278c87b02a1ec81e066c4c3fc66c3fd037e"
+    sourceRevision: "0dce7eed6041a4f01b6ff63baa08fd614dbe8a39"
+    release: "sha-0dce7eed6041a4f01b6ff63baa08fd614dbe8a39"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
