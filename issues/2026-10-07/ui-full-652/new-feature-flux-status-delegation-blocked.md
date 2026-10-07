@@ -3,6 +3,16 @@
 Status: live reproduced; exact administrative get grant approved and applied;
 retry/recreate succeeded. Broader installer-profile migration remains opt-in.
 
+Code-completion follow-up: the frontend now qualifies server-ready remote checks
+and shows conditional future Flux-name access guidance on project readiness and
+before Create. It does not infer a permission denial or grant access. Two unit
+cases and a mock UI case cover arbitrary target IDs and no creation side effect.
+Deploy contract tests now render the real opt-in profile: default omits it;
+repeated flags deduplicate; arbitrary namespaces receive only Kustomization get,
+with no Secret/list/watch/write verbs, and the expected installer binding.
+The control-plane exact-name access review test passed. Administrator migration
+and deployment/live retest remain separate; no target RBAC changed in this pass.
+
 On release 0.4.652 UI created e2e-ui-full-652-1007652 for project app, branch main,
 MR 1007652, Full mode, project-default TTL 24h, with no changed components.
 The record became Failed before workload publication. Bootstrap identifies:
