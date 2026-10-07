@@ -1,6 +1,12 @@
 # Management project Runner fails authentication
 
-Status: open; diagnosis required before changing credentials.
+Status: fixed in control-plane code and recovered live with a local API hotfix; published release inclusion pending.
+
+## Resolution
+
+Runtime credentials expired after an offline interval. The first-start project had handed off to project executors, but startup and recovery still excluded its project ID. Ownership-aware reconciliation and explicit expiry rotation fixed the dead end. Existing Agent/Runner release names retained, auth claims r2, both Pods 1/1 Running with zero restarts; API restart preserved them. No RBAC expansion, token disclosure, or remote-cluster credential changes.
+
+See control-plane/issues/2026-10-07/management-runtime-recovery/first-start-project-handoff-recovery.md. The current API uses temporary local image envplane-api-management-recovery:662-20261007-v2; umbrella 0.4.662 itself does not contain the new code.
 
 ## Observed
 
