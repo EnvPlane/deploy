@@ -1,6 +1,6 @@
 # Configured public SCM tunnel hostname no longer resolves
 
-Status: restored and live verified on published 0.4.668 at 20:27 Europe/Berlin. No application-code defect established. Fresh provider-side MR delivery remains pending confirmation.
+Status: restored and live verified on published 0.4.668. Fresh provider-side MR delivery and job processing verified at 20:32 Europe/Berlin. No application-code defect established.
 
 ## Recovery verification
 
@@ -15,6 +15,14 @@ Compile succeeded: the project overview shows Deploy-ready and compiled configur
 QA verdict: 5/5 for the tested endpoint restoration, registration, signed probe, compile and dry-run path only; not full lifecycle certification. Authentication, managed runtime endpoint, credentials and baseline workloads were not changed. The quick tunnel is temporary and has no uptime guarantee; its process must remain running.
 
 Evidence: /private/tmp/envplane-668-scm-restored.png and /private/tmp/envplane-668-gitlab-webhook-restored.png.
+
+## Fresh provider-side MR test
+
+After the user confirmed the explained MR-test/cleanup risk, GitLab hook 88963028 Test / Merge request events returned HTTP 202. EnvPlane showed a fresh verified delivery at 20:32:16 Europe/Berlin, verified signature, and job `job-bfee3ee98230d75c6f2543042932f890`. The Jobs UI confirmed succeeded, type delete_environment, target `e2e-webhook-live-294-20260919-gitlab-243dfdce`, consistent with the selected closed test MR. This confirms real GitLab delivery and successful processing of the cleanup event, not new feature-environment creation or physical removal of previously absent resources.
+
+The Environments UI still shows `e2e-ui-full-652-1007652` Ready with TTL 24h and the same two Terminated records. No additional UI deletion or Recreate was initiated. QA verdict: 5/5 for the tested provider delivery, fresh diagnostics and job correlation. No new defect found. Preview URL DNS, CNI enforcement and fresh creation lifecycle remain outside this result.
+
+Provider evidence: /private/tmp/envplane-668-gitlab-mr-202.png and /private/tmp/envplane-668-gitlab-mr-job.png.
 
 ## Evidence
 
