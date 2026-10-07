@@ -64,3 +64,30 @@ for invalid_release in 'sha-012345678901234567890123456789012345678"' $'sha-0123
   cmp "$tmp/values.before-invalid.yaml" "$tmp/values.yaml"
 done
 echo "component image update isolation test passed"
+
+# The project installer must use the same published Agent as the singleton.
+"$root/scripts/update-runtime-image-values.sh" \
+  --component agent --repository ghcr.io/envplane/agent \
+  --tag sha-2123456789012345678901234567890123456789 \
+  --digest "sha256:$(printf 'c%.0s' {1..64})" \
+  --source-revision 2123456789012345678901234567890123456789 \
+  --values-file "$tmp/values.yaml" >/dev/null
+bootstrap_tag="$(awk '
+  $0 == "  agentBootstrap:" { in_bootstrap=1 }
+  in_bootstrap && $0 ~ /^  [A-Za-z]/ && $0 != "  agentBootstrap:" { exit }
+  in_bootstrap && $0 ~ /^      tag:/ { sub(/^      tag:[[:space:]]*/, ""); gsub(/"/, ""); print; exit }
+' "$tmp/values.yaml")"
+test "$bootstrap_tag" = sha-2123456789012345678901234567890123456789
+sed '/^      tag:/d' "$tmp/values.yaml" > "$tmp/missing-bootstrap-tag.yaml"
+cp "$tmp/missing-bootstrap-tag.yaml" "$tmp/missing-bootstrap-tag.before.yaml"
+if "$root/scripts/update-runtime-image-values.sh" \
+  --component agent --repository ghcr.io/envplane/agent \
+  --tag sha-3123456789012345678901234567890123456789 \
+  --digest "sha256:$(printf 'd%.0s' {1..64})" \
+  --source-revision 3123456789012345678901234567890123456789 \
+  --values-file "$tmp/missing-bootstrap-tag.yaml" >/dev/null 2>&1; then
+  echo "Agent publication accepted an incomplete project bootstrap image" >&2
+  exit 1
+fi
+cmp "$tmp/missing-bootstrap-tag.before.yaml" "$tmp/missing-bootstrap-tag.yaml"
+echo "project and singleton Agent image synchronization test passed"

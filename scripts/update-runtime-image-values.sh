@@ -97,12 +97,21 @@ tmp_file="$(mktemp "${values_file}.XXXXXX")"
 trap 'rm -f "$tmp_file"' EXIT
 
 if ! awk \
+  -v component="$component" \
   -v section="$section" \
   -v repository="$repository" \
   -v tag="$tag" \
   -v digest="$digest" \
   -v source_revision="$source_revision" \
   -v release="$release" '
+  $0 == "envplane-control-plane:" { in_control_plane = 1 }
+  in_control_plane && $0 != "envplane-control-plane:" && $0 ~ /^[^[:space:]]/ { in_control_plane = 0; in_bootstrap = 0; in_bootstrap_image = 0 }
+  in_control_plane && $0 == "  agentBootstrap:" { in_bootstrap = 1 }
+  in_bootstrap && $0 ~ /^  [A-Za-z0-9][A-Za-z0-9_-]*:/ && $0 != "  agentBootstrap:" { in_bootstrap = 0; in_bootstrap_image = 0 }
+  in_bootstrap && $0 == "    image:" { in_bootstrap_image = 1 }
+  in_bootstrap_image && $0 ~ /^    [A-Za-z0-9][A-Za-z0-9_-]*:/ && $0 != "    image:" { in_bootstrap_image = 0 }
+  component == "agent" && in_bootstrap_image && $0 ~ /^      repository:/ { print "      repository: " repository; bootstrap_repository_found = 1; next }
+  component == "agent" && in_bootstrap_image && $0 ~ /^      tag:/ { print "      tag: \"" tag "\""; bootstrap_tag_found = 1; next }
   $0 == section ":" { in_section = 1; section_found = 1 }
   in_section && $0 != section ":" && $0 ~ /^[^[:space:]]/ { in_section = 0; in_image = 0 }
   in_section && $0 == "  image:" { in_image = 1; image_found = 1 }
@@ -114,6 +123,7 @@ if ! awk \
   in_image && $0 ~ /^    release:/ { print "    release: \"" release "\""; release_found = 1; next }
   { print }
   END {
+    if (component == "agent" && (!bootstrap_repository_found || !bootstrap_tag_found)) exit 3
     if (!section_found || !image_found || !repository_found || !tag_found || !digest_found || !source_found || !release_found) {
       exit 3
     }
