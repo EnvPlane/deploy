@@ -1,6 +1,20 @@
 # Configured public SCM tunnel hostname no longer resolves
 
-Status: live external prerequisite blocked on published 0.4.668. No application-code defect established.
+Status: restored and live verified on published 0.4.668 at 20:27 Europe/Berlin. No application-code defect established. Fresh provider-side MR delivery remains pending confirmation.
+
+## Recovery verification
+
+On explicit user request, started the existing cloudflared binary in exec session 92994 with `cloudflared tunnel --url http://127.0.0.1:80 --http-host-header envplane.local --no-autoupdate`. No older cloudflared process was present; the existing minikube tunnel was left unchanged.
+
+New temporary origin: https://charm-solve-medications-dryer.trycloudflare.com. Local and public roots returned HTTP 200 with normal TLS validation. Saved the new Public SCM URL through Settings, then registered the existing project app webhook through Bootstrap. Reloaded GitLab confirms hook 88963028 uses this callback with `project=app&tenant=default`, MR and Comments events, and SSL verification enabled.
+
+Bootstrap Test delivery produced a fresh signed probe at 20:27:49 Europe/Berlin: delivery/signature Verified and Endpoint/DNS/TLS/Receiver Ready. This is a self-issued probe, not a real GitLab MR event. No job was created. Provider-side MR testing is awaiting action-time approval because a closed MR payload can trigger cleanup.
+
+Compile succeeded: the project overview shows Deploy-ready and compiled configuration v7. Simulate PR with dry-run commit checked returned valid, 15 templates/files and simulated status at `app/simulations/20261007T182831Z`. No actual GitOps commit or feature environment was created by this simulation. Preview DNS and CNI enforcement remain separate unverified prerequisites.
+
+QA verdict: 5/5 for the tested endpoint restoration, registration, signed probe, compile and dry-run path only; not full lifecycle certification. Authentication, managed runtime endpoint, credentials and baseline workloads were not changed. The quick tunnel is temporary and has no uptime guarantee; its process must remain running.
+
+Evidence: /private/tmp/envplane-668-scm-restored.png and /private/tmp/envplane-668-gitlab-webhook-restored.png.
 
 ## Evidence
 
