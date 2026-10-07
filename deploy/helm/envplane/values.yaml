@@ -257,6 +257,14 @@ access:
 # External platform capability contract. EnvPlane never adopts resources owned
 # by a platform provider. `auto` detects a healthy compatible capability first
 # and may install only the explicitly configured provider when detection fails.
+# Administrator opt-in for SINGLE-NODE LOCAL DEVELOPMENT only. This installs
+# the separate provisioner in THIS release's cluster, never a remote target.
+# Existing/default/Bound classes are untouched. Feature projects choose their
+# class separately in Bootstrap. Do not enable this for production storage.
+localDevelopmentStorage:
+  enabled: false
+  allowHostPath: false
+
 platformDependencies:
   ingress:
     mode: disabled # auto | managed | existing | disabled

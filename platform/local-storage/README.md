@@ -26,15 +26,32 @@ The manifest adapts the official Rancher local-path-provisioner v0.0.37
 [release](https://github.com/rancher/local-path-provisioner/releases/tag/v0.0.37)
 with immutable provisioner/helper image digests, a dedicated namespace and
 ServiceAccount, provisioner identity `envplane.io/local-path`, bounded CPU/memory,
-and guarded helper paths. It is intentionally NOT installed by project Agents
-or the umbrella chart. The helper needs node filesystem access; project runtime
+and guarded helper paths. Project Agents never install it. The umbrella can
+install the same reviewed profile only with explicit administrator opt-in:
+
+```yaml
+localDevelopmentStorage:
+  enabled: true
+  allowHostPath: true
+```
+
+Both settings default to false. This installs storage only in the Helm target
+cluster, not in a connected remote cluster. For a remote target an administrator
+must explicitly install the same manifest there before project onboarding.
+Do not combine this profile with a managed platformDependencies.storage installer.
+Never use it as an automatic production fallback. For production choose CSI.
+The helper needs node filesystem access; project runtime
 does not receive the provisioner's cluster-wide PV privileges.
 
 `envplane-local-path` is non-default, uses `Delete` reclaim and
 `WaitForFirstConsumer`, and creates PV-specific directories. Keep the existing
 default StorageClass and Bound/base PVCs unchanged. In the Bootstrap template
-editor, explicitly set `spec.storageClassName: envplane-local-path` only on
-future feature PVC templates, save, reload to verify each file, then Compile.
+editor, select `envplane-local-path` in **Feature storage class**, persist with
+Next, then Compile. The API verifies the class exists in target Agent inventory
+and applies it to future PVC templates, including reviewed YAML. A class change
+requires the reviewed empty/mock strategy; snapshot/clone drivers are not
+silently substituted. Reload verifies the saved project choice. Legacy projects
+without a selection retain their reviewed classes.
 Changing only the cluster default cannot override an explicit `standard` class.
 Compiled templates affect future provisioning, not existing PVCs.
 
@@ -75,6 +92,11 @@ unknown ownership, or existing data requires a separate recovery decision.
 To roll back, change future templates to an approved class and Compile. Do not
 uninstall this controller or remove its namespace/root while it owns any PVs.
 Do not delete Bound volumes to move them between storage classes.
+All profile objects use helm.sh/resource-policy=keep, so uninstalling the
+application does not abandon storage reclaim. They intentionally survive the
+release and require separate administrator removal after all owned PVs are gone.
+Helm will not silently adopt an existing kubectl-managed controller; do not
+enable the profile over an unowned installation without an ownership review.
 
 ## Verified October 7, 2026
 

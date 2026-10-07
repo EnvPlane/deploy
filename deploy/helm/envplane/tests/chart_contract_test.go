@@ -61,6 +61,41 @@ func TestTransientHelmDependencyError(t *testing.T) {
 	}
 }
 
+func TestLocalDevelopmentStorageIsExplicitAndMatchesReviewedProfile(t *testing.T) {
+	if strings.Contains(renderUmbrella(t), "name: envplane-local-path-storage") {
+		t.Fatal("default installation must not create local hostPath storage")
+	}
+	denied := renderUmbrellaError(t, "--set", "localDevelopmentStorage.enabled=true")
+	if !strings.Contains(denied, "allowHostPath=true") {
+		t.Fatalf("missing explicit hostPath approval gate: %s", denied)
+	}
+	rendered := renderUmbrella(t, "--set", "localDevelopmentStorage.enabled=true", "--set", "localDevelopmentStorage.allowHostPath=true")
+	for _, expected := range []string{"name: envplane-local-path-storage", "provisioner: envplane.io/local-path", "reclaimPolicy: Delete", "volumeBindingMode: WaitForFirstConsumer", "is-default-class: \"false\"", "@sha256:e757967", "@sha256:bdf57e5"} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("local development profile missing %q", expected)
+		}
+	}
+	conflict := renderUmbrellaError(t, "--set", "localDevelopmentStorage.enabled=true", "--set", "localDevelopmentStorage.allowHostPath=true", "--set", "platformDependencies.storage.mode=managed", "--set", "platformDependencies.storage.provider=local-path-provisioner", "--set", "platformDependencies.storage.ownership=envplane", "--set", "platformDependencies.storage.managed.chartRef=oci://ghcr.io/rancher/local-path-provisioner", "--set", "platformDependencies.storage.managed.version=0.0.28", "--set", "platformDependencies.storage.managed.releaseName=envplane-local-path")
+	if !strings.Contains(conflict, "select one installer") {
+		t.Fatalf("multiple storage installers must fail closed: %s", conflict)
+	}
+	chart := umbrellaChartPath(t)
+	bundled, err := os.ReadFile(filepath.Join(chart, "files", "local-path.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "platform", "local-storage", "local-path.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(bundled) != string(canonical) {
+		t.Fatal("bundled profile must match the reviewed administrator manifest")
+	}
+	if strings.Count(string(bundled), "helm.sh/resource-policy: keep") != 9 {
+		t.Fatal("all storage objects must survive application uninstall until administrator cleanup")
+	}
+}
+
 func TestIngressWebhookReceiverInstallsLeastPrivilegeStatusObserver(t *testing.T) {
 	rendered := renderUmbrella(t,
 		"--set", "webhook.enabled=true",

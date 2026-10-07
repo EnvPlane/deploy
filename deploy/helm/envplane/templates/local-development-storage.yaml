@@ -1,0 +1,9 @@
+{{- if .Values.localDevelopmentStorage.enabled -}}
+{{- if not .Values.localDevelopmentStorage.allowHostPath -}}
+{{- fail "localDevelopmentStorage requires explicit allowHostPath=true administrator approval; local single-node development only" -}}
+{{- end -}}
+{{- if eq (default "disabled" .Values.platformDependencies.storage.mode) "managed" -}}
+{{- fail "localDevelopmentStorage cannot be combined with managed platformDependencies.storage; select one installer" -}}
+{{- end -}}
+{{ .Files.Get "files/local-path.yaml" }}
+{{- end -}}
