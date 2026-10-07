@@ -1,0 +1,164 @@
+# Adapted from rancher/local-path-provisioner v0.0.37.
+# Opt-in administrator installation; never installed by project runtime.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: envplane-local-path-storage
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: local-path-provisioner-service-account
+  namespace: envplane-local-path-storage
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: envplane-local-path-helper
+  namespace: envplane-local-path-storage
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch, create, patch, update, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: envplane-local-path-provisioner
+rules:
+  - apiGroups: [""]
+    resources: [nodes, persistentvolumeclaims, configmaps, pods, pods/log]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [persistentvolumes]
+    verbs: [get, list, watch, create, patch, update, delete]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: envplane-local-path-helper
+  namespace: envplane-local-path-storage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: envplane-local-path-helper
+subjects:
+  - kind: ServiceAccount
+    name: local-path-provisioner-service-account
+    namespace: envplane-local-path-storage
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: envplane-local-path-provisioner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: envplane-local-path-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: local-path-provisioner-service-account
+    namespace: envplane-local-path-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-path-provisioner
+  namespace: envplane-local-path-storage
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: envplane-local-path-provisioner
+  template:
+    metadata:
+      labels:
+        app: envplane-local-path-provisioner
+    spec:
+      serviceAccountName: local-path-provisioner-service-account
+      containers:
+        - name: local-path-provisioner
+          image: docker.io/rancher/local-path-provisioner@sha256:e757967a5ec338f6a9b371c5a9688bedaa8c3578ea3dd4db329ea0084be0a86f
+          imagePullPolicy: IfNotPresent
+          command: [local-path-provisioner, start, --config, /etc/config/config.json, --provisioner-name, envplane.io/local-path]
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          ports:
+            - {name: health, containerPort: 8080}
+          startupProbe:
+            httpGet: {path: /health, port: health}
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: {path: /ready, port: health}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: health}
+            periodSeconds: 10
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef: {fieldPath: metadata.namespace}
+            - {name: CONFIG_MOUNT_PATH, value: /etc/config/}
+          volumeMounts:
+            - {name: config, mountPath: /etc/config/, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: local-path-config}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: envplane-local-path
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: envplane.io/local-path
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-path-config
+  namespace: envplane-local-path-storage
+data:
+  config.json: |
+    {"nodePathMap":[{"node":"DEFAULT_PATH_FOR_NON_LISTED_NODES","paths":["/opt/envplane-local-path"]}]}
+  setup: |
+    #!/bin/sh
+    set -eu
+    case "$VOL_DIR" in /opt/envplane-local-path/pvc-*) ;; *) exit 1 ;; esac
+    case "$VOL_DIR" in *"/../"*|*"/./"*|*/..) exit 1 ;; esac
+    mkdir -m 0777 -p "$VOL_DIR"
+  teardown: |
+    #!/bin/sh
+    set -eu
+    case "$VOL_DIR" in /opt/envplane-local-path/pvc-*) ;; *) exit 1 ;; esac
+    case "$VOL_DIR" in *"/../"*|*"/./"*|*/..) exit 1 ;; esac
+    rm -rf -- "$VOL_DIR"
+  helperPod.yaml: |
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: helper-pod
+    spec:
+      tolerations:
+        - key: node.kubernetes.io/disk-pressure
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: helper-pod
+          image: docker.io/library/busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}

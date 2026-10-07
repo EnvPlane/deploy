@@ -1,0 +1,38 @@
+# Disposable storage-only restart/reclaim probe. Contains no application data.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: envplane-storage-reclaim-test
+  labels:
+    envplane.io/purpose: storage-reclaim-smoke
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: restart-probe
+  namespace: envplane-storage-reclaim-test
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: envplane-local-path
+  resources:
+    requests: {storage: 16Mi}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: restart-probe
+  namespace: envplane-storage-reclaim-test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: probe
+      image: docker.io/library/busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+      command: [sh, -c, "printf reclaim-probe > /data/reclaim-probe; sleep 3600"]
+      resources:
+        requests: {cpu: 10m, memory: 8Mi}
+        limits: {cpu: 100m, memory: 32Mi}
+      volumeMounts:
+        - {name: data, mountPath: /data}
+  volumes:
+    - name: data
+      persistentVolumeClaim: {claimName: restart-probe}
