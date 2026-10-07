@@ -21,3 +21,15 @@ QA 5/5 for tested recovery/Recreate, Ready services and TTL/Pin persistence only
 Implementation/operations prompt: preserve exact-name project Agent access. For durable operator onboarding, use the existing opt-in installer Flux status-reader namespace profile only with explicit administrator review; do not silently escalate scope or hardcode this test name into shipped defaults. Continue cleanup through normal UI, verify Terminated and absence of target resources, then obtain separate authority before deleting history.
 
 Evidence: /private/tmp/envplane-668-new-environment-failed.png, /private/tmp/envplane-668-flux-exact-name-blocker.png, /private/tmp/envplane-668-new-full-ready.png, /private/tmp/envplane-668-ttl-unpin-retained.png.
+
+## Subsequent UI checks at 20:43–20:46 Europe/Berlin
+
+The new environment remains Ready. Flux GitRepository and Kustomization are ready. Warning event filtering shows the historical mysql readiness probe warning without classifying the current workload as failed; Normal filtering shows only normal events. Restored All using the visible option label. A select-by-value attempt with `All` failed because the actual value is `all`; this was a test-driver selector mismatch, not an application defect.
+
+Opened the exact frontend preview link exposed by the UI. Chrome reports ERR_NAME_NOT_RESOLVED / DNS_PROBE_FINISHED_NXDOMAIN for `pr-1007668-frontend.preview.company.com`. This confirms the previously recorded preview DNS blocker also affects the fresh namespace. No DNS, ingress or security settings changed. Ready is not external-route certification.
+
+Cost reflects two active environments: estimated tenant-wide daily total approximately EUR 2.40, idle zero. Explain and optimization correctly return unknown forecast/incomplete measured price or usage data without substituting estimates or fabricating savings. Switching the global project selector to envplane loads its zero/default cost policy and effective max 200; switching back to test-app restores app policy max 3, TTL 24h and idle timeout 2h. No policy or currency save was performed. Tenant-wide charts remain explicitly labeled as tenant-wide. Console error log empty.
+
+QA verdict: 5/5 for event filtering, fresh Flux readiness and tested FinOps scope/evidence behavior; external preview accessibility blocked. No new application defect established. Cleanup still awaits the separate deletion confirmation; do not infer permission from a generic request to continue tests.
+
+Additional evidence: /private/tmp/envplane-668-preview-dns-failed.png and /private/tmp/envplane-668-finops-two-environments.png.
