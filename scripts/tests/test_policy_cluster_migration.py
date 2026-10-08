@@ -2,6 +2,9 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import re
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -102,6 +105,41 @@ class MigrationTests(unittest.TestCase):
         script = (SCRIPT.parent / "minikube-up.sh").read_text()
         self.assertIn("--cni=calico", script)
         self.assertLess(script.index("minikube profile list"), script.index("--cni=calico"))
+
+    def inline_guard(self, payload):
+        script = (SCRIPT.parent / "minikube-up.sh").read_text()
+        source = re.search(r"python3 -c '(.*?)' \"\$PROFILE\"; then", script, re.DOTALL).group(1)
+        return subprocess.run([sys.executable, "-c", source, "candidate"],
+                              input=payload, text=True, capture_output=True).returncode
+
+    def test_inline_inventory_unknown_formats_fail_closed(self):
+        for payload in ("{}", "[]", "null", "not json", '{"valid":[]}',
+                        '{"valid":[],"invalid":null}', '{"valid":{},"invalid":[]}',
+                        '{"valid":[{}],"invalid":[]}', '{"valid":[{"Name":1}],"invalid":[]}',
+                        '{"valid":[{"Name":""}],"invalid":[]}'):
+            with self.subTest(payload=payload):
+                self.assertEqual(self.inline_guard(payload), 2)
+
+    def test_inline_inventory_zero_profiles_and_collisions(self):
+        self.assertEqual(self.inline_guard('{"valid":[],"invalid":[]}'), 0)
+        for group in ("valid", "invalid"):
+            data = {"valid": [], "invalid": []}
+            data[group] = [{"Name": "candidate"}]
+            self.assertEqual(self.inline_guard(json.dumps(data)), 1)
+        self.assertEqual(self.inline_guard('{"valid":[{"Name":"source"}],"invalid":[]}'), 0)
+
+    def test_python_prerequisite_and_pipeline_failure_gate(self):
+        script = (SCRIPT.parent / "minikube-up.sh").read_text()
+        self.assertIn("for bin in minikube kubectl helm docker python3; do", script)
+        # Even a valid empty JSON body cannot override failed profile enumeration.
+        # Match the actual inline pipeline, excluding subsequent branches.
+        pipeline = script.split("  if minikube profile list", 1)[1].split("; then", 1)[0]
+        result = subprocess.run(["bash", "-c",
+                                 'set -o pipefail; PROFILE=candidate; '
+                                 'minikube() { printf \'{"valid":[],"invalid":[]}\'; return 1; }; '
+                                 "if minikube profile list" + pipeline + "; then exit 99; else exit 0; fi"],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

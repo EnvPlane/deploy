@@ -2,6 +2,13 @@
 
 Status: pending live administrator review; P0 isolation acceptance gate.
 
+Review follow-up fixed: minikube-up.sh previously treated unknown JSON `{}` as an
+empty profile inventory. Its inline guard now requires both valid/invalid arrays
+and nonempty string profile names; only the explicit empty-array format permits
+zero-profile creation. python3 is required before the cluster branch. Regression
+tests execute the actual inline guard and verify pipeline errors block creation.
+No live cluster creation or network change was performed.
+
 Tooling implemented in scripts/plan-policy-cluster-migration.py and documented in
 docs/policy-cluster-migration.md. Existing bethunder-local is unchanged. The safe
 default creates a separate Calico candidate; no in-place engine is auto-installed.

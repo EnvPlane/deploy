@@ -40,7 +40,22 @@ if minikube -p "$PROFILE" status >/dev/null 2>&1; then
 else
   # Do not apply a different CNI to an existing stopped/broken profile.
   # Failure to inventory profiles is a blocker, never evidence of absence.
-  if minikube profile list -o json | python3 -c 'import json,sys; d=json.load(sys.stdin); names=[p["Name"] for k in ("valid","invalid") for p in d.get(k,[])]; sys.exit(0 if sys.argv[1] not in names else 1)' "$PROFILE"; then
+  if minikube profile list -o json | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    if not isinstance(data, dict) or any(not isinstance(data.get(k), list) for k in ("valid", "invalid")):
+        raise ValueError("Unknown inventory format")
+    names = []
+    for group in ("valid", "invalid"):
+        for profile in data[group]:
+            if not isinstance(profile, dict) or not isinstance(profile.get("Name"), str) or not profile["Name"]:
+                raise ValueError("Invalid profile entry")
+            names.append(profile["Name"])
+except (ValueError, TypeError):
+    sys.exit(2)
+sys.exit(0 if sys.argv[1] not in names else 1)
+' "$PROFILE"; then
     :
   else
     echo "ERROR: profile exists or inventory failed; restore/review it without changing its CNI." >&2
