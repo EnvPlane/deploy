@@ -55,6 +55,7 @@
 {{- $scope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $namespaces := .Values.rbac.discovery.namespaces -}}
 {{- $clusterCapabilityRead := default false .Values.rbac.discovery.clusterCapabilityRead -}}
+{{- $nodeInventoryEnabled := default false .Values.rbac.discovery.nodeInventoryEnabled -}}
 {{- $namespaceMetadataRead := default false .Values.rbac.discovery.namespaceMetadataRead -}}
 {{- $namespaceInventoryRead := default false .Values.rbac.discovery.namespaceInventoryRead -}}
 {{- $existingClusterRoles := default (list) .Values.rbac.discovery.existingClusterRoles -}}
@@ -100,7 +101,7 @@ roleRef:
   kind: Role
   name: {{ $fullName }}-discovery-reader
 {{ end }}
-{{- if or $clusterCapabilityRead $namespaceMetadataRead $namespaceInventoryRead }}
+{{- if or $clusterCapabilityRead $namespaceMetadataRead $namespaceInventoryRead $nodeInventoryEnabled }}
 {{- if $existingClusterRoles }}
 {{- if $namespaceMetadataRead }}{{ fail "rbac.discovery.namespaceMetadataRead cannot use pre-installed cluster roles" }}{{ end }}
 {{- range $roleName := $existingClusterRoles }}
@@ -140,6 +141,11 @@ metadata:
   labels:
     {{- include "envplane-agent.labels" . | nindent 4 }}
 rules:
+{{- if $nodeInventoryEnabled }}
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get","list"]
+{{- end }}
 {{- if $namespaceInventoryRead }}
   # Bootstrap inventory only: enumerate namespace names so the user can make
   # an explicit selection. Workload discovery remains Role-scoped below.
@@ -196,6 +202,11 @@ metadata:
   {{- end }}
 rules:
   # Cluster-wide discovery is an explicit opt-in scope. It remains read-only.
+{{- if $nodeInventoryEnabled }}
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get","list"]
+{{- end }}
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["get","list","watch"]

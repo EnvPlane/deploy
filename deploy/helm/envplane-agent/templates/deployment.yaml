@@ -180,6 +180,8 @@ spec:
               value: {{ .Values.flux.namespace | quote }}
             - name: ENVPLANE_DISCOVERY_READ_FLUX
               value: {{ .Values.rbac.discovery.readFlux | quote }}
+            - name: ENVPLANE_FINOPS_NODE_INVENTORY_ENABLED
+              value: {{ .Values.rbac.discovery.nodeInventoryEnabled | quote }}
             - name: ENVPLANE_FLUX_STATUS_ENABLED
               value: {{ .Values.rbac.fluxStatus.enabled | quote }}
             {{- with .Values.rbac.fluxStatus.kustomizationName }}

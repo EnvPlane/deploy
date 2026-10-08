@@ -203,6 +203,9 @@ rbac:
       # when the operator deliberately grants cross-namespace discovery.
       - ""
     clusterCapabilityRead: false
+    # Opt-in read-only Node capacity inventory for FinOps GPU coverage.
+    # Grants get/list nodes (no subresources); installer profile must opt in too.
+    nodeInventoryEnabled: false
     # Bind these pre-installed, read-only ClusterRoles instead of rendering a
     # release-named ClusterRole. Managed remote installations use this to keep
     # cluster RBAC stable for arbitrary project and release names.

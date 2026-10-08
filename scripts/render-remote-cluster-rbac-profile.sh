@@ -17,6 +17,7 @@ Options:
   --flux-namespace NAME      Existing namespace that also permits read-only Flux status; repeatable
   --flux-status-reader-namespace NAME  Opt-in installer get-only Kustomization delegation parent; repeatable
   --project-id ID            Include computed Agent binding identities for review; repeatable
+  --finops-node-inventory    Opt-in capability get/list nodes for Agent GPU capacity inventory
   --help                     Show this help
 EOF
 }
@@ -29,6 +30,7 @@ flux_status_namespaces=()
 deployment_backend="helm-direct"
 flux_control_namespace="flux-system"
 project_ids=()
+finops_node_inventory=false
 
 require_option_value() {
   local option="$1"
@@ -49,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --flux-namespace) require_option_value "$@"; flux_namespaces+=("$2"); shift 2 ;;
     --flux-status-reader-namespace) require_option_value "$@"; flux_status_namespaces+=("$2"); shift 2 ;;
     --project-id) require_option_value "$@"; project_ids+=("$2"); shift 2 ;;
+    --finops-node-inventory) finops_node_inventory=true; shift ;;
     --help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -359,6 +362,15 @@ kind: ClusterRole
 metadata:
   name: $prefix-cluster-capability-reader
 rules:
+EOF
+if [[ "$finops_node_inventory" == true ]]; then
+  cat <<EOF
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+EOF
+fi
+cat <<EOF
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingressclasses"]
     verbs: ["get", "list", "watch"]
