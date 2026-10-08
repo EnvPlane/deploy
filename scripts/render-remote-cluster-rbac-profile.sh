@@ -269,11 +269,15 @@ metadata:
 spec:
   failurePolicy: Fail
   matchConstraints:
+    matchPolicy: Equivalent
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
       - apiGroups: ["rbac.authorization.k8s.io"]
         apiVersions: ["v1"]
         operations: ["CREATE", "UPDATE", "DELETE"]
         resources: ["clusterroles"]
+        scope: "*"
   validations:
     - expression: >-
         request.userInfo.username != "$installer_principal" ||
@@ -315,11 +319,15 @@ metadata:
 spec:
   failurePolicy: Fail
   matchConstraints:
+    matchPolicy: Equivalent
+    namespaceSelector: {}
+    objectSelector: {}
     resourceRules:
       - apiGroups: ["rbac.authorization.k8s.io"]
         apiVersions: ["v1"]
         operations: ["CREATE", "UPDATE", "DELETE"]
         resources: ["clusterrolebindings"]
+        scope: "*"
   validations:
     - expression: >-
         request.userInfo.username != "$installer_principal" ||
