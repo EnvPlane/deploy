@@ -1,0 +1,12 @@
+exporterImage: ""
+prometheusImage: ""
+prometheusTLSSecret: finops-server-tls
+exporterCASecret: finops-exporter-ca
+kubeletCASecret: finops-kubelet-ca
+nodeName: ""
+nodeAddress: ""
+apiAddressCIDR: ""
+apiPort: 8443
+# Existing application namespaces only. TLS Secrets are operator-created.
+# Each claim: name, uid, component; security UID must match existing permissions.
+exporters: []

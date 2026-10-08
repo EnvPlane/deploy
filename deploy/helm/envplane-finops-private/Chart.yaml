@@ -1,0 +1,5 @@
+apiVersion: v2
+name: envplane-finops-private
+description: Operator-reviewed private TLS telemetry for explicitly pinned PVCs
+type: application
+version: 0.1.0

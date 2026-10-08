@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: finops-scraper}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: {{ .Release.Name }}-node-metrics}
+rules:
+  - apiGroups: [""]
+    resources: [nodes/metrics]
+    resourceNames: [{{ required "reviewed candidate nodeName required" .Values.nodeName | quote }}]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: {{ .Release.Name }}-node-metrics}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ .Release.Name }}-node-metrics}
+subjects: [{kind: ServiceAccount, name: finops-scraper, namespace: {{ .Release.Namespace }}}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: finops-prometheus}
+data:
+  web.yml: |
+    tls_server_config:
+      cert_file: /tls/tls.crt
+      key_file: /tls/tls.key
+      min_version: TLS12
+  prometheus.yml: |
+    global:
+      scrape_interval: 10s
+      scrape_timeout: 8s
+    scrape_configs:
+      - job_name: approved-kubelet-cadvisor
+        scheme: https
+        metrics_path: /metrics/cadvisor
+        authorization:
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          ca_file: /kubelet-ca/ca.crt
+          server_name: {{ .Values.nodeName | quote }}
+        static_configs:
+          - targets: [{{ printf "%s:10250" (required "nodeAddress required" .Values.nodeAddress) | quote }}]
+      {{- range .Values.exporters }}
+      - job_name: {{ printf "%s-%s" .namespace .name | quote }}
+        scheme: https
+        tls_config:
+          ca_file: /exporter-ca/ca.crt
+        static_configs:
+          - targets: [{{ printf "%s.%s.svc:9443" .name .namespace | quote }}]
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: finops-prometheus}
+spec:
+  selector: {envplane.io/finops-scraper: "true"}
+  ports: [{name: https, port: 9090, targetPort: 9090}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: finops-prometheus}
+spec:
+  replicas: 1
+  selector: {matchLabels: {envplane.io/finops-scraper: "true"}}
+  template:
+    metadata: {labels: {envplane.io/finops-scraper: "true"}}
+    spec:
+      serviceAccountName: finops-scraper
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, fsGroup: 65534, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: prometheus
+          image: {{ required "pinned Prometheus image required" .Values.prometheusImage | quote }}
+          args: ["--config.file=/config/prometheus.yml", "--web.config.file=/config/web.yml", "--storage.tsdb.path=/data", "--storage.tsdb.retention.time=2h", "--storage.tsdb.retention.size=256MB", "--web.listen-address=:9090"]
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 250m, memory: 256Mi}
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: tls, mountPath: /tls, readOnly: true}
+            - {name: exporter-ca, mountPath: /exporter-ca, readOnly: true}
+            - {name: kubelet-ca, mountPath: /kubelet-ca, readOnly: true}
+            - {name: data, mountPath: /data}
+      volumes:
+        - {name: config, configMap: {name: finops-prometheus}}
+        - {name: tls, secret: {secretName: {{ .Values.prometheusTLSSecret }}}}
+        - {name: exporter-ca, secret: {secretName: {{ .Values.exporterCASecret }}}}
+        - {name: kubelet-ca, secret: {secretName: {{ .Values.kubeletCASecret }}}}
+        - {name: data, emptyDir: {sizeLimit: 384Mi}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: finops-prometheus}
+spec:
+  podSelector: {matchLabels: {envplane.io/finops-scraper: "true"}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: envplane-system}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: envplane-agent}}
+      ports: [{protocol: TCP, port: 9090}]
+  egress:
+    - to: [{ipBlock: {cidr: {{ printf "%s/32" .Values.nodeAddress | quote }}}}]
+      ports: [{protocol: TCP, port: 10250}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    {{- range .Values.exporters }}
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: {{ .namespace }}}}
+          podSelector: {matchLabels: {envplane.io/pvc-exporter: {{ .name }}}}
+      ports: [{protocol: TCP, port: 9443}]
+    {{- end }}

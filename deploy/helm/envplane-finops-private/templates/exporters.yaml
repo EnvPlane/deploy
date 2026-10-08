@@ -1,0 +1,102 @@
+{{- range .Values.exporters }}
+{{- $namespace := required "exporter namespace required" .namespace }}
+{{- $name := required "exporter name required" .name }}
+{{- $refs := list }}
+{{- $names := list }}
+{{- range .claims }}
+{{- $refs = append $refs (dict "Namespace" $namespace "PVCName" .name "PVCUID" .uid "ComponentID" .component) }}
+{{- $names = append $names .name }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: {{ $name }}, namespace: {{ $namespace }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: {{ $name }}, namespace: {{ $namespace }}}
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    resourceNames: {{ $names | toJson }}
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: {{ $name }}, namespace: {{ $namespace }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $name }}}
+subjects: [{kind: ServiceAccount, name: {{ $name }}, namespace: {{ $namespace }}}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: {{ $name }}, namespace: {{ $namespace }}}
+data:
+  refs.json: {{ $refs | toJson | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ $name }}, namespace: {{ $namespace }}}
+spec:
+  selector: {envplane.io/pvc-exporter: {{ $name }}}
+  ports: [{name: https, port: 9443, targetPort: 9443}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: {{ $name }}, namespace: {{ $namespace }}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {envplane.io/pvc-exporter: {{ $name }}}
+  template:
+    metadata:
+      labels: {envplane.io/pvc-exporter: {{ $name }}}
+    spec:
+      serviceAccountName: {{ $name }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ required "existing dataset-compatible runAsUser required" .runAsUser }}
+        runAsGroup: {{ .runAsUser }}
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: exporter
+          image: {{ required "local immutable exporter image required" $.Values.exporterImage | quote }}
+          imagePullPolicy: IfNotPresent
+          args: [finops-pvc-usage-exporter]
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources:
+            requests: {cpu: 10m, memory: 24Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          env:
+            - {name: ENVPLANE_KUBERNETES_API_URL, value: {{ printf "https://%s:%v" (trimSuffix "/32" $.Values.apiAddressCIDR) $.Values.apiPort | quote }}}
+            - {name: ENVPLANE_FINOPS_PVC_REFS_FILE, value: /config/refs.json}
+            - {name: ENVPLANE_FINOPS_EXPORTER_TLS_CERT_FILE, value: /tls/tls.crt}
+            - {name: ENVPLANE_FINOPS_EXPORTER_TLS_KEY_FILE, value: /tls/tls.key}
+          ports: [{name: https, containerPort: 9443}]
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: tls, mountPath: /tls, readOnly: true}
+            {{- range .claims }}
+            - {name: {{ .name }}, mountPath: {{ printf "/pvc-data/%s" .uid | quote }}, readOnly: true}
+            {{- end }}
+      volumes:
+        - {name: config, configMap: {name: {{ $name }}}}
+        - {name: tls, secret: {secretName: {{ required "private exporter TLS Secret required" .tlsSecret }}}}
+        {{- range .claims }}
+        - {name: {{ .name }}, persistentVolumeClaim: {claimName: {{ .name }}, readOnly: true}}
+        {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: {{ $name }}, namespace: {{ $namespace }}}
+spec:
+  podSelector: {matchLabels: {envplane.io/pvc-exporter: {{ $name }}}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: {{ $.Release.Namespace }}}}
+          podSelector: {matchLabels: {envplane.io/finops-scraper: "true"}}
+      ports: [{protocol: TCP, port: 9443}]
+  egress:
+    - to: [{ipBlock: {cidr: {{ required "candidate API exact /32 CIDR required" $.Values.apiAddressCIDR | quote }}}}]
+      ports: [{protocol: TCP, port: {{ $.Values.apiPort }}}]
+{{- end }}
