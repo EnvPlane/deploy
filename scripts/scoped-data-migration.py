@@ -180,6 +180,10 @@ def render_helper(plan, namespace, claim, side, image, storage_class=None, uid=0
                                     "volumeMounts": [{"name": "data", "mountPath": "/migration-data", "readOnly": side == "source"}]}],
                     "volumes": [{"name": "data", "persistentVolumeClaim": {"claimName": claim}}]}}
     result = {"context": plan[side], "pod": pod}
+    if uid == 0:
+        # Cold filesystem preservation needs ownership/mode operations. This is
+        # only for namespaces that permit root helpers; never Restricted auth.
+        pod["spec"]["containers"][0]["securityContext"]["capabilities"]["add"] = ["CHOWN", "DAC_OVERRIDE", "FOWNER"]
     if side == "target":
         if not storage_class or not re.fullmatch(r"[a-z0-9][a-z0-9.-]{0,251}[a-z0-9]", storage_class):
             raise ValueError("Explicit reviewed target StorageClass mapping required")

@@ -90,6 +90,7 @@ class ScopedMigrationTests(unittest.TestCase):
         container = result["pod"]["spec"]["containers"][0]["securityContext"]
         self.assertFalse(container["allowPrivilegeEscalation"])
         self.assertEqual(container["capabilities"]["drop"], ["ALL"])
+        self.assertNotIn("add", container["capabilities"])
 
 
 if __name__ == "__main__":
