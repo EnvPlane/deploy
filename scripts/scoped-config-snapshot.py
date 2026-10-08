@@ -11,6 +11,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -72,6 +73,8 @@ def sha(path):
 def snapshot(source, target, namespaces, recipient, archive):
     if source == target or not namespaces or len(set(namespaces)) != len(namespaces) or not recipient.startswith("age1"):
         raise ValueError("Explicit distinct contexts, scopes and encryption required")
+    if any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", n) or n in ("kube-system", "kube-public", "kube-node-lease", "default") for n in namespaces):
+        raise ValueError("Exact non-system namespaces required")
     source_uid = get(source, "namespace/kube-system")["metadata"]["uid"]
     target_uid = get(target, "namespace/kube-system")["metadata"]["uid"]
     if source_uid == target_uid:
@@ -106,19 +109,40 @@ def snapshot(source, target, namespaces, recipient, archive):
                     continue
                 if kind == "rolebindings" and item["roleRef"]["kind"] == "ClusterRole":
                     cluster_roles.add(item["roleRef"]["name"])
-                objects.append(clean(item))
-    bindings = get(source, "clusterrolebindings")["items"]
+                projected = clean(item)
+                if kind == "persistentvolumeclaims":
+                    # Component comes from the reviewed namespace's actual
+                    # workload mount, not the claim name or an invented owner.
+                    components = set()
+                    for workload_kind in ("deployments", "statefulsets"):
+                        for workload in get(source, workload_kind, namespace)["items"]:
+                            pod = workload["spec"]["template"]
+                            volumes = {v["name"]: v.get("persistentVolumeClaim", {}).get("claimName") for v in pod["spec"].get("volumes", [])}
+                            for container in pod["spec"]["containers"]:
+                                if any(volumes.get(m["name"]) == item["metadata"]["name"] for m in container.get("volumeMounts", [])):
+                                    labels = pod["metadata"].get("labels", {})
+                                    component = labels.get("envplane.io/component") or labels.get("app.kubernetes.io/component") or container["name"]
+                                    components.add(component)
+                    if len(components) == 1:
+                        projected["metadata"].setdefault("labels", {})["app.kubernetes.io/component"] = components.pop()
+                objects.append(projected)
+    accounts = {(o["metadata"]["namespace"], o["metadata"]["name"]) for o in objects if o["kind"] == "ServiceAccount" and o["metadata"]["namespace"] != "flux-system"}
+    bindings = get(source, "clusterrolebindings")["items"] if accounts else []
     for binding in bindings:
-        if any(s.get("namespace") == "envplane-system" for s in binding.get("subjects", [])):
+        subjects = binding.get("subjects", [])
+        if subjects and all(s.get("kind") == "ServiceAccount" and (s.get("namespace"), s.get("name")) in accounts for s in subjects):
+            if binding["roleRef"]["name"] in ("admin", "edit", "view", "cluster-admin") or binding["roleRef"]["name"].startswith("system:"):
+                raise ValueError("Broad builtin cluster binding requires separate review")
             objects.append(clean(binding))
             cluster_roles.add(binding["roleRef"]["name"])
     for name in sorted(cluster_roles):
         if name in ("admin", "edit", "view", "cluster-admin") or name.startswith("system:"):
             continue
         objects.append(clean(get(source, "clusterrole/" + name)))
-    for kind in ("gitrepositories.source.toolkit.fluxcd.io", "kustomizations.kustomize.toolkit.fluxcd.io"):
-        for obj in get(source, kind, "flux-system")["items"]:
-            objects.append(clean(obj))
+    if "flux-system" in namespaces:
+        for kind in ("gitrepositories.source.toolkit.fluxcd.io", "kustomizations.kustomize.toolkit.fluxcd.io"):
+            for obj in get(source, kind, "flux-system")["items"]:
+                objects.append(clean(obj))
     bundle = {"schemaVersion": 1, "source": source, "target": target, "sourceUID": source_uid, "targetUID": target_uid, "namespaces": namespaces, "objects": objects}
     with os.fdopen(os.open(archive, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), "wb") as out:
         result = subprocess.run(["age", "-r", recipient], input=json.dumps(bundle).encode(), stdout=out, stderr=subprocess.DEVNULL)
@@ -127,16 +151,48 @@ def snapshot(source, target, namespaces, recipient, archive):
     print(json.dumps({"encrypted": True, "objectCount": len(objects), "archiveSHA256": sha(archive), "sourceUntouched": True}))
 
 
+RANKS = {"Namespace": 0, "ClusterRole": 1, "ServiceAccount": 2, "Secret": 3, "ConfigMap": 4, "Role": 5, "ClusterRoleBinding": 6, "RoleBinding": 6, "PersistentVolumeClaim": 7, "Service": 8, "Deployment": 9, "StatefulSet": 9, "Ingress": 10, "NetworkPolicy": 10, "GitRepository": 11, "Kustomization": 12}
+
+
+def validate_bundle(bundle):
+    scopes = bundle["namespaces"]
+    if not scopes or len(scopes) != len(set(scopes)):
+        raise ValueError("Exact unique restore namespace allowlist required")
+    identities = set()
+    for item in bundle["objects"]:
+        kind, meta = item["kind"], item["metadata"]
+        if kind not in RANKS:
+            raise ValueError("Unsupported restore kind")
+        namespace = meta.get("namespace")
+        if kind == "Namespace":
+            if meta["name"] not in scopes:
+                raise ValueError("Namespace outside reviewed scope")
+        elif kind not in ("ClusterRole", "ClusterRoleBinding") and namespace not in scopes:
+            raise ValueError("Object outside reviewed namespace scope")
+        identity = (kind, namespace, meta["name"])
+        if identity in identities:
+            raise ValueError("Duplicate restore identity")
+        identities.add(identity)
+        if kind in ("Deployment", "StatefulSet") and item["spec"].get("replicas") != 0:
+            raise ValueError("Restore workloads must stay stopped")
+        if kind in ("Kustomization", "GitRepository") and item["spec"].get("suspend") is not True:
+            raise ValueError("Restore Flux must remain suspended")
+        if kind == "Secret" and item.get("type") == "kubernetes.io/service-account-token":
+            raise ValueError("Autogenerated source tokens cannot be restored")
+        if kind == "ClusterRoleBinding" and any(s.get("kind") != "ServiceAccount" or s.get("namespace") not in scopes for s in item.get("subjects", [])):
+            raise ValueError("Cluster binding subjects escaped reviewed scope")
+
+
 def restore(archive, expected, identity, target, approved):
     if target != approved or sha(archive) != expected or os.stat(identity).st_mode & 0o077 or os.path.islink(identity):
         raise ValueError("Reviewed encrypted checksum, private identity and exact target approval required")
     bundle = json.loads(command(["age", "-d", "-i", identity, archive]))
+    validate_bundle(bundle)
     if bundle["target"] != target or bundle["source"] == target or bundle["sourceUID"] == bundle["targetUID"]:
         raise ValueError("Wrong target")
     if get(target, "namespace/kube-system")["metadata"]["uid"] != bundle["targetUID"] or get(bundle["source"], "namespace/kube-system")["metadata"]["uid"] != bundle["sourceUID"]:
         raise ValueError("Cluster identity drift")
-    ranks = {"Namespace": 0, "ClusterRole": 1, "ServiceAccount": 2, "Secret": 3, "ConfigMap": 4, "Role": 5, "ClusterRoleBinding": 6, "RoleBinding": 6, "PersistentVolumeClaim": 7, "Service": 8, "Deployment": 9, "StatefulSet": 9, "Ingress": 10, "NetworkPolicy": 10, "GitRepository": 11, "Kustomization": 12}
-    for item in sorted(bundle["objects"], key=lambda item: ranks[item["kind"]]):
+    for item in sorted(bundle["objects"], key=lambda item: RANKS[item["kind"]]):
         namespace = item["metadata"].get("namespace")
         # The candidate has its own pinned Flux installation. Do not adopt or
         # override its controller identities using the source Helm release.
