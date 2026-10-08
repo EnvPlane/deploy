@@ -1,0 +1,205 @@
+{{- if .Values.enabled }}
+{{- if not .Values.allowReadOnlyHostPath }}
+{{- fail "storage verifier requires explicit allowReadOnlyHostPath administrator approval" }}
+{{- end }}
+{{- $node := required "nodeName is required for node-local storage verification" .Values.nodeName }}
+{{- $tenant := required "tenantId is required" .Values.tenantId }}
+{{- $cluster := required "clusterId is required" .Values.clusterId }}
+{{- if lt (int .Values.clusterGeneration) 1 }}
+{{- fail "positive clusterGeneration is required" }}
+{{- end }}
+{{- $tls := required "existingTLSSecret is required" .Values.existingTLSSecret }}
+{{- $ca := required "existingClientCASecret is required" .Values.existingClientCASecret }}
+{{- $signing := required "existingSigningSecret is required" .Values.existingSigningSecret }}
+{{- $keyID := required "signingKeyId is required" .Values.signingKeyId }}
+{{- if not (has .Values.service.type (list "ClusterIP" "NodePort" "LoadBalancer")) }}
+{{- fail "service.type must preserve end-to-end mTLS (ClusterIP, NodePort or LoadBalancer)" }}
+{{- end }}
+{{- if and .Values.existingErasureCertificatesSecret (not .Values.existingErasurePublicKeysConfigMap) }}
+{{- fail "independent erasure public keys are required with an erasure certificate Secret" }}
+{{- end }}
+{{- $image := required "image.repository is required" .Values.image.repository }}
+{{- if .Values.image.digest }}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" .Values.image.digest) }}
+{{- fail "image.digest must be an exact sha256 digest" }}
+{{- end }}
+{{- $image = printf "%s@%s" $image .Values.image.digest }}
+{{- else }}
+{{- $tag := required "an exact image.tag or image.digest is required" .Values.image.tag }}
+{{- if eq $tag "latest" }}{{ fail "latest image tags are forbidden" }}{{ end }}
+{{- $image = printf "%s:%s" $image $tag }}
+{{- end }}
+{{- if or (eq (len .Values.roots) 0) (gt (len .Values.roots) 8) }}
+{{- fail "one to eight explicit storage roots are required" }}
+{{- end }}
+{{- range .Values.roots }}
+{{- if or (eq .originalRoot "/") (eq .mountRoot "/") (not (hasPrefix "/" .originalRoot)) (not (hasPrefix "/host-storage/" .mountRoot)) (contains ".." .originalRoot) (contains ".." .mountRoot) }}
+{{- fail "storage roots must be bounded absolute subdirectories; host root and traversal are forbidden" }}
+{{- end }}
+{{- end }}
+{{- $name := printf "%s-storage-verifier" .Release.Name | trunc 63 | trimSuffix "-" }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ printf "%s-%s" .Release.Namespace $name | trunc 63 | trimSuffix "-" }}
+rules:
+  - apiGroups: [""]
+    resources: [persistentvolumes, persistentvolumeclaims, namespaces]
+    verbs: [get, list, watch]
+  - apiGroups: [storage.k8s.io]
+    resources: [storageclasses]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ printf "%s-%s" .Release.Namespace $name | trunc 63 | trimSuffix "-" }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ printf "%s-%s" .Release.Namespace $name | trunc 63 | trimSuffix "-" }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-inventory
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if .Values.inventory.storageClassName }}
+  storageClassName: {{ .Values.inventory.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.inventory.size | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if or (eq .Values.service.type "NodePort") (eq .Values.service.type "LoadBalancer") }}
+  externalTrafficPolicy: Local
+  {{- end }}
+  selector: {app: {{ $name }}}
+  ports:
+    - name: https
+      port: {{ .Values.service.port }}
+      targetPort: https
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: {{ $name }}}
+  template:
+    metadata:
+      labels: {app: {{ $name }}}
+    spec:
+      serviceAccountName: {{ $name }}
+      nodeName: {{ $node | quote }}
+      securityContext:
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: private-inventory-directory
+          image: {{ $image | quote }}
+          command: [/bin/sh, -ec]
+          args:
+            - 'umask 077; mkdir -p /var/lib/storage-verifier/state; test ! -L /var/lib/storage-verifier/state; test "$(stat -c %a /var/lib/storage-verifier/state)" = 700'
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: inventory, mountPath: /var/lib/storage-verifier}
+      containers:
+        - name: verifier
+          image: {{ $image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: [/usr/local/bin/storage-verifier]
+          args:
+            - --listen=:9443
+            - --tls-cert-file=/tls/tls.crt
+            - --tls-key-file=/tls/tls.key
+            - --client-ca-file=/client-ca/ca.crt
+            - --signing-key-file=/signing/key
+            - {{ printf "--key-id=%s" $keyID | quote }}
+            - --inventory-file=/var/lib/storage-verifier/state/inventory.json
+            - --certificate-dir=/erasure-certificates
+            {{- if .Values.existingErasurePublicKeysConfigMap }}
+            - --erasure-public-keys-file=/erasure-trust/keys.json
+            {{- end }}
+            - {{ printf "--node-name=%s" $node | quote }}
+            - {{ printf "--tenant-id=%s" $tenant | quote }}
+            - {{ printf "--cluster-id=%s" $cluster | quote }}
+            - {{ printf "--generation=%d" (int .Values.clusterGeneration) | quote }}
+            - {{ printf "--roots-json=%s" (toJson .Values.roots) | quote }}
+            - --kube-inventory=true
+            - --inventory-sync-interval=30s
+          securityContext:
+            # Administrator-controlled root is needed to stat protected local
+            # directories and read root-owned Secret mounts, not mutate data.
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          ports: [{name: https, containerPort: 9443}]
+          livenessProbe: {tcpSocket: {port: https}, initialDelaySeconds: 10}
+          readinessProbe: {tcpSocket: {port: https}, initialDelaySeconds: 5}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tls, mountPath: /tls, readOnly: true}
+            - {name: client-ca, mountPath: /client-ca, readOnly: true}
+            - {name: signing, mountPath: /signing/key, subPath: key, readOnly: true}
+            - {name: inventory, mountPath: /var/lib/storage-verifier}
+            - {name: erasure-certificates, mountPath: /erasure-certificates, readOnly: true}
+            {{- if .Values.existingErasurePublicKeysConfigMap }}
+            - {name: erasure-trust, mountPath: /erasure-trust, readOnly: true}
+            {{- end }}
+            {{- range $index, $root := .Values.roots }}
+            - {name: {{ printf "storage-root-%d" $index }}, mountPath: {{ $root.mountRoot | quote }}, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: tls
+          secret: {secretName: {{ $tls }}, defaultMode: 0400}
+        - name: client-ca
+          secret: {secretName: {{ $ca }}, defaultMode: 0444}
+        - name: signing
+          secret: {secretName: {{ $signing }}, defaultMode: 0400}
+        - name: inventory
+          persistentVolumeClaim: {claimName: {{ $name }}-inventory}
+        - name: erasure-certificates
+          {{- if .Values.existingErasureCertificatesSecret }}
+          secret: {secretName: {{ .Values.existingErasureCertificatesSecret }}, defaultMode: 0400}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.existingErasurePublicKeysConfigMap }}
+        - name: erasure-trust
+          configMap: {name: {{ .Values.existingErasurePublicKeysConfigMap }}, defaultMode: 0444}
+        {{- end }}
+        {{- range $index, $root := .Values.roots }}
+        - name: {{ printf "storage-root-%d" $index }}
+          hostPath: {path: {{ $root.originalRoot | quote }}, type: Directory}
+        {{- end }}
+{{- end }}

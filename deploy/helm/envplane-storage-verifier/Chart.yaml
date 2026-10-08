@@ -1,0 +1,6 @@
+apiVersion: v2
+name: envplane-storage-verifier
+description: Opt-in read-only node-local storage evidence verifier.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

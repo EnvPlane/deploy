@@ -1,0 +1,33 @@
+# Separate administrator installation; never a project Agent/Runner dependency.
+enabled: false
+allowReadOnlyHostPath: false
+nodeName: ""
+tenantId: ""
+clusterId: ""
+clusterGeneration: 0
+image:
+  repository: ghcr.io/envplane/control-plane
+  tag: ""
+  digest: ""
+existingTLSSecret: ""
+existingClientCASecret: ""
+existingSigningSecret: ""
+signingKeyId: ""
+service:
+  type: ClusterIP
+  port: 9443
+  nodePort: null
+# Optional independently issued completed certificates; not this verifier's key.
+existingErasureCertificatesSecret: ""
+existingErasurePublicKeysConfigMap: ""
+inventory:
+  storageClassName: ""
+  size: 64Mi
+roots:
+  - originalRoot: /opt/envplane-local-path
+    mountRoot: /host-storage/local-path
+  - originalRoot: /tmp/hostpath-provisioner
+    mountRoot: /host-storage/minikube
+resources:
+  requests: {cpu: 25m, memory: 64Mi}
+  limits: {cpu: 250m, memory: 256Mi}
