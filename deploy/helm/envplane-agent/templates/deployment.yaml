@@ -201,6 +201,20 @@ spec:
               value: {{ .Values.rbac.discovery.readFlux | quote }}
             - name: ENVPLANE_FINOPS_NODE_INVENTORY_ENABLED
               value: {{ .Values.rbac.discovery.nodeInventoryEnabled | quote }}
+            - name: ENVPLANE_FINOPS_CADVISOR_CONTAINERD_UID_ENABLED
+              value: {{ default false $finops.cadvisorContainerdUIDEnabled | quote }}
+            - name: ENVPLANE_FINOPS_PROMETHEUS_ENDPOINT
+              value: {{ default "" $finops.prometheusEndpoint | quote }}
+            - name: ENVPLANE_FINOPS_PROMETHEUS_ALLOWED_ORIGINS
+              value: {{ join "," (default (list) $finops.allowedOrigins) | quote }}
+            - name: ENVPLANE_FINOPS_STORAGE_USED_METRIC
+              value: {{ default "kubelet_volume_stats_used_bytes" $finops.storageUsedMetric | quote }}
+            - name: ENVPLANE_FINOPS_PROMETHEUS_TLS_SERVER_NAME
+              value: {{ default "" $finops.tlsServerName | quote }}
+            {{- if $finopsCA }}
+            - name: ENVPLANE_FINOPS_PROMETHEUS_CA_FILE
+              value: {{ printf "/etc/envplane-finops-ca/%s" (default "ca.crt" $finops.caKey) | quote }}
+            {{- end }}
             - name: ENVPLANE_FLUX_STATUS_ENABLED
               value: {{ .Values.rbac.fluxStatus.enabled | quote }}
             {{- with .Values.rbac.fluxStatus.kustomizationName }}
