@@ -28,7 +28,58 @@ operation was run during this review. Failed prepare/rollout can leave an owned
 temporary Secret; do not auto-delete unrelated resources or force a rollback.
 Historical temporary Secrets without the UID ownership label require manual review.
 
-Generic credential lifecycle remains OPEN; this fixture repair is not its fix.
+## Durable materializer prevention (local code, no live changes)
+
+The Agent generated-secret executor previously called the random generator on
+every execution and then applied those new bytes over an owned existing Secret.
+Kubernetes SSA idempotency did not make random passwords idempotent. Runner and
+bootstrap do not implement another random generator: bootstrap compiles typed
+references/generator profiles; the Agent executes them on the target cluster.
+
+Local prevention now reads/reuses the existing owned credential without a write.
+A metadata-only identity digest binds tenant, project, environment, item, target
+name and generator, independent of plan revision or namespace UID. Legacy Secrets
+are reusable only with their exact original plan digest. No password/hash of a
+password is persisted in command/status/Git; credential bytes remain in the target
+Secret. Kubernetes encryption at rest is still an administrator prerequisite;
+this change does not configure encryption or create a new escrow service.
+
+All five supported DB profiles check application/engine aliases before reuse.
+Creation uses atomic POST, so concurrent creators cannot overwrite a winner.
+Missing credentials fail closed when any PVC exists in the target namespace;
+unknown/denied inventory also fails closed. Cleanup refuses to delete generated
+database Secrets until all namespace PVCs are removed. This deliberately includes
+Pending claims and unrelated claims: no guessed claim-to-database association or
+implicit permission widening. Existing installer PVC list/create Secret permissions
+are required; no new permissions have been granted during this iteration.
+
+Regression coverage includes create, restart/replay, recreate, restored Secret
+with retained PVC, missing Secret with retained PVC, changed plan/foreign environment,
+legacy records, alias mismatch, denied/malformed inventory and concurrent creation.
+These are mocked unit/HTTP tests, not five live database engine restore tests.
+
+### Remaining explicit constraints
+
+- Existing historical DB-account/Secret mismatches cannot be detected from Secret
+  aliases alone. No automatic account mutation, rotation or auth bypass was added.
+- Restore must restore the approved encrypted credential **with** its data before
+  provisioning. An orphan retained PV or data restored later is not discoverable
+  through namespace PVC inventory. Concurrent external PVC restoration after the
+  inventory check is not an atomic Kubernetes transaction; the restore coordinator
+  must serialize restore and provisioning.
+- Generic encrypted credential escrow, renamed-target restore mapping and approved
+  engine-specific rotation workflows remain OPEN and require coordinated contract,
+  lifecycle/approval and engine integration work. No plaintext credential reference
+  or control-plane Secret payload was introduced as a shortcut.
+- Revised-plan reuse intentionally leaves original cleanup ownership intact. A
+  newer cleanup plan cannot silently adopt/delete the old Secret; review its original
+  ownership or provide a separately approved ownership migration.
+- Namespace-wide preservation can block unrelated DB initialization/cleanup. Future
+  exact DB/PVC binding must come from an immutable reviewed lifecycle contract, not
+  inference from names.
+
+The fixture recovery and prevention are distinct. Do not mark the entire generic
+credential/rotation/restore lifecycle closed on the strength of these local tests.
 
 ## Codex implementation prompt
 
