@@ -69,6 +69,12 @@ ingress:
     secretName: envplane-tls
     hosts: []
 
+finops:
+  postgres:
+    # Optional separate least-privilege ledger connection for legacy privileged DB roles.
+    existingSecret: ""
+    dsnKey: dsn
+
 env:
   ENVPLANE_API_CONTRACT_VERSION: "1"
   ENVPLANE_PRODUCT_TELEMETRY_EXPORT_ENABLED: "false"

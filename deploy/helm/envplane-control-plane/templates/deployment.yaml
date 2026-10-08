@@ -493,6 +493,14 @@ spec:
                   name: {{ required "postgres.external.existingSecret is required when postgres.mode=external" .Values.postgres.external.existingSecret | quote }}
                   key: {{ .Values.postgres.external.urlKey | quote }}
             {{- end }}
+            {{- $finopsPostgres := default (dict) (get (default (dict) .Values.finops) "postgres") }}
+            {{- if get $finopsPostgres "existingSecret" }}
+            - name: ENVPLANE_FINOPS_POSTGRES_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ get $finopsPostgres "existingSecret" | quote }}
+                  key: {{ default "dsn" (get $finopsPostgres "dsnKey") | quote }}
+            {{- end }}
             {{- if eq $redisMode "internal" }}
             - name: REDIS_PASSWORD
               valueFrom:
