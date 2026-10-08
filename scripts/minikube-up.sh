@@ -26,7 +26,7 @@ VALUES="$CHART/values-minikube.yaml"
 log() { printf '\n==> %s\n' "$*"; }
 
 # --- prerequisites ---------------------------------------------------------
-for bin in minikube kubectl helm docker; do
+for bin in minikube kubectl helm docker python3; do
   command -v "$bin" >/dev/null 2>&1 || { echo "ERROR: '$bin' is required but not installed." >&2; exit 1; }
 done
 [[ -f "$CONTROL_PLANE_DIR/Dockerfile" ]] || { echo "ERROR: control-plane repo not found at $CONTROL_PLANE_DIR" >&2; exit 1; }
@@ -38,8 +38,16 @@ done
 if minikube -p "$PROFILE" status >/dev/null 2>&1; then
   log "minikube profile '$PROFILE' already running"
 else
+  # Do not apply a different CNI to an existing stopped/broken profile.
+  # Failure to inventory profiles is a blocker, never evidence of absence.
+  if minikube profile list -o json | python3 -c 'import json,sys; d=json.load(sys.stdin); names=[p["Name"] for k in ("valid","invalid") for p in d.get(k,[])]; sys.exit(0 if sys.argv[1] not in names else 1)' "$PROFILE"; then
+    :
+  else
+    echo "ERROR: profile exists or inventory failed; restore/review it without changing its CNI." >&2
+    exit 1
+  fi
   log "Starting minikube profile '$PROFILE'"
-  minikube start -p "$PROFILE" --cpus=4 --memory=6g
+  minikube start -p "$PROFILE" --cpus=4 --memory=6g --cni=calico
 fi
 
 # --- images ----------------------------------------------------------------
