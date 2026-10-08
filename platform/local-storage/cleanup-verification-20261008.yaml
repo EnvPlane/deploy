@@ -1,0 +1,50 @@
+# Disposable marker-only storage test; not an application or production volume.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: envplane-storage-cleanup-1008-a
+  labels: {envplane.io/purpose: storage-cleanup-verification}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: standard-probe, namespace: envplane-storage-cleanup-1008-a}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: standard
+  resources: {requests: {storage: 16Mi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: local-path-probe, namespace: envplane-storage-cleanup-1008-a}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: envplane-local-path
+  resources: {requests: {storage: 16Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: standard-probe, namespace: envplane-storage-cleanup-1008-a}
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  containers:
+    - name: probe
+      image: docker.io/library/busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+      command: [sh, -c, "printf storage-cleanup-20261008 > /data/cleanup-marker; sync; sleep 3600"]
+      resources: {requests: {cpu: 10m, memory: 8Mi}, limits: {cpu: 100m, memory: 32Mi}}
+      volumeMounts: [{name: data, mountPath: /data}]
+  volumes: [{name: data, persistentVolumeClaim: {claimName: standard-probe}}]
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: local-path-probe, namespace: envplane-storage-cleanup-1008-a}
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  containers:
+    - name: probe
+      image: docker.io/library/busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+      command: [sh, -c, "printf storage-cleanup-20261008 > /data/cleanup-marker; sync; sleep 3600"]
+      resources: {requests: {cpu: 10m, memory: 8Mi}, limits: {cpu: 100m, memory: 32Mi}}
+      volumeMounts: [{name: data, mountPath: /data}]
+  volumes: [{name: data, persistentVolumeClaim: {claimName: local-path-probe}}]
