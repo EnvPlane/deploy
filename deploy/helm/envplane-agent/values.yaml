@@ -120,6 +120,15 @@ bootstrap:
 agent:
   id: ""
   heartbeatSeconds: 30
+  finops:
+    nodeInventoryEnabled: false
+    cadvisorContainerdUIDEnabled: false
+    prometheusEndpoint: ""
+    allowedOrigins: []
+    storageUsedMetric: kubelet_volume_stats_used_bytes
+    tlsServerName: ""
+    caSecret: ""
+    caKey: ca.crt
   authPersistence:
     enabled: true
     # Durable modes are mutually exclusive: managed creates a retained PVC,

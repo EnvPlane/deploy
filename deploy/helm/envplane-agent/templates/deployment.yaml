@@ -4,6 +4,9 @@
 {{- $firstStartEnabled := eq (include "envplane-agent.usesFirstStartRegistration" .) "true" -}}
 {{- $controlPlaneEndpoint := include "envplane-agent.controlPlaneEndpoint" . -}}
 {{- $controlPlaneTLS := default (dict) .Values.controlPlane.tls -}}
+{{- $finops := default (dict) .Values.agent.finops -}}
+{{- $finopsCA := default "" $finops.caSecret -}}
+{{- $authVolume := and .Values.agent.authPersistence.enabled (ne (include "envplane-agent.authPersistenceMode" .) "externalSecret") -}}
 {{- $discoveryScope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $watchNamespaces := .Values.watch.namespaces -}}
 {{- $managedRemote := default (dict) .Values.managedRemote -}}
@@ -80,6 +83,22 @@ spec:
           args:
             - agent-connectivity-check
           env:
+            - name: ENVPLANE_FINOPS_NODE_INVENTORY_ENABLED
+              value: {{ default false $finops.nodeInventoryEnabled | quote }}
+            - name: ENVPLANE_FINOPS_CADVISOR_CONTAINERD_UID_ENABLED
+              value: {{ default false $finops.cadvisorContainerdUIDEnabled | quote }}
+            - name: ENVPLANE_FINOPS_PROMETHEUS_ENDPOINT
+              value: {{ default "" $finops.prometheusEndpoint | quote }}
+            - name: ENVPLANE_FINOPS_PROMETHEUS_ALLOWED_ORIGINS
+              value: {{ join "," (default (list) $finops.allowedOrigins) | quote }}
+            - name: ENVPLANE_FINOPS_STORAGE_USED_METRIC
+              value: {{ default "kubelet_volume_stats_used_bytes" $finops.storageUsedMetric | quote }}
+            - name: ENVPLANE_FINOPS_PROMETHEUS_TLS_SERVER_NAME
+              value: {{ default "" $finops.tlsServerName | quote }}
+            {{- if $finopsCA }}
+            - name: ENVPLANE_FINOPS_PROMETHEUS_CA_FILE
+              value: {{ printf "/etc/envplane-finops-ca/%s" (default "ca.crt" $finops.caKey) | quote }}
+            {{- end }}
             - name: ENVPLANE_CONTROL_PLANE_URL
               value: {{ $controlPlaneEndpoint | quote }}
             - name: ENVPLANE_CONTROL_PLANE_ENDPOINT_MODE
@@ -240,23 +259,26 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if and .Values.agent.authPersistence.enabled (ne (include "envplane-agent.authPersistenceMode" .) "externalSecret") }}
+          {{- if or $authVolume $controlPlaneTLS.caSecret $finopsCA }}
           volumeMounts:
+            {{- if $authVolume }}
             - name: {{ .Values.agent.authPersistence.volumeName | quote }}
               mountPath: {{ .Values.agent.authPersistence.mountPath | quote }}
+            {{- end }}
             {{- if $controlPlaneTLS.caSecret }}
             - name: control-plane-ca
               mountPath: {{ $controlPlaneTLS.mountPath | quote }}
               readOnly: true
             {{- end }}
-          {{- else if $controlPlaneTLS.caSecret }}
-          volumeMounts:
-            - name: control-plane-ca
-              mountPath: {{ $controlPlaneTLS.mountPath | quote }}
+            {{- if $finopsCA }}
+            - name: finops-ca
+              mountPath: /etc/envplane-finops-ca
               readOnly: true
+            {{- end }}
           {{- end }}
-      {{- if and .Values.agent.authPersistence.enabled (ne (include "envplane-agent.authPersistenceMode" .) "externalSecret") }}
+      {{- if or $authVolume $controlPlaneTLS.caSecret $finopsCA }}
       volumes:
+        {{- if $authVolume }}
         - name: {{ .Values.agent.authPersistence.volumeName | quote }}
           {{- $authMode := include "envplane-agent.authPersistenceMode" . }}
           {{- if eq $authMode "externalPVC" }}
@@ -269,6 +291,14 @@ spec:
           emptyDir:
             {{- toYaml .Values.agent.authPersistence.emptyDir | nindent 12 }}
           {{- end }}
+        {{- end }}
+      {{- if $finopsCA }}
+        - name: finops-ca
+          secret:
+            secretName: {{ $finopsCA | quote }}
+            items:
+              - key: {{ default "ca.crt" $finops.caKey | quote }}
+                path: {{ default "ca.crt" $finops.caKey | quote }}
       {{- end }}
       {{- if $controlPlaneTLS.caSecret }}
         - name: control-plane-ca
@@ -277,6 +307,7 @@ spec:
             items:
               - key: {{ $controlPlaneTLS.caKey | quote }}
                 path: {{ $controlPlaneTLS.caKey | quote }}
+      {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

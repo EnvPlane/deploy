@@ -2,6 +2,24 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "agent": {
+      "type": "object",
+      "properties": {
+        "finops": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "nodeInventoryEnabled": {"type": "boolean"},
+            "cadvisorContainerdUIDEnabled": {"type": "boolean"},
+            "prometheusEndpoint": {"type": "string", "pattern": "^(https://[^@?#]+)?$"},
+            "allowedOrigins": {"type": "array", "maxItems": 8, "items": {"type": "string", "pattern": "^https://[^/@?#]+/?$"}},
+            "storageUsedMetric": {"type": "string", "enum": ["", "kubelet_volume_stats_used_bytes", "envplane_pvc_directory_allocated_bytes"]},
+            "tlsServerName": {"type": "string"},
+            "caSecret": {"type": "string"},
+            "caKey": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+$"}
+          }
+        }
+      }
+    },
     "rbac": {
       "type": "object",
       "properties": {
