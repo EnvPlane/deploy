@@ -17,6 +17,18 @@ end.compact
 duplicates = identities.group_by(&:itself).select { |_identity, entries| entries.length > 1 }.keys
 abort "renderer emitted duplicate Kubernetes identities: #{duplicates.inspect}" unless duplicates.empty?
 puts "renderer Kubernetes identities are unique"
+metrics = docs.select { |d| d.is_a?(Hash) && d.fetch("rules", []).any? { |r| r["apiGroups"] == ["metrics.k8s.io"] } }
+expected = ["envplane-remote-cluster-customer-west-discovery-parent", "envplane-remote-cluster-customer-west-discovery-reader"]
+abort "unexpected metrics roles" unless metrics.map { |d| d.dig("metadata", "name") }.sort == expected.sort
+metrics.each do |doc|
+  doc["rules"].select { |r| r["apiGroups"] == ["metrics.k8s.io"] }.each do |rule|
+    abort "metrics must be get/list pods only" unless rule["resources"] == ["pods"] && rule["verbs"] == ["get", "list"]
+  end
+end
+parent = expected.first
+bindings = docs.select { |d| d.is_a?(Hash) && d.dig("roleRef", "name") == parent }
+abort "metrics parent must not grant cluster-wide access" if bindings.any? { |d| d["kind"] != "RoleBinding" }
+abort "metrics parent binding namespace escaped allowlist" unless bindings.all? { |d| ["base-api", "envplane-system"].include?(d.dig("metadata", "namespace")) }
 '
 
 grep -Fq 'name: envplane-remote-cluster-customer-west-cluster-capability-reader' "$rendered"

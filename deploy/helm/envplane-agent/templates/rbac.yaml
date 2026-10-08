@@ -18,6 +18,9 @@
   resources: ["secrets"]
   verbs: ["get","list","watch"]
 {{- end }}
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods"]
+  verbs: ["get","list"]
 - apiGroups: ["apps"]
   resources: ["deployments","daemonsets","statefulsets"]
   verbs: ["get","list","watch"]

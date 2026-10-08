@@ -322,6 +322,9 @@ rules:
   # project Runner's feature-env-writer contract. They apply only in the
   # dedicated executor namespace; feature namespaces and Secrets outside it
   # remain inaccessible to the control plane.
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["configmaps", "endpoints", "events", "limitranges", "resourcequotas", "services"]
     verbs: ["get", "list", "watch"]
@@ -401,6 +404,9 @@ rules:
   # namespace-scoped discovery Role unless the reconciler itself holds the
   # delegated read contract. Keep this read-only and omit Secrets: project
   # Agent discovery is workload metadata only.
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["pods", "services", "endpoints", "events", "configmaps", "resourcequotas", "limitranges", "persistentvolumeclaims", "serviceaccounts"]
     verbs: ["get", "list", "watch"]

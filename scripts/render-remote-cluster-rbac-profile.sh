@@ -407,6 +407,9 @@ kind: ClusterRole
 metadata:
   name: $prefix-discovery-parent
 rules:
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["services", "configmaps", "resourcequotas", "limitranges", "persistentvolumeclaims", "serviceaccounts", "pods", "events"]
     verbs: ["get", "list", "watch"]
@@ -503,6 +506,9 @@ metadata:
   name: $prefix-discovery-reader
   namespace: $namespace
 rules:
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["configmaps", "events", "persistentvolumeclaims", "serviceaccounts", "services", "pods", "resourcequotas", "limitranges"]
     verbs: ["get", "list", "watch"]
