@@ -81,6 +81,23 @@ These are mocked unit/HTTP tests, not five live database engine restore tests.
 The fixture recovery and prevention are distinct. Do not mark the entire generic
 credential/rotation/restore lifecycle closed on the strength of these local tests.
 
+## Subsequent bounded escrow/recovery implementation
+
+Local Agent code now provides authenticated AEAD escrow before target credential
+writes, exact binding/PVC verification, one-time initialization markers, conditional
+Secret cleanup and explicitly operator-authorized import from a named verified
+credential backup. Agent chart source `0.2.39` exposes opt-in existing key/binding
+Secret projections without default RBAC grants. See
+`docs/database-credential-escrow.md` and Agent ticket
+`issues/2026-10-08/database-lifecycle/lost-generated-database-credentials-encrypted-escrow.md`.
+
+This narrows the prior OPEN escrow item to production/normal-onboarding integration:
+protected key/escrow provisioning, exact approved fresh-PVC initialization order,
+installer delegation, audit UI and UID-changing restore mapping are not completed
+by enabling a chart flag. Existing accounts with unknown/no backup credentials
+still need explicit engine-native administrative recovery. No live import, key,
+Secret, PVC or account was created/changed during this code iteration.
+
 ## Codex implementation prompt
 
 Prevent generated Secret rotation while preserving existing database PVCs unless

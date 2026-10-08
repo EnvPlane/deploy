@@ -5,6 +5,22 @@
     "agent": {
       "type": "object",
       "properties": {
+        "databaseCredentialEscrow": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean", "default": false},
+            "namespace": {"type": "string", "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63},
+            "keyRef": {"type": "string"},
+            "keySecret": {"type": "string", "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+            "keySecretKey": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+$"},
+            "bindingsSecret": {"type": "string", "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+            "bindingsSecretKey": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+$"}
+          },
+          "if": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]},
+          "then": {"required": ["namespace", "keyRef", "keySecret", "bindingsSecret"], "properties": {
+            "namespace": {"minLength": 1}, "keyRef": {"minLength": 1}, "keySecret": {"minLength": 1}, "bindingsSecret": {"minLength": 1}
+          }}
+        },
         "finops": {
           "type": "object", "additionalProperties": false,
           "properties": {

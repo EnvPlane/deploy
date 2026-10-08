@@ -6,6 +6,8 @@
 {{- $controlPlaneTLS := default (dict) .Values.controlPlane.tls -}}
 {{- $finops := default (dict) .Values.agent.finops -}}
 {{- $finopsCA := default "" $finops.caSecret -}}
+{{- $dbEscrow := default (dict) .Values.agent.databaseCredentialEscrow -}}
+{{- $dbEscrowEnabled := default false $dbEscrow.enabled -}}
 {{- $authVolume := and .Values.agent.authPersistence.enabled (ne (include "envplane-agent.authPersistenceMode" .) "externalSecret") -}}
 {{- $discoveryScope := default "cluster" .Values.rbac.discovery.scope -}}
 {{- $watchNamespaces := .Values.watch.namespaces -}}
@@ -203,6 +205,18 @@ spec:
               value: {{ .Values.flux.namespace | quote }}
             - name: ENVPLANE_DISCOVERY_READ_FLUX
               value: {{ .Values.rbac.discovery.readFlux | quote }}
+            - name: ENVPLANE_DB_CREDENTIAL_ESCROW_ENABLED
+              value: {{ $dbEscrowEnabled | quote }}
+            {{- if $dbEscrowEnabled }}
+            - name: ENVPLANE_DB_CREDENTIAL_ESCROW_NAMESPACE
+              value: {{ required "databaseCredentialEscrow.namespace is required" $dbEscrow.namespace | quote }}
+            - name: ENVPLANE_DB_CREDENTIAL_ESCROW_KEY_REF
+              value: {{ required "databaseCredentialEscrow.keyRef is required" $dbEscrow.keyRef | quote }}
+            - name: ENVPLANE_DB_CREDENTIAL_ESCROW_KEY_FILE
+              value: /etc/envplane-db-escrow/key/key
+            - name: ENVPLANE_DB_CREDENTIAL_ESCROW_BINDINGS_FILE
+              value: /etc/envplane-db-escrow/bindings/bindings.json
+            {{- end }}
             - name: ENVPLANE_FINOPS_BASELINE_CAPACITY_ENABLED
               value: {{ default false $finops.baselineCapacityEnabled | quote }}
             - name: ENVPLANE_FINOPS_BASELINE_MEASURED_ENABLED
@@ -281,8 +295,16 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- if or $authVolume $controlPlaneTLS.caSecret $finopsCA }}
+          {{- if or $authVolume $controlPlaneTLS.caSecret $finopsCA $dbEscrowEnabled }}
           volumeMounts:
+            {{- if $dbEscrowEnabled }}
+            - name: database-escrow-key
+              mountPath: /etc/envplane-db-escrow/key
+              readOnly: true
+            - name: database-escrow-bindings
+              mountPath: /etc/envplane-db-escrow/bindings
+              readOnly: true
+            {{- end }}
             {{- if $authVolume }}
             - name: {{ .Values.agent.authPersistence.volumeName | quote }}
               mountPath: {{ .Values.agent.authPersistence.mountPath | quote }}
@@ -298,8 +320,24 @@ spec:
               readOnly: true
             {{- end }}
           {{- end }}
-      {{- if or $authVolume $controlPlaneTLS.caSecret $finopsCA }}
+      {{- if or $authVolume $controlPlaneTLS.caSecret $finopsCA $dbEscrowEnabled }}
       volumes:
+        {{- if $dbEscrowEnabled }}
+        - name: database-escrow-key
+          secret:
+            secretName: {{ required "databaseCredentialEscrow.keySecret is required" $dbEscrow.keySecret | quote }}
+            defaultMode: 0440
+            items:
+              - key: {{ default "key" $dbEscrow.keySecretKey | quote }}
+                path: key
+        - name: database-escrow-bindings
+          secret:
+            secretName: {{ required "databaseCredentialEscrow.bindingsSecret is required" $dbEscrow.bindingsSecret | quote }}
+            defaultMode: 0440
+            items:
+              - key: {{ default "bindings.json" $dbEscrow.bindingsSecretKey | quote }}
+                path: bindings.json
+        {{- end }}
         {{- if $authVolume }}
         - name: {{ .Values.agent.authPersistence.volumeName | quote }}
           {{- $authMode := include "envplane-agent.authPersistenceMode" . }}

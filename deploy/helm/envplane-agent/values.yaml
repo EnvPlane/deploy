@@ -120,6 +120,16 @@ bootstrap:
 agent:
   id: ""
   heartbeatSeconds: 30
+  # Opt-in only. Keys/bindings must already exist and escrow namespace RBAC must
+  # be separately administrator-reviewed; this chart provisions neither.
+  databaseCredentialEscrow:
+    enabled: false
+    namespace: ""
+    keyRef: ""
+    keySecret: ""
+    keySecretKey: key
+    bindingsSecret: ""
+    bindingsSecretKey: bindings.json
   finops:
     baselineCapacityEnabled: false
     baselineMeasuredEnabled: false
