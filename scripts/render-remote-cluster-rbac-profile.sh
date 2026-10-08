@@ -12,6 +12,8 @@ Usage: render-remote-cluster-rbac-profile.sh --cluster-id ID [options]
 Options:
   --runtime-namespace NAME   Namespace for the envplane target runtimes (default: envplane-system)
   --managed-namespace NAME   Existing namespace for read-only workload discovery; repeatable
+  --deployment-backend NAME  Installation mode: helm-direct (default) or fluxcd
+  --flux-control-namespace NAME  Flux control namespace for fluxcd mode (default: flux-system)
   --flux-namespace NAME      Existing namespace that also permits read-only Flux status; repeatable
   --flux-status-reader-namespace NAME  Opt-in installer get-only Kustomization delegation parent; repeatable
   --project-id ID            Include computed Agent binding identities for review; repeatable
@@ -24,6 +26,8 @@ runtime_namespace="envplane-system"
 managed_namespaces=()
 flux_namespaces=()
 flux_status_namespaces=()
+deployment_backend="helm-direct"
+flux_control_namespace="flux-system"
 project_ids=()
 
 require_option_value() {
@@ -40,6 +44,8 @@ while [[ $# -gt 0 ]]; do
     --cluster-id) require_option_value "$@"; cluster_id="$2"; shift 2 ;;
     --runtime-namespace) require_option_value "$@"; runtime_namespace="$2"; shift 2 ;;
     --managed-namespace) require_option_value "$@"; managed_namespaces+=("$2"); shift 2 ;;
+    --deployment-backend) require_option_value "$@"; deployment_backend="$2"; shift 2 ;;
+    --flux-control-namespace) require_option_value "$@"; flux_control_namespace="$2"; shift 2 ;;
     --flux-namespace) require_option_value "$@"; flux_namespaces+=("$2"); shift 2 ;;
     --flux-status-reader-namespace) require_option_value "$@"; flux_status_namespaces+=("$2"); shift 2 ;;
     --project-id) require_option_value "$@"; project_ids+=("$2"); shift 2 ;;
@@ -49,6 +55,20 @@ while [[ $# -gt 0 ]]; do
 done
 
 dns_label='^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+case "$deployment_backend" in
+  helm-direct) ;;
+  fluxcd)
+    # Selecting Flux is the administrator's installation-profile decision.
+    # Future environment names need a delegation parent without resourceNames;
+    # project Agents still receive only their computed exact-name Roles.
+    flux_status_namespaces+=("$flux_control_namespace")
+    ;;
+  *) echo "deployment backend must be helm-direct or fluxcd" >&2; exit 2 ;;
+esac
+if [[ ! "$flux_control_namespace" =~ $dns_label ]] || [[ ${#flux_control_namespace} -gt 63 ]]; then
+  echo "Flux control namespace must be a Kubernetes DNS label up to 63 characters" >&2
+  exit 2
+fi
 for value in "$cluster_id" "$runtime_namespace"; do
   if [[ ! "$value" =~ $dns_label ]] || [[ ${#value} -gt 63 ]]; then
     echo "cluster ID and namespace names must be Kubernetes DNS labels up to 63 characters" >&2

@@ -93,7 +93,7 @@ if bash "$renderer" --cluster-id customer-west --service-account custom-agent >/
   echo 'renderer accepted an unsupported custom ServiceAccount identity' >&2
   exit 1
 fi
-for option in --cluster-id --runtime-namespace --managed-namespace --flux-namespace --flux-status-reader-namespace --project-id; do
+for option in --cluster-id --runtime-namespace --managed-namespace --flux-namespace --flux-status-reader-namespace --project-id --deployment-backend --flux-control-namespace; do
   if bash "$renderer" "$option" >/dev/null 2>&1; then
     echo "renderer accepted missing value for $option" >&2
     exit 1

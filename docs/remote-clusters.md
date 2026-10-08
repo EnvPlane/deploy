@@ -86,9 +86,22 @@ Agent release.
 
 ### Dynamic feature Kustomization status delegation
 
-For Flux projects with future feature environments, an administrator may add
-`--flux-status-reader-namespace flux-system` to the reviewed profile above.
-This separate opt-in grants the installer only `get` on Kustomizations in that
+For Flux projects, select `--deployment-backend fluxcd` when rendering the
+installation profile. The complete Flux profile includes future-name status
+delegation in `flux-system` automatically. Use `--flux-control-namespace NAME`
+for a custom control namespace. Helm Direct profiles remain unchanged.
+
+```sh
+./scripts/render-remote-cluster-rbac-profile.sh \
+  --cluster-id customer-west --deployment-backend fluxcd \
+  --flux-control-namespace team-flux \
+  --managed-namespace base-api --managed-namespace base-web \
+  > customer-west-envplane-rbac.yaml
+```
+
+The existing `--flux-status-reader-namespace NAME` option is still supported
+for reviewing a standalone delegation grant or additional control namespaces.
+The generated profile grants the installer only `get` on Kustomizations in that
 namespace. It has no Secret, source, HelmRelease, list/watch, mutation, bind or
 escalate permission. It supports arbitrary configured project and environment
 names without a manual parent-role edit for every new feature.
