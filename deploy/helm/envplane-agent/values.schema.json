@@ -8,6 +8,8 @@
         "finops": {
           "type": "object", "additionalProperties": false,
           "properties": {
+            "baselineCapacityEnabled": {"type": "boolean", "default": false},
+            "baselineMeasuredEnabled": {"type": "boolean", "default": false},
             "nodeInventoryEnabled": {"type": "boolean"},
             "cadvisorContainerdUIDEnabled": {"type": "boolean"},
             "prometheusEndpoint": {"type": "string", "pattern": "^(https://[^@?#]+)?$"},

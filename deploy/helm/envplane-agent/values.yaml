@@ -121,6 +121,8 @@ agent:
   id: ""
   heartbeatSeconds: 30
   finops:
+    baselineCapacityEnabled: false
+    baselineMeasuredEnabled: false
     nodeInventoryEnabled: false
     cadvisorContainerdUIDEnabled: false
     prometheusEndpoint: ""
