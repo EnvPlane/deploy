@@ -100,6 +100,8 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(command.call_args_list[-1].args[0], self.plan["command"])
         self.assertEqual(command.call_count, 2)
         self.assertIn("--cni=calico", self.plan["command"])
+        self.assertIn("--keep-context", self.plan["command"])
+        self.assertIn("--interactive=false", self.plan["command"])
 
     def test_zero_setup_pins_policy_capable_cni_only_for_new_profile(self):
         script = (SCRIPT.parent / "minikube-up.sh").read_text()

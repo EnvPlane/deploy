@@ -74,7 +74,8 @@ administrator review. Do not collect plaintext credentials into the change recor
 
 Review the entire JSON and record its canonical SHA256 printed by `plan`. After
 separate administrator approval, `apply-new-cluster` creates **only the blank
-target profile**, with Docker driver and Calico. It requires both that SHA256 and
+target profile**, with Docker driver and Calico, `--keep-context` and disabled
+interactive prompts. It requires both that SHA256 and
 the exact target name, rejects altered plans/inventory, re-reads source inventory
 to detect drift, and rejects any existing valid/invalid/stopped profile or kube
 context. It does not switch application routes or management credentials.

@@ -102,7 +102,8 @@ def make_plan(source, target, version, snapshot):
             "sourceClusterUID": snapshot["clusterIdentity"]["uid"], "targetProfile": target,
             "inventorySHA256": digest(snapshot), "kubernetesVersion": version,
             "command": ["minikube", "start", "-p", target, "--driver=docker", "--cni=calico",
-                        "--kubernetes-version=" + version, "--cpus=4", "--memory=6g"],
+                        "--kubernetes-version=" + version, "--cpus=4", "--memory=6g",
+                        "--keep-context", "--interactive=false"],
             "preserveSource": True, "acceptance": "UNVERIFIED: traffic probe and restore required",
             "rollback": "Keep source unchanged; do not cut over before acceptance. No automatic deletion."}
 
