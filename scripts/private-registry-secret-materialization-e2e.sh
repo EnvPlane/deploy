@@ -625,6 +625,19 @@ if ! jq -e --arg chartRef "$workload_chart_ref" --arg chartVersion "$workload_ch
 fi
 set_sm09_phase "compile Bootstrap session"
 api_call "$tmp/compiled.json" "compile Bootstrap session" -X POST "$api/api/v1/projects/$project/bootstrap-session/compile"
+# Compilation can trigger executor scope/RBAC reconciliation. The production
+# readiness response, rather than compile completion, is the create precondition.
+set_sm09_phase "wait for compiled customer project deployment readiness"
+for _ in $(seq 1 120); do
+  customer_project_status="$(api_curl "$api/api/v1/projects/$project")"
+  jq -e '.deployment_readiness.ready == true' <<<"$customer_project_status" >/dev/null 2>&1 && break
+  sleep 2
+done
+if ! jq -e '.deployment_readiness.ready == true' <<<"$customer_project_status" >/dev/null; then
+  jq -c '.deployment_readiness | {ready,bootstrap_status,resource_scan_status,missing_prerequisites,next_action}' <<<"$customer_project_status" >&2
+  echo "SM-09 compiled customer project did not become deploy ready" >&2
+  exit 1
+fi
 set_sm09_phase "create SM-09 environment"
 api_call "$tmp/environment.json" "create environment" -X POST "$api/api/v1/environments" -H 'content-type: application/json' -d "{\"id\":\"$environment\",\"project\":\"$project\",\"clusterId\":\"$fixture_cluster_id\",\"namespace\":\"$target_namespace\",\"mode\":\"full\"}"
 set_sm09_phase "load Secret materialization plan"
