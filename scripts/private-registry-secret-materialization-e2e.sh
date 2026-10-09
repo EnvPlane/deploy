@@ -105,6 +105,11 @@ cleanup() {
     fi
     control_plane_pod="$(kubectl --context "kind-$cluster" -n "$namespace" get pod -l app.kubernetes.io/name=envplane-control-plane -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
     if [[ -n "$control_plane_pod" ]]; then
+      echo "SM-09 storage read authorization diagnostics (bounded metadata only)" >&2
+      kubectl --context "kind-$cluster" -n "$namespace" logs "$control_plane_pod" --tail=1000 2>/dev/null |
+        jq -Rrc 'fromjson? | select((.message // .msg) == "storage evidence read denied") | {reason, tenant_bound, role_bound, project_found}' >&2 || true
+      kubectl --context "kind-$cluster" -n "$namespace" get pod "$control_plane_pod" -o json 2>/dev/null |
+        jq -c '{images: [.status.containerStatuses[]? | {name, imageID}]}' >&2 || true
       # The reconciler logs only sanitized Helm error classes. Keep this
       # allowlist narrow so a failed release gate never emits chart values,
       # request bodies, or bootstrap credentials.
