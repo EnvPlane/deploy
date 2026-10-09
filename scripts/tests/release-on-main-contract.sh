@@ -531,3 +531,13 @@ if grep -Eq ':[[:space:]]*(latest|main)([[:space:]"'"'"'@]|$)|tag:[[:space:]]*(l
 fi
 
 echo "release-on-main workflow contract is valid"
+
+# A customer first-run gate needs real, writable repository validation evidence.
+grep -Fq 'ENVPLANE_SM09_SCM_TOKEN: ${{ github.token }}' "$workflow" &&
+  grep -Fq 'first-run requires a customer project distinct from the management project' "$secret_lifecycle_harness" &&
+  grep -Fq '/bootstrap-session/validate-scm' "$secret_lifecycle_harness" &&
+  grep -Fq '.scmValidationProof.gitopsRepositoryWritable == true' "$secret_lifecycle_harness" &&
+  grep -Fq -- '--data-binary "@$tmp/scm-validation-request"' "$secret_lifecycle_harness" || {
+  echo "first-run gate must validate customer repositories through the server without logging credentials" >&2
+  exit 1
+}

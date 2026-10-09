@@ -329,6 +329,7 @@ jobs:
         env:
           ENVPLANE_SM09_CHART: dist/envplane-${{ steps.version.outputs.version }}.tgz
           ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE: "1"
+          ENVPLANE_SM09_SCM_TOKEN: ${{ github.token }}
           ENVPLANE_SM09_FRONTEND_DIR: ${{ github.workspace }}/release-gate-frontend
         run: |
           set -euo pipefail

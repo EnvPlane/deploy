@@ -12,13 +12,14 @@ registry_name="${ENVPLANE_SM09_REGISTRY_CONTAINER:-envplane-sm09-registry}"
 namespace="${ENVPLANE_SM09_NAMESPACE:-envplane-sm09}"
 base_namespace="${ENVPLANE_SM09_BASE_NAMESPACE:-envplane-sm09-base}"
 target_namespace="${ENVPLANE_SM09_TARGET_NAMESPACE:-envplane-sm09-target}"
-project="${ENVPLANE_SM09_PROJECT:-envplane-e2e-fixture}"
+project="${ENVPLANE_SM09_PROJECT:-sm09-customer}"
+bootstrap_project="${ENVPLANE_SM09_BOOTSTRAP_PROJECT:-envplane-e2e-fixture}"
 environment="${ENVPLANE_SM09_ENVIRONMENT:-sm09-private-registry}"
 release="${ENVPLANE_SM09_RELEASE:-envplane-sm09}"
 workload_chart_ref="${ENVPLANE_SM09_WORKLOAD_CHART_REF:-oci://ghcr.io/envplane/envplane-e2e-workload}"
 workload_chart_version="${ENVPLANE_SM09_WORKLOAD_CHART_VERSION:-0.1.0}"
 fixture_scm_provider="${ENVPLANE_SM09_FIXTURE_SCM_PROVIDER:-github}"
-fixture_app_repository_url="${ENVPLANE_SM09_FIXTURE_APP_REPOSITORY_URL:-https://github.com/envplane/envplane-e2e-workload}"
+fixture_app_repository_url="${ENVPLANE_SM09_FIXTURE_APP_REPOSITORY_URL:-https://github.com/envplane/deploy}"
 fixture_app_default_branch="${ENVPLANE_SM09_FIXTURE_APP_DEFAULT_BRANCH:-main}"
 fixture_gitops_repository_url="${ENVPLANE_SM09_FIXTURE_GITOPS_REPOSITORY_URL:-https://github.com/envplane/deploy}"
 fixture_gitops_default_branch="${ENVPLANE_SM09_FIXTURE_GITOPS_DEFAULT_BRANCH:-main}"
@@ -55,6 +56,8 @@ case "$first_run_browser_gate" in
   *) echo "ENVPLANE_SM09_FIRST_RUN_BROWSER_GATE must be 0 or 1" >&2; exit 2 ;;
 esac
 if [[ "$first_run_browser_gate" == "1" ]]; then
+  [[ "$project" != "$bootstrap_project" ]] || { echo "SM-09 first-run requires a customer project distinct from the management project" >&2; exit 2; }
+  [[ -n "${ENVPLANE_SM09_SCM_TOKEN:-}" ]] || { echo "SM-09 first-run requires a scoped repository validation credential" >&2; exit 2; }
   [[ -n "$frontend_dir" && -f "$frontend_dir/package.json" ]] || { echo "ENVPLANE_SM09_FRONTEND_DIR must contain the compatible frontend source" >&2; exit 2; }
 fi
 if ! [[ "$automatic_materialization_wait_seconds" =~ ^[1-9][0-9]*$ ]]; then
@@ -441,12 +444,13 @@ fixture_project_create="$(jq -cn \
   --arg id "$project" \
   --arg name "SM-09 private registry fixture" \
   --arg cluster "$fixture_cluster_id" \
+  --arg baseNamespace "$base_namespace" \
   --arg provider "$fixture_scm_provider" \
   --arg app_repository "$fixture_app_repository_url" \
   --arg app_branch "$fixture_app_default_branch" \
   --arg gitops_repository "$fixture_gitops_repository_url" \
   --arg gitops_branch "$fixture_gitops_default_branch" \
-  '{id: $id, name: $name, product_id: "generic", cluster_id: $cluster, authorized_cluster_ids: [$cluster], git_repo: {provider: $provider, url: $app_repository, default_branch: $app_branch}, gitops_repo: {provider: $provider, url: $gitops_repository, default_branch: $gitops_branch}}')"
+  '{id: $id, name: $name, product_id: "generic", cluster_id: $cluster, authorized_cluster_ids: [$cluster], base_env_config: {environment_id:"envplane-e2e-base", namespace:$baseNamespace, services:[{name:"e2e-base-workload",namespace:$baseNamespace}]}, git_repo: {provider: $provider, url: $app_repository, default_branch: $app_branch}, gitops_repo: {provider: $provider, url: $gitops_repository, default_branch: $gitops_branch}}')"
 api_call "$tmp/project-create.json" "create disposable fixture project" -X PUT "$api/api/v1/projects/$project" -H 'content-type: application/json' -d "$fixture_project_create"
 set_sm09_phase "configure fixture project SCM metadata"
 fixture_project_patch="$(jq -cn \
@@ -460,6 +464,31 @@ jq -e --arg provider "$fixture_scm_provider" --arg repository "$fixture_app_repo
   echo "SM-09 fixture project SCM metadata was not persisted" >&2
   exit 1
 }
+
+# Exercise the real validation endpoint. Only the server may produce proof;
+# repository metadata alone cannot satisfy first-run evidence.
+if [[ "$first_run_browser_gate" == "1" ]]; then
+  set_sm09_phase "validate customer fixture SCM repositories"
+  api_call "$tmp/bootstrap-session.json" "load customer bootstrap session" "$api/api/v1/projects/$project/bootstrap-session"
+  jq -cn --arg provider "$fixture_scm_provider" \
+    --arg app "$fixture_app_repository_url" --arg gitops "$fixture_gitops_repository_url" \
+    --arg appBranch "$fixture_app_default_branch" --arg gitopsBranch "$fixture_gitops_default_branch" \
+    '{provider:$provider, appRepoUrl:$app, gitopsRepoUrl:$gitops, appDefaultBranch:$appBranch, gitopsDefaultBranch:$gitopsBranch, authMethod:"App token", appToken:env.ENVPLANE_SM09_SCM_TOKEN}' >"$tmp/scm-validation-request"
+  api_call "$tmp/scm-validation.json" "validate customer SCM repositories" -X POST "$api/api/v1/projects/$project/bootstrap-session/validate-scm" \
+    -H 'content-type: application/json' --data-binary "@$tmp/scm-validation-request"
+  if ! jq -e '.valid == true and .scmValidationProof.serverConfirmed == true and .scmValidationProof.gitopsRepositoryWritable == true' "$tmp/scm-validation.json" >/dev/null; then
+    echo "SM-09 customer SCM repository validation did not produce a writable server proof" >&2
+    exit 1
+  fi
+fi
+
+# Give the customer executor the same explicit source scope as the disposable
+# base workload, without borrowing the management project's validation proof.
+set_sm09_phase "select customer fixture source namespace"
+jq -cn --arg namespace "$base_namespace" \
+  '{stepData:{selectedNamespaces:[$namespace],resourceReview:{("Namespace/"+$namespace+"/"+$namespace):{include:false,strategy:"ignore"}}}}' >"$tmp/customer-source-scope.json"
+api_call "$tmp/customer-scope.json" "select customer source namespace" -X PATCH "$api/api/v1/projects/$project/bootstrap-session" \
+  -H 'content-type: application/json' --data-binary "@$tmp/customer-source-scope.json"
 
 set_sm09_phase "wait for Agent connection"
 for _ in $(seq 1 120); do
