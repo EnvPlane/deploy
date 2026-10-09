@@ -16,7 +16,8 @@ project="${ENVPLANE_SM09_PROJECT:-sm09-customer}"
 bootstrap_project="${ENVPLANE_SM09_BOOTSTRAP_PROJECT:-envplane-e2e-fixture}"
 environment="${ENVPLANE_SM09_ENVIRONMENT:-sm09-private-registry}"
 release="${ENVPLANE_SM09_RELEASE:-envplane-sm09}"
-workload_chart_ref="${ENVPLANE_SM09_WORKLOAD_CHART_REF:-oci://ghcr.io/envplane/envplane-e2e-workload}"
+customer_chart_host="sm09-customer-charts.$namespace.svc.cluster.local"
+workload_chart_ref="${ENVPLANE_SM09_WORKLOAD_CHART_REF:-http://$customer_chart_host/envplane-sm09-customer-app-0.1.0.tgz}"
 workload_chart_version="${ENVPLANE_SM09_WORKLOAD_CHART_VERSION:-0.1.0}"
 fixture_scm_provider="${ENVPLANE_SM09_FIXTURE_SCM_PROVIDER:-github}"
 fixture_app_repository_url="${ENVPLANE_SM09_FIXTURE_APP_REPOSITORY_URL:-https://github.com/envplane/deploy}"
@@ -203,6 +204,55 @@ docker logout "$registry" >/dev/null
 
 kubectl --context "kind-$cluster" create namespace "$namespace"
 
+# Serve a real HTTP application chart inside this disposable cluster. The
+# management fixture keeps its reserved E2E chart; customer first-run evidence
+# must exercise the normal application preflight path.
+set_sm09_phase "serve disposable customer application chart"
+helm package "$(dirname "$0")/../deploy/helm/envplane-sm09-customer-app" --destination "$tmp" >/dev/null
+kubectl --context "kind-$cluster" -n "$namespace" create configmap sm09-customer-charts \
+  --from-file="$tmp/envplane-sm09-customer-app-0.1.0.tgz" >/dev/null
+kubectl --context "kind-$cluster" -n "$namespace" apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sm09-customer-charts
+  labels: {app: sm09-customer-charts}
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+    - name: chart-server
+      image: busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+      command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: ["ALL"]}
+      readinessProbe:
+        tcpSocket: {port: 8080}
+      volumeMounts:
+        - name: charts
+          mountPath: /www
+          readOnly: true
+  volumes:
+    - name: charts
+      configMap: {name: sm09-customer-charts}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sm09-customer-charts
+spec:
+  selector: {app: sm09-customer-charts}
+  ports:
+    - port: 80
+      targetPort: 8080
+EOF
+kubectl --context "kind-$cluster" -n "$namespace" wait --for=condition=Ready pod/sm09-customer-charts --timeout=120s
+
+
 base_values="$(dirname "$0")/../deploy/helm/envplane/values-e2e-local.yaml"
 values="$tmp/sm09-values.yaml"
 api_token="$(openssl rand -hex 32)"
@@ -222,6 +272,8 @@ global:
     firstStartRegistration:
       runner:
         namespace: $namespace
+    sameClusterProjectExecutors:
+      helmAllowedChartHosts: [ghcr.io, $customer_chart_host]
     e2eFixture:
       baseNamespace: $base_namespace
       featureNamespace: $target_namespace
@@ -255,6 +307,7 @@ envplane-control-plane:
       activationPublicKeysJSON: '$activation_public_keys_json'
       graceDays: 0
 envplane-runner:
+  helmAllowedChartHosts: [ghcr.io, $customer_chart_host]
   controlPlane:
     namespace: $namespace
   project:

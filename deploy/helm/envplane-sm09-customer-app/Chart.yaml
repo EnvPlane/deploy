@@ -1,0 +1,6 @@
+apiVersion: v2
+name: envplane-sm09-customer-app
+description: Disposable HTTP application for the SM-09 customer lifecycle gate.
+type: application
+version: 0.1.0
+appVersion: "1.37.0"
