@@ -123,11 +123,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for chart in deploy/helm/*; do
-            [[ -f "$chart/Chart.yaml" ]] || continue
-            helm dependency build --skip-refresh "$chart"
-            helm lint "$chart"
-          done
+          bash scripts/lint-canonical-charts.sh
+          bash scripts/tests/operator-chart-lint-contract.sh
       - name: Publish selected stable child charts
         # Artifact references are a public, lowercase registry contract.
         # They remain ghcr.io/EnvPlane across GitHub repository-owner moves.

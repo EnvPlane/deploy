@@ -1,0 +1,15 @@
+# Render-only CI fixtures. Never install these values or treat them as telemetry.
+exporterImage: example.invalid/envplane-exporter@sha256:0000000000000000000000000000000000000000000000000000000000000000
+prometheusImage: example.invalid/prometheus@sha256:0000000000000000000000000000000000000000000000000000000000000000
+nodeName: lint-node
+nodeAddress: 192.0.2.1
+apiAddressCIDR: 192.0.2.2/32
+exporters:
+  - namespace: lint-workload
+    name: lint-exporter
+    runAsUser: 1000
+    tlsSecret: lint-exporter-tls
+    claims:
+      - name: lint-data
+        uid: 00000000-0000-4000-8000-000000000000
+        component: backend
