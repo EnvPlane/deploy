@@ -6,9 +6,14 @@ deploy_root="$(cd "$script_dir/../.." && pwd)"
 workflow="$deploy_root/.github/workflows/ci.yaml"
 
 drift_line="$(grep -n 'scripts/check-vendored-chart-drift.sh' "$workflow" | head -n1 | cut -d: -f1)"
-rebuild_line="$(grep -n 'helm dependency build --skip-refresh \"\$chart\"' "$workflow" | head -n1 | cut -d: -f1)"
+rebuild_line="$(grep -n 'scripts/lint-canonical-charts.sh' "$workflow" | head -n1 | cut -d: -f1)"
 [[ -n "$drift_line" && -n "$rebuild_line" && "$drift_line" -lt "$rebuild_line" ]] || {
   echo "CI must check committed chart archives before rebuilding dependencies" >&2
+  exit 1
+}
+
+grep -Fq 'helm dependency build --skip-refresh "$chart"' "$deploy_root/scripts/lint-canonical-charts.sh" || {
+  echo "canonical chart lint must rebuild dependencies" >&2
   exit 1
 }
 
