@@ -11,10 +11,9 @@ registry="${ENVPLANE_SM09_REGISTRY:-localhost:5001}"
 registry_name="${ENVPLANE_SM09_REGISTRY_CONTAINER:-envplane-sm09-registry}"
 namespace="${ENVPLANE_SM09_NAMESPACE:-envplane-sm09}"
 base_namespace="${ENVPLANE_SM09_BASE_NAMESPACE:-envplane-sm09-base}"
-# New project Runners initially authorize their concrete executor namespace.
-# Keep the management fixture's feature namespace separate from customer scope.
-target_namespace="${ENVPLANE_SM09_TARGET_NAMESPACE:-envplane-executors}"
-management_target_namespace="${ENVPLANE_SM09_MANAGEMENT_TARGET_NAMESPACE:-envplane-sm09-target}"
+# Customer targets stay outside the Agent's private runtime namespace.
+target_namespace="${ENVPLANE_SM09_TARGET_NAMESPACE:-envplane-sm09-target}"
+management_target_namespace="${ENVPLANE_SM09_MANAGEMENT_TARGET_NAMESPACE:-envplane-sm09-management-target}"
 project="${ENVPLANE_SM09_PROJECT:-sm09-customer}"
 bootstrap_project="${ENVPLANE_SM09_BOOTSTRAP_PROJECT:-envplane-e2e-fixture}"
 environment="${ENVPLANE_SM09_ENVIRONMENT:-sm09-private-registry}"
@@ -287,22 +286,22 @@ envplane-agent:
   controlPlane:
     namespace: $namespace
   watch:
-    namespaces: [$base_namespace, $target_namespace]
+    namespaces: [$base_namespace, $management_target_namespace]
   rbac:
     discovery:
-      namespaces: [$base_namespace, $target_namespace]
+      namespaces: [$base_namespace, $management_target_namespace]
     materialization:
       enabled: true
       items:
         - id: registry
           sourceNamespace: $base_namespace
           sourceName: registry-source
-          targetNamespace: $target_namespace
+          targetNamespace: $management_target_namespace
           targetName: registry-pull
         - id: application
           sourceNamespace: $base_namespace
           sourceName: application-source
-          targetNamespace: $target_namespace
+          targetNamespace: $management_target_namespace
           targetName: application-config
 envplane-control-plane:
   env:
@@ -317,10 +316,10 @@ envplane-runner:
   controlPlane:
     namespace: $namespace
   project:
-    configUrl: http://envplane-control-plane.$namespace.svc:8080/api/v1/projects/$project/runner-config
+    configUrl: http://envplane-control-plane.$namespace.svc:8080/api/v1/projects/$bootstrap_project/runner-config
   rbac:
     featureEnvWriter:
-      namespaces: [$target_namespace]
+      namespaces: [$management_target_namespace]
 EOF
 helm upgrade --install "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" --create-namespace --values "$base_values" --values "$values" --wait --timeout 15m
 if kubectl --context "kind-$cluster" -n "$namespace" get secret release-registry-pull >/dev/null 2>&1; then
@@ -850,8 +849,11 @@ kubectl --context "kind-$cluster" -n "$target_namespace" wait --for=condition=Re
 # Explicit source rotation is a fresh materialization command, never a silent
 # mutation. Restarting Agent validates lease/queue recovery before the command.
 set_sm09_phase "verify Secret source rotation"
-kubectl --context "kind-$cluster" -n "$namespace" rollout restart deployment/envplane-agent
-kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-agent --timeout=5m
+rotation_agent_id="$(api_curl "$api/api/v1/projects/$project/bootstrap-session/agent-status" | jq -er '.agentId | select(startswith("ep-agent-"))')"
+rotation_agent_deployment="$(kubectl --context "kind-$cluster" get deployments -A -o json | jq -er --arg id "$rotation_agent_id" '[.items[] | select(.metadata.name == $id)] | select(length == 1) | .[0] | [.metadata.namespace, .metadata.name] | @tsv')"
+IFS=$'\t' read -r rotation_agent_namespace rotation_agent_name <<<"$rotation_agent_deployment"
+kubectl --context "kind-$cluster" -n "$rotation_agent_namespace" rollout restart "deployment/$rotation_agent_name"
+kubectl --context "kind-$cluster" -n "$rotation_agent_namespace" rollout status "deployment/$rotation_agent_name" --timeout=5m
 before_rotation="$(kubectl --context "kind-$cluster" -n "$target_namespace" get secret application-config -o jsonpath='{.metadata.resourceVersion}')"
 rotated_application_secret="$(openssl rand -hex 24)"
 kubectl --context "kind-$cluster" -n "$base_namespace" delete secret application-source >/dev/null

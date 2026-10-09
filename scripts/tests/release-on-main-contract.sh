@@ -249,8 +249,8 @@ fi
 
 for namespace_binding in \
   'namespace: $namespace' \
-  'namespaces: [$base_namespace, $target_namespace]' \
-  'namespaces: [$target_namespace]' \
+  'namespaces: [$base_namespace, $management_target_namespace]' \
+  'namespaces: [$management_target_namespace]' \
   'envplane-control-plane.$namespace.svc'; do
   grep -Fq "$namespace_binding" "$secret_lifecycle_harness" || {
     echo "private-registry lifecycle harness is missing namespace binding: $namespace_binding" >&2
