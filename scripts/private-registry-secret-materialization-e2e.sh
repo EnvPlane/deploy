@@ -211,6 +211,7 @@ set_sm09_phase "serve disposable customer application chart"
 helm package "$(dirname "$0")/../deploy/helm/envplane-sm09-customer-app" --destination "$tmp" >/dev/null
 kubectl --context "kind-$cluster" -n "$namespace" create configmap sm09-customer-charts \
   --from-file="$tmp/envplane-sm09-customer-app-0.1.0.tgz" >/dev/null
+kubectl --context "kind-$cluster" -n "$namespace" create serviceaccount sm09-customer-charts >/dev/null
 kubectl --context "kind-$cluster" -n "$namespace" apply -f - <<EOF
 apiVersion: v1
 kind: Pod
@@ -218,6 +219,8 @@ metadata:
   name: sm09-customer-charts
   labels: {app: sm09-customer-charts}
 spec:
+  serviceAccountName: sm09-customer-charts
+  automountServiceAccountToken: false
   securityContext:
     runAsNonRoot: true
     runAsUser: 10001
