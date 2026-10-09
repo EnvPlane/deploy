@@ -500,6 +500,12 @@ spec:
                 secretKeyRef:
                   name: {{ get $finopsPostgres "existingSecret" | quote }}
                   key: {{ default "dsn" (get $finopsPostgres "dsnKey") | quote }}
+            {{- else if and (eq $postgresMode "internal") (get $finopsPostgres "bootstrapInternal") }}
+            - name: ENVPLANE_FINOPS_BOOTSTRAP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "envplane-control-plane.fullname" . }}-ledger
+                  key: password
             {{- end }}
             {{- if eq $redisMode "internal" }}
             - name: REDIS_PASSWORD

@@ -71,6 +71,8 @@ ingress:
 
 finops:
   postgres:
+    # Automatic least-privilege ledger provisioning only for bundled PostgreSQL.
+    bootstrapInternal: true
     # Optional separate least-privilege ledger connection for legacy privileged DB roles.
     existingSecret: ""
     dsnKey: dsn

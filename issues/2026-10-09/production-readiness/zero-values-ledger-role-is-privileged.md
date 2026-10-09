@@ -1,5 +1,7 @@
 # Zero-values installation has no isolated ledger runtime role
 
+Update 2026-10-09: locally implemented in control-plane and deploy, not pushed/deployed. Bundled chart creates and retains a separate password Secret; API provisions an independently authenticated, database-specific ledger role after migrations under an advisory lock. Runtime role is non-owner/non-superuser/non-BYPASSRLS and receives only exact table grants. External DB configuration stays operator-managed. Concurrent/restart/RLS/limited grants/password mismatch/partial-migration recovery/unsafe existing role integration test passed on exclusive disposable PostgreSQL; full local control-plane regression, chart regression and Go lint passed. Keep this ticket OPEN for authenticated zero-values acceptance on the newly published candidate; 0.4.682 remains unchanged and still FAIL for this gate.
+
 Priority: P1 for advertised infrastructure-report/storage-evidence functionality. Status: OPEN; no runtime fix applied.
 
 Candidate: signed umbrella 0.4.682, OCI digest sha256:46c97ee822e19e57f13315da754b3eaca5b863d2a4faf826d7d4f3bd3d7e4beb. Fresh cluster kind-envplane-readiness-682, Kubernetes v1.37.0 ARM64; installed with no values and no imported Secrets.
