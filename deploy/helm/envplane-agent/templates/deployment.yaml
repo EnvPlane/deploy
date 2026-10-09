@@ -90,7 +90,7 @@ spec:
             - name: ENVPLANE_FINOPS_BASELINE_MEASURED_ENABLED
               value: {{ default false $finops.baselineMeasuredEnabled | quote }}
             - name: ENVPLANE_FINOPS_NODE_INVENTORY_ENABLED
-              value: {{ default false $finops.nodeInventoryEnabled | quote }}
+              value: {{ .Values.rbac.discovery.nodeInventoryEnabled | quote }}
             - name: ENVPLANE_FINOPS_CADVISOR_CONTAINERD_UID_ENABLED
               value: {{ default false $finops.cadvisorContainerdUIDEnabled | quote }}
             - name: ENVPLANE_FINOPS_PROMETHEUS_ENDPOINT
