@@ -2,6 +2,8 @@
 
 Status: OPEN. Observed on clean 0.4.687 after a requested envplane.local domain switch.
 
+Retest: user-supplied OAuth credentials now saved successfully (configured github, revision 4). Normal Continue with GitHub returns to Dashboard and loads default (owner) membership. The local cookie workaround unblocks configuration and login. No credentials/token import or auth bypass used. Keep this ticket OPEN for the permanent chart/config fix rather than counting an explicit operator workaround as zero-setup completion.
+
 Approved workaround applied 2026-10-09: clean installation explicitly uses ENVPLANE_OAUTH_COOKIE_SECURE=false alongside its local HTTP opt-in, with successful rollout. Browser normal setup navigation reports Ready to configure and successful local auto-claim. No credentials read/submitted and no API auth bypass. The earlier filled tab was no longer present when inspected after session renewal; a fresh setup tab was opened for the operator. Authenticated Enable authentication submission is still pending user completion. Keep the chart/config coherence defect open for a permanent tested fix; this workaround is not a production TLS policy.
 
 Browser setup page shows revision 0, valid callback http://envplane.local/auth/github/callback, and user-reported/visibly reproduced invalid api token after Enable authentication. No credentials were read or submitted by the agent. Initial local auto-claim previously reported success.
