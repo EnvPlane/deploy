@@ -10,4 +10,6 @@ Implementation prompt for Codex: add an idempotent, credential-safe least-privil
 
 Acceptance: zero-values fresh installation serves an authenticated empty report without SQL patches, rejects cross-tenant reads/writes with populated fixtures, and uses a non-owner/non-superuser/non-BYPASSRLS ledger role. Rerun storage-evidence reads and price/budget scenarios on the new release. External operator-managed roles are not silently broadened. Preserve working installation data and credentials.
 
+Pass 4 scope confirmation: apps/api/main.go:1331 also constructs storagecleanup.NewSQLStore(finopsDB). internal/storagecleanup/store_sql.go rejects current_user with rolsuper OR rolbypassrls before any tenant transaction. Thus the same zero-values pool incompatibility affects durable storage evidence, not only infrastructure reports. Explicit disposable-PostgreSQL tests passed with an independently created non-bypass role, including rejection of the privileged role. This is source/configuration evidence; authenticated clean-install storage HTTP reproduction remains pending onboarding. Include storage_cleanup_ledger grants and storage route acceptance in this ticket, without weakening the guard.
+
 Evidence: /private/tmp/envplane-readiness-682.t5bJs0; see the production readiness report for commands and outcome boundaries.
