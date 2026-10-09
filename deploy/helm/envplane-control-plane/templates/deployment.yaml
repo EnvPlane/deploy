@@ -7,12 +7,17 @@
 {{- $global := default (dict) .Values.global -}}
 {{- $allowInsecureLocalDevelopment := default false .Values.allowInsecureLocalDevelopment -}}
 {{- $configuredEnvironment := default (dict) .Values.env -}}
-{{- $localHTTPProfile := and .Values.ingress.enabled (not .Values.ingress.tls.enabled) $allowInsecureLocalDevelopment -}}
+{{- $globalEnvPlane := include "envplane-control-plane.globalConfig" . | fromJson -}}
+{{- $publicURL := trim (default (get $globalEnvPlane "publicURL") .Values.publicURL) -}}
+{{- $localOriginHTTP := and (eq (lower (toString (get $configuredEnvironment "ENVPLANE_PUBLIC_URL_ALLOW_HTTP_LOCAL_DEVELOPMENT"))) "true") (regexMatch "^http://(localhost|127\\.0\\.0\\.1|\\[::1\\]|[a-zA-Z0-9.-]+\\.local)(:[0-9]+)?/?$" $publicURL) -}}
+{{- $localHTTPProfile := or $localOriginHTTP (and .Values.ingress.enabled (not .Values.ingress.tls.enabled) $allowInsecureLocalDevelopment) -}}
 {{- $cookieSecure := default (ternary "false" "true" $localHTTPProfile) (get $configuredEnvironment "ENVPLANE_OAUTH_COOKIE_SECURE") -}}
+{{- if and $localOriginHTTP (eq (lower (toString $cookieSecure)) "true") -}}
+{{- fail "local HTTP publicURL cannot use Secure cookies; use HTTPS or explicitly configure local development cookies" -}}
+{{- end -}}
 {{- if and .Values.ingress.enabled (not .Values.ingress.tls.enabled) (eq (lower (toString $cookieSecure)) "false") (not $allowInsecureLocalDevelopment) -}}
 {{- fail "refusing ingress without TLS while ENVPLANE_OAUTH_COOKIE_SECURE=false; set allowInsecureLocalDevelopment=true only for local development" -}}
 {{- end -}}
-{{- $globalEnvPlane := include "envplane-control-plane.globalConfig" . | fromJson -}}
 {{- $platformDependencyStatus := default (dict) (get $globalEnvPlane "platformDependencyStatus") -}}
 {{- $platformDependencyStatusEnabled := default false $platformDependencyStatus.enabled -}}
 {{- $platformDependencyStatusConfigMap := include "envplane-control-plane.platformDependencyStatusConfigMapName" . -}}
@@ -103,7 +108,6 @@
 {{- end }}
 {{- $auth := default (dict) .Values.auth -}}
 {{- $globalAuth := default (dict) (get $globalEnvPlane "auth") -}}
-{{- $publicURL := trim (default (get $globalEnvPlane "publicURL") .Values.publicURL) -}}
 {{- $authMode := "disabled" -}}
 {{- if or (eq (default "disabled" (get $globalAuth "mode")) "legacy_secret") (eq (default "disabled" (get $auth "mode")) "legacy_secret") -}}
 {{- $authMode = "legacy_secret" -}}
