@@ -14,3 +14,28 @@ jobs:
           set -euo pipefail
           gh api repos/EnvPlane/deploy --jq '{permissions: (.permissions // null)}'
           gh api 'repos/EnvPlane/deploy/branches?per_page=100' --jq '{mainVisible: any(.[]; .name == "main"), count: length}'
+      - name: Check authenticated Git receive-pack discovery without a push
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          headers=$(mktemp)
+          body=$(mktemp)
+          status=$(curl --silent --show-error --max-time 30 --user "x-access-token:$GH_TOKEN" -D "$headers" -o "$body" -w '%{http_code}' 'https://github.com/EnvPlane/deploy.git/info/refs?service=git-receive-pack')
+          echo "receivePackStatus=$status"
+          grep -i '^content-type:' "$headers"
+          grep -q '^001f# service=git-receive-pack' "$body"
+  read_only_probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Reject receive-pack discovery for a read-only token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          body=$(mktemp)
+          status=$(curl --silent --show-error --max-time 30 --user "x-access-token:$GH_TOKEN" -o "$body" -w '%{http_code}' 'https://github.com/EnvPlane/deploy.git/info/refs?service=git-receive-pack')
+          echo "readOnlyReceivePackStatus=$status"
+          test "$status" = 403
