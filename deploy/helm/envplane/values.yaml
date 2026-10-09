@@ -310,11 +310,11 @@ platformDependencyReconciler:
   enabled: false
   image:
     repository: ghcr.io/envplane/platform-reconciler
-    tag: "sha-ffc1f1be9caa2e69450596f3bd07e89c0a82e69f"
-    digest: "sha256:a7d6e2503f573d7a9e0fa124aba3612fe861cd75a6132a2b798186bd23098165"
+    tag: "sha-edc1e11f1ae005d32a03d9bdc49688f596ea8bea"
+    digest: "sha256:8abee4288e50b3a1a35307904a2cc2e941d90c1e109ba552eb072ddad387aea7"
     pullPolicy: IfNotPresent
-    sourceRevision: "ffc1f1be9caa2e69450596f3bd07e89c0a82e69f"
-    release: "sha-ffc1f1be9caa2e69450596f3bd07e89c0a82e69f"
+    sourceRevision: "edc1e11f1ae005d32a03d9bdc49688f596ea8bea"
+    release: "sha-edc1e11f1ae005d32a03d9bdc49688f596ea8bea"
   # Required when the reconciler image is in a private registry.
   imagePullSecrets: []
   serviceAccount:
@@ -684,11 +684,11 @@ envplane-webhook:
   fullnameOverride: envplane-webhook
   image:
     repository: ghcr.io/envplane/webhook
-    tag: "sha-467bc7a552664540f38e130561f7c8c843d3eaf0"
-    digest: "sha256:da48f425cafd5f66f42bac6c6311bf967b0821308b8255afe42bc9158f52c8ba"
+    tag: "sha-58ec9839304e0f1ec2519c4c6d4f2e7aa9050fa3"
+    digest: "sha256:d5bb44fee325c9fd0dbd58f297e4576714e4ac1499f4b553a9d4a1b8955e744a"
     pullPolicy: IfNotPresent
-    sourceRevision: "467bc7a552664540f38e130561f7c8c843d3eaf0"
-    release: "sha-467bc7a552664540f38e130561f7c8c843d3eaf0"
+    sourceRevision: "58ec9839304e0f1ec2519c4c6d4f2e7aa9050fa3"
+    release: "sha-58ec9839304e0f1ec2519c4c6d4f2e7aa9050fa3"
   imagePullSecrets: []
   controlPlane:
     url: http://envplane-control-plane:8080
