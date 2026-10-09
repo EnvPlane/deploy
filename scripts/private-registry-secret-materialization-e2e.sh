@@ -477,6 +477,7 @@ if [[ "$first_run_browser_gate" == "1" ]]; then
   api_call "$tmp/scm-validation.json" "validate customer SCM repositories" -X POST "$api/api/v1/projects/$project/bootstrap-session/validate-scm" \
     -H 'content-type: application/json' --data-binary "@$tmp/scm-validation-request"
   if ! jq -e '.valid == true and .scmValidationProof.serverConfirmed == true and .scmValidationProof.gitopsRepositoryWritable == true' "$tmp/scm-validation.json" >/dev/null; then
+    jq -c '{valid, appRepositoryReadable, gitopsRepositoryWritable, proof:(.scmValidationProof | {valid,serverConfirmed,gitopsRepositoryWritable}), errors:[.errors[]? | {field,code}], warnings:[.warnings[]? | {field,code}]}' "$tmp/scm-validation.json" >&2
     echo "SM-09 customer SCM repository validation did not produce a writable server proof" >&2
     exit 1
   fi

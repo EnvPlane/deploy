@@ -1,0 +1,16 @@
+name: SM-09 SCM authentication probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect workflow credential repository capabilities
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/EnvPlane/deploy --jq '{permissions: (.permissions // null)}'
+          gh api 'repos/EnvPlane/deploy/branches?per_page=100' --jq '{mainVisible: any(.[]; .name == "main"), count: length}'
