@@ -274,6 +274,28 @@ kubectl --context "kind-$cluster" -n "$base_namespace" create secret docker-regi
 kubectl --context "kind-$cluster" -n "$base_namespace" create secret generic application-source --from-literal=config="$application_secret" >/dev/null
 set_sm09_phase "wait for control-plane rollout"
 kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envplane-control-plane --timeout=5m
+# The bundled PostgreSQL account owns migrations and is a superuser. Storage
+# evidence intentionally rejects that pool: use a distinct, non-owner runtime
+# role rather than weakening the SQL ledger's RLS/bypass checks for this gate.
+evidence_password="$(openssl rand -hex 32)"
+if ! printf '%s\n' \
+  "CREATE ROLE envplane_sm09_evidence LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD '$evidence_password';" \
+  "GRANT USAGE ON SCHEMA public TO envplane_sm09_evidence;" \
+  "GRANT SELECT, INSERT, UPDATE ON storage_cleanup_ledger, finops_metering_ledger, finops_base_resource_ledger, tenant_infrastructure_cost_reports TO envplane_sm09_evidence;" |
+  kubectl --context "kind-$cluster" -n "$namespace" exec -i statefulset/envplane-control-plane-postgres -- \
+    sh -c 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null 2>&1; then
+  echo "SM-09 failed to provision its isolated evidence database role" >&2
+  exit 1
+fi
+printf 'postgresql://envplane_sm09_evidence:%s@envplane-control-plane-postgres.%s.svc:5432/envplane?sslmode=disable' \
+  "$evidence_password" "$namespace" >"$tmp/evidence-dsn"
+kubectl --context "kind-$cluster" -n "$namespace" create secret generic sm09-evidence-database \
+  --from-file="dsn=$tmp/evidence-dsn" >/dev/null
+unset evidence_password
+helm upgrade "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" \
+  --values "$base_values" --values "$values" \
+  --set envplane-control-plane.finops.postgres.existingSecret=sm09-evidence-database \
+  --set envplane-control-plane.finops.postgres.dsnKey=dsn --wait --timeout 15m
 if ! kubectl --context "kind-$cluster" -n "$namespace" get deployment envplane-control-plane -o json |
   jq -e --arg token "$api_token" '[.spec.template.spec.containers[] | select(.name == "api") | .env[]? | select(.name == "ENVPLANE_API_WRITE_TOKEN" and .value == $token)] | length == 1' >/dev/null; then
   echo "SM-09 control-plane deployment did not receive the fixture API token" >&2

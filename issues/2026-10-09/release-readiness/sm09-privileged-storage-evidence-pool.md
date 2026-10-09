@@ -1,0 +1,7 @@
+# SM-09 uses a privileged pool for storage evidence
+
+Runs 37907103558 and 37909618387 return HTTP 403 for storage-cleanup after a successful Ready environment. Run 37909618387 confirms the running API digest matches revision 74fed3e. The full-router JSON-store regression passes, but SQLStore refuses PostgreSQL roles with rolsuper or rolbypassrls. The disposable chart creates a migration-owner PostgreSQL account and supplies no separate FinOps DSN, so apps/api falls back to this privileged pool.
+
+Fix the disposable harness: after migrations, provision an isolated NOSUPERUSER/NOBYPASSRLS non-owner login with USAGE and SELECT/INSERT/UPDATE on only the four runtime evidence ledgers. Store its ephemeral DSN in a Kubernetes Secret and select it through the published chart's finops.postgres.existingSecret/dsnKey contract. Do not disable RLS, change the SQLStore denial, grant role/schema ownership, grant arbitrary tables, or print passwords/DSNs. The role, Secret and database belong only to the disposable cluster and are removed by its existing cleanup trap.
+
+Implementation prompt: verify syntax and diff hygiene; run TestSQLStorageEvidenceRLSConcurrentCASRestart against disposable PostgreSQL, retaining superuser-denial and cross-tenant assertions; require the complete hosted SM-09 browser lifecycle to pass before applying the new umbrella. Local SQL verification is not live gate completion.
