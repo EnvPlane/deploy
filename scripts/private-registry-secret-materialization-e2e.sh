@@ -11,7 +11,10 @@ registry="${ENVPLANE_SM09_REGISTRY:-localhost:5001}"
 registry_name="${ENVPLANE_SM09_REGISTRY_CONTAINER:-envplane-sm09-registry}"
 namespace="${ENVPLANE_SM09_NAMESPACE:-envplane-sm09}"
 base_namespace="${ENVPLANE_SM09_BASE_NAMESPACE:-envplane-sm09-base}"
-target_namespace="${ENVPLANE_SM09_TARGET_NAMESPACE:-envplane-sm09-target}"
+# New project Runners initially authorize their concrete executor namespace.
+# Keep the management fixture's feature namespace separate from customer scope.
+target_namespace="${ENVPLANE_SM09_TARGET_NAMESPACE:-envplane-executors}"
+management_target_namespace="${ENVPLANE_SM09_MANAGEMENT_TARGET_NAMESPACE:-envplane-sm09-target}"
 project="${ENVPLANE_SM09_PROJECT:-sm09-customer}"
 bootstrap_project="${ENVPLANE_SM09_BOOTSTRAP_PROJECT:-envplane-e2e-fixture}"
 environment="${ENVPLANE_SM09_ENVIRONMENT:-sm09-private-registry}"
@@ -279,7 +282,7 @@ global:
       helmAllowedChartHosts: [ghcr.io, $customer_chart_host]
     e2eFixture:
       baseNamespace: $base_namespace
-      featureNamespace: $target_namespace
+      featureNamespace: $management_target_namespace
 envplane-agent:
   controlPlane:
     namespace: $namespace
