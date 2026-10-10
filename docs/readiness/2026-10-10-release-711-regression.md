@@ -12,6 +12,8 @@ deployment and comprehensive live acceptance PENDING target clarification.
 - Published chart reinstall compatibility/render check passed.
 - Required exact-SHA CI succeeded for API `b04c474`, Runner `6444f5b`, Agent
   `b954691`, frontend `c41bd76`, webhook `da04389`, deploy `7c6caab`.
+- Separately pinned platform-reconciler source `5370087` also passed its exact
+  deploy/helm CI, run 38083609695. Publication success was not used as a substitute.
 - Agent's newer checkout `770b8e6` differs from the pinned runtime only in CI,
   publication scripts, reviewed module evidence and tickets, not Agent runtime.
   The component publisher change is not deployed Agent functionality.
