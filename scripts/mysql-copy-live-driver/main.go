@@ -319,6 +319,8 @@ func main() {
 	result := map[string]any{"success": e == nil, "receipt": receipt, "restoreAttempted": k.restoreAttempted, "cancelInputBytes": k.transferred, "planDigest": digest, "metadataSHA256": hex.EncodeToString(sum[:]), "DDLBlockedByBackupLock": k.ddlProven, "sourceUIDMismatchObserved": k.sourceUIDMismatch, "CPLeaseProven": false, "observedCommittedReceipt": k.committedReceipt, "receiptUID": k.receiptUID, "cleanupError": k.cleanupError, "cleanupContextError": k.cleanupContextError}
 	if e != nil {
 		result["error"] = e.Error()
+		stage, code := mysqlcopy.FailureInfo(e)
+		result["errorStage"], result["errorCode"] = stage, code
 	}
 	_ = json.NewEncoder(os.Stdout).Encode(result)
 	if e != nil {

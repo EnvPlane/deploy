@@ -440,7 +440,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         root_duplicate = self.plan('copy-root-negative')
         root_duplicate['Target']['Credentials']['Ref'] = self.ref('Secret', 'invalid-root-target', self.dst)
         result = self.native(root_duplicate, 'positive')
-        if result['success'] or result.get('error') != 'mysql copy safety refusal' or result.get('restoreAttempted') or self.kube(['get', 'pvc', 'copy-root-negative', '-n', self.dst, '--ignore-not-found', '-o', 'name']).stdout.strip():
+        if result['success'] or result.get('errorCode') != 'safety_refusal' or result.get('restoreAttempted') or self.kube(['get', 'pvc', 'copy-root-negative', '-n', self.dst, '--ignore-not-found', '-o', 'name']).stdout.strip():
             raise RuntimeError('duplicate root/app target credentials did not fail before target writes')
         self.ledger['checks'].append({'duplicateTargetRootRefusedBeforeTarget': True})
         # Real authentication challenge uses a fresh client Pod, never existing
@@ -468,7 +468,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         if cancelled['success'] or cancelled.get('cancelInputBytes', 0) < 1024:
             raise RuntimeError('actual restore cancellation not proven')
         partial = self.native(self.plan('copy-cancel'), 'retry')
-        if partial['success'] or partial.get('error') != 'mysql copy partial or unknown target' or partial.get('restoreAttempted'):
+        if partial['success'] or partial.get('errorCode') != 'partial_target' or partial.get('restoreAttempted'):
             raise RuntimeError('partial target retry not fail-closed')
         after = self.query('SELECT COUNT(*), MAX(id), @@server_uuid FROM fixturedb.records').stdout.strip()
         self.ledger['checks'].append({'sourceBefore': before, 'sourceAfter': after})
@@ -484,11 +484,32 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         if not positive.get('DDLBlockedByBackupLock'):
             raise RuntimeError('in-hold real DDL challenge missing')
         self.ledger['nativeCopyPassed'] = True
-        self.ledger['livePassed'] = True
+        self.ledger['checksPassed'] = True
         self.save()
 
     def cleanup(self):
         errors = []
+        volumes = []
+        # Track only PVs bound to claims inside the exact new UID-owned namespaces.
+        for ns in (self.src, self.dst):
+            if ('Namespace', '', ns) not in self.refs:
+                continue
+            try:
+                if self.get('namespace', ns)['metadata']['uid'] != self.ref('Namespace', ns, '')['UID']:
+                    raise RuntimeError('fixture namespace UID changed before storage ledger')
+                claims = json.loads(self.kube(['get', 'pvc', '-n', ns, '-o', 'json']).stdout)['items']
+                for claim in claims:
+                    name = claim.get('spec', {}).get('volumeName')
+                    if not name:
+                        continue
+                    pv = self.get('pv', name)
+                    if pv['spec']['claimRef']['uid'] != claim['metadata']['uid'] or pv['spec'].get('persistentVolumeReclaimPolicy') != 'Delete':
+                        raise RuntimeError('fixture PV ownership/reclaim policy mismatch')
+                    volumes.append({'name': name, 'uid': pv['metadata']['uid'], 'claimUID': claim['metadata']['uid']})
+            except Exception:
+                errors.append({'storageLedgerFailed': ns})
+        self.ledger['ownedVolumes'] = volumes
+        self.save()
         # Namespace deletion cleans only newly-created fixture descendants; cluster
         # grants/policies are individually removed using exact UID preconditions.
         for r in reversed(self.ledger['created']):
@@ -515,6 +536,20 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
             else:
                 errors.append({'namespaceStillPresent': ns})
         self.ledger['cleanupErrors'] = errors
+        for volume in volumes:
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                p = self.kube(['get', 'pv', volume['name'], '--ignore-not-found', '-o', 'json'])
+                if not p.stdout.strip():
+                    self.ledger.setdefault('reclaimedVolumes', []).append(volume)
+                    break
+                if json.loads(p.stdout)['metadata']['uid'] != volume['uid']:
+                    errors.append({'foreignPVReplacement': volume['name']})
+                    break
+                time.sleep(2)
+            else:
+                errors.append({'PVNotReclaimed': volume['name']})
+        self.ledger['cleanupErrors'] = errors
         self.save()
         if errors:
             raise RuntimeError('fixture cleanup incomplete; exact UIDs retained')
@@ -537,6 +572,8 @@ def main():
         raise
     finally:
         fixture.cleanup()
+    fixture.ledger['livePassed'] = fixture.ledger.get('checksPassed', False) and fixture.ledger['cleanupErrors'] == []
+    fixture.save()
     print(json.dumps({'ledger': str(fixture.path), 'livePassed': fixture.ledger['livePassed']}))
 
 
