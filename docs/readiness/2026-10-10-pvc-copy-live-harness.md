@@ -1,9 +1,11 @@
 # Disposable PVC-copy live verification harness
 
-Status: harness implemented; authorized live fixture preflight BLOCKED by the
-Runner source-fence CEL runtime error below. Actual payload copy NOT RUN. No
+Status: authorized live filesystem suite PASS on fresh run `85f6c7da53d2ec8a`;
+cleanup CONFIRMED. The initial CEL blocker below was fixed by the Runner owner
+and the corrected policy passed real positive/negative admission. No
 existing source data, application workload, authentication, chart, profile or
-storage driver changed. Only new owned fixture namespaces/RBAC/fence were created.
+storage driver changed. Only new owned fixture namespaces/RBAC/fence were created
+and removed. MySQL, CP/Agent lease integration and runtime readiness NOT ASSERTED.
 
 ## Verification gap / implementation ticket
 
@@ -81,7 +83,7 @@ destination names were checked absent before creation; neither was adopted.
   BEFORE destination PVC creation. Safe captured error:
   `ValidatingAdmissionPolicy ... denied request: expression ... resulted in error: no such key: subResource`.
 
-### P1 acceptance blocker: optional CEL request field accessed unguarded
+### Initial P1 blocker (owner fix and successful live replay recorded below)
 
 The shared Runner fence uses `request.subResource == ''` for CREATE. On this
 real API server, absent subResource produces a runtime CEL error even after
@@ -116,7 +118,7 @@ overwrite or remote publication. This was a fixture-loader issue, not data-copy
 success/failure. The harness also uses a separate fixed read-only target-state
 diagnostic because native copy Exec intentionally permits only pvc-* RPCs.
 
-Local-only checks: ten Python mocked safety tests PASS; four Go host-driver
+Local-only checks: eleven Python mocked safety tests PASS; four Go host-driver
 tests with race detector PASS. These are NOT live filesystem acceptance.
 
 Private metadata-only evidence:
@@ -177,3 +179,104 @@ The Runner owner subsequently reported the optional-subResource guard fix.
 Because the recorded old policy UID no longer exists, it must NOT be adopted or
 refreshed by name. A new unique run under the same fixture-only greenlight is
 required, rebuilding the host driver/helper and recording new identities.
+
+## Successful live replay after the Runner owner's fix
+
+Run `85f6c7da53d2ec8a` used fresh, collision-checked namespaces and recorded all
+new UIDs. The deleted first-run policy was never adopted/recreated by old identity.
+Reviewed diff changed only the optional request field to
+`(!has(request.subResource) || request.subResource == '')`; fsGroup/SELinux,
+recursive-readonly, exact-helper/Runner and tokenless/security guards remained.
+
+| Live evidence | Result |
+| --- | --- |
+| Actual policy generation1/observedGeneration1/typeChecking `{}` | PASS, no CEL warnings |
+| Writable, fsGroup and SELinux source-mount server dry-runs | PASS, exact bound policy denial; no second CEL error |
+| Positive source helper / live binary SHA256 match / recursive readonly | PASS |
+| Independent expected source marker/bytes/UID/GID/modes/root/tree receipt | PASS |
+| Actual DomainExecutor source-to-new-target filesystem transfer | PASS, verified UID-bound completion marker |
+| Completed same-plan retry | PASS, same exact verified completion marker |
+| Fresh readonly target helper after prior helpers disappear | PASS, remount/rehash persistence |
+| Real import cancellation after 8,192-byte bounded prefix | PASS, no completion marker |
+| Independent cancelled target claim-present/completion-absent readback | PASS |
+| Retry of partial target | PASS, target verify refused before any import; no marker; partial state remains |
+| Separate owned UID-probe claim deleted/recreated; stale immutable plan | PASS, new UID refused before target creation |
+| Main source UID/PV/root metadata/tree hash before vs after | PASS, identical |
+| Final source and target consumers/controllers | PASS, zero Pods/controllers |
+| Exact own namespace/fence/RBAC cleanup and four owned PV reclaims | CONFIRMED |
+
+### Exact second-run identities and receipt
+
+- Source namespace `pvccopy-live-85f6c7da53d2ec8a-src`, UID
+  `66bc41f0-9d93-4fa2-b951-75cf83ee7da5`.
+- Destination namespace `pvccopy-live-85f6c7da53d2ec8a-dst`, UID
+  `9bfa13f2-1ff4-4fea-bdd1-cfa5318b8ff9`.
+- Main source UID `1f04ed45-0bb3-4cb8-bdfe-97742fd450fa`;
+  completed target UID `5e4d8a44-52dc-4ea2-a5dd-4f076c0494ce`.
+- Root UID1000/GID2000/mode0770 (JSON decimal504), four entries,
+  1,048,616 file bytes, including the 40-byte run-specific marker.
+- Source-before = completed target = source-after = independently computed tree
+  SHA256 `6e90ee3e033684c94464fbba019716e3525f2ff63de22f12131a27c7d3710de9`.
+- Immutable domain plan digest
+  `sha256:871e09adbd182c28dd280dae0bfb4c6e01b66252a0bd73ee9e75634aa1c9bd08`.
+- Native marker plan digest
+  `b85f28de2e1cf13144acee1c5d6a6b332c8abaa8f3c8eb5cdb1a41f96da4e441`.
+- Probe UID drift:
+  `f0c795d2-145a-4369-a7fc-0190a5b4bc31` ->
+  `642d9b7b-f43a-415b-9fbd-da357297a737`. Main source was NOT replaced.
+- Source-bound fence name
+  `envplane-pvc-copy-fence-631d2018a51c3c1369c77f3802cbba2b`, UID
+  `db865b2c-48ff-40e3-8458-e074de66f3cb`. Fresh policy generation1 is expected;
+  no previously deleted UID could be refreshed to generation2.
+- Helper image
+  `ghcr.io/envplane/runner@sha256:17289934426e727f3921220911eedddd00c1c878b38130207fc507cb6b63e4b4`.
+- Linux helper binary SHA256
+  `a9b6912288402dbd2a7aed5417d33c31378d7173d2839c2384b8712a99ff2585`;
+  archive SHA256
+  `bc87fed3c3e43b5b20ad6e5f7225f542c0d15efbb726bdc7721f03133ba25ddc`.
+
+The helper binary changed after rebuilding current code, so both host driver and
+image were rebuilt/loaded. Build records identify private contracts commit
+`266baa59a023848c85eb60f59bb0c708dcf82534` and explicitly disclose local dirty
+Runner/gitops worktrees. No contract or image publication was needed/performed.
+
+### Harness fixes surfaced by real execution
+
+1. Native delete acknowledgment is not Pod absence. The initial audit helper was
+   still Terminating and the real consumer guard correctly refused copying.
+   Harness now waits for every exact recorded helper UID to disappear before
+   advancing; no consumer guard bypass or forced deletion.
+2. Remote HelperCLI intentionally reports generic helper failure, not serialized
+   Go ErrPartial. The real partial verification refused correctly. Harness now
+   requires the recorded target verify refusal, `payloadImportAttempted=false`,
+   no marker, plus a separate fresh claim/no-completion readback. Arbitrary
+   transport/authentication errors cannot pass that predicate.
+3. Explicit `--resume-recorded-run` requires fresh exact target UID checks and
+   preserves only the original proven cancellation; it never imports onto that
+   partial target. Native positive/retry/remount/partial checks are replayed.
+
+These were test-harness corrections, not silent empty-volume fallback or runtime
+repair. Actual original attempts are retained in the private ledger, including
+the initial safe active-consumer refusal and remote verify failure.
+
+### Evidence and cleanup
+
+Private artifacts:
+`/private/tmp/pvccopy-live-85f6c7da53d2ec8a-build/`:
+`ledger.json`, `ledger.review.json`, exact manifests/type checks, command journals,
+`build.json`, helper OCI archive and both binaries. Driver journal contains 1,122
+commands, 180 exact-policy denial challenges and 22 live matched helper-binary
+checks across the original attempts/replay; export archives are never recorded.
+All fixture observations are metadata/hash only. No source payload dump or
+credential material is saved on the host. Kubeconfig contents are never logged.
+
+Second-run cleanup CONFIRMED for both namespace UIDs, exact own policy/binding
+and reader role/binding. Four tracked dynamic PVs (source, original probe,
+completed target and cancelled target) were confirmed gone. Replacement probe
+had no allocated PV. No manual PV deletion or storage-driver change. Disposable
+fixture bytes were removed; evidence/binaries/archive and local image-cache
+artifacts remain available for review/reuse. Existing namespaces/apps unchanged.
+
+This is real live filesystem verification on the isolated single-node local-path
+cluster, NOT a MySQL/logical backup test, production storage certification,
+authenticated daemon lease/end-to-end control-plane proof, or Environment Ready.
