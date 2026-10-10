@@ -16,6 +16,18 @@ image_spec.loader.exec_module(images)
 
 
 class HarnessTests(unittest.TestCase):
+    def test_secondary_cancellation_failures_never_pass(self):
+        result = {'success': False, 'restoreAttempted': True, 'cancelInputBytes': 1024,
+                  'errorStage': 'transfer', 'errorCode': 'cancelled', 'failureStages': ['transfer'],
+                  'cleanupError': '', 'cleanupContextError': ''}
+        self.assertTrue(live.clean_cancellation(result))
+        for stage in ('release_ddl', 'cleanup_helpers', 'wait_source_helper_deleted'):
+            self.assertFalse(live.clean_cancellation({**result, 'failureStages': ['transfer', stage]}))
+        missing = dict(result); missing.pop('failureStages')
+        self.assertFalse(live.clean_cancellation(missing))
+        self.assertFalse(live.clean_cancellation({**result, 'cleanupContextError': 'context deadline exceeded'}))
+        self.assertFalse(live.clean_cancellation({**result, 'cancelInputBytes': 0}))
+
     def test_go_spec_hash_html_escaping(self):
         self.assertEqual(live.metadata_hash({'a': 'x < 3 && y > 2'}),
                          '0125b84d679852d7e20fc5b882d72dd31db20b2bfa252d5d3acce638ceb9d79d')

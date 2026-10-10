@@ -35,6 +35,15 @@ def metadata_hash(value):
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+def clean_cancellation(result):
+    """Require positive secondary-stage evidence; absence is not success."""
+    return (result.get('success') is False and result.get('restoreAttempted') is True
+            and result.get('cancelInputBytes') == 1024
+            and result.get('errorStage') == 'transfer' and result.get('errorCode') == 'cancelled'
+            and result.get('failureStages') == ['transfer']
+            and result.get('cleanupError') == '' and result.get('cleanupContextError') == '')
+
+
 def obj(kind, name, ns='', spec=None, **extra):
     api = 'v1'
     if kind == 'StatefulSet':
@@ -467,10 +476,12 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         cancelled = self.native(self.plan('copy-cancel'), 'cancel')
         if cancelled['success'] or cancelled.get('cancelInputBytes', 0) < 1024:
             raise RuntimeError('actual restore cancellation not proven')
-        if cancelled.get('errorCode') != 'cancelled' or cancelled.get('cleanupError') or cancelled.get('cleanupContextError') or 'release_ddl' in cancelled.get('failureStages', []):
+        if not clean_cancellation(cancelled):
             raise RuntimeError('cancellation included an unexpected release/cleanup failure; not accepted')
         partial = self.native(self.plan('copy-cancel'), 'retry')
-        if partial['success'] or partial.get('errorCode') != 'partial_target' or partial.get('restoreAttempted'):
+        if (partial['success'] or partial.get('errorCode') != 'partial_target' or partial.get('restoreAttempted')
+                or partial.get('failureStages') != ['inspect_target']
+                or partial.get('cleanupError') != '' or partial.get('cleanupContextError') != ''):
             raise RuntimeError('partial target retry not fail-closed')
         after = self.query('SELECT COUNT(*), MAX(id), @@server_uuid FROM fixturedb.records').stdout.strip()
         self.ledger['checks'].append({'sourceBefore': before, 'sourceAfter': after})
