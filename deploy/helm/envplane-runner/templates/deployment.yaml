@@ -195,12 +195,36 @@ spec:
               value: {{ include "envplane-runner.image" . | quote }}
             - name: ENVPLANE_PVC_COPY_SOURCE_NAMESPACES
               value: {{ $copyNamespaces | uniq | join "," | quote }}
+            - name: ENVPLANE_PVC_COPY_ALLOW_ROOT_HELPERS
+              value: {{ .Values.pvcCopy.allowRootHelpers | quote }}
+            {{- if .Values.pvcCopy.sourceFences }}
+            - name: ENVPLANE_PVC_COPY_SOURCE_FENCES
+              value: {{ .Values.pvcCopy.sourceFences | toJson | quote }}
+            {{- end }}
+            {{- end }}
+            {{- $sqlCopy := default dict .Values.mysqlRestore }}
+            {{- if or .Values.pvcCopy.enabled $sqlCopy.enabled }}
             - name: ENVPLANE_PVC_COPY_RUNNER_SERVICE_ACCOUNT
               valueFrom:
                 fieldRef:
                   fieldPath: spec.serviceAccountName
-            - name: ENVPLANE_PVC_COPY_ALLOW_ROOT_HELPERS
-              value: {{ .Values.pvcCopy.allowRootHelpers | quote }}
+            {{- end }}
+            {{- if .Values.pvcCopy.approvedProductionSources }}
+            - name: ENVPLANE_PVC_COPY_APPROVED_PRODUCTION_SOURCES
+              value: {{ .Values.pvcCopy.approvedProductionSources | toJson | quote }}
+            {{- end }}
+            {{- if and $sqlCopy.enabled $sqlCopy.sourceFences }}
+            {{- if ne $sqlCopy.helperImage (include "envplane-runner.image" .) }}{{ fail "SQL config helper must match the reviewed compatible Runner image" }}{{- end }}
+            - name: ENVPLANE_MYSQL_RESTORE_HELPER_IMAGE
+              value: {{ $sqlCopy.helperImage | quote }}
+            - name: ENVPLANE_MYSQL_RESTORE_SOURCE_NAMESPACES
+              value: {{ $sqlCopy.sourceNamespaces | uniq | join "," | quote }}
+            - name: ENVPLANE_MYSQL_RESTORE_TARGET_IMAGES
+              value: {{ $sqlCopy.targetImages | uniq | join "," | quote }}
+            - name: ENVPLANE_MYSQL_RESTORE_ALLOW_ROOT_INIT
+              value: {{ default false $sqlCopy.allowRootInit | quote }}
+            - name: ENVPLANE_MYSQL_RESTORE_SOURCE_FENCES
+              value: {{ $sqlCopy.sourceFences | toJson | quote }}
             {{- end }}
             {{- if $helmRegistry.existingSecret }}
             - name: HELM_REGISTRY_CONFIG

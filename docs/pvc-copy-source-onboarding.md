@@ -37,10 +37,25 @@ Onboarding never labels an active source offline or stops its writers. Runtime
 offline/consumer checks and target prepublication exclusivity remain mandatory;
 neither profile installation nor copy success alone promotes workload Ready.
 
-SQL client-only onboarding is not shipped by this filesystem profile. It rejects
-SQL requests rather than granting obsolete app-Pod exec. SQL needs a reviewed
-no-PVC helper policy, exact app/backup-admin/CA refs and explicit root-init opt-in.
-Mixed source namespaces require a shared combined fence verifier; separate policies
-cannot override the existing filesystem Runner-create restriction. Source UID/image
-rotation requires new review; retiring overlapping old authority is operator-held
-until the reviewed transition proof/UID-precondition path is implemented.
+SQL client-only onboarding uses the same native review with exact discovered
+PVC/workload/Service and app/backup-admin/CA Secret UIDs. No application-Pod exec
+is granted: exec/delete are limited to the deterministic no-PVC client helper.
+SQL root config init needs explicit owner opt-in. Mixed namespaces share one
+policy allowing only the reviewed filesystem OR SQL helper, with every other
+Runner Pod creation denied.
+
+After readback and effective negative AND positive server dry-runs, the receipt
+emits `pvcCopy.sourceFences`, `mysqlRestore.sourceFences` and exact approved
+production refs. Both fence arrays bind installed policy/binding UIDs and raw-hex
+full-spec hashes. The shared Runner SA downward-API env is emitted once for FS
+or SQL, including SQL-only profiles. SQL-only production refs do not depend on
+filesystem enablement. No client approval flags or Secret values are rendered.
+
+Source UID/image rotation needs new review: install new Deny, prove its exact
+negative message, retire only approved old binding UIDs, then prove positive
+helper acceptance. Failed positive proof restores old scope and journals fresh
+binding UIDs; policies are never switched to Ignore or deleted.
+
+Kubernetes 1.37 CEL sizing fields are omitted only from the admission expression;
+the worker still checks the complete helper spec before exec. Local CEL/parity,
+chart render and drift checks do not prove live TLS/dump/restore success.
