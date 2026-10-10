@@ -315,5 +315,46 @@ else:
         self.assertLess(refresh.index('new_revision="'), refresh.index('cp "$manifest_file" "$report"'))
 
 
+class AppTokenPermissionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.key = subprocess.check_output(["openssl", "genrsa", "2048"], stderr=subprocess.DEVNULL, text=True)
+
+    def mint(self, installed, requested):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            curl = root / "curl"
+            curl.write_text("#!/bin/bash\nfor arg in \"$@\"; do\ncase \"$arg\" in\n*/installation) printf '%s' \"$MOCK_INSTALLATION\"; exit 0;;\n*/access_tokens) touch \"$MOCK_MINTED\"; printf '%s' '{\"token\":\"mock-installation-token\"}'; exit 0;;\nesac\ndone\nexit 1\n")
+            curl.chmod(0o700)
+            output = root / "output"
+            env = {**os.environ, "PATH": str(root) + ":" + os.environ["PATH"],
+                   "ENVPLANE_AUTOMATION_APP_CLIENT_ID": "mock-client", "ENVPLANE_AUTOMATION_APP_PRIVATE_KEY": self.key,
+                   "GH_APP_TOKEN_PERMISSIONS": json.dumps(requested), "GITHUB_OUTPUT": str(output),
+                   "MOCK_MINTED": str(root / "minted"),
+                   "MOCK_INSTALLATION": json.dumps({"id": 1, "app_slug": "example-automation", "permissions": installed})}
+            result = subprocess.run(["bash", str(ROOT / "scripts/obtain-github-app-token.sh")], env=env, text=True, capture_output=True)
+            return result, (root / "minted").exists(), output.read_text() if output.exists() else ""
+
+    def test_missing_actions_permission_stops_before_mint(self):
+        result, minted, output = self.mint({"contents": "write"}, {"actions": "read"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(minted)
+        self.assertEqual(output, "")
+        self.assertIn("example-automation installation lacks requested permissions: actions", result.stderr)
+        self.assertNotIn("PRIVATE KEY", result.stdout + result.stderr)
+
+    def test_write_permission_cannot_be_requested_from_read_installation(self):
+        result, minted, _ = self.mint({"actions": "read"}, {"actions": "write"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(minted)
+
+    def test_granted_actions_read_mints_masked_output(self):
+        result, minted, output = self.mint({"actions": "read"}, {"actions": "read"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(minted)
+        self.assertIn("::add-mask::mock-installation-token", result.stdout)
+        self.assertEqual(output, "token=mock-installation-token\n")
+
+
 if __name__ == "__main__":
     unittest.main()

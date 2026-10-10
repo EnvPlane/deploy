@@ -185,6 +185,22 @@ if ! jq -e 'type == "object"' <<<"$permissions_json" > /dev/null; then
   echo "GH_APP_TOKEN_PERMISSIONS must be a JSON object" >&2
   exit 1
 fi
+# Installation permission grants are an external prerequisite. Explain only
+# the missing permission name and app identity, never token/JWT response data.
+missing_permissions=$(jq -r --argjson requested "$permissions_json" '
+  .permissions as $granted | $requested | to_entries[] |
+  select(.value != "none") |
+  select(($granted[.key] // "none") == "none" or
+    (.value == "write" and $granted[.key] != "write" and $granted[.key] != "admin")) |
+  select(.key | test("^[a-z_]+$")) | .key
+' <<<"$installation")
+if [[ -n "$missing_permissions" ]]; then
+  app_slug=$(jq -r '.app_slug // "unknown"' <<<"$installation")
+  [[ "$app_slug" =~ ^[a-zA-Z0-9-]+$ ]] || app_slug=unknown
+  printf 'GitHub App %s installation lacks requested permissions: %s\n' "$app_slug" "${missing_permissions//$'\n'/,}" >&2
+  exit 1
+fi
+
 permissions_payload="{\"permissions\":${permissions_json}}"
 access=$(github_api \
   -X POST \
