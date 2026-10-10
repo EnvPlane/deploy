@@ -1,7 +1,8 @@
 # Release 0.4.711 regression verification
 
-Date: 2026-10-10, Europe/Berlin. Status: artifact and local regression PASS;
-deployment and comprehensive live acceptance PENDING target clarification.
+Date: 2026-10-10, Europe/Berlin. Status: artifact/local regression, kind upgrade,
+old application retirement and scoped UI smoke PASS. Comprehensive live lifecycle
+acceptance remains pending the source-access, SCM and NetworkPolicy prerequisites.
 
 ## Verified release
 
@@ -69,3 +70,61 @@ The subsequent browser navigation timed out; no FinOps live PASS is claimed.
    external AI/fallback and separately authorized sandbox billing recovery.
 
 Overall: not a claim that every historical ticket or production-readiness gate is closed.
+
+## Authorized kind upgrade and old-install retirement
+
+The user explicitly selected kind 0.4.705 for upgrade and requested removal of
+the old 0.4.687 application. Kind is now deployed 0.4.711, Helm revision 12.
+API/frontend/PostgreSQL/Redis Pods are Ready with zero restarts at observation.
+Running image digests match the release pins. Non-Helm Secret data hashes and
+all original namespace PVC UIDs/backing-volume identities are unchanged.
+Test-app backend/frontend/MySQL Pods and its two base PVCs remain Ready/Bound.
+
+Custom-format PostgreSQL backups of both installations were generated inside
+their existing database Pods, passed pg_restore --list, and matched the transferred
+archive SHA-256. This validates archive structure and byte transfer, not a full
+disaster-recovery restore drill. Complete values/manifests and private Secret
+rollback material are retained outside the repository. The original interrupted
+backup was superseded by this complete verified old-install archive.
+
+Old releases envplane, ep-agent-ece91a52b07f and ep-runner-962bba4c4f3a were
+uninstalled in the exact old context. Its envplane/envplane-executors namespaces,
+PVCs, nine PVs and all nine recorded backing directories are absent. Helm-owned
+old product ClusterRoles/Bindings are absent. Seven Released/Delete PVs initially
+survived due to obsolete Minikube provisioner identity. After claim absence,
+retired ownership, policy and path validation, an administrator changed only
+those seven identity annotations using JSON Patch state/identity tests. The active
+provisioner then removed both volumes and backing directories. No blanket host-path
+deletion, finalizer bypass, kind PVC mutation or client-cluster cleanup was used.
+Directory absence is ordinary provider deletion, NOT forensic secure erase; the
+intentional private backups still exist.
+
+The old Minikube profile was NOT deleted: its ingress-nginx/tunnel temporarily
+provides the envplane.local edge route. The relay was moved to ingress-nginx
+namespace so it no longer depends on a deleted product namespace. Local frontend
+port-forward ended when the selected Pod rolled during upgrade; it was restarted
+on localhost only. Domain HTTP 200 and served OpenAPI SHA-256
+`d726e2c238e6085a5ff9a4f7eb093ab68e90f21ac3a92e09e3e7e5941d94ee86`
+now match canonical reviewed contracts. Independent durable kind-local domain
+routing is tracked separately; do not mistake retained edge infrastructure for
+a still-running 0.4.687 application.
+
+## Post-upgrade Chrome checks
+
+- Existing owner session and test-app Bootstrap progress survive reload.
+- New PVC/MySQL source-profile UI loads; missing configuration returns actionable
+  pending review, not a route-parity/API-token error. Copy choices remain preserved
+  and do not silently become empty volumes.
+- FinOps currency/pricing/infrastructure/telemetry screens load without read error.
+  This clean installation has no pricing versions, reconciled report or measured
+  source windows: these remain UNKNOWN, not invented zero-consumption evidence.
+- Preview `hybrid web with TTL 48 hours` returns valid deterministic fallback,
+  Hybrid and TTL 48. No proposal values were applied and no configuration saved.
+  Screenshot is private local evidence, not an external-provider AI result.
+- Focused UI smoke usability: 4/5; forms and explicit provenance are usable, but
+  readiness prerequisites and local domain-forwarding recovery still need setup.
+
+Remaining: reviewed MySQL TLS/backup/source-policy references, compiled Bootstrap,
+verified SCM delivery and fresh CNI enforcement before feature lifecycle/copy.
+Real Anthropic, remote onboarding, Stripe sandbox recovery and new live storage
+erase acceptance are not marked passed by these smoke checks.
