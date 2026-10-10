@@ -1,0 +1,31 @@
+name: Release CI status access probe
+on:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect bounded CI status access
+        env:
+          SELECTED_TOKEN: ${{ secrets.ENVPLANE_AUTOMATION_PAT || github.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PYCODE'
+          import json, os, subprocess, urllib.request, urllib.error
+          print(subprocess.run(["gh", "--version"], capture_output=True, text=True, check=True).stdout.splitlines()[0])
+          endpoint = "repos/envplane/agent/actions/workflows/ci.yaml/runs?branch=main&event=push&per_page=1"
+          for name in ("SELECTED_TOKEN", "WORKFLOW_TOKEN"):
+              env = dict(os.environ, GH_TOKEN=os.environ[name])
+              result = subprocess.run(["gh", "api", "--paginate", "--slurp", endpoint], env=env, capture_output=True, text=True, timeout=30)
+              print(json.dumps({"credential": name, "cliExit": result.returncode, "unsupportedSlurp": "unknown flag: --slurp" in result.stderr}))
+              request = urllib.request.Request("https://api.github.com/" + endpoint, headers={"Authorization": "Bearer " + os.environ[name], "Accept": "application/vnd.github+json"})
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      payload=json.load(response)
+                      print(json.dumps({"credential":name,"httpStatus":response.status,"validRuns":isinstance(payload.get("workflow_runs"),list)}))
+              except urllib.error.HTTPError as error:
+                  print(json.dumps({"credential":name,"httpStatus":error.code}))
+          PYCODE
