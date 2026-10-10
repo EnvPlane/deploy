@@ -103,3 +103,25 @@ claim UID. No existing app/source data was accessed or changed. No push.
 
 Local checks: four Go adapter tests pass under race, Go vet passes, three Python
 harness checks pass. They are local checks, not live acceptance evidence.
+
+## SQL-LIVE-002 follow-up: singleton import index
+
+Fresh run `77c835c7a0299753` built unique MySQL platform manifest
+`sha256:02622a9a41a5fd193516d3c1d382d370aa5cf7acc0164e300d298cc8890fc213`
+from the exact parent with ALL filesystem layer digests and bytes unchanged.
+Fresh current Root helper was
+`ghcr.io/envplane/runner@sha256:3ad64b938e2ef4172dfe804b966bc5371cfc667ed3cbf4fcf85ebd20de635ae2`.
+
+The real new Pod still reported a synthetic singleton archive index:
+`docker.io/library/import-2026-10-10@sha256:96300b2f781ab482e56e8388e5e7a43c05569bdd7f3deb260a35e17f81fc5f41`.
+Native image proof was NOT weakened; the harness stopped even before writer or
+onboarding installation. Containerd readback proved this exact new index has
+one descriptor, the owned fixture platform manifest. CRI repoDigests held both
+that synthetic index and the desired exact platform reference.
+
+Loader correction: record pre-import aliases, verify the archive singleton
+index digest, and retire only synthetic import-index aliases absent before the
+current import and pointing to the exact owned archive index. Keep the fixture
+platform alias and every preexisting alias. Do not delete content, force-remove
+images, alter the driver, or infer acceptance from CRI config IDs. Next fresh
+run must prove exact actual Pod imageID and current CEL status independently.

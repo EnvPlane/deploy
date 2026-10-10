@@ -111,12 +111,28 @@ def load(args):
         raise ValueError('imported fixture manifest mismatch')
     if record['image'] not in imported:
         command(native + ['tag', record['localTag'], record['image']])
+    with tarfile.open(archive) as files:
+        index_raw = files.extractfile('index.json').read()
+    index_digest = sha(index_raw)
+    index = json.loads(index_raw)
+    if len(index['manifests']) != 1 or index['manifests'][0]['digest'] != digest:
+        raise ValueError('fixture archive index is not exact singleton platform')
+    retired = []
+    # kind/ctr --digests adds a synthetic import index repository. CRI picks its
+    # alphabetically-first repoDigest instead of the platform pin. Retire ONLY
+    # aliases absent before this import whose exact index bytes belong to this
+    # singleton fixture archive. Never delete a preexisting alias or content.
+    for ref, target in imported.items():
+        if ref not in before and target == index_digest and re.fullmatch(r'import-\d{4}-\d{2}-\d{2}@sha256:[a-f0-9]{64}', ref):
+            command(native + ['rm', ref])
+            retired.append({'reference': ref, 'indexDigest': target})
     after = aliases(command(native + ['ls']))
     if after.get(record['image']) != digest or any(after.get(ref) != d for ref, d in before.items()):
         raise ValueError('fixture load changed existing aliases or failed immutable pin')
     record['loaded'] = True
     record['clusterUID'] = uid
     record['existingAliasesUnchanged'] = True
+    record['retiredOwnSyntheticIndexes'] = retired
     (path.parent / 'mysql-load.json').write_text(json.dumps(record, indent=2) + '\n')
     print(json.dumps({'fixtureImage': record['image'], 'clusterUID': uid, 'existingAliasesUnchanged': True}))
 
