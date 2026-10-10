@@ -48,3 +48,49 @@ Run `3109e0ae0ee1f098` ledger cleanup completed with `cleanupErrors=[]`.
 Evidence `/private/tmp/mysqlcopy-live-3109e0ae0ee1f098-build/sql-ledger.json`.
 Fresh replay `34496abd3c43c1e4` is separately source-snapshot built; execution
 results will be appended only after actual live checks and cleanup.
+
+## Fresh scoped replay 34496abd3c43c1e4: actual progress, not PASS
+
+Fresh exact index Pod identity and current mixed policy generation 1 with
+`typeChecking={}` passed. SQL and filesystem positives, all six exact Deny
+negatives passed. Stale plan source PVC UID was observed against actual GET
+metadata; native refused before Restore/target PVC. Duplicate target root/app
+password was refused before target writes. A new target-root client performed
+VERIFY_IDENTITY TLS against the source and received MySQL 1045: target root
+password cannot authenticate there. Its RAM client config was UID/GID
+999:999 mode0600.
+
+Actual native held backup lock challenge returned MySQL 1205 on fixture-root
+ALTER while active writer progressed from 4239 to 4249 rows. Actual Restore was
+attempted, target helper reached Succeeded/exit0, and native journal recorded a
+successful seventh create (consistent with receipt creation in this protocol).
+The adapter had not yet captured resource kinds/receipt bodies, so no table
+proof/receipt PASS is inferred from that count. Native positive result was
+still an operation error and cleared its returned receipt. Retry/cancellation
+were not executed because the positive result failed.
+
+### Ticket SQL-LIVE-005: native lifecycle cleanup failure
+
+Observed last phase: positive Restore/target exit0 followed by native deletion
+and repeated GETs, ending with a failed GET and overall redacted operation error.
+`DomainExecutor` currently gives cleanup 10 seconds; native source helper has
+30-second termination grace, and `NativeDriver.Cleanup` waits for exact UID
+absence. This budget mismatch is a likely cause, not yet independently proven
+by captured context error. No timeout extension, deletion-acknowledgement waiver,
+worker/profile code edit or forced Pod removal was made in the harness.
+
+Implementation prompt for native worker owner: reproduce helper deletion under
+real KubeTransport and exact own UID; ensure source helper exits promptly or
+align bounded cleanup budget with grace/polling. Keep fail-closed success on
+cleanup failure and require actual UID absence. Fix in worker-owned code with
+regression tests and replay real fresh fixture; do not hide failure in host
+adapter or publish until native copy/restart/cancellation gates pass.
+
+Harness instrumentation now records immutable receipt proof ONLY from an actual
+successful ConfigMap CREATE response, plus native Cleanup error/context status,
+without changing native behavior or retaining Secret/SQL values. Fresh final-
+committed-source replay will confirm exact copy-vs-cleanup boundary.
+
+Both own replay namespaces were removed via UID preconditions;
+`sql-ledger.json` reports `cleanupErrors=[]`. Existing apps/sources untouched.
+Evidence `/private/tmp/mysqlcopy-live-34496abd3c43c1e4-build/`.

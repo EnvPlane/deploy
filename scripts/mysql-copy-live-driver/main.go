@@ -50,12 +50,16 @@ func (c config) validate() error {
 }
 
 type commands struct {
-	c                 config
-	cancel            context.CancelFunc
-	transferred       int64
-	restoreAttempted  bool
-	ddlProven         bool
-	sourceUIDMismatch bool
+	c                   config
+	cancel              context.CancelFunc
+	transferred         int64
+	restoreAttempted    bool
+	ddlProven           bool
+	sourceUIDMismatch   bool
+	committedReceipt    *mysqlcopy.Receipt
+	receiptUID          string
+	cleanupError        string
+	cleanupContextError string
 }
 
 func (k *commands) argv(args []string, probe bool) []string {
@@ -110,6 +114,29 @@ func (k *commands) run(ctx context.Context, args []string, in io.Reader, out io.
 	return nil
 }
 func (k *commands) Run(ctx context.Context, args []string, in io.Reader, out io.Writer) error {
+	if len(args) > 0 && args[0] == "create" {
+		var response bytes.Buffer
+		err := k.run(ctx, args, in, io.MultiWriter(out, &response), false)
+		if err == nil {
+			var o struct {
+				Kind      string
+				Immutable bool
+				Metadata  struct{ Namespace, UID string }
+				Data      map[string]string
+			}
+			if json.Unmarshal(response.Bytes(), &o) == nil && o.Kind == "ConfigMap" && o.Immutable && o.Metadata.Namespace == k.c.dst() && o.Metadata.UID != "" {
+				var receipt mysqlcopy.Receipt
+				if json.Unmarshal([]byte(o.Data["receipt.json"]), &receipt) == nil {
+					digest, _ := k.c.Plan.Digest()
+					if receipt.PlanDigest == digest && receipt.ShutdownVerified {
+						k.committedReceipt = &receipt
+						k.receiptUID = o.Metadata.UID
+					}
+				}
+			}
+		}
+		return err
+	}
 	if len(args) >= 3 && args[0] == "get" && args[1] == "pvc" && args[2] == k.c.Plan.Source.PVC.Name {
 		var metadata bytes.Buffer
 		err := k.run(ctx, args, in, io.MultiWriter(out, &metadata), false)
@@ -140,6 +167,16 @@ func (t *transport) Restore(ctx context.Context, p mysqlcopy.Plan, id mysqlcopy.
 		r = &cancelReader{r: r, k: t.k, remaining: 1024}
 	}
 	return t.KubeTransport.Restore(ctx, p, id, r)
+}
+func (t *transport) Cleanup(ctx context.Context, p mysqlcopy.Plan) error {
+	err := t.KubeTransport.Cleanup(ctx, p)
+	if err != nil {
+		t.k.cleanupError = err.Error()
+	}
+	if ctx.Err() != nil {
+		t.k.cleanupContextError = ctx.Err().Error()
+	}
+	return err
 }
 func (k *commands) RunAdmissionFenceProbe(ctx context.Context, args []string, in io.Reader, out io.Writer) error {
 	return k.run(ctx, args, in, out, true)
@@ -279,7 +316,7 @@ func main() {
 	receipt, e := (mysqlcopy.DomainExecutor{Transport: t, Authority: k.authority}).ExecuteDomain(ctx, c.Plan)
 	digest, _ := c.Plan.Digest()
 	sum := sha256.Sum256([]byte(digest))
-	result := map[string]any{"success": e == nil, "receipt": receipt, "restoreAttempted": k.restoreAttempted, "cancelInputBytes": k.transferred, "planDigest": digest, "metadataSHA256": hex.EncodeToString(sum[:]), "DDLBlockedByBackupLock": k.ddlProven, "sourceUIDMismatchObserved": k.sourceUIDMismatch, "CPLeaseProven": false}
+	result := map[string]any{"success": e == nil, "receipt": receipt, "restoreAttempted": k.restoreAttempted, "cancelInputBytes": k.transferred, "planDigest": digest, "metadataSHA256": hex.EncodeToString(sum[:]), "DDLBlockedByBackupLock": k.ddlProven, "sourceUIDMismatchObserved": k.sourceUIDMismatch, "CPLeaseProven": false, "observedCommittedReceipt": k.committedReceipt, "receiptUID": k.receiptUID, "cleanupError": k.cleanupError, "cleanupContextError": k.cleanupContextError}
 	if e != nil {
 		result["error"] = e.Error()
 	}
