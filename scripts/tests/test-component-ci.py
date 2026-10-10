@@ -348,6 +348,11 @@ class AppTokenPermissionTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(minted)
 
+    def test_existing_contents_read_still_works_with_write_grant(self):
+        result, minted, _ = self.mint({"contents": "write"}, {"contents": "read"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(minted)
+
     def test_granted_actions_read_mints_masked_output(self):
         result, minted, output = self.mint({"actions": "read"}, {"actions": "read"})
         self.assertEqual(result.returncode, 0, result.stderr)
