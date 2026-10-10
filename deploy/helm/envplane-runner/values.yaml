@@ -155,6 +155,15 @@ serviceAccount:
   annotations: {}
   name: ""
 
+# Explicit offline copy opt-in. Never changes source workloads or installs a
+# storage driver/admission policy. Sources bind observed UID and exact helper
+# exec/delete names; platform owner supplies the enforced admission fence.
+pvcCopy:
+  enabled: false
+  allowRootHelpers: false
+  sources: [] # [{namespace: base, name: data, uid: observed-pvc-uid}]
+  fenceNames: [] # Exact preinstalled policy and binding names (read-only).
+
 rbac:
   create: true
   annotations: {}

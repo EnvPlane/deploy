@@ -1,3 +1,16 @@
 {{- if and (not .Values.serviceAccount.create) (not .Values.serviceAccount.name) -}}
 {{- fail "serviceAccount.name is required when serviceAccount.create=false" -}}
 {{- end -}}
+{{- if .Values.pvcCopy.enabled -}}
+{{- if not .Values.image.digest -}}{{ fail "PVC copy requires an immutable runner image.digest" }}{{- end -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" .Values.image.digest) -}}{{ fail "PVC copy requires a valid SHA-256 runner image digest" }}{{- end -}}
+{{- if not .Values.rbac.create -}}{{ fail "PVC copy requires explicit chart-managed scoped RBAC" }}{{- end -}}
+{{- if not .Values.rbac.featureEnvWriter.enabled -}}{{ fail "PVC copy requires finite target namespace write access" }}{{- end -}}
+{{- if not .Values.pvcCopy.sources -}}{{ fail "PVC copy requires exact source namespace/name/UID entries" }}{{- end -}}
+{{- if not .Values.pvcCopy.fenceNames -}}{{ fail "PVC copy requires exact preinstalled admission fence names" }}{{- end -}}
+{{- range .Values.pvcCopy.sources -}}
+{{- if or (not .namespace) (not .name) (not .uid) -}}{{ fail "PVC copy source namespace/name/UID is required" }}{{- end -}}
+{{- if or (gt (len .namespace) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .namespace)) (gt (len .name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" .name)) (not (regexMatch "^[A-Za-z0-9][A-Za-z0-9-]{0,127}$" .uid)) -}}{{ fail "PVC copy source references must be safe Kubernetes identifiers" }}{{- end -}}
+{{- end -}}
+{{- range .Values.pvcCopy.fenceNames -}}{{- if or (gt (len .) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" .)) -}}{{ fail "PVC copy fence names must be exact Kubernetes identifiers" }}{{- end -}}{{- end -}}
+{{- end -}}

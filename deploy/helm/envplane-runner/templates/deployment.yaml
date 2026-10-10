@@ -188,6 +188,20 @@ spec:
               value: {{ printf ":%d" (.Values.health.port | int) | quote }}
             - name: ENVPLANE_RUNNER_VERSION
               value: {{ .Chart.AppVersion | quote }}
+            {{- if .Values.pvcCopy.enabled }}
+            {{- $copyNamespaces := list }}
+            {{- range .Values.pvcCopy.sources }}{{- $copyNamespaces = append $copyNamespaces .namespace }}{{- end }}
+            - name: ENVPLANE_PVC_COPY_HELPER_IMAGE
+              value: {{ include "envplane-runner.image" . | quote }}
+            - name: ENVPLANE_PVC_COPY_SOURCE_NAMESPACES
+              value: {{ $copyNamespaces | uniq | join "," | quote }}
+            - name: ENVPLANE_PVC_COPY_RUNNER_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: ENVPLANE_PVC_COPY_ALLOW_ROOT_HELPERS
+              value: {{ .Values.pvcCopy.allowRootHelpers | quote }}
+            {{- end }}
             {{- if $helmRegistry.existingSecret }}
             - name: HELM_REGISTRY_CONFIG
               value: {{ printf "%s/config.json" $helmRegistry.mountPath | quote }}

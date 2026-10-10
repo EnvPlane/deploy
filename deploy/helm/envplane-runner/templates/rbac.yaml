@@ -27,6 +27,14 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get","list","watch"]
+  {{- if $root.Values.pvcCopy.enabled }}
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create","delete"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  {{- end }}
   - apiGroups: [""]
     resources:
       - configmaps

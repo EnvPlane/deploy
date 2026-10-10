@@ -1,0 +1,82 @@
+{{- if and .Values.pvcCopy.enabled .Values.rbac.create }}
+{{- $root := . }}
+{{- $fullName := include "envplane-runner.fullname" . }}
+{{- $serviceAccount := include "envplane-runner.serviceAccountName" . }}
+{{- range .Values.pvcCopy.sources }}
+{{- $identity := printf "%s/%s/%s" .namespace .name .uid | sha256sum | trunc 24 }}
+{{- $helper := printf "pvccopy-source-%s" $identity }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullName }}-pvc-copy-{{ $identity }}
+  namespace: {{ .namespace | quote }}
+  labels:
+    {{- include "envplane-runner.labels" $root | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    resourceNames: [{{ .name | quote }}]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get","list"]
+  # Kubernetes cannot name-restrict create; the mandatory source admission
+  # fence permits only exact pinned tokenless read-only copy helpers.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    resourceNames: [{{ $helper | quote }}]
+    verbs: ["delete"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    resourceNames: [{{ $helper | quote }}]
+    verbs: ["create"]
+  - apiGroups: ["apps"]
+    resources: ["deployments","statefulsets","daemonsets","replicasets"]
+    verbs: ["get","list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs","cronjobs"]
+    verbs: ["get","list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullName }}-pvc-copy-{{ $identity }}
+  namespace: {{ .namespace | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $fullName }}-pvc-copy-{{ $identity }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccount }}
+    namespace: {{ $root.Release.Namespace }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $fullName }}-pvc-copy-fence-reader
+rules:
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingadmissionpolicies","validatingadmissionpolicybindings"]
+    resourceNames:
+      {{- toYaml .Values.pvcCopy.fenceNames | nindent 6 }}
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $fullName }}-pvc-copy-fence-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $fullName }}-pvc-copy-fence-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccount }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
