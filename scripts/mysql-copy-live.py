@@ -467,6 +467,8 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         cancelled = self.native(self.plan('copy-cancel'), 'cancel')
         if cancelled['success'] or cancelled.get('cancelInputBytes', 0) < 1024:
             raise RuntimeError('actual restore cancellation not proven')
+        if cancelled.get('errorCode') != 'cancelled' or cancelled.get('cleanupError') or cancelled.get('cleanupContextError') or 'release_ddl' in cancelled.get('failureStages', []):
+            raise RuntimeError('cancellation included an unexpected release/cleanup failure; not accepted')
         partial = self.native(self.plan('copy-cancel'), 'retry')
         if partial['success'] or partial.get('errorCode') != 'partial_target' or partial.get('restoreAttempted'):
             raise RuntimeError('partial target retry not fail-closed')

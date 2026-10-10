@@ -321,6 +321,7 @@ func main() {
 		result["error"] = e.Error()
 		stage, code := mysqlcopy.FailureInfo(e)
 		result["errorStage"], result["errorCode"] = stage, code
+		result["failureStages"] = mysqlcopy.FailureStages(e)
 	}
 	_ = json.NewEncoder(os.Stdout).Encode(result)
 	if e != nil {
