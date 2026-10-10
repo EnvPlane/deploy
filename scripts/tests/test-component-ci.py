@@ -33,7 +33,7 @@ def report():
 class GateTests(unittest.TestCase):
     def setUp(self):
         self.run = {"id": 20, "head_sha": SHA, "head_branch": "main", "event": "push",
-                    "path": ".github/workflows/ci.yaml", "head_repository": {"full_name": "EnvPlane/runner"},
+                    "path": ".github/workflows/ci.yaml", "head_repository": {"full_name": "envplane/runner"},
                     "status": "completed", "conclusion": "success", "run_attempt": 2}
         self.jobs = [{"name": "test", "head_sha": SHA, "run_id": 20, "run_attempt": 2,
                       "status": "completed", "conclusion": "success"}]
@@ -60,6 +60,10 @@ class GateTests(unittest.TestCase):
     def test_documented_job_schema_without_attempt_field(self):
         del self.jobs[0]["run_attempt"]
         self.assertEqual(self.verify()["attempt"], 2)
+
+    def test_repository_identity_comparison_remains_case_insensitive(self):
+        self.run["head_repository"]["full_name"] = "envplane/runner".upper()
+        self.assertEqual(self.verify()["repository"], "envplane/runner")
 
     def test_missing_run(self):
         self.runs = []
@@ -110,7 +114,7 @@ class GateTests(unittest.TestCase):
         with patch.object(gate.subprocess, "run", side_effect=subprocess.CalledProcessError(
                 1, ["gh"], stderr="secret token")):
             with self.assertRaisesRegex(ValueError, "service unavailable") as error:
-                gate.api("repos/EnvPlane/runner/actions/runs/20")
+                gate.api("repos/envplane/runner/actions/runs/20")
             self.assertNotIn("secret", str(error.exception))
 
     def test_pagination_must_be_complete(self):
@@ -211,7 +215,7 @@ endpoint = sys.argv[-1]
 repo = endpoint.split('/')[2]
 sha = 'a' * 40
 run = dict(id=20, head_sha=sha, head_branch='main', event='push',
-           path='.github/workflows/ci.yaml', head_repository=dict(full_name='EnvPlane/' + repo),
+           path='.github/workflows/ci.yaml', head_repository=dict(full_name='envplane/' + repo),
            status='completed', conclusion='success', run_attempt=2)
 if 'workflows/ci.yaml/runs?' in endpoint:
     result = [dict(total_count=1, workflow_runs=[dict(id=20)])]
@@ -261,7 +265,7 @@ else:
             gh.chmod(0o755)
             archive = path / "artifact.zip"
             env = {**os.environ, "PATH": f"{path}:{os.environ['PATH']}", "GITHUB_TOKEN": "mock-only",
-                   "GH_TOKEN": "mock-only", "GITHUB_REPOSITORY": "EnvPlane/deploy", "MOCK_ARCHIVE": str(archive)}
+                   "GH_TOKEN": "mock-only", "GITHUB_REPOSITORY": "envplane/deploy", "MOCK_ARCHIVE": str(archive)}
             for selected_sha in ["b" * 40, SHA]:
                 selected = report()
                 selected["sourceRevision"] = selected_sha

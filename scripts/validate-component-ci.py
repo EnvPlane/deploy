@@ -87,7 +87,7 @@ def collection(endpoint, key):
 def verify(repository, sha):
     require(repository in REPOSITORIES, "unknown candidate repository")
     revision(sha)
-    base = f"repos/EnvPlane/{repository}/actions"
+    base = f"repos/envplane/{repository}/actions"
     runs = collection(f"{base}/workflows/ci.yaml/runs?head_sha={sha}&branch=main&event=push&per_page=100",
                       "workflow_runs")
     require(bool(runs), f"{repository}@{sha}: required CI missing")
@@ -119,7 +119,7 @@ def verify(repository, sha):
                            "workflow_runs")
     require(bool(refreshed) and max(row["id"] for row in refreshed) == run["id"],
             "new CI run appeared during verification")
-    return {"repository": f"EnvPlane/{repository}", "sha": sha, "runId": run["id"],
+    return {"repository": f"envplane/{repository}", "sha": sha, "runId": run["id"],
             "attempt": attempt, "requiredJob": required_job, "conclusion": "success"}
 
 

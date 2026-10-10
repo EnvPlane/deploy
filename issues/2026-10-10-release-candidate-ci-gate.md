@@ -35,3 +35,12 @@ hosted CI. No Kubernetes operations, image/pin changes, or pushes performed.
 The gate intentionally refuses a still-running required CI run; re-run
 publication/release selection after CI succeeds instead of substituting a
 publication result. Shared verification and push remain with main.
+
+## Branding follow-up
+
+The diff-based branding check flagged mixed-case GitHub compatibility
+identifiers in the new gate and its fixtures. Implementation prompt:
+normalize gate API paths, receipts and test fixtures to lowercase without
+changing exact-SHA qualification or case-insensitive repository comparison.
+A regression test explicitly checks uppercase API identity compatibility.
+Harness snapshot scripts are owned by main and remain outside this fix.
