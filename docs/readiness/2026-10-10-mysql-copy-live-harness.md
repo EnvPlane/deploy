@@ -39,12 +39,13 @@ deletion of own cluster grants/policies and own namespaces.
 | Backup/restore | Native bounded dump/restore and logical receipt | Matching table rows/schema hashes, clean shutdown |
 | Restart | Fresh native driver on completed target | Identical receipt and logical proof |
 | Cancellation / partial retry | Cancel actual Restore reader at 1024 bytes | No completion; retry never Restore |
-| Target root isolation | Pending independent live probe | Do not infer from random generation |
-| Source UID drift | Pending independent live probe | Must refuse before target writes |
-| Cleanup | Exact own UID DeleteOptions | Both new namespaces and own cluster objects absent |
+| Target root isolation | Native duplicate root/app refusal + real source authentication1045 with target root | Fresh client config999:999:0600; no inference from random generation |
+| Source UID drift | Stale plan UID versus real current source GET metadata | Must refuse before Restore or target PVC |
+| Cleanup | Exact own UID DeleteOptions + exact claim-bound PV ledger | New namespaces/cluster objects absent and own Delete-policy PVs reclaimed |
 
-Initial iteration is not a full live PASS until the pending independent probes
-are implemented and executed. No runtime readiness or control-plane lease proof.
+No full live PASS until all implemented checks and cleanup actually succeed.
+No runtime readiness or control-plane lease proof. In7477, a real immutable
+4353-row receipt was sealed, but native cleanup failed; see owned-index report.
 
 ## Commands
 
@@ -62,8 +63,11 @@ metadata ledger; no database log output is retained.
 
 Unique MySQL image provenance is mandatory for new runs. Only fixture labels
 change from the official exact arm64 parent; all filesystem layer descriptors
-and contents are hash verified unchanged. No preexisting alias is retagged or
-removed. Exact running source imageID must equal the new reviewed immutable
-manifest; cached index/config equivalence is never accepted. Build snapshot
+and contents are hash verified unchanged. The user-approved artifact is the
+exact OWNED singleton index: sole arm64 manifest/config/layers are verified and
+the same full index ref is used by source, target and trusted allowlists. No
+preexisting alias is retagged or removed. Actual source imageID must exactly
+equal the new approved index ref; runtime index/platform/config equivalence is
+never accepted. Build snapshot
 hashes bind current Runner/native source and renderer files; concurrent source
 changes abort the build. Adapter-only refresh refuses changed helper sources.
