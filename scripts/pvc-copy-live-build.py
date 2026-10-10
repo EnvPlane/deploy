@@ -93,6 +93,7 @@ def main():
              "helperBase": BASE, "liveClusterWrites": 0, "pushed": False}
     for name in ("runner", "contracts", "gitops"):
         build[name + "Commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=workspace / name, text=True).strip()
+        build[name + "WorktreeDirty"] = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=workspace / name, text=True).strip())
     if not args.skip_image:
         # No package installation, remote push, credentials or kind load. The
         # imported OCI manifest must be verified by the owner before execution.
@@ -110,7 +111,10 @@ def main():
         build["archiveSHA256"] = hashlib.sha256((output / "helper.oci.tar").read_bytes()).hexdigest()
         build["localTag"] = tag
     (output / "build.json").write_text(json.dumps(build, indent=2) + "\n")
-    print(json.dumps(build, indent=2))
+    if args.skip_image:
+        print(json.dumps(build, indent=2))
+    else:
+        finalize(output, args.run_id, args.architecture)
 
 
 if __name__ == "__main__":

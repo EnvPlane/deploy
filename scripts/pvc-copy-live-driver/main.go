@@ -63,9 +63,12 @@ func compile(c config) (domain.PVCCopyPlan, domain.PVCCopySource, domain.PVCCopy
 
 // Every native kubectl call carries an explicit isolated context and fixture SA.
 type commands struct {
-	c           config
-	cancel      context.CancelFunc
-	interrupted atomic.Int64
+	c                      config
+	cancel                 context.CancelFunc
+	interrupted            atomic.Int64
+	createdHelpers         []map[string]any
+	targetVerifyRefused    atomic.Bool
+	payloadImportAttempted atomic.Bool
 }
 
 func (k *commands) args(args []string) []string {
@@ -112,6 +115,12 @@ func (k *commands) Run(ctx context.Context, args []string, in io.Reader, out io.
 		if json.Unmarshal(captured.Bytes(), &evidence) != nil {
 			evidence = nil
 		}
+		if retErr == nil && len(args) > 0 && args[0] == "create" && !slicesContain(args, "--dry-run=server") {
+			if obj, ok := evidence.(map[string]any); ok && obj["kind"] == "Pod" {
+				m := metadata(obj)
+				k.createdHelpers = append(k.createdHelpers, map[string]any{"namespace": m["namespace"], "name": m["name"], "uid": m["uid"]})
+			}
+		}
 		retErr = errors.Join(retErr, k.record(args, retErr, evidence))
 	}()
 	if len(args) > 0 && args[0] == "exec" {
@@ -145,7 +154,14 @@ func (k *commands) Run(ctx context.Context, args []string, in io.Reader, out io.
 	if k.c.Mode == "cancel" && in != nil && slicesContain(args, "pvc-import") {
 		in = &interruptReader{reader: in, ctx: ctx, k: k, remaining: 8192}
 	}
-	return k.native(ctx, args, in, out)
+	if slicesContain(args, "pvc-import") {
+		k.payloadImportAttempted.Store(true)
+	}
+	err := k.native(ctx, args, in, out)
+	if err != nil && slicesContain(args, "pvc-verify") && slicesContain(args, k.c.targetNS()) && strings.Contains(err.Error(), "PVC copy helper failed") {
+		k.targetVerifyRefused.Store(true)
+	}
+	return err
 }
 func slicesContain(args []string, part string) bool {
 	for _, a := range args {
@@ -238,7 +254,7 @@ func checkNamespaces(ctx context.Context, k *commands) error {
 	}
 	return nil
 }
-func audit(ctx context.Context, k *pvccopy.Kubectl, c config, p domain.PVCCopyPlan) (result any, retErr error) {
+func audit(ctx context.Context, k *pvccopy.Kubectl, c config, p domain.PVCCopyPlan, created *pvccopy.Helper) (result any, retErr error) {
 	ref := pvccopy.PVCRef{Namespace: c.sourceNS(), Name: c.SourceName, UID: c.SourceUID}
 	if c.Mode == "audit-target" || c.Mode == "inspect-partial" {
 		ref = pvccopy.PVCRef{Namespace: c.targetNS(), Name: c.TargetName}
@@ -271,6 +287,7 @@ func audit(ctx context.Context, k *pvccopy.Kubectl, c config, p domain.PVCCopyPl
 		}
 	}
 	h, e := k.CreateHelper(ctx, pvccopy.HelperSpec{Namespace: ref.Namespace, Name: pvccopy.SourceHelperName(ref), Owner: "fixture-audit-" + c.RunID, PVC: ref, ReadOnly: true, Image: c.Image, Timeout: 120 * time.Second})
+	*created = h
 	if h.UID != "" {
 		defer func() {
 			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
@@ -359,8 +376,10 @@ func run(c config) (map[string]any, error) {
 		if e := transport.RequireAdmissionFence(ctx, p, c.targetNS(), "copy-runner"); e != nil {
 			return nil, e
 		}
-		value, e := audit(ctx, transport, c, p)
+		var created pvccopy.Helper
+		value, e := audit(ctx, transport, c, p, &created)
 		result["value"] = value
+		result["auditHelper"] = created
 		return result, e
 	}
 	executor := pvccopy.DomainExecutor{Kubectl: transport, Permission: permission, Sources: []domain.PVCCopySource{s}, Authorize: func(ctx context.Context, p domain.PVCCopyPlan, _ []domain.PVCCopySource) error {
@@ -370,6 +389,16 @@ func run(c config) (map[string]any, error) {
 		return transport.RequireAdmissionFence(ctx, p, c.targetNS(), "copy-runner")
 	}}
 	markers, e := executor.ExecuteDomain(ctx, p, []string{c.sourceNS()}, c.Image)
+	result["createdHelpers"] = commands.createdHelpers
+	result["targetVerifyRefused"] = commands.targetVerifyRefused.Load()
+	result["payloadImportAttempted"] = commands.payloadImportAttempted.Load()
+	if e != nil {
+		message := e.Error()
+		if len(message) > 4096 {
+			message = message[:4096]
+		}
+		result["fixtureRefusal"] = message
+	}
 	result["markers"] = markers
 	result["interruptedAfterBytes"] = commands.interrupted.Load()
 	switch {

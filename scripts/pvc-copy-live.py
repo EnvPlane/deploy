@@ -427,10 +427,21 @@ def reviewed(ledger, path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def partial_refused_before_import(response):
+    verified_refusal = response.get("outcome") == "partial_target" or (
+        response.get("outcome") == "error" and response.get("targetVerifyRefused") is True)
+    return verified_refusal and response.get("payloadImportAttempted") is False and not response.get("markers")
+
+
 def run_cases(ledger, args):
     approval(ledger, args.authorize_fixture)
-    resume = getattr(args, "retry_preflight_only", False) and ledger["stage"] == "running" and not ledger.get("liveResults")
-    require(ledger["stage"] == "prepared" or resume, "fixture must be prepared; failed runs require operator review")
+    prior = ledger.get("liveResults", {})
+    preflight_only = not prior or (set(prior) <= {"sourceBefore", "positive"} and
+                                  prior.get("positive", {}).get("outcome") in ("unsafe", "error") and
+                                  not prior["positive"].get("markers") and not prior["positive"].get("interruptedAfterBytes"))
+    resume = getattr(args, "retry_preflight_only", False) and ledger["stage"] == "running" and preflight_only
+    resume_recorded = getattr(args, "resume_recorded_run", False) and ledger["stage"] == "running" and prior.get("positive", {}).get("outcome") == "complete"
+    require(ledger["stage"] == "prepared" or resume or resume_recorded, "fixture must be prepared; failed runs require operator review")
     ledger["reviewSHA256"] = reviewed(ledger, args.reviewed_onboarding)
     cluster = Cluster(ledger);cluster.identity()
     cluster.namespace(ledger["sourceNamespace"]);cluster.namespace(ledger["targetNamespace"])
@@ -438,13 +449,40 @@ def run_cases(ledger, args):
     if resume:
         for name in ("copy-positive", "copy-cancel", "copy-uid"):
             require(cluster.get("pvc", name, ledger["targetNamespace"], absent=True) is None, "preflight retry cannot adopt targets")
+        ledger.setdefault("preflightAttempts", []).append(prior)
+    if resume_recorded:
+        for name in ("copy-positive", "copy-cancel"):
+            obj = cluster.get("pvc", name, ledger["targetNamespace"])
+            require(obj["metadata"]["uid"] == ledger["objectUIDs"].get(f"{ledger['targetNamespace']}/persistentvolumeclaims/{name}"), "recorded target UID changed")
+        require(prior.get("cancelledImport", {}).get("outcome") == "cancelled" and prior["cancelledImport"].get("interruptedAfterBytes") == 8192, "no proven cancellation to resume")
+        ledger.setdefault("recordedAttempts", []).append(prior)
     ledger["stage"] = "running";ledger["liveResults"] = {};save(args.ledger, ledger)
     results = ledger["liveResults"]
 
     def case(name, mode, target="copy-positive", source="source"):
+        if resume_recorded and name == "cancelledImport":
+            # Preserve the real original cancellation; never rerun import onto
+            # its partial target. Fresh partial-state checks immediately follow.
+            response = prior[name]
+            results[name] = response;save(args.ledger, ledger)
+            return response
         response = invoke(args.driver, driver_config(ledger, mode, source, target))
         require(response.get("live") is True, "nonlive driver result cannot satisfy live case")
         results[name] = response;save(args.ledger, ledger)
+        helpers = list(response.get("createdHelpers") or [])
+        audit_helper = response.get("auditHelper")
+        if audit_helper:
+            helpers.append({"namespace": audit_helper["Namespace"], "name": audit_helper["Name"], "uid": audit_helper["UID"]})
+        for helper in helpers:
+            require(helper["namespace"] in (ledger["sourceNamespace"], ledger["targetNamespace"]) and helper["uid"], "unknown helper cleanup identity")
+            deadline = time.monotonic() + 30
+            while True:
+                pod = cluster.get("pod", helper["name"], helper["namespace"], absent=True)
+                if pod is None:
+                    break
+                require(pod["metadata"]["uid"] == helper["uid"] and pod["metadata"].get("deletionTimestamp"), "helper delete not confirmed for exact UID")
+                require(time.monotonic() < deadline, "helper deletion did not complete")
+                time.sleep(1)
         obj = cluster.get("pvc", target, ledger["targetNamespace"], absent=True)
         if obj:
             require(obj["metadata"].get("annotations", {}).get("envplane.io/pvc-copy-plan") == response["plan"]["digest"], "target plan identity mismatch")
@@ -469,7 +507,11 @@ def run_cases(ledger, args):
             not cancelled.get("markers"), "real streaming cancellation not proven")
     case("cancelledState", "inspect-partial", "copy-cancel")
     partial = case("partialRetryRefused", "execute", "copy-cancel")
-    require(partial.get("outcome") == "partial_target" and not partial.get("markers"), "partial target was not refused")
+    # Remote helper errors intentionally do not serialize Go ErrPartial. Require
+    # its real target verify refusal, no import attempt, no marker, then recheck
+    # the independently proven partial state. Do not accept arbitrary errors.
+    require(partial_refused_before_import(partial), "partial target was not refused before payload import")
+    case("partialRetryState", "inspect-partial", "copy-cancel")
 
     # Actual UID drift on the separate, owned, never-copied probe claim only.
     old_uid = ledger["sourceUIDs"]["uid-probe"]
@@ -574,6 +616,7 @@ def main():
     parser.add_argument("--reviewed-onboarding")
     parser.add_argument("--confirm-exclusive-namespaces")
     parser.add_argument("--retry-preflight-only", action="store_true", help="retry only a failed, idle, target-free preflight")
+    parser.add_argument("--resume-recorded-run", action="store_true", help="revalidate exact recorded targets and reuse only the proven original cancellation")
     args = parser.parse_args()
     if args.action == "plan":
         require(args.kubeconfig and args.image, "explicit kubeconfig and matching-helper image required")

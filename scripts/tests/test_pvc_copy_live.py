@@ -26,6 +26,13 @@ def ledger():
 
 
 class LocalMockSafetyTests(unittest.TestCase):
+    def test_partial_refusal_needs_real_verify_failure_no_import_and_no_marker(self):
+        refused = {"outcome": "error", "targetVerifyRefused": True, "payloadImportAttempted": False, "markers": []}
+        self.assertTrue(harness.partial_refused_before_import(refused))
+        for change in ({"targetVerifyRefused": False}, {"payloadImportAttempted": True},
+                       {"markers": [{"version": 1}]}, {"outcome": "cancelled"}):
+            self.assertFalse(harness.partial_refused_before_import({**refused, **change}))
+
     def test_kind_tag_does_not_imply_digest_alias(self):
         raw = "REF TYPE DIGEST SIZE\nghcr.io/envplane/runner:fixture manifest sha256:abc 10MB\n"
         images = loader.parse_images(raw)
