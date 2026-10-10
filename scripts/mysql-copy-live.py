@@ -17,7 +17,7 @@ from pathlib import Path
 
 CONTEXT = 'kind-envplane-readiness-682'
 CLUSTER_UID = '49918e1f-d1f7-4aba-9afb-a4cea4187822'
-MYSQL = 'docker.io/library/mysql@sha256:ca3f0494c0f1fc86eb45f5e4786a1bb9f64d2f85b562cc74a9595046f6519a42'
+MYSQL_PARENT = 'docker.io/library/mysql@sha256:ca3f0494c0f1fc86eb45f5e4786a1bb9f64d2f85b562cc74a9595046f6519a42'
 KINDS = {'Namespace': 'namespaces', 'ServiceAccount': 'serviceaccounts', 'Secret': 'secrets',
          'ConfigMap': 'configmaps', 'PersistentVolumeClaim': 'persistentvolumeclaims',
          'Service': 'services', 'StatefulSet': 'statefulsets', 'Pod': 'pods',
@@ -61,13 +61,20 @@ class Fixture:
         self.dst = f'mysqlcopy-live-{self.run}-dst'
         self.build_dir = Path(args.build_record).resolve().parent
         self.build = json.loads(Path(args.build_record).read_text())
+        mysql_record = json.loads(Path(args.mysql_image_record).read_text())
+        if (mysql_record['runID'] != self.run or mysql_record['parentImage'] != MYSQL_PARENT
+                or not mysql_record.get('filesystemLayersUnchanged') or not mysql_record.get('existingAliasesUnchanged')
+                or mysql_record.get('clusterUID') != CLUSTER_UID
+                or not re.fullmatch(r'ghcr.io/envplane/mysqlcopy-fixture@sha256:[a-f0-9]{64}', mysql_record['image'])):
+            raise ValueError('unique MySQL fixture image provenance missing')
+        self.mysql = mysql_record['image']
         if self.build['runID'] != self.run or self.build.get('suite') != 'mysql-native-live' or not self.build['archiveBinaryVerified']:
             raise ValueError('build provenance mismatch')
         for binary in ('mysql-copy-live-driver', 'source-profile-renderer'):
             if hashlib.sha256((self.build_dir / binary).read_bytes()).hexdigest() != self.build[binary + 'SHA256']:
                 raise ValueError('host binary changed')
         self.ledger = {'runID': self.run, 'context': CONTEXT, 'clusterUID': CLUSTER_UID,
-                       'mysqlImage': MYSQL, 'helperImage': self.build['image'], 'created': [],
+                       'mysqlImage': self.mysql, 'mysqlImageProvenance': mysql_record, 'helperImage': self.build['image'], 'created': [],
                        'checks': [], 'commands': [], 'cleaned': [], 'livePassed': False}
         self.path = self.build_dir / 'sql-ledger.json'
         if self.path.exists():
@@ -196,7 +203,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
                         'ports': [{'port': 3306, 'targetPort': 3306, 'name': 'mysql'}]}))
         def envsecret(key, name):
             return {'name': key, 'valueFrom': {'secretKeyRef': {'name': name, 'key': 'password'}}}
-        container = {'name': 'mysql', 'image': MYSQL, 'imagePullPolicy': 'IfNotPresent',
+        container = {'name': 'mysql', 'image': self.mysql, 'imagePullPolicy': 'IfNotPresent',
             'env': [{'name': 'MYSQL_DATABASE', 'value': 'fixturedb'}, {'name': 'MYSQL_USER', 'value': 'appread'},
                     envsecret('MYSQL_PASSWORD', 'source-app'), envsecret('MYSQL_ROOT_PASSWORD', 'source-root'),
                     {'name': 'MYSQL_ROOT_HOST', 'value': '%'}],
@@ -216,6 +223,12 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
                                               {'name': 'config', 'configMap': {'name': 'fixture-config'}},
                                               {'name': 'init', 'secret': {'secretName': 'fixture-init'}}]}}}))
         self.wait_ready('mysql-0', self.src)
+        pod = self.get('pod', 'mysql-0', self.src)
+        actual = pod['status']['containerStatuses'][0]['imageID']
+        if actual != self.mysql:
+            self.ledger['blocker'] = {'requestedMySQLImage': self.mysql, 'actualImageID': actual}
+            self.save()
+            raise RuntimeError('exact running MySQL fixture imageID mismatch')
         self.client('writer', 'source-writer', 'writer', writer=True)
         self.client('diagnostics', 'source-root', 'root', writer=False)
 
@@ -236,7 +249,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
                 'securityContext': {'runAsUser': 0, 'runAsGroup': 0, 'allowPrivilegeEscalation': False,
                                     'capabilities': {'drop': ['ALL'], 'add': ['CHOWN', 'FOWNER', 'DAC_OVERRIDE']}},
                 'volumeMounts': mounts}],
-            'containers': [{'name': 'mysql', 'image': MYSQL, 'command': command,
+            'containers': [{'name': 'mysql', 'image': self.mysql, 'command': command,
                             'securityContext': {'runAsUser': 999, 'runAsGroup': 999, 'runAsNonRoot': True,
                                 'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True,
                                 'capabilities': {'drop': ['ALL']}}, 'volumeMounts': mounts}], 'volumes': volumes}
@@ -255,7 +268,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
              'workloadUid': self.ref('StatefulSet', 'mysql', self.src)['UID'],
              'container': 'mysql', 'database': 'fixturedb', 'username': 'appread',
              'secretName': 'source-app', 'secretUid': self.ref('Secret', 'source-app', self.src)['UID'],
-             'passwordKey': 'password', 'sourceImage': MYSQL, 'storageClass': 'standard',
+             'passwordKey': 'password', 'sourceImage': self.mysql, 'storageClass': 'standard',
              'accessModes': ['ReadWriteOnce'], 'requestedBytes': 1 << 30, 'environmentClass': 'test',
              'service': 'mysql', 'serviceUid': self.ref('Service', 'mysql', self.src)['UID'], 'port': 3306,
              'backupAdminSecretRef': {'namespace': self.src, 'name': 'source-backup',
@@ -264,7 +277,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
                      'caKey': 'ca.pem', 'serverName': f'mysql.{self.src}.svc'}}
         value = {'tenantId': 'fixture', 'projectId': self.run, 'clusterId': 'isolated-kind', 'clusterUid': CLUSTER_UID,
                  'runnerNamespace': self.dst, 'runnerServiceAccount': 'copy-runner', 'runnerImage': self.build['image'],
-                 'mysqlSources': [s], 'mysqlRestoreHelperImage': self.build['image'], 'mysqlRestoreTargetImages': [MYSQL],
+                 'mysqlSources': [s], 'mysqlRestoreHelperImage': self.build['image'], 'mysqlRestoreTargetImages': [self.mysql],
                  'allowRootHelpers': True, 'mysqlRestoreAllowRootInit': True,
                  'filesystemSources': [{'tenantId': 'fixture', 'namespace': self.src, 'name': 'filesystem-probe',
                     'uid': self.ref('PersistentVolumeClaim', 'filesystem-probe', self.src)['UID'],
@@ -353,6 +366,21 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
                     raise RuntimeError(f'actual mixed source Deny not proven: {challenge}')
             self.ledger['checks'].append({'mixedAdmissionChallenge': challenge, 'passed': True})
             self.save()
+        # Positive filesystem exception in the SAME effective mixed policy. This
+        # is admission-only; no Pod is persisted or source data mounted/read.
+        identity = f"{self.src}/filesystem-probe/{self.ref('PersistentVolumeClaim', 'filesystem-probe', self.src)['UID']}"
+        fs_pod = obj('Pod', 'pvccopy-source-' + hashlib.sha256(identity.encode()).hexdigest()[:24], self.src,
+            {'serviceAccountName': 'default', 'automountServiceAccountToken': False, 'restartPolicy': 'Never',
+             'activeDeadlineSeconds': 60, 'terminationGracePeriodSeconds': 5,
+             'securityContext': {'runAsNonRoot': True, 'runAsUser': 10001, 'runAsGroup': 10001, 'seccompProfile': {'type': 'RuntimeDefault'}},
+             'containers': [{'name': 'copy', 'image': self.build['image'], 'command': ['sleep'], 'args': ['60'],
+                'securityContext': {'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True, 'capabilities': {'drop': ['ALL']}},
+                'volumeMounts': [{'name': 'data', 'mountPath': '/data', 'readOnly': True, 'recursiveReadOnly': 'Enabled'}]}],
+             'volumes': [{'name': 'data', 'persistentVolumeClaim': {'claimName': 'filesystem-probe', 'readOnly': True}}]})
+        fs_pod['metadata']['labels'] = {'app.kubernetes.io/component': 'pvccopy-helper'}
+        self.kube(['create', '--dry-run=server', '-f', '-', '-o', 'json'], json.dumps(fs_pod), as_runner=True)
+        self.ledger['checks'].append({'mixedAdmissionChallenge': 'filesystem-allowed', 'passed': True})
+        self.save()
 
     def plan(self, target):
         digest = 'sha256:' + hashlib.sha256(self.run.encode()).hexdigest()
@@ -360,11 +388,11 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         return {'Binding': f'{self.run}-{target}', 'Tenant': 'fixture', 'Project': self.run, 'Environment': target,
             'EnvironmentCreatedAt': self.created_at, 'DomainPlanDigest': digest, 'SecretMaterializationPlanDigest': digest,
             'Source': {'PVC': self.ref('PersistentVolumeClaim', 'source', self.src), 'StatefulSet': self.ref('StatefulSet', 'mysql', self.src),
-                'Container': 'mysql', 'Image': MYSQL, 'Service': 'mysql', 'ServiceUID': self.ref('Service', 'mysql', self.src)['UID'],
+                'Container': 'mysql', 'Image': self.mysql, 'Service': 'mysql', 'ServiceUID': self.ref('Service', 'mysql', self.src)['UID'],
                 'Port': 3306, 'Database': 'fixturedb', 'Credentials': credential('source-app', 'appread', self.src),
                 'BackupAdminSecretRef': credential('source-backup', 'backupadmin', self.src),
                 'TLSCASecret': self.ref('Secret', 'public-ca', self.src), 'TLSCAKey': 'ca.pem', 'TLSServerName': f'mysql.{self.src}.svc'},
-            'Target': {'Namespace': self.dst, 'PVCName': target, 'StorageClass': 'standard', 'Image': MYSQL, 'Database': 'fixturedb',
+            'Target': {'Namespace': self.dst, 'PVCName': target, 'StorageClass': 'standard', 'Image': self.mysql, 'Database': 'fixturedb',
                 'RequestedBytes': 1 << 30, 'Credentials': credential('generated-target', 'featureapp', self.dst), 'RootPasswordKey': 'MYSQL_ROOT_PASSWORD'},
             'ConfigImage': self.build['image'], 'DDLMode': 'backup_lock', 'MaxBytes': 16 << 20, 'MaxStatementBytes': 4 << 20,
             'MaxTables': 10, 'MaxRows': 50000, 'Timeout': 180000000000}
@@ -456,6 +484,7 @@ def main():
     p.add_argument('--run-id', required=True)
     p.add_argument('--kubeconfig', required=True)
     p.add_argument('--build-record', required=True)
+    p.add_argument('--mysql-image-record', required=True, help='verified unique fixture mysql-load.json')
     p.add_argument('--authorize-fixture', required=True)
     args = p.parse_args()
     fixture = Fixture(args)

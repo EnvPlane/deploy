@@ -252,7 +252,7 @@ func main() {
 		if e != nil {
 			os.Exit(2)
 		}
-		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"apiVersion": "v1", "kind": "Pod", "metadata": map[string]any{"name": mysqlcopy.SourceClientHelperName(c.Plan.Source.PVC), "namespace": c.src()}, "spec": spec})
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"apiVersion": "v1", "kind": "Pod", "metadata": map[string]any{"name": mysqlcopy.SourceClientHelperName(c.Plan.Source.PVC), "namespace": c.src(), "labels": map[string]any{"envplane.io/managed": "true", "envplane.io/project": c.Plan.Project, "envplane.io/environment": c.Plan.Environment}}, "spec": spec})
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())

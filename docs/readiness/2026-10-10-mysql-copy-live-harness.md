@@ -50,10 +50,20 @@ are implemented and executed. No runtime readiness or control-plane lease proof.
 
 ```sh
 python3 scripts/mysql-copy-live-build.py --run-id <fresh-16hex> --output-dir /private/tmp/mysqlcopy-live-<runID>-build
+python3 scripts/mysql-copy-live-image.py --run-id <runID> build --output-dir /private/tmp/mysqlcopy-live-<runID>-mysql
+python3 scripts/mysql-copy-live-image.py --run-id <runID> load --image-record /private/tmp/mysqlcopy-live-<runID>-mysql/mysql-image.json --kubeconfig /private/tmp/envplane-readiness-682.t5bJs0/kubeconfig --authorize-fixture <runID>
 python3 scripts/pvc-copy-live-load.py --build-record /private/tmp/mysqlcopy-live-<runID>-build/build.json --kubeconfig /private/tmp/envplane-readiness-682.t5bJs0/kubeconfig --cluster-uid 49918e1f-d1f7-4aba-9afb-a4cea4187822 --authorize-fixture <runID>
-python3 scripts/mysql-copy-live.py --run-id <runID> --build-record /private/tmp/mysqlcopy-live-<runID>-build/build.json --kubeconfig /private/tmp/envplane-readiness-682.t5bJs0/kubeconfig --authorize-fixture <runID>
+python3 scripts/mysql-copy-live.py --run-id <runID> --build-record /private/tmp/mysqlcopy-live-<runID>-build/build.json --mysql-image-record /private/tmp/mysqlcopy-live-<runID>-mysql/mysql-load.json --kubeconfig /private/tmp/envplane-readiness-682.t5bJs0/kubeconfig --authorize-fixture <runID>
 ```
 
 Execution always attempts bounded cleanup in `finally`. Never adopt an existing
 namespace/resource or reuse a ledger. Safe blockers are captured in the private
 metadata ledger; no database log output is retained.
+
+Unique MySQL image provenance is mandatory for new runs. Only fixture labels
+change from the official exact arm64 parent; all filesystem layer descriptors
+and contents are hash verified unchanged. No preexisting alias is retagged or
+removed. Exact running source imageID must equal the new reviewed immutable
+manifest; cached index/config equivalence is never accepted. Build snapshot
+hashes bind current Runner/native source and renderer files; concurrent source
+changes abort the build. Adapter-only refresh refuses changed helper sources.
