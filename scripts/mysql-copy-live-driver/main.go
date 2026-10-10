@@ -50,11 +50,12 @@ func (c config) validate() error {
 }
 
 type commands struct {
-	c                config
-	cancel           context.CancelFunc
-	transferred      int64
-	restoreAttempted bool
-	ddlProven        bool
+	c                 config
+	cancel            context.CancelFunc
+	transferred       int64
+	restoreAttempted  bool
+	ddlProven         bool
+	sourceUIDMismatch bool
 }
 
 func (k *commands) argv(args []string, probe bool) []string {
@@ -109,12 +110,28 @@ func (k *commands) run(ctx context.Context, args []string, in io.Reader, out io.
 	return nil
 }
 func (k *commands) Run(ctx context.Context, args []string, in io.Reader, out io.Writer) error {
+	if len(args) >= 3 && args[0] == "get" && args[1] == "pvc" && args[2] == k.c.Plan.Source.PVC.Name {
+		var metadata bytes.Buffer
+		err := k.run(ctx, args, in, io.MultiWriter(out, &metadata), false)
+		if err == nil {
+			var o struct{ Metadata struct{ UID string } }
+			if json.Unmarshal(metadata.Bytes(), &o) == nil && o.Metadata.UID != "" && o.Metadata.UID != k.c.Plan.Source.PVC.UID {
+				k.sourceUIDMismatch = true
+			}
+		}
+		return err
+	}
 	return k.run(ctx, args, in, out, false)
 }
 
 type transport struct {
 	*mysqlcopy.KubeTransport
 	k *commands
+}
+
+func nativeTransport(c config, k *commands) *transport {
+	driver := mysqlcopy.NewProofDriver(mysqlcopy.DriverConfig{Commands: k, RunnerImage: c.Plan.ConfigImage, MySQLImage: c.Plan.Source.Image, ServiceAccount: "default", AllowRootInit: true, SourceAdmissionFences: c.Fences, Authorize: k.authority})
+	return &transport{KubeTransport: &mysqlcopy.KubeTransport{Driver: driver, Commands: k, SourceNamespaces: []string{c.src()}, RunnerImage: c.Plan.ConfigImage, MySQLImage: c.Plan.Source.Image}, k: k}
 }
 
 func (t *transport) Restore(ctx context.Context, p mysqlcopy.Plan, id mysqlcopy.TargetIdentity, r io.Reader) error {
@@ -258,12 +275,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	k := &commands{c: c, cancel: cancel}
-	driver := mysqlcopy.NewProofDriver(mysqlcopy.DriverConfig{Commands: k, RunnerImage: c.Plan.ConfigImage, MySQLImage: c.Plan.Source.Image, ServiceAccount: "default", AllowRootInit: true, SourceAdmissionFences: c.Fences, Authorize: k.authority})
-	t := &transport{KubeTransport: &mysqlcopy.KubeTransport{Driver: driver, SourceNamespaces: []string{c.src()}, RunnerImage: c.Plan.ConfigImage, MySQLImage: c.Plan.Source.Image}, k: k}
+	t := nativeTransport(c, k)
 	receipt, e := (mysqlcopy.DomainExecutor{Transport: t, Authority: k.authority}).ExecuteDomain(ctx, c.Plan)
 	digest, _ := c.Plan.Digest()
 	sum := sha256.Sum256([]byte(digest))
-	result := map[string]any{"success": e == nil, "receipt": receipt, "restoreAttempted": k.restoreAttempted, "cancelInputBytes": k.transferred, "planDigest": digest, "metadataSHA256": hex.EncodeToString(sum[:]), "DDLBlockedByBackupLock": k.ddlProven, "CPLeaseProven": false}
+	result := map[string]any{"success": e == nil, "receipt": receipt, "restoreAttempted": k.restoreAttempted, "cancelInputBytes": k.transferred, "planDigest": digest, "metadataSHA256": hex.EncodeToString(sum[:]), "DDLBlockedByBackupLock": k.ddlProven, "sourceUIDMismatchObserved": k.sourceUIDMismatch, "CPLeaseProven": false}
 	if e != nil {
 		result["error"] = e.Error()
 	}

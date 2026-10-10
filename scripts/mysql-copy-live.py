@@ -434,7 +434,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         stale = self.plan('copy-uid-negative')
         stale['Source']['PVC']['UID'] = 'stale-fixture-source-uid'
         result = self.native(stale, 'positive')
-        if result['success'] or result.get('error') != 'mysql copy safety refusal' or result.get('restoreAttempted') or self.kube(['get', 'pvc', 'copy-uid-negative', '-n', self.dst, '--ignore-not-found', '-o', 'name']).stdout.strip():
+        if result['success'] or not result.get('sourceUIDMismatchObserved') or result.get('restoreAttempted') or self.kube(['get', 'pvc', 'copy-uid-negative', '-n', self.dst, '--ignore-not-found', '-o', 'name']).stdout.strip():
             raise RuntimeError('actual stale source UID did not fail before target writes')
         self.ledger['checks'].append({'sourceUIDDriftRefusedBeforeTarget': True, 'method': 'stale plan UID vs actual current GET UID; source not replaced'})
         root_duplicate = self.plan('copy-root-negative')

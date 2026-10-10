@@ -20,6 +20,20 @@ func TestSpecHashMatchesPython(t *testing.T) {
 	}
 }
 
+func TestTransportCommandsNeverDefault(t *testing.T) {
+	c := config{RunID: "34496abd3c43c1e4"}
+	k := &commands{c: c}
+	transport := nativeTransport(c, k)
+	if transport.Commands != k || transport.Driver == nil || len(transport.SourceNamespaces) != 1 || transport.SourceNamespaces[0] != c.src() {
+		t.Fatal("native transport must use exact scoped fixture commands")
+	}
+	args := k.argv([]string{"get", "secret", "source-app", "-n", c.src()}, false)
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "--context kind-envplane-readiness-682") || !strings.Contains(joined, "--as system:serviceaccount:"+c.dst()+":copy-runner") {
+		t.Fatal("explicit command context/principal missing")
+	}
+}
+
 func TestCertificateIdentity(t *testing.T) {
 	dns := "mysql.mysqlcopy-live-863b4f86af0ae93b-src.svc"
 	v, e := certificates(dns)
