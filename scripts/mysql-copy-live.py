@@ -65,7 +65,9 @@ class Fixture:
         if (mysql_record['runID'] != self.run or mysql_record['parentImage'] != MYSQL_PARENT
                 or not mysql_record.get('filesystemLayersUnchanged') or not mysql_record.get('existingAliasesUnchanged')
                 or mysql_record.get('clusterUID') != CLUSTER_UID
-                or not re.fullmatch(r'ghcr.io/envplane/mysqlcopy-fixture@sha256:[a-f0-9]{64}', mysql_record['image'])):
+                or not mysql_record.get('singletonIndexVerified')
+                or mysql_record['image'].split('@')[1] != mysql_record['indexDigest']
+                or not re.fullmatch(re.escape(f'docker.io/aaa-envplane-fixture/mysqlcopy-{self.run}') + r'@sha256:[a-f0-9]{64}', mysql_record['image'])):
             raise ValueError('unique MySQL fixture image provenance missing')
         self.mysql = mysql_record['image']
         if self.build['runID'] != self.run or self.build.get('suite') != 'mysql-native-live' or not self.build['archiveBinaryVerified']:
@@ -175,6 +177,9 @@ class Fixture:
             self.create(obj('Secret', name, self.src, type='Opaque', stringData=values))
         self.create(obj('Secret', 'generated-target', self.dst, type='Opaque',
                         stringData={'password': passwords['target'], 'MYSQL_ROOT_PASSWORD': passwords['targetroot']}))
+        self.create(obj('Secret', 'invalid-root-target', self.dst, type='Opaque',
+                        stringData={'password': passwords['target'], 'MYSQL_ROOT_PASSWORD': passwords['target']}))
+        self.create(obj('Secret', 'public-ca', self.dst, type='Opaque', stringData={'ca.pem': cert['ca']}))
         sql = f"""REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'appread'@'%';
 GRANT SELECT, SHOW VIEW ON fixturedb.* TO 'appread'@'%';
 CREATE USER 'backupadmin'@'%' IDENTIFIED BY '{passwords['backup']}' REQUIRE SSL;
@@ -232,10 +237,11 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         self.client('writer', 'source-writer', 'writer', writer=True)
         self.client('diagnostics', 'source-root', 'root', writer=False)
 
-    def client(self, name, secret, user, writer):
+    def client(self, name, secret, user, writer, namespace=None, password_key='password'):
+        ns = namespace or self.src
         volumes = [{'name': n, 'emptyDir': {'medium': 'Memory'}} for n in ('config', 'tmp', 'run')]
         volumes += [{'name': 'credentials', 'projected': {'defaultMode': 256, 'sources': [
-            {'secret': {'name': secret, 'items': [{'key': 'password', 'path': 'password'}]}},
+            {'secret': {'name': secret, 'items': [{'key': password_key, 'path': 'password'}]}},
             {'secret': {'name': 'public-ca', 'items': [{'key': 'ca.pem', 'path': 'ca.pem', 'mode': 292}]}}]}}]
         mounts = [{'name': 'config', 'mountPath': '/config'}, {'name': 'tmp', 'mountPath': '/tmp'},
                   {'name': 'run', 'mountPath': '/run/mysqld'}, {'name': 'credentials', 'mountPath': '/credentials', 'readOnly': True}]
@@ -253,8 +259,8 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
                             'securityContext': {'runAsUser': 999, 'runAsGroup': 999, 'runAsNonRoot': True,
                                 'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True,
                                 'capabilities': {'drop': ['ALL']}}, 'volumeMounts': mounts}], 'volumes': volumes}
-        self.create(obj('Pod', name, self.src, spec))
-        self.wait_ready(name, self.src)
+        self.create(obj('Pod', name, ns, spec))
+        self.wait_ready(name, ns)
 
     def query(self, sql, allow_fail=False):
         return self.kube(['exec', 'diagnostics', '-n', self.src, '-c', 'mysql', '--', 'mysql',
@@ -321,7 +327,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         self.create(obj('Role', 'target', self.dst, rules=[
             {'apiGroups': [''], 'resources': ['pods', 'persistentvolumeclaims', 'configmaps'], 'verbs': ['get', 'list', 'create', 'delete']},
             {'apiGroups': [''], 'resources': ['pods/exec'], 'verbs': ['create']},
-            {'apiGroups': [''], 'resources': ['secrets'], 'resourceNames': ['generated-target'], 'verbs': ['get']}]))
+            {'apiGroups': [''], 'resources': ['secrets'], 'resourceNames': ['generated-target', 'invalid-root-target'], 'verbs': ['get']}]))
         self.create(obj('RoleBinding', 'target', self.dst, roleRef={'apiGroup': 'rbac.authorization.k8s.io', 'kind': 'Role', 'name': 'target'},
             subjects=[{'kind': 'ServiceAccount', 'namespace': self.dst, 'name': 'copy-runner'}]))
         reader = 'mysqlcopy-live-' + self.run + '-target-ns'
@@ -417,12 +423,41 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         self.created_at = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         self.bootstrap()
         before = self.query('SELECT COUNT(*), MAX(id), @@server_uuid FROM fixturedb.records').stdout.strip()
+        schema_query = "SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_KEY,EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='fixturedb' AND TABLE_NAME='records' ORDER BY ORDINAL_POSITION"
+        schema_before = self.query(schema_query).stdout
         self.profile()
         # Exact private source secrets must not be readable by the copy principal.
         for name in ('source-root', 'source-writer', 'private-server-tls', 'fixture-init'):
             p = self.kube(['get', 'secret', name, '-n', self.src, '-o', 'name'], as_runner=True, allow_fail=True)
             if p.returncode == 0 or 'Forbidden' not in p.stderr:
                 raise RuntimeError('source private credential isolation failed')
+        stale = self.plan('copy-uid-negative')
+        stale['Source']['PVC']['UID'] = 'stale-fixture-source-uid'
+        result = self.native(stale, 'positive')
+        if result['success'] or result.get('error') != 'mysql copy safety refusal' or result.get('restoreAttempted') or self.kube(['get', 'pvc', 'copy-uid-negative', '-n', self.dst, '--ignore-not-found', '-o', 'name']).stdout.strip():
+            raise RuntimeError('actual stale source UID did not fail before target writes')
+        self.ledger['checks'].append({'sourceUIDDriftRefusedBeforeTarget': True, 'method': 'stale plan UID vs actual current GET UID; source not replaced'})
+        root_duplicate = self.plan('copy-root-negative')
+        root_duplicate['Target']['Credentials']['Ref'] = self.ref('Secret', 'invalid-root-target', self.dst)
+        result = self.native(root_duplicate, 'positive')
+        if result['success'] or result.get('error') != 'mysql copy safety refusal' or result.get('restoreAttempted') or self.kube(['get', 'pvc', 'copy-root-negative', '-n', self.dst, '--ignore-not-found', '-o', 'name']).stdout.strip():
+            raise RuntimeError('duplicate root/app target credentials did not fail before target writes')
+        self.ledger['checks'].append({'duplicateTargetRootRefusedBeforeTarget': True})
+        # Real authentication challenge uses a fresh client Pod, never existing
+        # source Pod exec. Target root credential must NOT authenticate at source.
+        self.client('target-root-probe', 'generated-target', 'root', writer=False, namespace=self.dst, password_key='MYSQL_ROOT_PASSWORD')
+        challenge = self.kube(['exec', 'target-root-probe', '-n', self.dst, '-c', 'mysql', '--', 'mysql',
+            '--defaults-extra-file=/config/app.cnf', f'--host=mysql.{self.src}.svc', '--ssl-mode=VERIFY_IDENTITY',
+            '--ssl-ca=/credentials/ca.pem', '-e', 'SELECT 1'], allow_fail=True)
+        if challenge.returncode == 0 or 'ERROR 1045' not in challenge.stderr:
+            raise RuntimeError('target root isolation real authentication challenge not proven')
+        self.ledger['checks'].append({'targetRootCannotAuthenticateSource': True, 'mysqlError': 1045})
+        # Config ownership and helper binary checks are metadata only.
+        root_hash = self.kube(['exec', 'target-root-probe', '-n', self.dst, '-c', 'mysql', '--',
+                              'stat', '-c', '%u:%g:%a', '/config/app.cnf']).stdout.strip()
+        if root_hash != '999:999:600':
+            raise RuntimeError('actual tmpfs client config ownership mismatch')
+        self.ledger['checks'].append({'targetClientConfigOwnership': root_hash})
         positive = self.native(self.plan('copy-positive'), 'positive')
         if not positive['success']:
             raise RuntimeError('real native positive copy refused; see ledger')
@@ -433,17 +468,23 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         if cancelled['success'] or cancelled.get('cancelInputBytes', 0) < 1024:
             raise RuntimeError('actual restore cancellation not proven')
         partial = self.native(self.plan('copy-cancel'), 'retry')
-        if partial['success'] or partial.get('restoreAttempted'):
+        if partial['success'] or partial.get('error') != 'mysql copy partial or unknown target' or partial.get('restoreAttempted'):
             raise RuntimeError('partial target retry not fail-closed')
         after = self.query('SELECT COUNT(*), MAX(id), @@server_uuid FROM fixturedb.records').stdout.strip()
         self.ledger['checks'].append({'sourceBefore': before, 'sourceAfter': after})
+        if self.query(schema_query).stdout != schema_before:
+            raise RuntimeError('source schema changed across copy/negative probes')
+        marker = self.query(f"SELECT COUNT(*) FROM fixturedb.records WHERE payload='fixture-marker-{self.run}'").stdout.strip()
+        if marker != '1' or self.get('pvc', 'source', self.src)['metadata']['uid'] != self.ref('PersistentVolumeClaim', 'source', self.src)['UID']:
+            raise RuntimeError('source marker or PVC UID changed')
+        self.ledger['checks'].append({'sourceSchemaPreservedSHA256': hashlib.sha256(schema_before.encode()).hexdigest(),
+                                      'sourceMarkerCount': 1, 'sourcePVCUIDPreserved': True})
         if int(after.split('\t')[0]) <= int(before.split('\t')[0]) or after.split('\t')[2] != before.split('\t')[2]:
             raise RuntimeError('source writer continuity/server identity not proven')
         if not positive.get('DDLBlockedByBackupLock'):
             raise RuntimeError('in-hold real DDL challenge missing')
         self.ledger['nativeCopyPassed'] = True
-        # Remaining acceptance proofs must be independently tested, not inferred.
-        self.ledger['blocker'] = 'Target root isolation and source UID drift live probes still required for full suite acceptance'
+        self.ledger['livePassed'] = True
         self.save()
 
     def cleanup(self):

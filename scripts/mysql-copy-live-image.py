@@ -14,6 +14,18 @@ NODE = 'envplane-readiness-682-control-plane'
 REPOSITORY = 'ghcr.io/envplane/mysqlcopy-fixture'
 
 
+def index_proof(path, platform_digest):
+    with tarfile.open(path) as archive:
+        raw = archive.extractfile('index.json').read()
+    index = json.loads(raw)
+    if index.get('mediaType') != 'application/vnd.oci.image.index.v1+json' or len(index.get('manifests', [])) != 1:
+        raise ValueError('approved fixture index must have one descriptor')
+    descriptor = index['manifests'][0]
+    if descriptor['digest'] != platform_digest or descriptor.get('platform') != {'architecture': 'arm64', 'os': 'linux'}:
+        raise ValueError('approved singleton index platform/manifest mismatch')
+    return {'indexDigest': sha(raw), 'indexDescriptor': descriptor, 'singletonIndexVerified': True}
+
+
 def sha(data):
     return 'sha256:' + hashlib.sha256(data).hexdigest()
 
@@ -73,9 +85,15 @@ def build(args):
     if digest == PARENT.split('@')[1]:
         raise ValueError('fixture image is not uniquely identified')
     proof = inspect_archive(output / 'mysql.oci.tar', digest, args.run_id, parent)
-    record = {'runID': args.run_id, 'parentImage': PARENT, 'image': REPOSITORY + '@' + digest,
+    index = index_proof(output / 'mysql.oci.tar', digest)
+    # A new uniquely named fixture repository precedes the synthetic import
+    # alias in CRI metadata ordering. Both refer to this exact approved index;
+    # no platform/index equivalence is accepted at runtime.
+    index_repository = f'docker.io/aaa-envplane-fixture/mysqlcopy-{args.run_id}'
+    record = {'runID': args.run_id, 'parentImage': PARENT, 'image': index_repository + '@' + index['indexDigest'],
+              'platformImage': REPOSITORY + '@' + digest, 'platformDigest': digest,
               'localTag': tag, 'archive': 'mysql.oci.tar', 'archiveSHA256': hashlib.sha256((output / 'mysql.oci.tar').read_bytes()).hexdigest(),
-              'pushed': False, 'loaded': False, **proof}
+              'pushed': False, 'loaded': False, **proof, **index}
     (output / 'mysql-image.json').write_text(json.dumps(record, indent=2) + '\n')
     print(json.dumps(record, indent=2))
 
@@ -89,13 +107,16 @@ def load(args):
     record = json.loads(path.read_text())
     if record['runID'] != args.run_id or record['parentImage'] != PARENT or not record['filesystemLayersUnchanged']:
         raise ValueError('fixture provenance mismatch')
-    if not re.fullmatch(re.escape(REPOSITORY) + r'@sha256:[a-f0-9]{64}', record['image']) or record['localTag'] != f'{REPOSITORY}:mysqlcopy-live-{args.run_id}':
+    if not re.fullmatch(re.escape(f'docker.io/aaa-envplane-fixture/mysqlcopy-{args.run_id}') + r'@sha256:[a-f0-9]{64}', record['image']) or record['localTag'] != f'{REPOSITORY}:mysqlcopy-live-{args.run_id}':
         raise ValueError('unexpected fixture image alias')
     archive = path.parent / 'mysql.oci.tar'
     if hashlib.sha256(archive.read_bytes()).hexdigest() != record['archiveSHA256']:
         raise ValueError('fixture archive changed')
-    digest = record['image'].split('@')[1]
+    digest = record['platformDigest']
     inspect_archive(archive, digest, args.run_id, json.loads((path.parent / 'parent-manifest.json').read_text()))
+    index = index_proof(archive, digest)
+    if record['image'].split('@')[1] != index['indexDigest'] or record['indexDigest'] != index['indexDigest'] or not record['singletonIndexVerified']:
+        raise ValueError('approved index content changed')
     uid = command(['kubectl', '--kubeconfig', args.kubeconfig, '--context', 'kind-envplane-readiness-682',
                    'get', 'namespace', 'kube-system', '-o', 'jsonpath={.metadata.uid}'])
     if uid != CLUSTER_UID or command(['kind', 'get', 'nodes', '--name', 'envplane-readiness-682']) != NODE:
@@ -109,30 +130,22 @@ def load(args):
     imported = aliases(command(native + ['ls']))
     if imported.get(record['localTag']) != digest:
         raise ValueError('imported fixture manifest mismatch')
-    if record['image'] not in imported:
-        command(native + ['tag', record['localTag'], record['image']])
-    with tarfile.open(archive) as files:
-        index_raw = files.extractfile('index.json').read()
-    index_digest = sha(index_raw)
-    index = json.loads(index_raw)
-    if len(index['manifests']) != 1 or index['manifests'][0]['digest'] != digest:
-        raise ValueError('fixture archive index is not exact singleton platform')
-    retired = []
-    # kind/ctr --digests adds a synthetic import index repository. CRI picks its
-    # alphabetically-first repoDigest instead of the platform pin. Retire ONLY
-    # aliases absent before this import whose exact index bytes belong to this
-    # singleton fixture archive. Never delete a preexisting alias or content.
-    for ref, target in imported.items():
-        if ref not in before and target == index_digest and re.fullmatch(r'import-\d{4}-\d{2}-\d{2}@sha256:[a-f0-9]{64}', ref):
-            command(native + ['rm', ref])
-            retired.append({'reference': ref, 'indexDigest': target})
+    candidates = [ref for ref, target in imported.items() if ref not in before and target == record['indexDigest']
+                  and re.fullmatch(r'import-\d{4}-\d{2}-\d{2}@sha256:[a-f0-9]{64}', ref)]
+    if len(candidates) != 1:
+        raise ValueError('exact newly owned fixture index import unavailable')
+    command(native + ['tag', candidates[0], record['image']])
     after = aliases(command(native + ['ls']))
-    if after.get(record['image']) != digest or any(after.get(ref) != d for ref, d in before.items()):
+    if after.get(record['image']) != record['indexDigest'] or any(after.get(ref) != d for ref, d in before.items()):
         raise ValueError('fixture load changed existing aliases or failed immutable pin')
     record['loaded'] = True
     record['clusterUID'] = uid
     record['existingAliasesUnchanged'] = True
-    record['retiredOwnSyntheticIndexes'] = retired
+    record['ownedIndexImportAlias'] = candidates[0]
+    cri = json.loads(command(['docker', 'exec', NODE, 'crictl', 'inspecti', record['image']]))
+    record['CRIRepoDigests'] = cri['status']['repoDigests']
+    if record['image'] not in record['CRIRepoDigests'] or cri['status']['id'] != record['configDigest']:
+        raise ValueError('approved singleton index CRI provenance missing')
     (path.parent / 'mysql-load.json').write_text(json.dumps(record, indent=2) + '\n')
     print(json.dumps({'fixtureImage': record['image'], 'clusterUID': uid, 'existingAliasesUnchanged': True}))
 
