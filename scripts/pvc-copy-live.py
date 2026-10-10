@@ -209,7 +209,10 @@ def driver_config(ledger, mode, source="source", target="copy-positive"):
 def invoke(binary, config):
     result = subprocess.run([str(Path(binary).resolve())], input=json.dumps(config), text=True,
                             capture_output=True, timeout=190, check=False)
-    require(result.returncode == 0, "driver refused or failed; evidence remains NOT PASSED")
+    message = "driver refused or failed; evidence remains NOT PASSED"
+    if result.stderr.startswith("fixture driver refused:"):
+        message = result.stderr.strip()[:4096]
+    require(result.returncode == 0, message)
     response = json.loads(result.stdout)
     require(response.get("mode") == config["mode"], "unexpected driver response")
     return response
@@ -218,6 +221,20 @@ def invoke(binary, config):
 def remember(ledger, obj, kind):
     meta = obj["metadata"]
     ledger["objectUIDs"][f"{meta['namespace']}/{kind}/{meta['name']}"] = meta["uid"]
+
+
+def record_volume(cluster, ledger, claim_obj):
+    """Inspect only the dynamically allocated PV of an exact owned fixture UID."""
+    meta = claim_obj["metadata"]
+    name = claim_obj.get("spec", {}).get("volumeName")
+    if not name:
+        return
+    # This isolated harness is for the discovered local-path standard driver.
+    require(name == "pvc-" + meta["uid"], "unexpected fixture PV naming/binding")
+    volume = cluster.get("pv", name)
+    ref = volume["spec"]["claimRef"]
+    require(ref["uid"] == meta["uid"] and ref["namespace"] == meta["namespace"] and ref["name"] == meta["name"], "PV claim identity is not our fixture")
+    ledger.setdefault("fixtureVolumes", {})[name] = {"uid": volume["metadata"]["uid"], "claimUID": meta["uid"]}
 
 
 def prepare(ledger, args):
@@ -252,6 +269,7 @@ def prepare(ledger, args):
         obj = cluster.get("pvc", name, ledger["sourceNamespace"])
         require(obj["metadata"]["uid"] == ledger["sourceUIDs"][name] and obj.get("status", {}).get("phase") == "Bound", "fixture source not bound")
         ledger.setdefault("sourceVolumes", {})[name] = obj["spec"]["volumeName"]
+        record_volume(cluster, ledger, obj)
     ledger["sourceIdleBeforeOnboarding"] = cluster.idle(ledger["sourceNamespace"])
     ledger["expectedReceipt"] = expected_receipt(ledger["runID"])
     ledger["stage"] = "prepared"
@@ -362,6 +380,41 @@ def onboard(ledger, args):
             "review": str(review_path), "liveCopy": "NOT RUN", "negativeProbes": "required by each driver call"}
 
 
+def refresh_fence(ledger, args):
+    """Refresh only our exact UID-bound policy after its owner fixes Runner code."""
+    approval(ledger, args.authorize_fixture)
+    require(ledger["stage"] in ("prepared", "running") and not ledger.get("liveResults"), "refresh allowed only before payload execution")
+    cluster = Cluster(ledger);cluster.identity()
+    cluster.idle(ledger["sourceNamespace"]);cluster.idle(ledger["targetNamespace"])
+    for name in ("copy-positive", "copy-cancel", "copy-uid"):
+        require(cluster.get("pvc", name, ledger["targetNamespace"], absent=True) is None, "refresh cannot adopt existing targets")
+    preview = invoke(args.driver, driver_config(ledger, "compile"))
+    manifest = preview["fencePreview"][0]
+    name = manifest["metadata"]["name"]
+    policy = cluster.get("validatingadmissionpolicy", name)
+    meta = policy["metadata"]
+    require(meta["uid"] == ledger["clusterObjectUIDs"].get(f"ValidatingAdmissionPolicy/{name}") and
+            meta.get("labels", {}).get(LABEL) == ledger["runID"] and
+            meta["annotations"] == manifest["metadata"]["annotations"], "policy source authority/ownership changed")
+    operations = [{"op": "test", "path": "/metadata/uid", "value": meta["uid"]},
+                  {"op": "test", "path": "/metadata/resourceVersion", "value": meta["resourceVersion"]},
+                  {"op": "replace", "path": "/spec", "value": manifest["spec"]}]
+    # kubectl patch -p is metadata-only, containing the reviewed source policy.
+    cluster.call(["patch", "validatingadmissionpolicy", name, "--type=json", "-p", json.dumps(operations), "-o", "json"])
+    deadline = time.monotonic() + 90
+    while True:
+        policy = cluster.get("validatingadmissionpolicy", name)
+        status = policy.get("status", {})
+        require(time.monotonic() < deadline, "refreshed policy type check timed out")
+        if status.get("observedGeneration") == policy["metadata"]["generation"] and "typeChecking" in status:
+            require(not status["typeChecking"].get("expressionWarnings"), "refreshed policy CEL warnings")
+            break
+        time.sleep(1)
+    ledger["policyTypeCheck"] = {"uid": policy["metadata"]["uid"], "generation": policy["metadata"]["generation"], "status": status}
+    save(args.ledger, ledger)
+    return {"policyUID": meta["uid"], "generation": policy["metadata"]["generation"], "payloadExecution": "NOT RUN"}
+
+
 def reviewed(ledger, path):
     require(path, "main's reviewed onboarding record required")
     review = json.loads(Path(path).read_text())
@@ -376,11 +429,15 @@ def reviewed(ledger, path):
 
 def run_cases(ledger, args):
     approval(ledger, args.authorize_fixture)
-    require(ledger["stage"] == "prepared", "fixture must be prepared; failed runs require operator review")
+    resume = getattr(args, "retry_preflight_only", False) and ledger["stage"] == "running" and not ledger.get("liveResults")
+    require(ledger["stage"] == "prepared" or resume, "fixture must be prepared; failed runs require operator review")
     ledger["reviewSHA256"] = reviewed(ledger, args.reviewed_onboarding)
     cluster = Cluster(ledger);cluster.identity()
     cluster.namespace(ledger["sourceNamespace"]);cluster.namespace(ledger["targetNamespace"])
     cluster.idle(ledger["sourceNamespace"]);cluster.idle(ledger["targetNamespace"])
+    if resume:
+        for name in ("copy-positive", "copy-cancel", "copy-uid"):
+            require(cluster.get("pvc", name, ledger["targetNamespace"], absent=True) is None, "preflight retry cannot adopt targets")
     ledger["stage"] = "running";ledger["liveResults"] = {};save(args.ledger, ledger)
     results = ledger["liveResults"]
 
@@ -392,6 +449,7 @@ def run_cases(ledger, args):
         if obj:
             require(obj["metadata"].get("annotations", {}).get("envplane.io/pvc-copy-plan") == response["plan"]["digest"], "target plan identity mismatch")
             remember(ledger, obj, "persistentvolumeclaims");save(args.ledger, ledger)
+            record_volume(cluster, ledger, obj);save(args.ledger, ledger)
         return response
 
     before = case("sourceBefore", "audit-source")["value"]
@@ -463,6 +521,8 @@ def cleanup(ledger, args):
             else:
                 require(obj["metadata"].get("annotations", {}).get("envplane.io/project") == f"{PREFIX}{ledger['runID']}" and
                         obj["metadata"]["uid"] == ledger["objectUIDs"].get(f"{namespace}/persistentvolumeclaims/{name}"), "target copy ownership/UID mismatch")
+            record_volume(cluster, ledger, obj)
+        save(args.ledger, ledger)
         # Namespace teardown also removes fixture-only reviewed RBAC/SA. Require
         # main to attest exclusivity; externally installed policies stay untouched.
         require(args.confirm_exclusive_namespaces == ledger["runID"], "explicit exclusive-namespace cleanup approval required")
@@ -484,6 +544,16 @@ def cleanup(ledger, args):
             cluster.call(["delete", "--raw", f"/apis/{resource_path}/{name}", "-f", "-"],
                          {"apiVersion": "v1", "kind": "DeleteOptions", "preconditions": {"uid": uid, "resourceVersion": meta["resourceVersion"]}})
             wait_absent(cluster, api_kind, name)
+    for name, expected in ledger.get("fixtureVolumes", {}).items():
+        deadline = time.monotonic() + 120
+        while True:
+            volume = cluster.get("pv", name, absent=True)
+            if volume is None:
+                break
+            require(volume["metadata"]["uid"] == expected["uid"] and
+                    volume["spec"]["claimRef"]["uid"] == expected["claimUID"], "fixture PV replaced during cleanup")
+            require(time.monotonic() < deadline, "fixture PV reclamation not confirmed; no manual PV deletion")
+            time.sleep(1)
     ledger["stage"] = "cleaned";ledger["cleanup"] = "fixture namespace and recorded exact policy/RBAC deletion confirmed"
     save(args.ledger, ledger)
     return {"cleanup": "CONFIRMED", "externalPolicies": "not touched"}
@@ -491,7 +561,7 @@ def cleanup(ledger, args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("plan", "prepare", "onboard", "run", "cleanup"))
+    parser.add_argument("action", choices=("plan", "prepare", "onboard", "refresh-fence", "run", "cleanup"))
     parser.add_argument("--ledger", required=True)
     parser.add_argument("--kubeconfig")
     parser.add_argument("--image")
@@ -503,6 +573,7 @@ def main():
     parser.add_argument("--authorize-fixture")
     parser.add_argument("--reviewed-onboarding")
     parser.add_argument("--confirm-exclusive-namespaces")
+    parser.add_argument("--retry-preflight-only", action="store_true", help="retry only a failed, idle, target-free preflight")
     args = parser.parse_args()
     if args.action == "plan":
         require(args.kubeconfig and args.image, "explicit kubeconfig and matching-helper image required")
@@ -525,11 +596,11 @@ def main():
                   "fixtureHelperPrincipals": [f"system:serviceaccount:{ns}:default" for ns in (ledger["sourceNamespace"], ledger["targetNamespace"])]}
     else:
         ledger = validate(json.loads(Path(args.ledger).read_text()))
-        if args.action in ("prepare", "onboard", "run"):
+        if args.action in ("prepare", "onboard", "refresh-fence", "run"):
             require(args.driver and Path(args.driver).is_file(), "host-built driver required")
         if args.action == "onboard":
             require(args.build_record, "verified local build record required")
-        result = {"prepare": prepare, "onboard": onboard, "run": run_cases, "cleanup": cleanup}[args.action](ledger, args)
+        result = {"prepare": prepare, "onboard": onboard, "refresh-fence": refresh_fence, "run": run_cases, "cleanup": cleanup}[args.action](ledger, args)
     print(json.dumps(result, indent=2))
 
 

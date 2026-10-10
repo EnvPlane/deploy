@@ -11,6 +11,9 @@ from unittest.mock import patch
 spec = importlib.util.spec_from_file_location("pvc_copy_live", Path(__file__).resolve().parents[1] / "pvc-copy-live.py")
 harness = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(harness)
+loader_spec = importlib.util.spec_from_file_location("pvc_copy_live_load", Path(__file__).resolve().parents[1] / "pvc-copy-live-load.py")
+loader = importlib.util.module_from_spec(loader_spec)
+loader_spec.loader.exec_module(loader)
 
 
 def ledger():
@@ -23,6 +26,12 @@ def ledger():
 
 
 class LocalMockSafetyTests(unittest.TestCase):
+    def test_kind_tag_does_not_imply_digest_alias(self):
+        raw = "REF TYPE DIGEST SIZE\nghcr.io/envplane/runner:fixture manifest sha256:abc 10MB\n"
+        images = loader.parse_images(raw)
+        self.assertEqual(images["ghcr.io/envplane/runner:fixture"], "sha256:abc")
+        self.assertNotIn("ghcr.io/envplane/runner@sha256:abc", images)
+
     def test_authorization_and_scope_refuse_without_kubernetes(self):
         for change in ({"context": "production"}, {"sourceNamespace": "test-app-base"},
                        {"targetNamespace": "default"}, {"runID": "../../test"},

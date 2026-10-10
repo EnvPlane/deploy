@@ -71,16 +71,36 @@ type commands struct {
 func (k *commands) args(args []string) []string {
 	return append([]string{"--kubeconfig", k.c.Kubeconfig, "--context", k.c.Context, "--as", k.c.principal()}, args...)
 }
-func (k *commands) record(args []string, err error, evidence any) {
+func (k *commands) native(ctx context.Context, args []string, in io.Reader, out io.Writer) error {
+	cmd := exec.CommandContext(ctx, "kubectl", k.args(args)...)
+	var diagnostic bytes.Buffer
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = in, out, &diagnostic
+	cmd.WaitDelay = 2 * time.Second
+	err := cmd.Run()
+	if err == nil {
+		return nil
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	message := strings.Split(strings.TrimSpace(diagnostic.String()), "\n")[0]
+	if len(message) > 2048 {
+		message = message[:300] + " ...[long CEL expression omitted]... " + message[len(message)-1700:]
+	}
+	// Only fixture calls and generic helper errors are made by this adapter.
+	k.record(args, err, map[string]any{"fixtureDiagnostic": message})
+	return fmt.Errorf("kubectl %s failed: %s", args[0], message)
+}
+func (k *commands) record(args []string, err error, evidence any) error {
 	if k.c.CommandJournal == "" {
-		return
+		return nil
 	}
 	file, e := os.OpenFile(k.c.CommandJournal, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if e != nil {
-		return
+		return errors.New("fixture command journal unavailable")
 	}
-	defer file.Close()
-	_ = json.NewEncoder(file).Encode(map[string]any{"command": append([]string{"kubectl"}, k.args(args)...), "success": err == nil, "evidence": evidence, "payload": "not recorded"})
+	e = json.NewEncoder(file).Encode(map[string]any{"command": append([]string{"kubectl"}, k.args(args)...), "success": err == nil, "evidence": evidence, "payload": "not recorded"})
+	return errors.Join(e, file.Sync(), file.Close())
 }
 func (k *commands) Run(ctx context.Context, args []string, in io.Reader, out io.Writer) (retErr error) {
 	var captured bytes.Buffer
@@ -92,7 +112,7 @@ func (k *commands) Run(ctx context.Context, args []string, in io.Reader, out io.
 		if json.Unmarshal(captured.Bytes(), &evidence) != nil {
 			evidence = nil
 		}
-		k.record(args, retErr, evidence)
+		retErr = errors.Join(retErr, k.record(args, retErr, evidence))
 	}()
 	if len(args) > 0 && args[0] == "exec" {
 		// A digest pin alone does not prove this host build is in the helper.
@@ -109,7 +129,7 @@ func (k *commands) Run(ctx context.Context, args []string, in io.Reader, out io.
 		}
 		check := append(append([]string(nil), args[:index+1]...), "sha256sum", pvccopy.HelperBinary)
 		var hash bytes.Buffer
-		if err := (pvccopy.OSKubectl{}).Run(ctx, k.args(check), nil, &hash); err != nil {
+		if err := k.native(ctx, check, nil, &hash); err != nil {
 			k.record(check, err, nil)
 			return err
 		}
@@ -118,12 +138,14 @@ func (k *commands) Run(ctx context.Context, args []string, in io.Reader, out io.
 			k.record(check, errors.New("mismatch"), nil)
 			return errors.New("helper binary differs from reviewed host build")
 		}
-		k.record(check, nil, map[string]any{"helperBinarySHA256": fields[0], "matched": true})
+		if e := k.record(check, nil, map[string]any{"helperBinarySHA256": fields[0], "matched": true}); e != nil {
+			return e
+		}
 	}
 	if k.c.Mode == "cancel" && in != nil && slicesContain(args, "pvc-import") {
 		in = &interruptReader{reader: in, ctx: ctx, k: k, remaining: 8192}
 	}
-	return (pvccopy.OSKubectl{}).Run(ctx, k.args(args), in, out)
+	return k.native(ctx, args, in, out)
 }
 func slicesContain(args []string, part string) bool {
 	for _, a := range args {
