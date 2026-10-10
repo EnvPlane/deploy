@@ -5,6 +5,7 @@ report=""
 main_revision=""
 artifact_name="envplane-compatible-artifacts"
 owner_repo="${GITHUB_REPOSITORY:-EnvPlane/deploy}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo_usage() {
   cat <<'USAGE'
@@ -66,6 +67,8 @@ if [[ ! "$main_revision" =~ ^[0-9a-f]{40}$ ]]; then
   exit 2
 fi
 
+[[ "${owner_repo,,}" == envplane/deploy ]] || { echo "untrusted compatibility repository" >&2; exit 2; }
+command -v jq >/dev/null || { echo "jq is required" >&2; exit 2; }
 source_revision="$(jq -er '.sourceRevision // empty' "$report")"
 if [[ -z "$source_revision" || ! "$source_revision" =~ ^[0-9a-f]{40}$ ]]; then
   echo "compatibility report has invalid sourceRevision" >&2
@@ -73,6 +76,7 @@ if [[ -z "$source_revision" || ! "$source_revision" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 
 if [[ "$source_revision" == "$main_revision" ]]; then
+  "$script_dir/validate-release-gate.sh" --report "$report"
   echo "compatibility manifest already matches deploy/main"
   exit 0
 fi
@@ -135,11 +139,13 @@ if [[ -z "$manifest_file" ]]; then
   exit 1
 fi
 
-cp "$manifest_file" "$report"
-new_revision="$(jq -er '.sourceRevision // empty' "$report")"
+new_revision="$(jq -er '.sourceRevision // empty' "$manifest_file")"
 if [[ "$new_revision" != "$main_revision" ]]; then
   echo "downloaded compatibility manifest revision mismatch: expected $main_revision got ${new_revision:-<missing>}" >&2
   exit 1
 fi
+
+"$script_dir/validate-release-gate.sh" --report "$manifest_file"
+cp "$manifest_file" "$report"
 
 echo "refreshed compatibility manifest to current deploy main revision $main_revision"

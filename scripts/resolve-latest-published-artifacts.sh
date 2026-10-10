@@ -201,6 +201,15 @@ latest_published_umbrella() {
 source_revision="${GITHUB_SHA:-}"
 [[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] || source_revision="$(git -C "$(dirname "$chart_file")/../.." rev-parse HEAD 2>/dev/null || true)"
 [[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] || { echo "source revision is unavailable" >&2; exit 1; }
+# CI qualification precedes any registry/image/predecessor selection. Registry
+# availability and digest checks below remain independent, additional gates.
+ci_args=(--candidate "deploy=$source_revision")
+for pair in envplane-control-plane:control-plane envplane-frontend:frontend envplane-agent:agent envplane-runner:runner envplane-webhook:webhook platformDependencyReconciler:deploy; do
+  section="${pair%%:*}"
+  repository="${pair#*:}"
+  ci_args+=(--candidate "$repository=$(read_image_field "$section" sourceRevision)")
+done
+"$(dirname "${BASH_SOURCE[0]}")/validate-release-gate.sh" "${ci_args[@]}"
 umbrella_version="$(awk '/^version:/{print $2; exit}' "$chart_file")"
 previous_umbrella="$(latest_published_umbrella "$umbrella_version")"
 control_plane_image="$(image_json envplane-control-plane control-plane)" || exit 1

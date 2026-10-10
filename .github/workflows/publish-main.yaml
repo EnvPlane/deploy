@@ -12,6 +12,9 @@ on:
       - 'scripts/verify-changed-child-chart-versions.sh'
       - 'scripts/tests/test-verify-changed-child-chart-versions.sh'
       - 'scripts/resolve-latest-published-artifacts.sh'
+      - 'scripts/validate-release-gate.sh'
+      - 'scripts/validate-component-ci.py'
+      - 'scripts/tests/test-component-ci.py'
       - 'scripts/ensure-current-compatible-artifact.sh'
       - 'scripts/verify-frontend-component-repair-controls.sh'
       - 'scripts/update-runtime-image-values.sh'
@@ -35,6 +38,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   packages: write
   id-token: write
@@ -79,6 +83,7 @@ jobs:
       - name: Test deploy tooling
         run: |
           go test ./...
+          python3 scripts/tests/test-component-ci.py
           ./scripts/tests/test-current-compatible-artifact.sh
           ./scripts/tests/platform-reconciler-publication-contract.sh
           ./scripts/tests/test-publish-selected-child-charts.sh
@@ -142,7 +147,7 @@ jobs:
             --source-revision "$GITHUB_SHA"
       - name: Resolve and verify the published compatibility set
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ENVPLANE_AUTOMATION_PAT || github.token }}
           GHCR_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail

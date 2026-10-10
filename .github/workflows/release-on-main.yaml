@@ -45,6 +45,7 @@ jobs:
         env:
           REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
           GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ENVPLANE_AUTOMATION_PAT || github.token }}
           WORKFLOW_RUN_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
         run: |
           set -euo pipefail
@@ -61,6 +62,11 @@ jobs:
           main_revision="${WORKFLOW_RUN_SHA:-$(git ls-remote origin refs/heads/main | awk '{print $1}')}"
           ./scripts/ensure-current-compatible-artifact.sh \
             --report "$REPORT" --main-revision "$main_revision"
+      - name: Require exact candidate component CI before source selection
+        env:
+          GH_TOKEN: ${{ secrets.ENVPLANE_AUTOMATION_PAT || github.token }}
+          REPORT: ${{ runner.temp }}/confirmed-artifacts/latest-artifacts.json
+        run: ./scripts/validate-release-gate.sh --report "$REPORT"
       - name: Select the artifact source revision
         id: source
         env:
