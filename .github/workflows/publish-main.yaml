@@ -145,9 +145,35 @@ jobs:
             --output "$RUNNER_TEMP/selected-child-charts.json" \
             --owner 'envplane' \
             --source-revision "$GITHUB_SHA"
+      - id: ci_status_auth
+        name: Select cross-repository CI status authentication
+        env:
+          CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          APP_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          PAT: ${{ secrets.ENVPLANE_AUTOMATION_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$CLIENT_ID" && -n "$APP_KEY" ]]; then
+            echo "method=app" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$PAT" ]]; then
+            echo "method=pat" >> "$GITHUB_OUTPUT"
+          else
+            echo "private component CI status requires a cross-repository Actions-read credential" >&2
+            exit 1
+          fi
+      - id: ci_status_app
+        name: Mint cross-repository CI status read token
+        if: steps.ci_status_auth.outputs.method == 'app'
+        env:
+          ENVPLANE_AUTOMATION_APP_CLIENT_ID: ${{ secrets.ENVPLANE_AUTOMATION_APP_CLIENT_ID }}
+          ENVPLANE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.ENVPLANE_AUTOMATION_APP_PRIVATE_KEY }}
+          GH_APP_OWNER: ${{ github.repository_owner }}
+          GH_APP_REPOSITORY: deploy
+          GH_APP_TOKEN_PERMISSIONS: '{"actions":"read"}'
+        run: ./scripts/obtain-github-app-token.sh
       - name: Resolve and verify the published compatibility set
         env:
-          GH_TOKEN: ${{ secrets.ENVPLANE_AUTOMATION_PAT || github.token }}
+          GH_TOKEN: ${{ steps.ci_status_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}
           GHCR_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail

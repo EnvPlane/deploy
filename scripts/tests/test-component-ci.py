@@ -117,6 +117,29 @@ class GateTests(unittest.TestCase):
                 gate.api("repos/envplane/runner/actions/runs/20")
             self.assertNotIn("secret", str(error.exception))
 
+    def test_http_failure_reports_only_bounded_status_and_route(self):
+        error = subprocess.CalledProcessError(1, ["gh"], stderr="private token payload (HTTP 404)")
+        with patch.object(gate.subprocess, "run", side_effect=error):
+            with self.assertRaisesRegex(ValueError, "http_404 at repos/envplane/control-plane/actions") as result:
+                gate.api("repos/envplane/control-plane/actions/workflows/ci.yaml/runs?head_sha=" + SHA)
+        self.assertNotIn("private", str(result.exception))
+        self.assertNotIn("payload", str(result.exception))
+        self.assertNotIn("head_sha", str(result.exception))
+
+    def test_private_ci_workflows_use_app_actions_read_credential(self):
+        import re
+        binding = "GH_TOKEN: ${{ steps.ci_status_app.outputs.token || secrets.ENVPLANE_AUTOMATION_PAT }}"
+        for workflow, steps in {
+            "publish-main.yaml": ["Resolve and verify the published compatibility set"],
+            "release-on-main.yaml": ["Refresh compatibility manifest to current deploy main", "Require exact candidate component CI before source selection"],
+        }.items():
+            text = (ROOT / ".github/workflows" / workflow).read_text()
+            self.assertIn("GH_APP_TOKEN_PERMISSIONS: '{\"actions\":\"read\"}'", text)
+            for step in steps:
+                section = text.split("      - name: " + step + "\n", 1)[1].split("      - ", 1)[0]
+                self.assertIn(binding, section)
+                self.assertNotIn("|| github.token", section)
+
     def test_pagination_must_be_complete(self):
         with patch.object(gate, "api", return_value=[{"total_count": 2, "workflow_runs": [{"id": 20}]}]):
             with self.assertRaisesRegex(ValueError, "pagination"):

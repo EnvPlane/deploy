@@ -201,4 +201,5 @@ if [[ -z "$app_token" || "$app_token" == "null" ]]; then
   exit 1
 fi
 
+printf '::add-mask::%s\n' "$app_token"
 printf 'token=%s\n' "$app_token" >> "${GITHUB_OUTPUT}"
