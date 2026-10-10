@@ -50,6 +50,26 @@ class HarnessTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'filesystem layer'):
                 images.inspect_archive(path, images.sha(manifest), run_id, {'layers': []})
 
+    def test_singleton_index_not_runtime_equivalence(self):
+        descriptor = {'digest': 'sha256:' + 'a' * 64, 'platform': {'architecture': 'arm64', 'os': 'linux'}}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'mock-index.tar'
+            def write_index(manifests):
+                raw = json.dumps({'mediaType': 'application/vnd.oci.image.index.v1+json', 'manifests': manifests}).encode()
+                with tarfile.open(path, 'w') as archive:
+                    entry = tarfile.TarInfo('index.json'); entry.size = len(raw)
+                    archive.addfile(entry, io.BytesIO(raw))
+                return raw
+            raw = write_index([descriptor])
+            proof = images.index_proof(path, descriptor['digest'])
+            self.assertEqual(proof['indexDigest'], images.sha(raw))
+            self.assertTrue(proof['singletonIndexVerified'])
+            with self.assertRaisesRegex(ValueError, 'platform/manifest'):
+                images.index_proof(path, 'sha256:' + 'b' * 64)
+            write_index([descriptor, descriptor])
+            with self.assertRaisesRegex(ValueError, 'one descriptor'):
+                images.index_proof(path, descriptor['digest'])
+
 
 if __name__ == '__main__':
     unittest.main()

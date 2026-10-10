@@ -94,3 +94,35 @@ committed-source replay will confirm exact copy-vs-cleanup boundary.
 Both own replay namespaces were removed via UID preconditions;
 `sql-ledger.json` reports `cleanupErrors=[]`. Existing apps/sources untouched.
 Evidence `/private/tmp/mysqlcopy-live-34496abd3c43c1e4-build/`.
+
+## 7477c1e997959bcc: actual sealed copy proof; cleanup failure confirmed
+
+Exact own index and all current-generation mixed CEL/security/credential/UID
+gates passed independently in fresh fixtures. Held DDL challenge returned1205;
+writer progressed4243->4253. Actual immutable ConfigMap CREATE response UID
+`da58fddd-cf19-407f-a297-765d8e4a1aef` contained a validated Version1 receipt:
+
+- Snapshot `records` rows4353; raw dump bytes1307341.
+- RawSHA256 `5915fb6da53eac6db32d7276123cf99f5093eaf7d3a39c49571291c1a5e75eff`.
+- SchemaSHA256 `ba5ceb087d8c9be3afd7cb95dde8bf0c104644fde9d48bc16502fcc02e22fb68`.
+- RowsSHA256 `3be270a66cf976730935c6cb5cb54b3a6e6379c813ea023762622dce53436082`.
+- `ShutdownVerified=true`; exact source PVC/StatefulSet/server UUID and target
+  PVC/Pod/Secret UIDs bound in receipt.
+
+Native source/target logical proof equality and shutdown succeeded before this
+real immutable receipt was created. Overall `success=false` remains correct:
+native Cleanup error `mysql copy safety refusal`, context error
+`context deadline exceeded`. Returned success receipt was intentionally cleared.
+No timeout extension or cleanup waiver was applied to native code by adapter.
+
+Worker owner received the exact captured phase and repair request. Main requests
+safe independent bounded native cleanup and completed retry rather than waiver.
+Host invocation limit is300s to permit native180s execution plus independent
+cleanup/release; it DOES NOT change the native plan180s or admission330s bound.
+
+Fixture-owner independent UID-precondition cleanup completed: `cleanupErrors=[]`.
+Both new namespaces, own policy/binding and exact-name cluster readers deleted.
+Partial proof retained in `/private/tmp/mysqlcopy-live-7477c1e997959bcc-build/`.
+Restart, cancellation/partial retry and final source-preservation acceptance are
+still pending a native lifecycle fix and fresh end-to-end replay. This is real
+data-copy proof with failed overall lifecycle, NOT full SQL live acceptance.

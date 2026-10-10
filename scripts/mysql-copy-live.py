@@ -413,7 +413,7 @@ INSERT INTO records(payload) VALUES ('fixture-marker-{self.run}');
         config = self.config(plan, mode)
         (self.build_dir / f'sql-plan-{mode}.json').write_text(json.dumps(config, indent=2) + '\n')
         p = subprocess.run([str(self.build_dir / 'mysql-copy-live-driver')], input=json.dumps(config),
-                           text=True, capture_output=True, timeout=210)
+                           text=True, capture_output=True, timeout=300)
         result = json.loads(p.stdout) if p.stdout.strip() else {'success': False, 'error': 'native adapter returned no metadata'}
         self.ledger['checks'].append({'nativeMode': mode, 'result': result})
         self.save()
