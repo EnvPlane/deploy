@@ -68,8 +68,16 @@ def api(endpoint, paginate=False):
                                    timeout=90, check=True)
         return json.loads(completed.stdout)
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
-        # Never relay credential-bearing CLI diagnostics or response bodies.
-        raise ValueError("GitHub CI status service unavailable or invalid response") from error
+        # Report only allowlisted failure metadata, never raw CLI diagnostics
+        # or response bodies, which can carry credentials.
+        kind = "invalid_json" if isinstance(error, json.JSONDecodeError) else "cli_unavailable"
+        if isinstance(error, subprocess.TimeoutExpired):
+            kind = "timeout"
+        elif isinstance(error, subprocess.CalledProcessError):
+            status = re.search(r"\(HTTP ([0-9]{3})\)", error.stderr or "")
+            kind = f"http_{status.group(1)}" if status else "cli_error"
+        route = endpoint.split("?", 1)[0]
+        raise ValueError(f"GitHub CI status service unavailable or invalid response: {kind} at {route}") from error
 
 
 def collection(endpoint, key):
