@@ -1,6 +1,6 @@
 # Local domain relay intermittently drops Bootstrap progress response
 
-Priority: P1 local QA access reliability. Status: OPEN.
+Priority: P1 local QA access reliability. Status: PARTIALLY FIXED LOCALLY.
 Observed: umbrella 0.4.715 revision14, kind-envplane-readiness-682,
 tenant default, project test-app. Existing routing-only Minikube envplane
 ingress proxies envplane.local through host.docker.internal:3000 to supervised
@@ -20,6 +20,15 @@ the inspected window. The failing routing hop is observed; underlying reason
 (keepalive, forwarding lifecycle, upstream cancellation) is NOT isolated.
 This expands the earlier configuration-preview 502 investigation, not proof
 that the control-plane progress fix regressed.
+
+Follow-up: the owned kubectl forward log also records a closed Pod network
+namespace, websocket closure and lost connection during a frontend rollout.
+`scripts/supervise-local-forward.py` now detects dead processes and a stalled
+loopback transport, restarting only its own forwarding child. Six tests cover
+consecutive failures, recovery, HTTP errors, disconnection and owned cleanup.
+This is a local adapter fix, not proof that every idle/ingress-hop 502 is solved.
+The live launchd command has not been replaced; idle keepalive acceptance remains
+open. See `docs/runbooks/supervised-local-forward.md`.
 
 ## Codex implementation prompt
 
