@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "clusterUID": "49918e1f-d1f7-4aba-9afb-a4cea4187822",
+  "generation": 1791621417,
+  "checkedAt": "2026-10-11T09:03:01.765997Z",
+  "scope": "single-node-pod-ipv4-tcp",
+  "ingress": "passed",
+  "egress": "passed",
+  "state": "passed",
+  "reason": "measured",
+  "cleanupComplete": true
+}
