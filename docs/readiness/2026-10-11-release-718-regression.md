@@ -49,3 +49,32 @@
 
 No application data, existing PVC, remote-cluster infrastructure or credentials
 were modified by these regression checks.
+
+## Continuation after independent-owner handoff
+
+- Live source review now has digest
+  5b2453e84b7e428719ef72351e9f8fa73f22849b1c074d4051429d222443f953,
+  SQL root-init true, filesystem root false. Temporary unchecked/checked UI
+  changes were not submitted; Refresh source profile read back saved choices.
+- Operator reported approval by another owner. Current server projection instead
+  points to newer request pvc-source-onboarding-5b2453e84b7e428719ef7235-1791746754881886962
+  in pending state. This differs from the earlier request suffix
+  1791731918513576553. The current pending result does not disprove a historical
+  decision, but that older decision cannot authorize a replaced request.
+- Kubernetes has no installed source fence or source-copy Role. Do not equate
+  operator report/approval UI intent with an installation receipt.
+- Browser left focused on Approve source access for the current pending request;
+  no approval, replacement review or new privilege was submitted in this pass.
+- Plan section 4: local approval/tenant/source-profile targeted race regression
+  passes in an isolated checkout of API 729c9b7 plus prepared diagnostic fixes.
+  This is not live acceptance of the diagnostic changes.
+- Frontend bootstrap unit suite passes 257 tests, zero skipped or failed, with
+  prepared explicit-boolean serialization fix. Not deployed UI acceptance.
+- Plan sections 3/5: Compile and native MySQL/PVC-copy remain BLOCKED by current
+  independent approval/install prerequisite. CNI evidence also needs a new run
+  before creation; prior single-node report is outside its freshness window.
+- Base backend/frontend/MySQL Pods and all three original PVCs still present.
+
+Evidence logs: /private/tmp/envplane-718-approval-continuation-tests.log and
+/private/tmp/envplane-718-approval-continuation-ui-tests.log. Overall NO-GO
+unchanged; no full lifecycle or production-ready claim.
