@@ -25,3 +25,17 @@ and API reachability through frontend/API rollouts, controller restart and host
 restart; then retire ONLY the old edge dependency. Do not publish UI publicly,
 import browser credentials, broaden project RBAC, change client PVCs or delete
 other local clusters. Keep production and local acceptance support claims separate.
+
+## October 11 local-access restoration
+
+The kind 0.4.711 runtime and ingress were healthy, but no localhost:3000 listener
+remained and the domain returned 502. A terminal-detached process did not survive.
+A user-scoped launchd job `dev.envplane.kind-local-forward` now supervises only
+the exact kind frontend port-forward, bound to 127.0.0.1:3000. KeepAlive and a
+five-second throttle recover process exits/Pod replacement. HTTP 200 and the
+local listener were confirmed after the launching command returned.
+
+This is a scoped operational fix, not completion of the independent domain-route
+ticket. Minikube ingress/tunnel still provide the edge; the launchd registration
+and private kubeconfig are session/local assets, not a validated reboot-safe
+production configuration. No application values, Secret data or PVCs changed.
