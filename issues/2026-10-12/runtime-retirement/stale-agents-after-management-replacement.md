@@ -1,6 +1,16 @@
 # Stale remote Agents keep polling the replacement management installation
 
-Status: live operational mismatch observed; no repair/delete authorized here.
+Status: Agent auth retry/scan guard fixed locally; operator reconnect/retirement still pending.
+
+## Implementation
+
+Typed heartbeat 401/403/404 failures now use bounded exponential backoff from
+one minute to ten minutes. Successful registration/heartbeat resets it. Rejected
+identities cannot dispatch resource scans. No token is adopted, no grant added,
+and live runtime resources/credentials were not changed. Unit tests verify typed
+classification, wrapped errors and the retry cap. Authenticated readiness UI and
+operator-reviewed reconnect/retirement remain outstanding; Pod Ready alone is
+not promoted to authenticated readiness.
 Plan chapters: 5 remote recovery, 13 reliability, 14 replacement/restore.
 
 ## Evidence
