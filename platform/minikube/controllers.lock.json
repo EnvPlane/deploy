@@ -35,5 +35,12 @@
     "channel": "standard",
     "url": "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml",
     "sha256": "356c2b8e286a964dc20995435659ad1095386329974793af10bbfe3eff977fe5"
+  },
+  "flux": {
+    "version": "v2.9.6",
+    "namespace": "flux-system",
+    "components": ["source-controller", "kustomize-controller", "helm-controller", "notification-controller"],
+    "networkPolicy": true,
+    "manifestSha256": "e0b32861e2701c26336b1a25e5d2896d9f1bc0eed68c2115e2a80277a93cdf03"
   }
 }

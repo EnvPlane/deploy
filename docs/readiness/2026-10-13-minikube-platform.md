@@ -7,6 +7,8 @@ namespace was created. Production application readiness remains a separate gate.
 
 Source configuration: [platform/minikube](../../platform/minikube/README.md).
 Machine-readable live evidence: [platform report](2026-10-13-minikube-platform.json).
+Flux was installed later the same day; see the
+[Flux and Traefik follow-up](2026-10-13-flux-traefik-followup.md).
 The earlier signed `0.4.731` candidate lock remains unchanged.
 
 ## Installed target
