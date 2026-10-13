@@ -57,6 +57,7 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         create_namespace = next(c for c in calls if c[:4] == ["auth", "can-i", "create", "namespaces"])
         self.assertNotIn("--namespace", create_namespace)
+        self.assertIn("--all-namespaces", create_namespace)
         self.assertTrue(any(c[:1] == ["pull"] for c in calls))
 
     def test_invalid_pins_and_namespace_are_rejected_before_api_calls(self):

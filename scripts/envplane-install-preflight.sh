@@ -76,7 +76,7 @@ for permission in "${required_namespace_verbs[@]}"; do
   fi
 done
 for permission in "${required_cluster_verbs[@]}"; do
-  if ! kubectl "${kubectl_args[@]}" auth can-i "${permission%% *}" "${permission#* }" | grep -qx yes; then
+  if ! kubectl "${kubectl_args[@]}" auth can-i "${permission%% *}" "${permission#* }" --all-namespaces | grep -qx yes; then
     echo "RBAC check failed: helm caller needs cluster-scoped '${permission%% *} ${permission#* }'." >&2
     rbac_failed=true
   fi
