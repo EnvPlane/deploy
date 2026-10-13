@@ -22,7 +22,8 @@ api:
 core:
   strictTLSOptions: true
 service:
-  type: NodePort
+  spec:
+    type: NodePort
 ports:
   web:
     nodePort: 31080
