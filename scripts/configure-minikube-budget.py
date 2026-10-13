@@ -38,7 +38,9 @@ def reservation(node, container):
 def configured(original, budget):
     original = original.replace("\r\n", "\n")
     if MARKER in original:
-        original = original.split(MARKER, 1)[0]
+        original, owned = original.split(MARKER, 1)
+        if not re.fullmatch(r"\nsystemReserved:\n  cpu: [0-9]+m\n  memory: [0-9]+Ki\n?", owned):
+            raise ValueError("managed reservation section changed; review before replacing it")
     if re.search(r"^(systemReserved|kubeReserved):", original, re.M):
         raise ValueError("unmanaged kubelet reservations exist; review before changing them")
     values = budget["systemReserved"]

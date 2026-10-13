@@ -32,6 +32,13 @@ class BudgetTests(unittest.TestCase):
         self.assertFalse(budget.matches_budget({"cpu": "12", "memory": "12234476Ki"}, expected))
         self.assertFalse(budget.matches_budget({"cpu": "3800m", "memory": "12Gi"}, expected))
 
+    def test_operator_content_after_managed_section_is_not_discarded(self):
+        values = {"systemReserved": {"cpu": "8200m", "memory": "6467308Ki"}}
+        managed = budget.configured("apiVersion: x\n", values)
+        self.assertEqual(budget.configured(managed, values), managed)
+        with self.assertRaisesRegex(ValueError, "section changed"):
+            budget.configured(managed + "maxPods: 20\n", values)
+
 
 if __name__ == "__main__":
     unittest.main()
