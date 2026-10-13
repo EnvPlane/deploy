@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
+import time
 
 MARKER = "# envplane local scheduling budget"
 
@@ -44,6 +45,17 @@ def configured(original, budget):
     return original.rstrip() + f"\n{MARKER}\nsystemReserved:\n  cpu: {values['cpu']}\n  memory: {values['memory']}\n"
 
 
+def matches_budget(allocatable, expected):
+    # Kubernetes canonicalizes equivalent binary quantities (e.g. Ki -> Mi).
+    memory = re.fullmatch(r"([0-9]+)(Ki|Mi|Gi)", allocatable.get("memory", ""))
+    cpu = re.fullmatch(r"([0-9]+)(m?)", allocatable.get("cpu", ""))
+    if not memory or not cpu:
+        return False
+    memory_ki = int(memory[1]) * {"Ki": 1, "Mi": 1024, "Gi": 1024 * 1024}[memory[2]]
+    cpu_milli = int(cpu[1]) * (1 if cpu[2] == "m" else 1000)
+    return memory_ki == expected["memoryKi"] and cpu_milli == expected["cpuMilli"]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kubeconfig", type=Path, required=True)
@@ -71,6 +83,19 @@ def main():
     else:
         budget["applied"] = args.apply
         budget["unchanged"] = args.apply
+    if args.apply:
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            observed = json.loads(run(base + ["get", "node", "envplane", "-o", "json"]))
+            ready = any(c["type"] == "Ready" and c["status"] == "True"
+                        for c in observed["status"]["conditions"])
+            if ready and matches_budget(observed["status"]["allocatable"], budget["expectedAllocatable"]):
+                budget["verifiedAllocatable"] = observed["status"]["allocatable"]
+                budget["nodeReady"] = True
+                break
+            time.sleep(2)
+        else:
+            raise RuntimeError("expected scheduler budget and Ready state were not observed")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(budget, indent=2) + "\n")
 

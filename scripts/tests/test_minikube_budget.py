@@ -25,6 +25,13 @@ class BudgetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unmanaged"):
             budget.configured("apiVersion: x\nsystemReserved:\n  memory: 1Gi\n", {"systemReserved": {}})
 
+    def test_canonical_units_and_oversized_allocatable(self):
+        expected = {"cpuMilli": 3800, "memoryKi": 5767168}
+        self.assertTrue(budget.matches_budget({"cpu": "3800m", "memory": "5632Mi"}, expected))
+        self.assertTrue(budget.matches_budget({"cpu": "3800m", "memory": "5767168Ki"}, expected))
+        self.assertFalse(budget.matches_budget({"cpu": "12", "memory": "12234476Ki"}, expected))
+        self.assertFalse(budget.matches_budget({"cpu": "3800m", "memory": "12Gi"}, expected))
+
 
 if __name__ == "__main__":
     unittest.main()
