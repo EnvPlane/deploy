@@ -1,8 +1,11 @@
 # Published zero-setup candidate on local Minikube
 
-Prepared on 2026-10-13. **PREPARED, NOT DEPLOYED.** This runbook exercises the
-published production installation contract on a local cluster. Full production
-readiness remains NO-GO until the installed acceptance gates pass.
+Prepared on 2026-10-13. **PLATFORM READY, APPLICATION NOT DEPLOYED.** The user
+subsequently authorized cluster creation and platform controller installation.
+Read [the live platform report](../readiness/2026-10-13-minikube-platform.md)
+and [controller configuration](../../platform/minikube/README.md) for the
+current state. Full production readiness remains NO-GO until the installed
+application acceptance gates pass.
 
 ## Frozen candidate
 
@@ -22,14 +25,13 @@ readiness remains NO-GO until the installed acceptance gates pass.
   (`v1.35.9`). The default host kubectl is `v1.37.1` and must not be used
   against the selected 1.35 cluster.
 
-The profile does not exist yet. Existing `bethunder-local`, the orphaned
+The `envplane` profile now exists and is Ready with its platform controllers.
+Existing `bethunder-local`, the orphaned
 `bethunder-policy-candidate` configuration and running issuer test containers
-are outside this installation. No cluster or configured profile was created
-or removed during preparation. The global kubeconfig currently has no selected
-context. Minikube's dry-run wrote an `events.json` under the otherwise empty
-`envplane` profile directory; that newly created metadata was archived into the
-local preparation cache and the empty directory removed. Future dry-runs use
-an isolated `MINIKUBE_HOME` as shown below.
+are outside this installation. The initial preparation pass created no cluster;
+the subsequent authorized platform pass created only `envplane`. The global
+kubeconfig currently has no selected context; use the dedicated kubeconfig.
+Future dry-runs use an isolated `MINIKUBE_HOME` as shown below.
 
 Use the published umbrella with no values, manual registration Secrets or
 local image builds. `scripts/minikube-up.sh` builds local source images and
@@ -89,15 +91,17 @@ minikube start --dry-run -p envplane --driver=docker \
   --keep-context --interactive=false
 ```
 
-## Execution after deployment is authorized
+## Application execution after deployment is authorized
 
-**The following commands have not been executed.** The user's current request
-stops before cluster creation and installation.
+Cluster creation and platform preflight below have been executed under the
+subsequent authorization. They are retained as reproduction instructions.
+**The application install in step 5 has not been executed or authorized.**
 
-1. Repeat the candidate check. Confirm that `envplane` is still absent with
+1. Repeat the candidate check. Review the existing `envplane` profile with
    `minikube profile list -o json`. Inventory errors for existing profiles must
    remain visible. Never infer profile absence from an inventory failure or
-   reuse an existing profile without reviewing its workloads and CNI.
+   reuse an existing profile without reviewing its workloads and CNI. The
+   prepared target contains platform controllers and no application release.
 2. Recheck `docker info`, `docker stats --no-stream` and free host/Docker disk
    space. The observed Docker budget was 12 CPUs and 11.67 GiB RAM; existing
    containers used approximately 4.14 GiB. The planned 6 GiB cluster plus a
@@ -120,6 +124,8 @@ minikube start -p envplane --driver=docker \
   --addons=default-storageclass,storage-provisioner,metrics-server \
   --keep-context --interactive=false
 chmod 600 "$KUBECONFIG"
+python3 scripts/configure-minikube-budget.py --kubeconfig "$KUBECONFIG" \
+  --output .cache/zero-setup-minikube/kubelet-budget.json --apply
 ```
 
 4. Inspect the new profile explicitly and run the existing preflight. Redirect
@@ -165,11 +171,11 @@ gate. A Running pod or an existing Kind report does not complete a fresh pass.
 
 | Gate | Required result | Current evidence |
 | --- | --- | --- |
-| Clean install | Zero values, generated credential retention, healthy data services and persistent claims | Pending; no cluster/release |
+| Clean install | Zero values, generated credential retention, healthy data services and persistent claims | Platform Ready; application install pending |
 | First run | Real provider setup, initial owner, active default-tenant membership, logout/login | Pending |
 | Authorization | Owner/admin/developer/viewer paths; ordinary 403 retains tenant; privileged controls match membership | Source fix ancestry and component CI checked; installed matrix pending |
 | Project onboarding | UI-created project; authenticated fresh Agent/Runner heartbeat and discovery; reconciliation completes | Source fixes included; installed gate pending |
-| CNI | Fresh allow/deny traffic proof for the current project/cluster | Calico configuration dry-run only |
+| CNI | Fresh allow/deny traffic proof for the current project/cluster | Platform allow/deny probe passed; future project-bound proof pending |
 | Lifecycle | Create, update, recreate and delete via the normal project Runner | Pending |
 | DB/PVC | Independent approval of the current review; scoped copies, retained data, denied out-of-scope access | Pending |
 | FinOps | Nonempty priced telemetry, ownership reconciliation, warning/deny budget scenarios | Pending |
