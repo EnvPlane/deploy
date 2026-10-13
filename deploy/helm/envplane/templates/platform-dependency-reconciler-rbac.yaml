@@ -3,7 +3,7 @@
 {{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
 {{- $ingress := index $dependencies "ingress" -}}
-{{- $ingressNginxManaged := and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") -}}
+{{- $ingressNginxManaged := and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (or (eq (default "" $ingress.provider) "nginx") (eq (default "" $ingress.provider) "ingress-nginx")) -}}
 {{- $ingressInstallerSA := default (printf "%s-ingress-installer" .Release.Name) $r.ingressInstaller.serviceAccount.name -}}
 {{- $statusConfigMap := include "envplane.platformReconcilerStatusConfigMapName" . -}}
 apiVersion: v1
@@ -245,7 +245,7 @@ subjects:
     name: {{ $sa }}
     namespace: {{ .Release.Namespace }}
 {{- $ingress := index $dependencies "ingress" -}}
-{{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") }}
+{{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (or (eq (default "" $ingress.provider) "nginx") (eq (default "" $ingress.provider) "ingress-nginx")) }}
 ---
 # Helm creates these namespaced resources while installing ingress-nginx. The
 # Role is deliberately limited to the configured provider namespace and is

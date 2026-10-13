@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -11,8 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 	kfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func TestDetectCompatibleExistingCapabilities(t *testing.T) {
@@ -26,6 +30,7 @@ func TestDetectCompatibleExistingCapabilities(t *testing.T) {
 		{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}: "IngressClassList",
 		{Version: "v1", Resource: "services"}:                                   "ServiceList",
 		{Version: "v1", Resource: "endpoints"}:                                  "EndpointsList",
+		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"}:  "EndpointSliceList",
 		{Group: "storage.k8s.io", Version: "v1", Resource: "storageclasses"}:    "StorageClassList",
 	}, objects...)
 	if ok, ref, err := detect("ingress", capability{Provider: "nginx", ExistingClassName: "nginx"}, client); err != nil || !ok || ref != "nginx" {
@@ -79,8 +84,151 @@ func TestOrphanIngressClassIsDegradedNotReady(t *testing.T) {
 		"spec":     map[string]any{"controller": "k8s.io/ingress-nginx"},
 	}})
 	ok, _, err := detect("ingress", capability{Provider: "nginx", ExistingClassName: "nginx"}, client)
-	if err != nil || ok {
+	if !errors.Is(err, errIngressClassUnhealthy) || ok {
 		t.Fatalf("orphan ingress class detected as ready: ok=%v err=%v", ok, err)
+	}
+	r, err := reconcile("ingress", capability{Mode: "auto", Provider: "nginx", ExistingClassName: "nginx"}, client, nil)
+	if r.State != "degraded" || !errors.Is(err, errIngressClassUnhealthy) {
+		t.Fatalf("auto mode adopted orphan class: %#v, %v", r, err)
+	}
+}
+
+func TestDetectExistingTraefikRequiresMatchingReadyController(t *testing.T) {
+	class := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "networking.k8s.io/v1", "kind": "IngressClass",
+		"metadata": map[string]any{"name": "traefik"},
+		"spec":     map[string]any{"controller": "traefik.io/ingress-controller"},
+	}}
+	service := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1", "kind": "Service",
+		"metadata": map[string]any{"name": "traefik", "namespace": "traefik", "labels": map[string]any{"app.kubernetes.io/name": "traefik", "app.kubernetes.io/instance": "traefik-traefik"}},
+		"spec":     map[string]any{"selector": map[string]any{"app.kubernetes.io/name": "traefik", "app.kubernetes.io/instance": "traefik-traefik"}},
+	}}
+	deployment := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1", "kind": "Deployment",
+		"metadata": map[string]any{"name": "traefik", "namespace": "traefik", "labels": map[string]any{"app.kubernetes.io/name": "traefik", "app.kubernetes.io/instance": "traefik-traefik"}},
+		"spec":     map[string]any{"selector": map[string]any{"matchLabels": map[string]any{"app.kubernetes.io/name": "traefik", "app.kubernetes.io/instance": "traefik-traefik"}}},
+		"status":   map[string]any{"availableReplicas": int64(1)},
+	}}
+	slice := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "discovery.k8s.io/v1", "kind": "EndpointSlice",
+		"metadata":  map[string]any{"name": "traefik-1", "namespace": "traefik", "labels": map[string]any{"kubernetes.io/service-name": "traefik"}},
+		"endpoints": []any{map[string]any{"addresses": []any{"10.0.0.1"}, "conditions": map[string]any{"ready": true}}},
+	}}
+	kinds := map[schema.GroupVersionResource]string{
+		{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}: "IngressClassList",
+		{Version: "v1", Resource: "services"}:                                   "ServiceList",
+		{Version: "v1", Resource: "endpoints"}:                                  "EndpointsList",
+		{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"}:  "EndpointSliceList",
+		{Group: "apps", Version: "v1", Resource: "deployments"}:                 "DeploymentList",
+	}
+	dep := capability{Mode: "existing", Provider: "traefik", ExistingClassName: "traefik", Namespace: "traefik"}
+	for _, tc := range []struct {
+		name     string
+		edit     func(*unstructured.Unstructured, *unstructured.Unstructured, *unstructured.Unstructured, *unstructured.Unstructured)
+		want     bool
+		mismatch bool
+	}{
+		{name: "healthy", want: true},
+		{name: "wrong controller", mismatch: true, edit: func(c, _, _, _ *unstructured.Unstructured) {
+			c.Object["spec"] = map[string]any{"controller": "k8s.io/ingress-nginx"}
+		}},
+		{name: "wrong service identity", edit: func(_, s, _, _ *unstructured.Unstructured) {
+			s.SetLabels(map[string]string{"app.kubernetes.io/name": "unrelated", "app.kubernetes.io/instance": "traefik-traefik"})
+		}},
+		{name: "wrong service selector", edit: func(_, s, _, _ *unstructured.Unstructured) {
+			s.Object["spec"] = map[string]any{"selector": map[string]any{"app.kubernetes.io/name": "other", "app.kubernetes.io/instance": "traefik-traefik"}}
+		}},
+		{name: "wrong deployment selector", edit: func(_, _, d, _ *unstructured.Unstructured) {
+			d.Object["spec"] = map[string]any{"selector": map[string]any{"matchLabels": map[string]any{"app.kubernetes.io/name": "other", "app.kubernetes.io/instance": "traefik-traefik"}}}
+		}},
+		{name: "wrong namespace", edit: func(_, s, _, _ *unstructured.Unstructured) { s.SetNamespace("other") }},
+		{name: "unready deployment", edit: func(_, _, d, _ *unstructured.Unstructured) {
+			d.Object["status"] = map[string]any{"availableReplicas": int64(0)}
+		}},
+		{name: "unready endpoint", edit: func(_, _, _, e *unstructured.Unstructured) {
+			e.Object["endpoints"] = []any{map[string]any{"addresses": []any{"10.0.0.1"}, "conditions": map[string]any{"ready": false}}}
+		}},
+		{name: "unrelated endpoint slice", edit: func(_, _, _, e *unstructured.Unstructured) {
+			e.SetLabels(map[string]string{"kubernetes.io/service-name": "other"})
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, s, d, e := class.DeepCopy(), service.DeepCopy(), deployment.DeepCopy(), slice.DeepCopy()
+			if tc.edit != nil {
+				tc.edit(c, s, d, e)
+			}
+			client := fake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), kinds, c, s, d, e)
+			result, err := reconcile("ingress", dep, client, nil)
+			if tc.mismatch {
+				if result.State != "incompatible" || err == nil {
+					t.Fatalf("mismatch = %#v, %v", result, err)
+				}
+				return
+			}
+			if tc.want {
+				if result.State != "detected" || result.Reference != "traefik" || err != nil {
+					t.Fatalf("healthy = %#v, %v", result, err)
+				}
+			} else if result.State != "degraded" || !errors.Is(err, errIngressClassUnhealthy) {
+				t.Fatalf("unhealthy = %#v, %v", result, err)
+			}
+		})
+	}
+}
+
+func TestManagedIngressProviderPinsAreIndependent(t *testing.T) {
+	for _, name := range []string{"nginx", "ingress-nginx", "traefik"} {
+		provider := ingressProviders[name]
+		dep := capability{Provider: name, Namespace: "traefik", ExistingClassName: "traefik", Managed: managedConfig{Namespace: "traefik", ChartRef: provider.Chart, Version: provider.ChartVersion, ChartSHA256: "sha256:" + provider.ChartSHA256, RBACRules: []map[string]any{{"apiGroups": []string{""}, "resources": []string{"secrets"}, "verbs": []string{"get"}}}}}
+		if err := validateManagedIngress(dep); err != nil {
+			t.Fatalf("%s pin rejected: %v", name, err)
+		}
+		for _, change := range []struct {
+			name string
+			edit func(*managedConfig)
+		}{
+			{name: "wrong chart", edit: func(m *managedConfig) { m.ChartRef = "oci://ghcr.io/unrelated/chart" }},
+			{name: "wrong version", edit: func(m *managedConfig) { m.Version = "0.0.0" }},
+			{name: "wrong digest", edit: func(m *managedConfig) { m.ChartSHA256 = strings.Repeat("0", 64) }},
+		} {
+			t.Run(name+"/"+change.name, func(t *testing.T) {
+				bad := dep
+				change.edit(&bad.Managed)
+				if err := validateManagedIngress(bad); err == nil {
+					t.Fatal("invalid managed chart accepted")
+				}
+			})
+		}
+		if name == "traefik" {
+			bad := dep
+			bad.Managed.RBACRules = nil
+			if err := validateManagedIngress(bad); err == nil || !strings.Contains(err.Error(), "rbacRules") {
+				t.Fatalf("Traefik without installer permissions = %v", err)
+			}
+		}
+	}
+}
+
+func TestLiveTraefikDetection(t *testing.T) {
+	path := os.Getenv("ENVPLANE_RECONCILER_TEST_KUBECONFIG")
+	if path == "" {
+		t.Skip("set ENVPLANE_RECONCILER_TEST_KUBECONFIG for a read-only live check")
+	}
+	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: path},
+		&clientcmd.ConfigOverrides{CurrentContext: "envplane"},
+	).ClientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := dynamic.NewForConfig(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := reconcile("ingress", capability{Mode: "existing", Provider: "traefik", Namespace: "traefik", ExistingClassName: "traefik"}, client, nil)
+	if err != nil || r.State != "detected" || r.Reference != "traefik" {
+		t.Fatalf("live Traefik = %#v, %v", r, err)
 	}
 }
 

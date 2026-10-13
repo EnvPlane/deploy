@@ -24,7 +24,7 @@ templates subsequently create the release-owned replacement.
     (dict "apiVersion" "rbac.authorization.k8s.io/v1" "kind" "RoleBinding" "namespace" .Release.Namespace "name" (printf "%s-platform-reconciler-status" .Release.Name))
   -}}
 {{- $ingress := index $dependencies "ingress" -}}
-{{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") -}}
+{{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (or (eq (default "" $ingress.provider) "nginx") (eq (default "" $ingress.provider) "ingress-nginx")) -}}
   {{- $check = append $check (dict "apiVersion" "rbac.authorization.k8s.io/v1" "kind" "Role" "namespace" $ingress.namespace "name" (printf "%s-platform-reconciler-ingress-installer" .Release.Name)) -}}
   {{- $check = append $check (dict "apiVersion" "rbac.authorization.k8s.io/v1" "kind" "RoleBinding" "namespace" $ingress.namespace "name" (printf "%s-platform-reconciler-ingress-installer" .Release.Name)) -}}
 {{- end -}}
@@ -117,7 +117,7 @@ roleRef:
   name: {{ .Release.Name }}-platform-reconciler-status
 subjects: []
 {{- end }}
-{{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") }}
+{{- if and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (or (eq (default "" $ingress.provider) "nginx") (eq (default "" $ingress.provider) "ingress-nginx")) }}
   {{- $roleKey := printf "Role/%s/%s" $ingress.namespace (printf "%s-platform-reconciler-ingress-installer" .Release.Name) -}}
   {{- $bindingKey := printf "RoleBinding/%s/%s" $ingress.namespace (printf "%s-platform-reconciler-ingress-installer" .Release.Name) -}}
   {{- if get $isLegacy $roleKey }}

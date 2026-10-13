@@ -1,0 +1,20 @@
+platformDependencies:
+  ingress:
+    mode: managed
+    provider: traefik
+    namespace: traefik
+    existingClassName: traefik
+    ownership: envplane
+    managed:
+      chartRef: oci://ghcr.io/traefik/helm/traefik
+      chartSha256: sha256:43bcdc4302f627fcce94316e810b674fc8033112860462cc5f2127ff2f6042d8
+      version: 41.7.1
+      namespace: traefik
+      releaseName: test-traefik
+      cleanupPolicy: retain
+      # Template contract fixture only. Production rules must cover the exact
+      # chart resources and be reviewed for the target cluster.
+      rbacRules:
+        - apiGroups: [""]
+          resources: ["secrets"]
+          verbs: ["get"]
