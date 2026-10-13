@@ -33,11 +33,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ "$version" =~ ^[0-9]+.[0-9]+.[0-9]+$ ]] || {
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
   echo "--version must be a published immutable SemVer X.Y.Z; latest is not supported" >&2
   exit 2
 }
-[[ "$namespace" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] || {
+[[ ${#namespace} -le 63 && "$namespace" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] || {
   echo "--namespace must be a Kubernetes DNS label" >&2
   exit 2
 }
@@ -52,30 +52,32 @@ kubectl "${kubectl_args[@]}" version --request-timeout=10s >/dev/null || {
 }
 
 required_namespace_verbs=(
-  "create namespaces"
   "create deployments.apps"
   "create statefulsets.apps"
   "create services"
+  "create configmaps"
+  "create serviceaccounts"
   "create secrets"
   "create persistentvolumeclaims"
   "create roles.rbac.authorization.k8s.io"
   "create rolebindings.rbac.authorization.k8s.io"
 )
 required_cluster_verbs=(
+  "create namespaces"
   "create clusterroles.rbac.authorization.k8s.io"
   "create clusterrolebindings.rbac.authorization.k8s.io"
-  "get storageclasses.storage.k8s.io"
+  "list storageclasses.storage.k8s.io"
 )
 rbac_failed=false
 for permission in "${required_namespace_verbs[@]}"; do
   if ! kubectl "${kubectl_args[@]}" auth can-i "${permission%% *}" "${permission#* }" --namespace "$namespace" | grep -qx yes; then
-    echo "RBAC check failed: helm caller needs '${permission%% *} ${permission#*}' in namespace $namespace." >&2
+    echo "RBAC check failed: helm caller needs '${permission%% *} ${permission#* }' in namespace $namespace." >&2
     rbac_failed=true
   fi
 done
 for permission in "${required_cluster_verbs[@]}"; do
-  if ! kubectl "${kubectl_args[@]}" auth can-i "${permission%% *}" "${permission#*}" | grep -qx yes; then
-    echo "RBAC check failed: helm caller needs cluster-scoped '${permission%% *} ${permission#*}'." >&2
+  if ! kubectl "${kubectl_args[@]}" auth can-i "${permission%% *}" "${permission#* }" | grep -qx yes; then
+    echo "RBAC check failed: helm caller needs cluster-scoped '${permission%% *} ${permission#* }'." >&2
     rbac_failed=true
   fi
 done
@@ -92,6 +94,11 @@ fi
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/docker"
+printf '{"auths":{}}\n' >"$tmp/docker/config.json"
+printf '{"auths":{}}\n' >"$tmp/registry.json"
+export DOCKER_CONFIG="$tmp/docker"
+export HELM_REGISTRY_CONFIG="$tmp/registry.json"
 if ! helm pull "$chart" --version "$version" --destination "$tmp" >/dev/null 2>&1; then
   echo "Network check failed: anonymous Helm pull of $chart:$version did not succeed. Check outbound registry access and the published version; do not add registry credentials for public envplane artifacts." >&2
   exit 1
