@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "profile": "envplane",
+  "kubernetesVersion": "v1.35.9",
+  "minikubeVersion": "v1.39.0",
+  "driver": "docker",
+  "containerRuntime": "containerd",
+  "cni": "calico",
+  "cpus": 4,
+  "memoryMiB": 6144,
+  "diskRequestedGiB": 30,
+  "addons": ["default-storageclass", "storage-provisioner", "metrics-server"],
+  "charts": [
+    {
+      "release": "traefik",
+      "namespace": "traefik",
+      "repository": "oci://ghcr.io/traefik/helm/traefik",
+      "version": "41.7.1",
+      "appVersion": "v3.7.14",
+      "digest": "sha256:ce4608f8ad8fff14b6e335f525b1f430798c91c0b74fe0751d8e3f00c97671f0",
+      "values": "traefik-values.yaml"
+    },
+    {
+      "release": "cert-manager",
+      "namespace": "cert-manager",
+      "repository": "oci://quay.io/jetstack/charts/cert-manager",
+      "version": "v1.21.2",
+      "appVersion": "v1.21.2",
+      "digest": "sha256:634dce9c13b56677a2c05e2ab76c312d0be2664022d5dd05815da67e1fd5f610",
+      "values": "cert-manager-values.yaml"
+    }
+  ],
+  "gatewayAPI": {
+    "version": "v1.6.3",
+    "channel": "standard",
+    "url": "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml",
+    "sha256": "356c2b8e286a964dc20995435659ad1095386329974793af10bbfe3eff977fe5"
+  }
+}

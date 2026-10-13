@@ -1,0 +1,36 @@
+# Platform-owned controller; independent from the application umbrella.
+deployment:
+  replicas: 1
+ingressClass:
+  enabled: true
+  name: traefik
+  isDefaultClass: true
+providers:
+  kubernetesIngress:
+    enabled: true
+  kubernetesGateway:
+    enabled: true
+gateway:
+  enabled: true
+  name: local-platform
+gatewayClass:
+  enabled: true
+  name: traefik
+api:
+  dashboard: false
+  insecure: false
+core:
+  strictTLSOptions: true
+service:
+  type: NodePort
+ports:
+  web:
+    nodePort: 31080
+  websecure:
+    nodePort: 31443
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
