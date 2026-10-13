@@ -89,6 +89,7 @@ jobs:
       - name: Verify installation documentation contract
         run: |
           python3 scripts/tests/test-component-ci.py
+          python3 scripts/tests/test_prepare_minikube_zero_setup.py
           bash -n scripts/sync-signed-release-index.sh
           ./scripts/tests/install-command-contract.sh
           ./scripts/tests/test-generate-public-release-index.sh

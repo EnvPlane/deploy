@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "channel": "stable",
+  "version": "0.4.731",
+  "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+  "chart": {
+    "repository": "oci://ghcr.io/envplane/envplane",
+    "digest": "sha256:92c7b029e7a85ec03d26dcd50618ec15301039cf8351357a9cb05e30f16b68f5"
+  },
+  "support": {
+    "kubernetes": {
+      "minimum": "1.26.0"
+    },
+    "helm": {
+      "minimum": "3.14.0"
+    },
+    "deploymentModes": [
+      "cloud",
+      "on-prem"
+    ],
+    "clusterTargets": [
+      "current",
+      "remote"
+    ]
+  },
+  "install": {
+    "release": "envplane",
+    "namespace": "envplane",
+    "command": "helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.731 --namespace envplane --create-namespace --wait",
+    "prerequisites": [
+      "kubernetes",
+      "helm",
+      "default-storage-class",
+      "namespace-rbac",
+      "public-oci-egress"
+    ]
+  },
+  "status": {
+    "commands": [
+      "kubectl -n envplane rollout status deployment/envplane-control-plane --timeout=10m",
+      "kubectl -n envplane rollout status deployment/envplane-frontend --timeout=10m",
+      "kubectl -n envplane port-forward svc/envplane-frontend 3000:3000"
+    ]
+  },
+  "firstRun": {
+    "url": "http://127.0.0.1:3000",
+    "screen": "initial-authentication"
+  }
+}

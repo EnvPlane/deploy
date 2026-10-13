@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "preparedAt": "2026-10-13T13:21:19.553722+00:00",
+  "decision": "PREPARED_NOT_DEPLOYED",
+  "version": "0.4.731",
+  "chart": {
+    "repository": "oci://ghcr.io/envplane/envplane",
+    "digest": "sha256:92c7b029e7a85ec03d26dcd50618ec15301039cf8351357a9cb05e30f16b68f5"
+  },
+  "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+  "profile": "envplane",
+  "kubernetesVersion": "1.35.9",
+  "helmVersion": "v4.3.0+gbec5b06",
+  "verified": [
+    "signed-index",
+    "anonymous-umbrella-digest",
+    "embedded-compatibility",
+    "zero-values-lint-render",
+    "anonymous-child-chart-digests",
+    "anonymous-image-descriptors-both-architectures",
+    "exact-component-ci"
+  ],
+  "rendered": {
+    "images": [
+      "ghcr.io/envplane/agent@sha256:de03c342fb8e10bd546d9a030aa7c7512d7e23d3457a45b9244b8bfa20b7ff35",
+      "ghcr.io/envplane/api@sha256:dce8bbf3951ff996fcf0a57eec8f314d6815a7904e5e560ace5ecbf2a64d8245",
+      "ghcr.io/envplane/frontend@sha256:7fa5bce1faa28b9449406b2c08d74c6f63ccda20076019d5c294a02944dfdd37",
+      "ghcr.io/envplane/platform-reconciler@sha256:f2131b5b71983c06ecf56d66632de94bd683faa6ae8656ec4b0751d38e8acd08",
+      "ghcr.io/envplane/runner@sha256:0afee8313c39ce768f89c59663ead8d2f999d51c65b0436c862d28abfc7cce36",
+      "postgres@sha256:44c4ee9810eff91f7eab4d822642e01115b1a9eccce4bcbdde7604752d68eac6",
+      "redis@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2"
+    ],
+    "workloads": [
+      {
+        "kind": "Deployment",
+        "name": "envplane-agent"
+      },
+      {
+        "kind": "Deployment",
+        "name": "envplane-control-plane"
+      },
+      {
+        "kind": "Deployment",
+        "name": "envplane-frontend"
+      },
+      {
+        "kind": "Deployment",
+        "name": "envplane-runner"
+      },
+      {
+        "kind": "StatefulSet",
+        "name": "envplane-control-plane-postgres"
+      },
+      {
+        "kind": "StatefulSet",
+        "name": "envplane-control-plane-redis"
+      }
+    ]
+  },
+  "imageDescriptors": [
+    {
+      "reference": "ghcr.io/envplane/agent@sha256:de03c342fb8e10bd546d9a030aa7c7512d7e23d3457a45b9244b8bfa20b7ff35",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    {
+      "reference": "ghcr.io/envplane/api@sha256:dce8bbf3951ff996fcf0a57eec8f314d6815a7904e5e560ace5ecbf2a64d8245",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    {
+      "reference": "ghcr.io/envplane/frontend@sha256:7fa5bce1faa28b9449406b2c08d74c6f63ccda20076019d5c294a02944dfdd37",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    {
+      "reference": "ghcr.io/envplane/platform-reconciler@sha256:f2131b5b71983c06ecf56d66632de94bd683faa6ae8656ec4b0751d38e8acd08",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    {
+      "reference": "ghcr.io/envplane/runner@sha256:0afee8313c39ce768f89c59663ead8d2f999d51c65b0436c862d28abfc7cce36",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    {
+      "reference": "ghcr.io/envplane/webhook@sha256:0494937693904dcb475e03daaff79cdcb3bda4d94a1890f12bdafcb3016f4c32",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    {
+      "reference": "postgres@sha256:44c4ee9810eff91f7eab4d822642e01115b1a9eccce4bcbdde7604752d68eac6",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    },
+    {
+      "reference": "redis@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ]
+    }
+  ],
+  "requiredCI": [
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "repository": "envplane/agent",
+      "requiredJob": "test",
+      "runId": 38300455284,
+      "sha": "12aedb9e5706a15d85b382363720b22a92842e4d"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "repository": "envplane/control-plane",
+      "requiredJob": "test",
+      "runId": 38364047179,
+      "sha": "cf19bc35a2fb28123d2068bf5c844dd4b0b34291"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "repository": "envplane/deploy",
+      "requiredJob": "helm",
+      "runId": 38367080067,
+      "sha": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "repository": "envplane/deploy",
+      "requiredJob": "helm",
+      "runId": 38083609695,
+      "sha": "537008776c8377f6ff4744f071b3f413a34424c4"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "repository": "envplane/frontend",
+      "requiredJob": "test",
+      "runId": 38358727629,
+      "sha": "00a1a7d7ea781803e39113814e9b809e76b7aa44"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "repository": "envplane/runner",
+      "requiredJob": "test",
+      "runId": 38300532040,
+      "sha": "e81cf526e103dd2a239eff63a5e37ceb2014803b"
+    },
+    {
+      "attempt": 1,
+      "conclusion": "success",
+      "repository": "envplane/webhook",
+      "requiredJob": "test",
+      "runId": 38300406768,
+      "sha": "4c2e99840e4af4de7d727aa0dd1bf9f47873785c"
+    }
+  ],
+  "pending": [
+    "cluster-capacity-and-storage",
+    "cluster-rbac",
+    "fresh-clean-install",
+    "first-run-owner-tenant",
+    "authenticated-agent-runner",
+    "fresh-cni-proof",
+    "lifecycle-and-scoped-copy",
+    "nonempty-priced-finops",
+    "management-dr",
+    "scm-and-provider-acceptance",
+    "independent-sbom-provenance-verification"
+  ]
+}

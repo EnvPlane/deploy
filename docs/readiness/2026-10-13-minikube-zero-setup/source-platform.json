@@ -1,0 +1,68 @@
+{
+  "checkedAt": "2026-10-13T13:23:14.436904+00:00",
+  "sourceFixCoverage": [
+    {
+      "repository": "envplane/control-plane",
+      "fix": "c21d875f46376f5598696a9dc70f971789b50ee3",
+      "candidate": "cf19bc35a2fb28123d2068bf5c844dd4b0b34291",
+      "ancestor": true,
+      "method": "git merge-base --is-ancestor"
+    },
+    {
+      "repository": "envplane/frontend",
+      "fix": "fb7e6e73abc7473c5c29b6b91a5b2a48f0a900f1",
+      "candidate": "00a1a7d7ea781803e39113814e9b809e76b7aa44",
+      "ancestor": true,
+      "method": "git merge-base --is-ancestor"
+    },
+    {
+      "repository": "envplane/frontend",
+      "fix": "a648fb86afba85de403939eac526976429c73757",
+      "candidate": "00a1a7d7ea781803e39113814e9b809e76b7aa44",
+      "ancestor": true,
+      "method": "git merge-base --is-ancestor"
+    },
+    {
+      "repository": "envplane/agent",
+      "fix": "f04576713b897f4f676dcbbcf1e649f3e075a43a",
+      "candidate": "12aedb9e5706a15d85b382363720b22a92842e4d",
+      "ancestor": true,
+      "method": "GitHub compare",
+      "aheadBy": 1
+    }
+  ],
+  "releaseWorkflow": {
+    "runId": 38367225855,
+    "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+    "conclusion": "success",
+    "url": "https://github.com/envplane/deploy/actions/runs/38367225855"
+  },
+  "platform": {
+    "dryRun": "PASS",
+    "clusterCreated": false,
+    "profile": "envplane",
+    "kubernetesVersion": "v1.35.9",
+    "minikubeVersion": "v1.39.0",
+    "kubectlVersion": "v1.35.9",
+    "driver": "docker",
+    "containerRuntime": "containerd",
+    "cni": "calico",
+    "cpus": 4,
+    "memoryMiB": 6144,
+    "diskRequestedGiB": 30,
+    "defaultHostKubectlVersion": "v1.37.1",
+    "globalCurrentContext": "unset",
+    "existingProfiles": [
+      "bethunder-local",
+      "bethunder-policy-candidate"
+    ],
+    "inventoryWarning": "bethunder-policy-candidate container absent",
+    "pending": [
+      "free-disk",
+      "scheduling-capacity",
+      "storage",
+      "network-enforcement",
+      "rbac"
+    ]
+  }
+}

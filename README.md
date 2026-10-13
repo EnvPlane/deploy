@@ -56,6 +56,9 @@ selection are in [advanced installation](docs/installation-advanced.md).
 Run published-artifact and remote-cluster scenarios only against disposable or
 approved test environments.
 
+For preparation without creating a cluster or installing a release, use the
+[published zero-setup Minikube runbook](docs/runbooks/minikube-production-zero-setup.md).
+
 ### SCM webhook lifecycle fixture
 
 `./scripts/scm-webhook-lifecycle-e2e.sh` runs the disposable GitLab webhook

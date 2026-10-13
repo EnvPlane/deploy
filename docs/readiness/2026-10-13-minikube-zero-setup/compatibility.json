@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "umbrella": {
+    "name": "envplane",
+    "version": "0.4.731"
+  },
+  "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+  "generatedAt": "2026-10-13T08:10:36Z",
+  "installFlow": {
+    "schemaVersion": "v1",
+    "firstRun": {
+      "contractVersion": "v1",
+      "existingInstallPolicy": "preserve_without_reonboarding"
+    },
+    "activation": {
+      "contractVersion": "v1",
+      "legacyPolicy": "migrate_or_report_typed_error"
+    },
+    "rollout": {
+      "defaultMode": "legacy",
+      "canaryTelemetry": true,
+      "rollbackMode": "legacy"
+    },
+    "deprecations": [
+      {
+        "path": "global.envplane.auth.existingSecret",
+        "replacement": "settings.authentication",
+        "removal": "next_major"
+      },
+      {
+        "path": "global.envplane.remoteControlPlane",
+        "replacement": "managementEndpointProfile",
+        "removal": "next_major"
+      }
+    ]
+  },
+  "images": [
+    {
+      "name": "control-plane",
+      "repository": "ghcr.io/envplane/api",
+      "tag": "sha-cf19bc35a2fb28123d2068bf5c844dd4b0b34291",
+      "digest": "sha256:dce8bbf3951ff996fcf0a57eec8f314d6815a7904e5e560ace5ecbf2a64d8245",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "ghcr.io/envplane/api@sha256:dce8bbf3951ff996fcf0a57eec8f314d6815a7904e5e560ace5ecbf2a64d8245"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "ghcr.io/envplane/api@sha256:dce8bbf3951ff996fcf0a57eec8f314d6815a7904e5e560ace5ecbf2a64d8245"
+        }
+      }
+    },
+    {
+      "name": "frontend",
+      "repository": "ghcr.io/envplane/frontend",
+      "tag": "sha-00a1a7d7ea781803e39113814e9b809e76b7aa44",
+      "digest": "sha256:7fa5bce1faa28b9449406b2c08d74c6f63ccda20076019d5c294a02944dfdd37",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "ghcr.io/envplane/frontend@sha256:7fa5bce1faa28b9449406b2c08d74c6f63ccda20076019d5c294a02944dfdd37"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "ghcr.io/envplane/frontend@sha256:7fa5bce1faa28b9449406b2c08d74c6f63ccda20076019d5c294a02944dfdd37"
+        }
+      }
+    },
+    {
+      "name": "agent",
+      "repository": "ghcr.io/envplane/agent",
+      "tag": "sha-12aedb9e5706a15d85b382363720b22a92842e4d",
+      "digest": "sha256:de03c342fb8e10bd546d9a030aa7c7512d7e23d3457a45b9244b8bfa20b7ff35",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "ghcr.io/envplane/agent@sha256:de03c342fb8e10bd546d9a030aa7c7512d7e23d3457a45b9244b8bfa20b7ff35"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "ghcr.io/envplane/agent@sha256:de03c342fb8e10bd546d9a030aa7c7512d7e23d3457a45b9244b8bfa20b7ff35"
+        }
+      }
+    },
+    {
+      "name": "runner",
+      "repository": "ghcr.io/envplane/runner",
+      "tag": "sha-e81cf526e103dd2a239eff63a5e37ceb2014803b",
+      "digest": "sha256:0afee8313c39ce768f89c59663ead8d2f999d51c65b0436c862d28abfc7cce36",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "ghcr.io/envplane/runner@sha256:0afee8313c39ce768f89c59663ead8d2f999d51c65b0436c862d28abfc7cce36"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "ghcr.io/envplane/runner@sha256:0afee8313c39ce768f89c59663ead8d2f999d51c65b0436c862d28abfc7cce36"
+        }
+      }
+    },
+    {
+      "name": "webhook",
+      "repository": "ghcr.io/envplane/webhook",
+      "tag": "sha-4c2e99840e4af4de7d727aa0dd1bf9f47873785c",
+      "digest": "sha256:0494937693904dcb475e03daaff79cdcb3bda4d94a1890f12bdafcb3016f4c32",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "ghcr.io/envplane/webhook@sha256:0494937693904dcb475e03daaff79cdcb3bda4d94a1890f12bdafcb3016f4c32"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "ghcr.io/envplane/webhook@sha256:0494937693904dcb475e03daaff79cdcb3bda4d94a1890f12bdafcb3016f4c32"
+        }
+      }
+    },
+    {
+      "name": "platform-reconciler",
+      "repository": "ghcr.io/envplane/platform-reconciler",
+      "tag": "sha-537008776c8377f6ff4744f071b3f413a34424c4",
+      "digest": "sha256:f2131b5b71983c06ecf56d66632de94bd683faa6ae8656ec4b0751d38e8acd08",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "ghcr.io/envplane/platform-reconciler@sha256:f2131b5b71983c06ecf56d66632de94bd683faa6ae8656ec4b0751d38e8acd08"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "ghcr.io/envplane/platform-reconciler@sha256:f2131b5b71983c06ecf56d66632de94bd683faa6ae8656ec4b0751d38e8acd08"
+        }
+      }
+    }
+  ],
+  "childCharts": [
+    {
+      "name": "envplane-control-plane",
+      "version": "0.3.63",
+      "repository": "oci://ghcr.io/envplane/envplane-control-plane",
+      "digest": "sha256:87c17b536888365685fb192c57032b98bf756d0647a2714ea6a9e263f4f3315f",
+      "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "oci://ghcr.io/envplane/envplane-control-plane@sha256:87c17b536888365685fb192c57032b98bf756d0647a2714ea6a9e263f4f3315f"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "oci://ghcr.io/envplane/envplane-control-plane@sha256:87c17b536888365685fb192c57032b98bf756d0647a2714ea6a9e263f4f3315f"
+        }
+      }
+    },
+    {
+      "name": "envplane-frontend",
+      "version": "0.2.1",
+      "repository": "oci://ghcr.io/envplane/envplane-frontend",
+      "digest": "sha256:0b837eee3cc4414141659f9a055ab2647c3f999210138b9c38f08bb3ce3c6bc9",
+      "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "oci://ghcr.io/envplane/envplane-frontend@sha256:0b837eee3cc4414141659f9a055ab2647c3f999210138b9c38f08bb3ce3c6bc9"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "oci://ghcr.io/envplane/envplane-frontend@sha256:0b837eee3cc4414141659f9a055ab2647c3f999210138b9c38f08bb3ce3c6bc9"
+        }
+      }
+    },
+    {
+      "name": "envplane-agent",
+      "version": "0.2.40",
+      "repository": "oci://ghcr.io/envplane/envplane-agent",
+      "digest": "sha256:7438f5de1135d17dc8820f554920f2b4a2039a04c44a59971fe868ae891d40a4",
+      "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "oci://ghcr.io/envplane/envplane-agent@sha256:7438f5de1135d17dc8820f554920f2b4a2039a04c44a59971fe868ae891d40a4"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "oci://ghcr.io/envplane/envplane-agent@sha256:7438f5de1135d17dc8820f554920f2b4a2039a04c44a59971fe868ae891d40a4"
+        }
+      }
+    },
+    {
+      "name": "envplane-runner",
+      "version": "0.4.15",
+      "repository": "oci://ghcr.io/envplane/envplane-runner",
+      "digest": "sha256:18f09c21884705d57e6a71a47ff46f234be181dff787f5436c88442e4f823679",
+      "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "oci://ghcr.io/envplane/envplane-runner@sha256:18f09c21884705d57e6a71a47ff46f234be181dff787f5436c88442e4f823679"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "oci://ghcr.io/envplane/envplane-runner@sha256:18f09c21884705d57e6a71a47ff46f234be181dff787f5436c88442e4f823679"
+        }
+      }
+    },
+    {
+      "name": "envplane-webhook",
+      "version": "0.1.6",
+      "repository": "oci://ghcr.io/envplane/envplane-webhook",
+      "digest": "sha256:614fd960306b9751eafff62e485a7b37bebcf7922d6dd62c5e31e3d473d23f14",
+      "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "oci://ghcr.io/envplane/envplane-webhook@sha256:614fd960306b9751eafff62e485a7b37bebcf7922d6dd62c5e31e3d473d23f14"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "oci://ghcr.io/envplane/envplane-webhook@sha256:614fd960306b9751eafff62e485a7b37bebcf7922d6dd62c5e31e3d473d23f14"
+        }
+      }
+    },
+    {
+      "name": "envplane-e2e-workload",
+      "version": "0.1.0",
+      "repository": "oci://ghcr.io/envplane/envplane-e2e-workload",
+      "digest": "sha256:5cdd74c2db7648168834aad020d2b72330adb7e6c8cc616f0126551c4114bb21",
+      "sourceRevision": "4bd953a8cc3af05b3dc93bcaf72762f80d1f8daa",
+      "attestations": {
+        "sbom": {
+          "required": true,
+          "mediaType": "application/spdx+json",
+          "subject": "oci://ghcr.io/envplane/envplane-e2e-workload@sha256:5cdd74c2db7648168834aad020d2b72330adb7e6c8cc616f0126551c4114bb21"
+        },
+        "provenance": {
+          "required": true,
+          "subject": "oci://ghcr.io/envplane/envplane-e2e-workload@sha256:5cdd74c2db7648168834aad020d2b72330adb7e6c8cc616f0126551c4114bb21"
+        }
+      }
+    }
+  ]
+}
