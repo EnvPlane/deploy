@@ -17,13 +17,19 @@ controller, Gateway API implementation, DNS controller, certificate manager,
 metrics server, CSI driver, or cloud integration. Supply those capabilities
 before enabling a feature that depends on them.
 
+See [cluster prerequisites](cluster-prerequisites.md) for the management
+cluster baseline, read-only checks, optional controllers, production topology
+and remote-target boundary. FluxCD is optional for the default Helm install.
+
 Optional non-mutating preflight:
 
 ```bash
 scripts/envplane-install-preflight.sh --version <stable-version> --namespace envplane
 ```
 
-The preflight reads no Secret data and creates no cluster resources.
+The preflight reads no Secret data and creates no cluster resources. It checks
+the default install path; it does not validate Ready nodes, Pod networking,
+node-side image pulls or production capacity.
 
 ## 2. Install the stable release
 

@@ -5,6 +5,9 @@ when platform policy requires explicit production topology. Keep credentials in
 an external secret manager or pre-created Kubernetes Secret; values files hold
 references only.
 
+Review the [source-cluster requirements](cluster-prerequisites.md) before
+selecting production storage, network and endpoint providers.
+
 ## Production hardening
 
 - Pin the exact stable chart version and retain its signed release index and
