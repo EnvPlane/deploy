@@ -35,6 +35,8 @@ Read the [installation guide](docs/installation.md) for first-run, free limits,
 activation, upgrades, uninstall, and troubleshooting. Production hardening,
 private registries, external databases, remote clusters, ingress, and storage
 selection are in [advanced installation](docs/installation-advanced.md).
+The [cluster prerequisites](docs/cluster-prerequisites.md) distinguish the
+default installation baseline from optional platform controllers.
 
 ## Repository ownership
 
