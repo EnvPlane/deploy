@@ -64,6 +64,8 @@ minikube start -p envplane --driver=docker --container-runtime=containerd \
   --disk-size=30g --addons=default-storageclass,storage-provisioner,metrics-server \
   --keep-context --interactive=false
 chmod 600 "$KUBECONFIG"
+python3 scripts/configure-minikube-budget.py --kubeconfig "$KUBECONFIG" \
+  --output .cache/zero-setup-minikube/kubelet-budget.json --apply
 mkdir -p .cache/zero-setup-minikube/controllers
 curl -fSL https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.3/standard-install.yaml \
   -o .cache/zero-setup-minikube/controllers/gateway-api-v1.6.3.yaml
@@ -98,6 +100,24 @@ helm upgrade --install cert-manager .cache/zero-setup-minikube/controllers/cert-
   --kube-context envplane --namespace cert-manager --create-namespace \
   -f platform/minikube/cert-manager-values.yaml --wait --timeout 5m
 ```
+
+The Docker driver can advertise the entire Docker VM's capacity to Kubernetes
+despite a smaller node-container cgroup limit. The budget helper computes
+`systemReserved` from that difference plus 200m CPU and 512 MiB memory for the
+node services. This installation therefore has **3800m CPU and 5632 MiB memory
+allocatable to Pods**, inside the enforced 4 CPU / 6 GiB container envelope.
+The node's `capacity` field still describes the VM; use `allocatable` for
+scheduling and record the cgroup limits separately for capacity/FinOps review.
+The helper refuses another target, unlimited containers or unmanaged kubelet
+reservations; it preserves the original configuration inside this node at
+`/var/lib/kubelet/config.yaml.before-envplane-budget` and restarts only its
+kubelet. Reapply after changing Docker VM/profile resource limits or recreating
+the profile, then verify Node Ready and controller health. This is a local
+driver accommodation, not a change to the production application chart.
+
+For a failed budget change, restore only this node's preserved configuration
+and restart its kubelet; return the platform readiness decision to blocked
+until the resource envelope and health are reverified.
 
 Gateway API CRDs precede both controllers. Do not enable Minikube's ingress
 addon alongside Traefik: the ingress-nginx project is retired, and a second
