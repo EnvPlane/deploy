@@ -48,10 +48,12 @@ operator's responsibility. Configure only the capabilities you actually use.
 Resource-metrics features need a working metrics API, commonly supplied by
 metrics-server. Policy enforcement needs a CNI that implements Kubernetes
 NetworkPolicy; an installed policy object alone is not proof of enforcement.
-FluxCD is optional for the default Helm installation and required only when a
-selected GitOps workflow uses it. envplane does not install Flux, a DNS
-controller, cert-manager, a CSI driver, an ingress controller, or a cloud
-integration as a side effect of the default install. See the
+Helm Direct needs no GitOps controller. FluxCD and Argo CD are optional
+deployment backends: a Flux workflow needs a compatible controller in its
+target cluster; an Argo CD workflow needs an existing HTTPS server reachable
+from the management service and a project-scoped credential Secret reference.
+The default envplane chart does not install Flux, Argo CD, a DNS controller,
+cert-manager, a CSI driver, an ingress controller, or a cloud integration. See the
 [platform dependency contract](platform-dependency-contract.md) for explicit
 provider ownership and modes.
 

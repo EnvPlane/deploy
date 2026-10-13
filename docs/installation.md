@@ -19,7 +19,8 @@ before enabling a feature that depends on them.
 
 See [cluster prerequisites](cluster-prerequisites.md) for the management
 cluster baseline, read-only checks, optional controllers, production topology
-and remote-target boundary. FluxCD is optional for the default Helm install.
+and remote-target boundary. Workload delivery can use Helm Direct without a
+GitOps controller, or separately configured FluxCD or Argo CD backends.
 
 Optional non-mutating preflight:
 
