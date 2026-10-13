@@ -46,7 +46,7 @@ service discovery; external-dns is unnecessary for loopback local access.
 
 Flux is installed without bootstrap. `flux check` reports all four controllers
 Ready and `bootstrapped: false`; no GitRepository, Kustomization or HelmRelease
-has been created for EnvPlane. The default application uses Helm Direct and
+has been created for envplane. The default application uses Helm Direct and
 does not require Flux. The local host-path backend has no CSI snapshot
 capability or production HA/durability guarantee. Install a real CSI backend
 and its snapshot controller only when a concrete snapshot/provider scenario
