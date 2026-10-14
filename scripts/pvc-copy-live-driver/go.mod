@@ -3,7 +3,7 @@ module github.com/envplane/runner/pvc-copy-live-driver
 go 1.26.9
 
 require (
-	github.com/envplane/contracts v0.1.116
+	github.com/envplane/contracts v0.1.119
 	github.com/envplane/runner v0.0.0
 )
 
