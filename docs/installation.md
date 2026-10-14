@@ -36,12 +36,12 @@ node-side image pulls or production capacity.
 
 <!-- envplane:canonical-install-command:start -->
 ```bash
-helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.733 --namespace envplane --create-namespace --wait
+helm upgrade --install envplane oci://ghcr.io/envplane/envplane --version 0.4.734 --namespace envplane --create-namespace --wait
 ```
 <!-- envplane:canonical-install-command:end -->
 
 <!-- envplane:stable-release-links:start -->
-Stable release: `0.4.733` · [versioned installation guide](https://github.com/envplane/deploy/blob/4e13f513ab7814f295c4fe37b97e47f0e65a29ee/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
+Stable release: `0.4.734` · [versioned installation guide](https://github.com/envplane/deploy/blob/c49d27977801c6dbad3458f3ba68ae85f1987d9b/docs/installation.md) · [guided installer](https://envplane-install.alexandr928857.chatgpt.site/install)
 <!-- envplane:stable-release-links:end -->
 
 The selected version and command are generated from the same signed stable
