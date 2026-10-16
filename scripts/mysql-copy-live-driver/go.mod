@@ -4,7 +4,7 @@ go 1.26.9
 
 require github.com/envplane/runner v0.0.0
 
-require github.com/envplane/contracts v0.1.121 // indirect
+require github.com/envplane/contracts v0.1.122 // indirect
 
 replace github.com/envplane/runner => ../../../runner
 
