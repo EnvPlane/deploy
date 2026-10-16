@@ -17,16 +17,39 @@ status in the reconciler ConfigMap and cause the bounded hook to retry/fail
 visibly. Hook Jobs delete themselves after success or failure; their support
 resources are ordinary Helm manifests and are removed on uninstall.
 
-Ingress providers are resolved through an extensible registry. The built-in
-`nginx` and `ingress-nginx` entries require controller
-`k8s.io/ingress-nginx` and the pinned
-`oci://ghcr.io/ingress-nginx/ingress-nginx` chart. An IngressClass is not
-healthy merely because it exists: a matching controller Service must have
-ready Endpoints or EndpointSlices. Managed ingress can optionally create a
-short-lived smoke Ingress to a configured test Service and requires the smoke
-namespace to be the reconciler namespace. Existing classes with a different
-controller are reported as incompatible, preventing class and release
-collisions; healthy existing controllers are reused without adoption.
+Ingress providers are resolved through a pinned registry. `traefik` uses
+IngressClass controller `traefik.io/ingress-controller` and chart
+`oci://ghcr.io/traefik/helm/traefik` version `41.7.1` with package SHA-256
+`43bcdc4302f627fcce94316e810b674fc8033112860462cc5f2127ff2f6042d8`.
+Its OCI manifest digest is a separate value and is not a substitute for the
+downloaded package checksum. The legacy `nginx` and `ingress-nginx` entries
+still use controller `k8s.io/ingress-nginx` and the pinned upstream chart
+`4.11.0`; they are not selected for an explicit Traefik dependency.
+
+For an existing Traefik installation, set
+`platformDependencies.ingress.mode=existing`, `provider=traefik`,
+`namespace=traefik`, and `existingClassName=traefik` (adjust the last two to
+the actual installation). The reconciler requires the exact class controller,
+a Traefik-labelled Service and matching available Deployment whose selectors
+identify the same installation in that namespace, and a ready EndpointSlice
+or legacy Endpoints address for that
+Service. A mismatched or orphaned named class fails without installing a
+replacement. Existing releases are reused without adoption. Managed provider
+configuration must match the registered chart URL, version and package SHA;
+Traefik also requires a declared namespace and class. The operator supplies
+`managed.rbacRules` for the reviewed chart's installation permissions; the
+nginx-specific installer role is not granted to Traefik. Managed ingress can
+optionally create a short-lived smoke Ingress to a configured test Service;
+its namespace must be the reconciler namespace.
+
+For a managed nginx migration, first record the current Helm release owner,
+class, routes and TLS behavior. Install Traefik as a separately owned platform
+release with a distinct class, verify a representative route and certificate,
+then change the application Ingress class and the dependency contract to the
+existing Traefik provider in a reviewed upgrade. Remove nginx only after its
+routes no longer serve traffic and its owner has approved removal. Changing
+`provider` alone never transfers Helm ownership, renames a release or removes
+the old controller.
 
 Storage detection requires both a configured or default StorageClass and an
 available provisioner (a matching CSIDriver or healthy provisioner Deployment),

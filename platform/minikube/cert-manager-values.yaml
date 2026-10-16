@@ -1,0 +1,27 @@
+# No public ACME account, DNS credentials or application certificates are set.
+crds:
+  enabled: true
+  keep: true
+config:
+  gatewayAPI:
+    enabled: true
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 384Mi
+webhook:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+cainjector:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 384Mi

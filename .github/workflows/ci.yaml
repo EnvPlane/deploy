@@ -69,6 +69,10 @@ jobs:
           set -euo pipefail
           bash scripts/lint-canonical-charts.sh
           bash scripts/tests/operator-chart-lint-contract.sh
+      - name: Verify platform ingress provider contract
+        run: |
+          go test ./cmd/platform-reconciler
+          bash deploy/helm/envplane/tests/traefik-provider-contract.sh
       - name: Check probe ports
         shell: bash
         run: ./scripts/check-probe-container-ports.sh
@@ -90,6 +94,8 @@ jobs:
         run: |
           python3 scripts/tests/test-component-ci.py
           python3 scripts/tests/test_prepare_minikube_zero_setup.py
+          python3 scripts/tests/test_minikube_budget.py
+          python3 scripts/tests/test_install_preflight.py
           bash -n scripts/sync-signed-release-index.sh
           ./scripts/tests/install-command-contract.sh
           ./scripts/tests/test-generate-public-release-index.sh

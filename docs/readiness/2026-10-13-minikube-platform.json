@@ -1,0 +1,446 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-13T14:00:26.130416+00:00",
+  "decision": "LOCAL_PLATFORM_READY_APPLICATION_NOT_INSTALLED",
+  "profile": "envplane",
+  "node": {
+    "uid": "63911d80-b712-40ee-b50a-cbe680b646da",
+    "kubernetesVersion": "v1.35.9",
+    "runtime": "containerd://2.3.4",
+    "capacity": {
+      "cpu": "12",
+      "ephemeral-storage": "954976684Ki",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "hugepages-32Mi": "0",
+      "hugepages-64Ki": "0",
+      "memory": "12234476Ki",
+      "pods": "110"
+    },
+    "allocatable": {
+      "cpu": "3800m",
+      "ephemeral-storage": "954976684Ki",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "hugepages-32Mi": "0",
+      "hugepages-64Ki": "0",
+      "memory": "5632Mi",
+      "pods": "110"
+    },
+    "conditions": [
+      {
+        "lastHeartbeatTime": "2026-10-13T13:34:34Z",
+        "lastTransitionTime": "2026-10-13T13:34:34Z",
+        "message": "Calico is running on this node",
+        "reason": "CalicoIsUp",
+        "status": "False",
+        "type": "NetworkUnavailable"
+      },
+      {
+        "lastHeartbeatTime": "2026-10-13T13:47:28Z",
+        "lastTransitionTime": "2026-10-13T13:33:57Z",
+        "message": "kubelet has sufficient memory available",
+        "reason": "KubeletHasSufficientMemory",
+        "status": "False",
+        "type": "MemoryPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-10-13T13:47:28Z",
+        "lastTransitionTime": "2026-10-13T13:33:57Z",
+        "message": "kubelet has no disk pressure",
+        "reason": "KubeletHasNoDiskPressure",
+        "status": "False",
+        "type": "DiskPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-10-13T13:47:28Z",
+        "lastTransitionTime": "2026-10-13T13:33:57Z",
+        "message": "kubelet has sufficient PID available",
+        "reason": "KubeletHasSufficientPID",
+        "status": "False",
+        "type": "PIDPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-10-13T13:47:28Z",
+        "lastTransitionTime": "2026-10-13T13:34:17Z",
+        "message": "kubelet is posting ready status",
+        "reason": "KubeletReady",
+        "status": "True",
+        "type": "Ready"
+      }
+    ]
+  },
+  "budget": {
+    "systemReserved": {
+      "cpu": "8200m",
+      "memory": "6467308Ki"
+    },
+    "expectedAllocatable": {
+      "cpuMilli": 3800,
+      "memoryKi": 5767168
+    },
+    "dockerLimits": {
+      "cpuMilli": 4000,
+      "memoryKi": 6291456
+    },
+    "applied": true,
+    "unchanged": true,
+    "verifiedAllocatable": {
+      "cpu": "3800m",
+      "ephemeral-storage": "954976684Ki",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "hugepages-32Mi": "0",
+      "hugepages-64Ki": "0",
+      "memory": "5632Mi",
+      "pods": "110"
+    },
+    "nodeReady": true
+  },
+  "releases": [
+    {
+      "name": "cert-manager",
+      "namespace": "cert-manager",
+      "revision": "1",
+      "updated": "2026-10-13 15:40:37.683645 +0200 CEST",
+      "status": "deployed",
+      "chart": "cert-manager-v1.21.2",
+      "app_version": "v1.21.2"
+    },
+    {
+      "name": "traefik",
+      "namespace": "traefik",
+      "revision": "2",
+      "updated": "2026-10-13 15:43:24.330451 +0200 CEST",
+      "status": "deployed",
+      "chart": "traefik-41.7.1",
+      "app_version": "v3.7.14"
+    }
+  ],
+  "controllers": [
+    {
+      "namespace": "cert-manager",
+      "name": "cert-manager-99f777b67-q7jbz",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "cert-manager-controller",
+          "ready": true,
+          "restarts": 0,
+          "image": "quay.io/jetstack/cert-manager-controller:v1.21.2",
+          "imageID": "quay.io/jetstack/cert-manager-controller@sha256:70f532fd9cfde0b09d55687200942399d89838bc2d5d5b45152eb799a15912b8"
+        }
+      ]
+    },
+    {
+      "namespace": "cert-manager",
+      "name": "cert-manager-cainjector-65f7b57dcd-r8594",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "cert-manager-cainjector",
+          "ready": true,
+          "restarts": 0,
+          "image": "quay.io/jetstack/cert-manager-cainjector:v1.21.2",
+          "imageID": "quay.io/jetstack/cert-manager-cainjector@sha256:c85268c64f2e0e76684bf5fe8906caff34b82523561c6affe0fae3546bd87562"
+        }
+      ]
+    },
+    {
+      "namespace": "cert-manager",
+      "name": "cert-manager-webhook-5b49dd588b-wszzz",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "cert-manager-webhook",
+          "ready": true,
+          "restarts": 0,
+          "image": "quay.io/jetstack/cert-manager-webhook:v1.21.2",
+          "imageID": "quay.io/jetstack/cert-manager-webhook@sha256:a60e2dac46dbb8a7f3df95c54ce941012f54c2fe022f0ee55aaa1ab40ed957ae"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "calico-kube-controllers-7bbf4599f5-k2x4h",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "calico-kube-controllers",
+          "ready": true,
+          "restarts": 0,
+          "image": "quay.io/calico/kube-controllers:v3.32.2",
+          "imageID": "quay.io/calico/kube-controllers@sha256:7870b67ebb13fabc3005252b44fe6e78b21635649bd3072b80afa1684b6565d0"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "calico-node-b474w",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "calico-node",
+          "ready": true,
+          "restarts": 0,
+          "image": "quay.io/calico/node:v3.32.2",
+          "imageID": "quay.io/calico/node@sha256:99b03fe91e8bfbcb153ae65ef4b701b24ce541ffdd74ff314eb041096008f7fd"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "coredns-7d764666f9-fq8zb",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "coredns",
+          "ready": true,
+          "restarts": 0,
+          "image": "registry.k8s.io/coredns/coredns:v1.13.1",
+          "imageID": "registry.k8s.io/coredns/coredns@sha256:9b9128672209474da07c91439bf15ed704ae05ad918dd6454e5b6ae14e35fee6"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "etcd-envplane",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "etcd",
+          "ready": true,
+          "restarts": 0,
+          "image": "registry.k8s.io/etcd:3.6.6-0",
+          "imageID": "registry.k8s.io/etcd@sha256:60a30b5d81b2217555e2cfb9537f655b7ba97220b99c39ee2e162a7127225890"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-apiserver-envplane",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "kube-apiserver",
+          "ready": true,
+          "restarts": 0,
+          "image": "registry.k8s.io/kube-apiserver:v1.35.9",
+          "imageID": "registry.k8s.io/kube-apiserver@sha256:32abf8e4e2ae679b35c719a04902c2ae1a98a5b8648ac034a4672e39660f8a73"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-controller-manager-envplane",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "kube-controller-manager",
+          "ready": true,
+          "restarts": 0,
+          "image": "registry.k8s.io/kube-controller-manager:v1.35.9",
+          "imageID": "registry.k8s.io/kube-controller-manager@sha256:d7e4983f79ee763f7c56226395ab9c55261ff6035df5ed23eef9bd26b63eb140"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-proxy-rspmr",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "kube-proxy",
+          "ready": true,
+          "restarts": 0,
+          "image": "registry.k8s.io/kube-proxy:v1.35.9",
+          "imageID": "registry.k8s.io/kube-proxy@sha256:d08adb0c8c2c68075f1e6fa6c4c82880c5af54c1686ac20d22af612082c32a31"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-scheduler-envplane",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "kube-scheduler",
+          "ready": true,
+          "restarts": 0,
+          "image": "registry.k8s.io/kube-scheduler:v1.35.9",
+          "imageID": "registry.k8s.io/kube-scheduler@sha256:d96574ba699bc887eeefcc05d9f7828b4df5ba75feac6f20b98097aa85d1ed22"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "metrics-server-64cf85ffb8-blrnc",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "metrics-server",
+          "ready": true,
+          "restarts": 0,
+          "image": "sha256:37ceda8805d2e3bca331bcdd659d9cf8d3b4075a68b288054c88e62232d52883",
+          "imageID": "registry.k8s.io/metrics-server/metrics-server@sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0"
+        }
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "storage-provisioner",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "storage-provisioner",
+          "ready": true,
+          "restarts": 0,
+          "image": "gcr.io/k8s-minikube/storage-provisioner:v5",
+          "imageID": "gcr.io/k8s-minikube/storage-provisioner@sha256:18eb69d1418e854ad5a19e399310e52808a8321e4c441c1dddad8977a0d7a944"
+        }
+      ]
+    },
+    {
+      "namespace": "traefik",
+      "name": "traefik-77559bdb74-rhwvp",
+      "phase": "Running",
+      "containers": [
+        {
+          "name": "traefik",
+          "ready": true,
+          "restarts": 0,
+          "image": "docker.io/library/traefik:v3.7.14",
+          "imageID": "docker.io/library/traefik@sha256:575fa15b135078fe5e50aa847987d96dbddd7b093c172429618404df73f3fa7c"
+        }
+      ]
+    }
+  ],
+  "storageClasses": [
+    {
+      "name": "standard",
+      "provisioner": "k8s.io/minikube-hostpath",
+      "default": "true"
+    }
+  ],
+  "traefikService": {
+    "type": "NodePort",
+    "ports": [
+      {
+        "name": "web",
+        "nodePort": 31080,
+        "port": 80,
+        "protocol": "TCP",
+        "targetPort": "web"
+      },
+      {
+        "name": "websecure",
+        "nodePort": 31443,
+        "port": 443,
+        "protocol": "TCP",
+        "targetPort": "websecure"
+      }
+    ]
+  },
+  "gateway": {
+    "name": "traefik/local-platform",
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-10-13T13:36:37Z",
+        "message": "Gateway successfully scheduled",
+        "observedGeneration": 1,
+        "reason": "Accepted",
+        "status": "True",
+        "type": "Accepted"
+      },
+      {
+        "lastTransitionTime": "2026-10-13T13:36:37Z",
+        "message": "Gateway successfully programmed",
+        "observedGeneration": 1,
+        "reason": "Programmed",
+        "status": "True",
+        "type": "Programmed"
+      }
+    ]
+  },
+  "smoke": {
+    "namespace": "envplane-platform-smoke-20261013",
+    "image": "docker.io/library/busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e",
+    "checks": [
+      {
+        "name": "baseline-pod-connectivity",
+        "result": "PASS",
+        "detail": null
+      },
+      {
+        "name": "service-dns",
+        "result": "PASS",
+        "detail": null
+      },
+      {
+        "name": "calico-allow-deny",
+        "result": "PASS",
+        "detail": {
+          "allowedExit": 0,
+          "deniedExit": 1,
+          "baselineBothSucceeded": true
+        }
+      },
+      {
+        "name": "http-routing-platform-ingress.localhost",
+        "result": "PASS",
+        "detail": null
+      },
+      {
+        "name": "http-routing-platform-gateway.localhost",
+        "result": "PASS",
+        "detail": null
+      },
+      {
+        "name": "gateway-route-acceptance",
+        "result": "PASS",
+        "detail": null
+      },
+      {
+        "name": "dynamic-pvc-pod-recreate",
+        "result": "PASS",
+        "detail": {
+          "storageClass": "standard",
+          "phase": "Bound"
+        }
+      },
+      {
+        "name": "cert-manager-local-issuance",
+        "result": "PASS",
+        "detail": {
+          "ready": true,
+          "revision": 1,
+          "privateKeyRead": false,
+          "publicTrust": false
+        }
+      },
+      {
+        "name": "metrics-api",
+        "result": "PASS",
+        "detail": "NAME       CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   \nenvplane   159m         4%       1474Mi          26%"
+      }
+    ],
+    "result": "PASS",
+    "cleanup": "owned smoke namespace deleted"
+  },
+  "applicationPreflight": {
+    "result": "PASS",
+    "clusterPermissionArguments": "exact verb/resource, cluster scope",
+    "anonymousRegistryConfig": "temporary empty configs",
+    "warnings": 0
+  },
+  "applicationInstalled": false,
+  "smokeCleanupVerified": true,
+  "pending": [
+    "application-deployment-authorization",
+    "first-run-owner-tenant-and-executor-acceptance",
+    "production-trusted-tls-and-scm-endpoint",
+    "real-csi-snapshots-ha-and-full-dr",
+    "maintained-provider-registry-integration",
+    "priced-finops-and-provider-production-gates"
+  ]
+}

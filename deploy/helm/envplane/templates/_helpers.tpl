@@ -75,7 +75,7 @@ must declare their provider explicitly under platformDependencies.ingress.
   {{- $_ := set $ingress "managed" $managed -}}
   {{- $_ := set $dependencies "ingress" $ingress -}}
 {{- end -}}
-{{- if and (eq (default "" $ingress.provider) "nginx") (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) -}}
+{{- if and (or (eq (default "" $ingress.provider) "nginx") (eq (default "" $ingress.provider) "ingress-nginx")) (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) -}}
   {{- if empty $ingress.namespace }}{{- $_ := set $ingress "namespace" "ingress-nginx" -}}{{- end -}}
   {{- $managed := deepCopy (default (dict) $ingress.managed) -}}
   {{- if empty $managed.namespace }}{{- $_ := set $managed "namespace" $ingress.namespace -}}{{- end -}}

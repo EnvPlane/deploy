@@ -3,7 +3,7 @@
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
 {{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
 {{- $ingress := index $dependencies "ingress" -}}
-{{- $ingressNginxManaged := and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (eq (default "" $ingress.provider) "nginx") -}}
+{{- $ingressNginxManaged := and (or (eq (default "disabled" $ingress.mode) "auto") (eq (default "disabled" $ingress.mode) "managed")) (or (eq (default "" $ingress.provider) "nginx") (eq (default "" $ingress.provider) "ingress-nginx")) -}}
 {{- if $ingressNginxManaged }}{{- $sa = default (printf "%s-ingress-installer" .Release.Name) $r.ingressInstaller.serviceAccount.name -}}{{- end }}
 {{- $image := printf "%s:%s" $r.image.repository $r.image.tag -}}
 {{- if $r.image.digest }}{{ $image = printf "%s@%s" $r.image.repository $r.image.digest }}{{ end }}

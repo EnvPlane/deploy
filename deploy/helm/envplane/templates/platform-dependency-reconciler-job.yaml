@@ -1,6 +1,8 @@
 {{- if eq (include "envplane.platformReconcilerEnabled" .) "true" }}
 {{- $r := .Values.platformDependencyReconciler -}}
 {{- $dependencies := include "envplane.effectivePlatformDependencies" . | fromJson -}}
+{{- $ingress := index $dependencies "ingress" -}}
+{{- $legacyIngressInstaller := or (eq (default "" $ingress.provider) "nginx") (eq (default "" $ingress.provider) "ingress-nginx") -}}
 {{- $sa := default (printf "%s-platform-reconciler" .Release.Name) $r.serviceAccount.name -}}
 {{- $statusConfigMap := include "envplane.platformReconcilerStatusConfigMapName" . -}}
 {{- $envplane := include "envplane.globalConfig" . | fromJson -}}
@@ -63,7 +65,7 @@ spec:
             - name: ENVPLANE_RECONCILE_ACTION
               value: reconcile
             - name: ENVPLANE_RECONCILE_SKIP_MANAGED_INGRESS
-              value: "true"
+              value: {{ ternary "true" "false" $legacyIngressInstaller | quote }}
             - name: ENVPLANE_RECONCILE_NAMESPACE
               value: {{ .Release.Namespace | quote }}
             - name: ENVPLANE_RECONCILE_RELEASE

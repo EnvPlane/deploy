@@ -54,14 +54,15 @@ type credentialsConfig struct {
 	ExistingSecret string `json:"existingSecret"`
 }
 type managedConfig struct {
-	ChartRef      string         `json:"chartRef"`
-	ChartSHA256   string         `json:"chartSha256"`
-	Version       string         `json:"version"`
-	ReleaseName   string         `json:"releaseName"`
-	Namespace     string         `json:"namespace"`
-	Values        map[string]any `json:"values"`
-	CleanupPolicy string         `json:"cleanupPolicy"`
-	Smoke         smokeConfig    `json:"smoke"`
+	ChartRef      string           `json:"chartRef"`
+	ChartSHA256   string           `json:"chartSha256"`
+	Version       string           `json:"version"`
+	ReleaseName   string           `json:"releaseName"`
+	Namespace     string           `json:"namespace"`
+	Values        map[string]any   `json:"values"`
+	CleanupPolicy string           `json:"cleanupPolicy"`
+	Smoke         smokeConfig      `json:"smoke"`
+	RBACRules     []map[string]any `json:"rbacRules"`
 }
 type smokeConfig struct {
 	ServiceName string `json:"serviceName"`
@@ -109,9 +110,10 @@ var (
 )
 
 type ingressProvider struct {
-	Controller  string
-	Chart       string
-	ChartSHA256 string
+	Controller   string
+	Chart        string
+	ChartVersion string
+	ChartSHA256  string
 }
 
 type dnsProvider struct {
@@ -124,8 +126,9 @@ type storageProvider struct {
 }
 
 var ingressProviders = map[string]ingressProvider{
-	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz", ChartSHA256: "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737"},
-	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz", ChartSHA256: "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737"},
+	"nginx":         {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz", ChartVersion: "4.11.0", ChartSHA256: "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737"},
+	"ingress-nginx": {Controller: "k8s.io/ingress-nginx", Chart: "https://github.com/kubernetes/ingress-nginx/releases/download/helm-chart-4.11.0/ingress-nginx-4.11.0.tgz", ChartVersion: "4.11.0", ChartSHA256: "eac211cdd9a5ae960f9c319e88c81d4e6e1ba5339599e217229d907bc9f67737"},
+	"traefik":       {Controller: "traefik.io/ingress-controller", Chart: "oci://ghcr.io/traefik/helm/traefik", ChartVersion: "41.7.1", ChartSHA256: "43bcdc4302f627fcce94316e810b674fc8033112860462cc5f2127ff2f6042d8"},
 }
 
 var dnsProviders = map[string]dnsProvider{
@@ -364,6 +367,11 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 	if dep.Mode == "existing" || dep.Mode == "auto" {
 		found, reference, err := detect(name, dep, client)
 		if err != nil {
+			if errors.Is(err, errIngressClassControllerMismatch) {
+				r.State = "incompatible"
+			} else if errors.Is(err, errIngressClassUnhealthy) {
+				r.State = "degraded"
+			}
 			return r, err
 		}
 		if found {
@@ -391,19 +399,11 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 		return r, fmt.Errorf("%s managed provider requires provider, managed.chartRef, managed.version and managed.releaseName", name)
 	}
 	if name == "ingress" {
-		provider, ok := ingressProviders[dep.Provider]
-		if !ok {
+		if err := validateManagedIngress(dep); err != nil {
 			r.State = "incompatible"
-			return r, fmt.Errorf("unsupported ingress provider %q; configure a registered provider", dep.Provider)
+			return r, err
 		}
-		if !strings.Contains(dep.Managed.ChartRef, "ingress-nginx") || dep.Managed.ChartRef != provider.Chart {
-			r.State = "incompatible"
-			return r, fmt.Errorf("ingress provider %s requires pinned chart %s", dep.Provider, provider.Chart)
-		}
-		if !strings.EqualFold(strings.TrimPrefix(dep.Managed.ChartSHA256, "sha256:"), provider.ChartSHA256) {
-			r.State = "incompatible"
-			return r, fmt.Errorf("ingress provider %s requires chart SHA-256 %s", dep.Provider, provider.ChartSHA256)
-		}
+		provider := ingressProviders[dep.Provider]
 		if dep.ExistingClassName != "" {
 			if item, err := client.Resource(schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}).Get(ctx, dep.ExistingClassName, metav1.GetOptions{}); err == nil {
 				if spec, ok := item.Object["spec"].(map[string]any); !ok || spec["controller"] != provider.Controller {
@@ -427,7 +427,7 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 			return r, fmt.Errorf("storage provider %s requires pinned chart %s", dep.Provider, provider.Chart)
 		}
 	}
-	if name == "ingress" && dep.Mode == "managed" && os.Getenv("ENVPLANE_RECONCILE_SKIP_MANAGED_INGRESS") == "true" {
+	if name == "ingress" && os.Getenv("ENVPLANE_RECONCILE_SKIP_MANAGED_INGRESS") == "true" {
 		r.State = "pending-install"
 		return r, nil
 	}
@@ -436,6 +436,14 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 	}
 	r.State = "managed"
 	r.Ownership = "envplane"
+	if name == "ingress" {
+		found, reference, err := detect(name, dep, client)
+		if err != nil || !found {
+			r.State = "degraded"
+			return r, fmt.Errorf("managed ingress provider is not healthy after install: %v", err)
+		}
+		r.Reference = reference
+	}
 	if name == "ingress" && dep.Managed.Smoke.ServiceName != "" {
 		if err := verifyIngressSmoke(dep, client); err != nil {
 			r.State = "degraded"
@@ -455,6 +463,26 @@ func reconcile(name string, dep capability, client dynamic.Interface, restCfg *r
 		}
 	}
 	return r, nil
+}
+
+func validateManagedIngress(dep capability) error {
+	provider, ok := ingressProviders[dep.Provider]
+	if !ok {
+		return fmt.Errorf("unsupported ingress provider %q; configure a registered provider", dep.Provider)
+	}
+	if dep.Provider == "traefik" && (dep.Namespace == "" || dep.ExistingClassName == "" || dep.Managed.Namespace != dep.Namespace) {
+		return fmt.Errorf("managed Traefik requires ingress namespace, existingClassName and matching managed.namespace")
+	}
+	if dep.Provider == "traefik" && len(dep.Managed.RBACRules) == 0 {
+		return fmt.Errorf("managed Traefik requires reviewed managed.rbacRules")
+	}
+	if dep.Managed.ChartRef != provider.Chart || dep.Managed.Version != provider.ChartVersion {
+		return fmt.Errorf("ingress provider %s requires pinned chart %s version %s", dep.Provider, provider.Chart, provider.ChartVersion)
+	}
+	if !strings.EqualFold(strings.TrimPrefix(dep.Managed.ChartSHA256, "sha256:"), provider.ChartSHA256) {
+		return fmt.Errorf("ingress provider %s requires chart package SHA-256 %s", dep.Provider, provider.ChartSHA256)
+	}
+	return nil
 }
 
 func validateDNSConfig(dep capability) error {
@@ -483,6 +511,11 @@ func dnsSecretName(dep capability) string {
 	return dep.ExistingSecret
 }
 
+var (
+	errIngressClassControllerMismatch = errors.New("ingress class controller mismatch")
+	errIngressClassUnhealthy          = errors.New("ingress class has no ready controller service")
+)
+
 func detect(name string, dep capability, client dynamic.Interface) (bool, string, error) {
 	switch name {
 	case "ingress":
@@ -490,16 +523,27 @@ func detect(name string, dep capability, client dynamic.Interface) (bool, string
 		if !ok {
 			return false, "", fmt.Errorf("unsupported ingress provider %q; configure a registered provider", dep.Provider)
 		}
+		if dep.Provider == "traefik" && (dep.Namespace == "" || dep.ExistingClassName == "") {
+			return false, "", fmt.Errorf("Traefik discovery requires namespace and existingClassName")
+		}
 		list, err := client.Resource(schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return false, "", err
 		}
 		for _, item := range list.Items {
 			if dep.ExistingClassName == "" || item.GetName() == dep.ExistingClassName {
-				if c, ok := item.Object["spec"].(map[string]any); ok && c["controller"] == provider.Controller {
-					if ingressControllerHealthy(client, item.GetName()) {
-						return true, item.GetName(), nil
+				controller, _, _ := unstructured.NestedString(item.Object, "spec", "controller")
+				if controller != provider.Controller {
+					if dep.ExistingClassName != "" {
+						return false, "", fmt.Errorf("%w: %s requires %s, found %s", errIngressClassControllerMismatch, item.GetName(), provider.Controller, controller)
 					}
+					continue
+				}
+				if ingressControllerHealthy(client, dep, provider) {
+					return true, item.GetName(), nil
+				}
+				if dep.ExistingClassName != "" {
+					return false, "", fmt.Errorf("%w: %s", errIngressClassUnhealthy, item.GetName())
 				}
 			}
 		}
@@ -693,28 +737,20 @@ func verifyDNSSmoke(dep capability, client dynamic.Interface) error {
 	return fmt.Errorf("DNS smoke record %s did not resolve before timeout", smoke.Host)
 }
 
-func ingressControllerHealthy(client dynamic.Interface, className string) bool {
+func ingressControllerHealthy(client dynamic.Interface, dep capability, provider ingressProvider) bool {
 	services, err := client.Resource(schema.GroupVersionResource{Version: "v1", Resource: "services"}).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return false
 	}
 	for _, service := range services.Items {
-		labels := service.GetLabels()
-		if !strings.Contains(service.GetName(), "ingress") && labels["app.kubernetes.io/component"] != "controller" {
+		if dep.Namespace != "" && service.GetNamespace() != dep.Namespace {
 			continue
 		}
-		endpoints, err := client.Resource(schema.GroupVersionResource{Version: "v1", Resource: "endpoints"}).Namespace(service.GetNamespace()).Get(ctx, service.GetName(), metav1.GetOptions{})
-		if err != nil {
+		if !ingressServiceMatches(service, provider) {
 			continue
 		}
-		if subsets, ok := endpoints.Object["subsets"].([]any); ok && len(subsets) > 0 {
-			for _, raw := range subsets {
-				if s, ok := raw.(map[string]any); ok {
-					if addresses, ok := s["addresses"].([]any); ok && len(addresses) > 0 {
-						return true
-					}
-				}
-			}
+		if provider.Controller == "traefik.io/ingress-controller" && !traefikDeploymentReady(client, service) {
+			continue
 		}
 		// EndpointSlice is the preferred discovery API on newer clusters.
 		slices, err := client.Resource(schema.GroupVersionResource{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"}).Namespace(service.GetNamespace()).List(ctx, metav1.ListOptions{})
@@ -738,8 +774,58 @@ func ingressControllerHealthy(client dynamic.Interface, className string) bool {
 				}
 			}
 		}
+		// Preserve compatibility with providers that still publish only the
+		// legacy Endpoints object. A missing Endpoints object must never prevent
+		// the EndpointSlice check above.
+		endpoints, err := client.Resource(schema.GroupVersionResource{Version: "v1", Resource: "endpoints"}).Namespace(service.GetNamespace()).Get(ctx, service.GetName(), metav1.GetOptions{})
+		if err == nil {
+			if subsets, ok := endpoints.Object["subsets"].([]any); ok {
+				for _, raw := range subsets {
+					if subset, ok := raw.(map[string]any); ok {
+						if addresses, ok := subset["addresses"].([]any); ok && len(addresses) > 0 {
+							return true
+						}
+					}
+				}
+			}
+		}
 	}
-	_ = className
+	return false
+}
+
+func ingressServiceMatches(service unstructured.Unstructured, provider ingressProvider) bool {
+	labels := service.GetLabels()
+	switch provider.Controller {
+	case "traefik.io/ingress-controller":
+		selector, _, _ := unstructured.NestedStringMap(service.Object, "spec", "selector")
+		return labels["app.kubernetes.io/name"] == "traefik" && labels["app.kubernetes.io/instance"] != "" &&
+			selector["app.kubernetes.io/name"] == "traefik" && selector["app.kubernetes.io/instance"] == labels["app.kubernetes.io/instance"]
+	case "k8s.io/ingress-nginx":
+		return labels["app.kubernetes.io/component"] == "controller" && strings.HasSuffix(service.GetName(), "-controller")
+	default:
+		return false
+	}
+}
+
+func traefikDeploymentReady(client dynamic.Interface, service unstructured.Unstructured) bool {
+	deployments, err := client.Resource(schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}).Namespace(service.GetNamespace()).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false
+	}
+	for _, deployment := range deployments.Items {
+		labels := deployment.GetLabels()
+		if labels["app.kubernetes.io/name"] != "traefik" || labels["app.kubernetes.io/instance"] != service.GetLabels()["app.kubernetes.io/instance"] {
+			continue
+		}
+		selector, _, _ := unstructured.NestedStringMap(deployment.Object, "spec", "selector", "matchLabels")
+		if selector["app.kubernetes.io/name"] != "traefik" || selector["app.kubernetes.io/instance"] != labels["app.kubernetes.io/instance"] {
+			continue
+		}
+		available, _, _ := unstructured.NestedInt64(deployment.Object, "status", "availableReplicas")
+		if available > 0 {
+			return true
+		}
+	}
 	return false
 }
 

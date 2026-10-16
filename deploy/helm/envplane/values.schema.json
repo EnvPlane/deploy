@@ -238,6 +238,7 @@
           "type": "object", "additionalProperties": false,
           "properties": {
             "chartRef": { "type": "string" },
+            "chartSha256": { "type": "string", "pattern": "^(sha256:)?[a-fA-F0-9]{64}$" },
             "version": { "type": "string" },
             "releaseName": { "type": "string" },
             "namespace": { "type": "string" },
@@ -575,7 +576,27 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "ingress": { "$ref": "#/definitions/dependency" },
+        "ingress": {
+          "allOf": [
+            { "$ref": "#/definitions/dependency" },
+            {
+              "type": "object",
+              "allOf": [
+                {
+                  "if": { "required": ["provider"], "properties": { "provider": { "const": "traefik" }, "mode": { "enum": ["auto", "managed", "existing"] } } },
+                  "then": { "required": ["namespace", "existingClassName"], "properties": { "namespace": { "minLength": 1 }, "existingClassName": { "minLength": 1 } } }
+                },
+                {
+                  "if": { "required": ["mode"], "properties": { "mode": { "const": "managed" } } },
+                  "then": {
+                    "required": ["managed"],
+                    "properties": { "managed": { "required": ["chartRef", "chartSha256", "version", "releaseName", "namespace"], "properties": { "chartRef": { "minLength": 1 }, "releaseName": { "minLength": 1 }, "namespace": { "minLength": 1 }, "version": { "minLength": 1 } } } }
+                  }
+                }
+              ]
+            }
+          ]
+        },
         "dns": { "$ref": "#/definitions/dependency" },
         "storage": { "$ref": "#/definitions/dependency" }
       }
