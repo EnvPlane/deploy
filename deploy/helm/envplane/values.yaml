@@ -626,11 +626,11 @@ envplane-runner:
   fullnameOverride: envplane-runner
   image:
     repository: ghcr.io/envplane/runner
-    tag: "sha-e5cd74251fec7b9e92540b2ecb2604a2566a61dd"
-    digest: "sha256:3e481508e2ebaabf2a8beb11bd605d43b1559b2252e911325c3b9191db2afc38"
+    tag: "sha-486af894255d48ceea107be344775ae9093d7d50"
+    digest: "sha256:ea4cd9501e2f62e2e5d32803c3f29536875e551fa43e371d2669d743db464525"
     pullPolicy: IfNotPresent
-    sourceRevision: "e5cd74251fec7b9e92540b2ecb2604a2566a61dd"
-    release: "sha-e5cd74251fec7b9e92540b2ecb2604a2566a61dd"
+    sourceRevision: "486af894255d48ceea107be344775ae9093d7d50"
+    release: "sha-486af894255d48ceea107be344775ae9093d7d50"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
