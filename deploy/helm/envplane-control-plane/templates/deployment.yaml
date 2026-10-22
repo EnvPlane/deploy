@@ -139,6 +139,35 @@
 {{- $billing := default (dict) (get $commercialization "billing") -}}
 {{- $billingAPIKeyRef := default (dict) (get $billing "apiKeySecretRef") -}}
 {{- $billingWebhookRef := default (dict) (get $billing "webhookSecretRef") -}}
+{{- $billingMode := default "" (get $billing "providerMode") -}}
+{{- $billingMerchant := default "" (get $billing "merchantAccount") -}}
+{{- if and (get $billing "provider") (hasKey $configuredEnvironment "ENVPLANE_BILLING_PROVIDER") -}}
+  {{- fail "configure billing provider once: provider or env, not both" -}}
+{{- end -}}
+{{- if and (get $billing "baseURL") (hasKey $configuredEnvironment "ENVPLANE_BILLING_BASE_URL") -}}
+  {{- fail "configure billing origin once: baseURL or env, not both" -}}
+{{- end -}}
+{{- if and $billingMode (not (has $billingMode (list "test" "live"))) -}}
+  {{- fail "commercialization.billing.providerMode must be test or live" -}}
+{{- end -}}
+{{- if and $billingMode (hasKey $configuredEnvironment "ENVPLANE_BILLING_PROVIDER_MODE") -}}
+  {{- fail "configure billing provider mode once: providerMode or env, not both" -}}
+{{- end -}}
+{{- if and $billingMerchant (hasKey $configuredEnvironment "ENVPLANE_BILLING_MERCHANT_ACCOUNT") -}}
+  {{- fail "configure billing merchant once: merchantAccount or env, not both" -}}
+{{- end -}}
+{{- if eq (get $billing "provider") "installation" -}}
+  {{- $effectiveBillingMode := default (default "test" (get $configuredEnvironment "ENVPLANE_BILLING_PROVIDER_MODE")) $billingMode -}}
+  {{- if ne $effectiveBillingMode "test" -}}
+    {{- fail "installation billing currently supports test mode only" -}}
+  {{- end -}}
+  {{- if not (default (get $configuredEnvironment "ENVPLANE_BILLING_MERCHANT_ACCOUNT") $billingMerchant) -}}
+    {{- fail "installation billing requires a public merchantAccount" -}}
+  {{- end -}}
+  {{- if or (get $billingAPIKeyRef "name") (get $billingWebhookRef "name") (get $configuredEnvironment "ENVPLANE_BILLING_API_KEY") (get $configuredEnvironment "ENVPLANE_BILLING_WEBHOOK_SECRET") -}}
+    {{- fail "installation billing must not receive seller billing credentials" -}}
+  {{- end -}}
+{{- end -}}
 {{- $ai := default (dict) (get $commercialization "ai") -}}
 {{- $aiAPIKeyRef := default (dict) (get $ai "apiKeySecretRef") -}}
 {{- $license := default (dict) (get $commercialization "license") -}}
@@ -335,6 +364,14 @@ spec:
             {{- if get $billing "baseURL" }}
             - name: ENVPLANE_BILLING_BASE_URL
               value: {{ get $billing "baseURL" | quote }}
+            {{- end }}
+            {{- if $billingMode }}
+            - name: ENVPLANE_BILLING_PROVIDER_MODE
+              value: {{ $billingMode | quote }}
+            {{- end }}
+            {{- if $billingMerchant }}
+            - name: ENVPLANE_BILLING_MERCHANT_ACCOUNT
+              value: {{ $billingMerchant | quote }}
             {{- end }}
             {{- if get $billingAPIKeyRef "name" }}
             - name: ENVPLANE_BILLING_API_KEY

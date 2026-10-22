@@ -1,0 +1,16 @@
+# PREPARATION ONLY: merge into complete reviewed operator values, never deploy
+# this file alone. Provider remains disabled until the issuer handoff is accepted.
+envplane-control-plane:
+  commercialization:
+    billing:
+      provider: ""
+      providerMode: test
+      merchantAccount: ""
+      baseURL: ""
+      apiKeySecretRef:
+        name: ""
+      webhookSecretRef:
+        name: ""
+    license:
+      activationIssuerURL: ""
+      activationPublicKeysJSON: "[]"

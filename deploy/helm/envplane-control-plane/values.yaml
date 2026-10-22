@@ -223,6 +223,11 @@ commercialization:
       probeTimeoutSeconds: 3
   billing:
     provider: ""
+    # Explicit provider isolation. Empty retains the API default (test) and
+    # existing env overrides. Customer installation transport is test-only.
+    providerMode: ""
+    # Public canonical merchant identifier, not a provider credential.
+    merchantAccount: ""
     baseURL: ""
     apiKeySecretRef:
       name: ""
