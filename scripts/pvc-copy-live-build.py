@@ -78,7 +78,7 @@ def main():
         module = temporary / "module";module.mkdir()
         shutil.copyfile(source / "main.go", module / "main.go")
         # Ephemeral module, no edits to Runner/contracts/gitops or parent go.work.
-        (module / "go.mod").write_text("module github.com/envplane/runner/pvc-copy-live-driver\n\ngo 1.26.9\n\n"
+        (module / "go.mod").write_text("module github.com/envplane/runner/pvc-copy-live-driver\n\ngo 1.26.10\n\n"
             "require (\n github.com/envplane/runner v0.0.0\n github.com/envplane/contracts v0.1.109\n)\n\n" +
             "\n".join(f"replace github.com/envplane/{name} => {workspace / name}" for name in ("runner", "contracts", "gitops")) + "\n")
         env = {**os.environ, "GOWORK": "off", "GOPROXY": "off", "GOSUMDB": "off", "GOTOOLCHAIN": "local",

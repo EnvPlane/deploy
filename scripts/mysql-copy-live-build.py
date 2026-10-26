@@ -46,7 +46,7 @@ def main():
         (module / 'main.go').write_bytes((scripts / 'mysql-copy-live-driver/main.go').read_bytes())
         replacements = '\n'.join(f'replace github.com/envplane/{name} => {workspace / name}'
                                   for name in ('runner', 'contracts', 'gitops', 'control-plane'))
-        (module / 'go.mod').write_text('module github.com/envplane/runner/mysql-copy-live-driver\n\ngo 1.26.9\n\nrequire (\n github.com/envplane/runner v0.0.0\n github.com/envplane/control-plane v0.0.0\n)\n' + replacements + '\n')
+        (module / 'go.mod').write_text('module github.com/envplane/runner/mysql-copy-live-driver\n\ngo 1.26.10\n\nrequire (\n github.com/envplane/runner v0.0.0\n github.com/envplane/control-plane v0.0.0\n)\n' + replacements + '\n')
         env = {**os.environ, 'GOWORK': 'off', 'GOPROXY': 'off', 'GOSUMDB': 'off', 'GOTOOLCHAIN': 'local',
                'GOCACHE': str(module / 'go-cache')}
         for binary, package in [('mysql-copy-live-driver', '.'),
