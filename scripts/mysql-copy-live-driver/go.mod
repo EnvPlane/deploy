@@ -1,6 +1,6 @@
 module github.com/envplane/runner/mysql-copy-live-driver
 
-go 1.26.9
+go 1.26.10
 
 require github.com/envplane/runner v0.0.0
 
