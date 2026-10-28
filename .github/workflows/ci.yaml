@@ -92,6 +92,7 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       - name: Verify installation documentation contract
         run: |
+          python3 -B scripts/tests/test_sm09_control_plane_diagnostics.py
           python3 scripts/tests/test-component-ci.py
           python3 scripts/tests/test_prepare_minikube_zero_setup.py
           python3 scripts/tests/test_minikube_budget.py
