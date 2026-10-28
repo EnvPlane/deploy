@@ -77,7 +77,9 @@ jobs:
         shell: bash
         run: ./scripts/check-probe-container-ports.sh
       - run: bash deploy/helm/envplane-control-plane/tests/same-cluster-project-executors-contract.sh
-      - run: bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
+      - run: |
+          bash deploy/helm/envplane-control-plane/tests/single-replica-autoscaling-contract.sh
+          go test ./deploy/helm/envplane-control-plane/tests -run '^TestControlPlaneUpdatesNeverOverlapIdentityCustody$'
       - name: Guard webhook legacy fallback removal deadline
         run: go test ./deploy/helm/envplane-webhook/tests
       - run: bash scripts/tests/feature-env-writer-rbac-contract.sh
@@ -92,6 +94,7 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       - name: Verify installation documentation contract
         run: |
+          python3 -B scripts/tests/test_sm09_control_plane_diagnostics.py
           python3 scripts/tests/test-component-ci.py
           python3 scripts/tests/test_prepare_minikube_zero_setup.py
           python3 scripts/tests/test_minikube_budget.py
