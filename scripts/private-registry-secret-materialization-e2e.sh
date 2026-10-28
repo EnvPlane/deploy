@@ -109,6 +109,9 @@ cleanup() {
       kubectl --context "kind-$cluster" -n "$namespace" logs "$runner_pod" --tail=100 2>/dev/null |
         jq -Rr 'fromjson? | select(.level == "ERROR" or .level == "WARN" or .message == "runner release plan published" or .message == "runner helm command completed") | "level=\(.level // "") message=\(.message // .msg // "") error=\(.error // "")"' >&2 || true
     fi
+    echo "SM-09 control-plane startup diagnostics (all replicas, redacted current/previous logs)" >&2
+    python3 -B "$(dirname "${BASH_SOURCE[0]}")/sm09-control-plane-diagnostics.py" \
+      --context "kind-$cluster" --namespace "$namespace" >&2 || true
     control_plane_pod="$(kubectl --context "kind-$cluster" -n "$namespace" get pod -l app.kubernetes.io/name=envplane-control-plane -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
     if [[ -n "$control_plane_pod" ]]; then
       echo "SM-09 storage read authorization diagnostics (bounded metadata only)" >&2
@@ -338,6 +341,7 @@ kubectl --context "kind-$cluster" -n "$namespace" rollout status deployment/envp
 # The bundled PostgreSQL account owns migrations and is a superuser. Storage
 # evidence intentionally rejects that pool: use a distinct, non-owner runtime
 # role rather than weakening the SQL ledger's RLS/bypass checks for this gate.
+set_sm09_phase "provision isolated evidence database role"
 evidence_password="$(openssl rand -hex 32)"
 if ! printf '%s\n' \
   "CREATE ROLE envplane_sm09_evidence LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD '$evidence_password';" \
@@ -353,6 +357,7 @@ printf 'postgresql://envplane_sm09_evidence:%s@envplane-control-plane-postgres.%
 kubectl --context "kind-$cluster" -n "$namespace" create secret generic sm09-evidence-database \
   --from-file="dsn=$tmp/evidence-dsn" >/dev/null
 unset evidence_password
+set_sm09_phase "upgrade control-plane evidence database connection"
 helm upgrade "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" \
   --values "$base_values" --values "$values" \
   --set envplane-control-plane.finops.postgres.existingSecret=sm09-evidence-database \
