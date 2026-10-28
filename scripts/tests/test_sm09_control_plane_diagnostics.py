@@ -57,6 +57,14 @@ class DiagnosticsTests(unittest.TestCase):
             "configChecks": ["compatibility_manifest_read"],
         }])
 
+    def test_identity_collision_is_classified_without_custody_material(self):
+        raw = json.dumps({"level": "ERROR", "msg": "failed to initialise offline license store",
+                          "error": "installation_identity_in_use; fixture-secret"})
+        self.assertEqual(diagnostics.startup_records(raw), [{
+            "category": "license_store", "sqlstate": "",
+            "configChecks": ["installation_identity_in_use"],
+        }])
+
 
 if __name__ == "__main__":
     unittest.main()
