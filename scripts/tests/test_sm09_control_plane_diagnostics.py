@@ -47,7 +47,7 @@ class DiagnosticsTests(unittest.TestCase):
         def run(args, **kwargs):
             self.assertEqual(kwargs["timeout"], 15)
             return subprocess.CompletedProcess(args, 1, "", "credential=fixture-secret")
-        self.assertEqual(diagnostics.collect("fixture", "fixture", run), [])
+        self.assertEqual(diagnostics.collect("fixture", "fixture", run), [{"diagnostics": "pod_inventory_unavailable"}])
 
     def test_config_error_classification_omits_path_and_credentials(self):
         raw = json.dumps({"level": "ERROR", "msg": "failed to load runtime config",

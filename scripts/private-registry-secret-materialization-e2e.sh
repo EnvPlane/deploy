@@ -324,6 +324,7 @@ envplane-runner:
     featureEnvWriter:
       namespaces: [$management_target_namespace]
 EOF
+set_sm09_phase "install umbrella and wait for initial runtime readiness"
 helm upgrade --install "$release" "$ENVPLANE_SM09_CHART" --kube-context "kind-$cluster" --namespace "$namespace" --create-namespace --values "$base_values" --values "$values" --wait --timeout 15m
 if kubectl --context "kind-$cluster" -n "$namespace" get secret release-registry-pull >/dev/null 2>&1; then
   echo "SM-09 must not create a runtime GHCR pull Secret" >&2

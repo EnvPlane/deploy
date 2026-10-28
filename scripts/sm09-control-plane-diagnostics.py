@@ -74,9 +74,13 @@ def collect(context, namespace, run=subprocess.run):
         return result.stdout
 
     raw = call(["get", "pods", "-l", "app.kubernetes.io/name=envplane-control-plane", "-o", "json"])
+    if raw is None:
+        return [{"diagnostics": "pod_inventory_unavailable"}]
     try:
         pods = json.loads(raw or "{}").get("items", [])
     except (ValueError, AttributeError):
+        return [{"diagnostics": "pod_inventory_unavailable"}]
+    if not isinstance(pods, list):
         return [{"diagnostics": "pod_inventory_unavailable"}]
     output = []
     for pod in pods[:20]:
