@@ -185,6 +185,10 @@ metadata:
     {{- include "envplane-control-plane.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  # Installation identity custody has an exclusive lock on the retained PVC.
+  # Stop the old process before starting a replacement, even at replicaCount=1.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "envplane-control-plane.selectorLabels" . | nindent 6 }}

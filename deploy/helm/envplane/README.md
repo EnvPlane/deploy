@@ -16,6 +16,10 @@ runbook.
 
 For the values contract and migration details see [`VALUES.md`](VALUES.md).
 
+The singleton control-plane uses the `Recreate` update strategy. Upgrades briefly
+interrupt the API while the old process stops and releases the exclusive
+installation identity lock on its retained volume before the replacement starts.
+
 ## Activation verification keys
 
 An operator that issues signed activation codes must configure the public

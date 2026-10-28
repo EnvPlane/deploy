@@ -15,6 +15,7 @@ STARTUP = {
     "failed to ping redis": "redis_connect",
     "failed to open isolated FinOps database connection": "ledger_open",
     "isolated ledger provisioning failed": "ledger_provisioning",
+    "failed to initialise offline license store": "license_store",
 }
 REASONS = {"Error", "OOMKilled", "Completed", "ContainerCannotRun",
            "CrashLoopBackOff", "CreateContainerConfigError", "ImagePullBackOff",
@@ -29,6 +30,9 @@ CONFIG_CHECKS = {
     "ENVPLANE_CREDENTIAL_ENCRYPTION_KEY": "credential_key_validation",
     "ENVPLANE_OAUTH_SESSION_SECRET": "oauth_session_validation",
     "ENVPLANE_PUBLIC_URL": "public_url_validation",
+    "installation_identity_in_use": "installation_identity_in_use",
+    "installation_identity_custody_unavailable": "installation_identity_custody_unavailable",
+    "installation_identity_state_invalid": "installation_identity_state_invalid",
 }
 
 
