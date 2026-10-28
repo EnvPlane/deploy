@@ -19,6 +19,17 @@ STARTUP = {
 REASONS = {"Error", "OOMKilled", "Completed", "ContainerCannotRun",
            "CrashLoopBackOff", "CreateContainerConfigError", "ImagePullBackOff",
            "ErrImagePull", "ContainerCreating", "PodInitializing"}
+CONFIG_CHECKS = {
+    "read install-flow compatibility manifest:": "compatibility_manifest_read",
+    "decode install-flow compatibility manifest:": "compatibility_manifest_decode",
+    "install-flow compatibility manifest is invalid": "compatibility_manifest_invalid",
+    "install-flow compatibility manifest has no complete contract": "compatibility_contract_incomplete",
+    "conflicts with signed install-flow compatibility manifest": "compatibility_contract_mismatch",
+    "conflicts with signed compatibility manifest": "compatibility_rollout_mismatch",
+    "ENVPLANE_CREDENTIAL_ENCRYPTION_KEY": "credential_key_validation",
+    "ENVPLANE_OAUTH_SESSION_SECRET": "oauth_session_validation",
+    "ENVPLANE_PUBLIC_URL": "public_url_validation",
+}
 
 
 def startup_records(raw):
@@ -28,7 +39,7 @@ def startup_records(raw):
             entry = json.loads(line)
         except (ValueError, TypeError):
             if line.startswith("panic:"):
-                records.add(("panic", ""))
+                records.add(("panic", "", ()))
             continue
         if not isinstance(entry, dict):
             continue
@@ -41,9 +52,12 @@ def startup_records(raw):
         # SQLSTATE is a fixed public code, unlike the surrounding free-form
         # error, which may contain a DSN or credential. Do not emit that text.
         match = re.search(r"\bSQLSTATE ([0-9A-Z]{5})\b", str(entry.get("error", "")))
-        records.add((category, match.group(1) if match else ""))
-    return [{"category": category, "sqlstate": code}
-            for category, code in sorted(records)[:20]]
+        checks = tuple(sorted(code for text, code in CONFIG_CHECKS.items()
+                              if text in str(entry.get("error", ""))))
+        records.add((category, match.group(1) if match else "", checks))
+    return [{"category": category, "sqlstate": code,
+             **({"configChecks": list(checks)} if checks else {})}
+            for category, code, checks in sorted(records)[:20]]
 
 
 def collect(context, namespace, run=subprocess.run):

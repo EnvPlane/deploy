@@ -49,6 +49,14 @@ class DiagnosticsTests(unittest.TestCase):
             return subprocess.CompletedProcess(args, 1, "", "credential=fixture-secret")
         self.assertEqual(diagnostics.collect("fixture", "fixture", run), [])
 
+    def test_config_error_classification_omits_path_and_credentials(self):
+        raw = json.dumps({"level": "ERROR", "msg": "failed to load runtime config",
+                          "error": "read install-flow compatibility manifest: /private/fixture-secret: denied"})
+        self.assertEqual(diagnostics.startup_records(raw), [{
+            "category": "runtime_config", "sqlstate": "",
+            "configChecks": ["compatibility_manifest_read"],
+        }])
+
 
 if __name__ == "__main__":
     unittest.main()
