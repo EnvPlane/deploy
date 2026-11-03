@@ -464,7 +464,7 @@ envplane-control-plane:
     controlPlaneURL: ""
     image:
       repository: ghcr.io/envplane/agent
-      tag: "sha-021fb761c6dc63ff3780cabdf955b7d144db854e"
+      tag: "sha-a70b2fdf174e32dc7160742416721162f9349594"
     # This must match the envplane-agent child dependency in Chart.yaml. The
     # release workflow signs it into compatibility/release.json and the
     # dependency update workflow changes both fields atomically.
@@ -563,11 +563,11 @@ envplane-agent:
   fullnameOverride: envplane-agent
   image:
     repository: ghcr.io/envplane/agent
-    tag: "sha-021fb761c6dc63ff3780cabdf955b7d144db854e"
-    digest: "sha256:575f9882cf19389ae1249e95f68aab4ba789e572010a143e07414903f280add9"
+    tag: "sha-a70b2fdf174e32dc7160742416721162f9349594"
+    digest: "sha256:b3289e826a9bfc5c9c80608fe52f21e25cfda95cd219b86799ff5eb560fe8540"
     pullPolicy: IfNotPresent
-    sourceRevision: "021fb761c6dc63ff3780cabdf955b7d144db854e"
-    release: "sha-021fb761c6dc63ff3780cabdf955b7d144db854e"
+    sourceRevision: "a70b2fdf174e32dc7160742416721162f9349594"
+    release: "sha-a70b2fdf174e32dc7160742416721162f9349594"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
