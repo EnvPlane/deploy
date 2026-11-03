@@ -1,6 +1,10 @@
 # Published zero-setup candidate on local Minikube
 
-Prepared on 2026-10-13. **PLATFORM READY, APPLICATION NOT DEPLOYED.** The user
+Prepared on 2026-10-13. This is the historical preparation record for
+`0.4.731`. The later [0.4.740 installation report](../readiness/2026-11-03-minikube-0.4.740.md)
+records the installed application and its first-run blocker.
+
+**PLATFORM READY, APPLICATION NOT DEPLOYED at this preparation pass.** The user
 subsequently authorized cluster creation and platform controller installation.
 Read [the live platform report](../readiness/2026-10-13-minikube-platform.md)
 and [controller configuration](../../platform/minikube/README.md) for the
