@@ -137,6 +137,47 @@
 {{- end -}}
 {{- $commercialization := default (dict) .Values.commercialization -}}
 {{- $billing := default (dict) (get $commercialization "billing") -}}
+{{- $license := default (dict) (get $commercialization "license") -}}
+{{- $connection := default (dict) (get $commercialization "issuerConnection") -}}
+{{- $profile := default "sandbox" (get $connection "profile") -}}
+{{- if not (has $profile (list "sandbox" "production")) -}}
+  {{- fail "issuerConnection.profile must be sandbox or production" -}}
+{{- end -}}
+{{- if get $connection "enabled" -}}
+  {{- if eq $profile "production" -}}
+    {{- fail "production issuer connection requires a reviewed LIVE-compatible consumer; current installation adapter is TEST-only" -}}
+  {{- end -}}
+  {{- range $key := list "provider" "providerMode" "merchantAccount" "baseURL" -}}
+    {{- if get $billing $key -}}
+      {{- fail "configure issuerConnection or legacy billing settings, not both" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if or (get $license "activationIssuerURL") (ne (default "[]" (get $license "activationPublicKeysJSON")) "[]") -}}
+    {{- fail "configure issuerConnection or legacy activation trust, not both" -}}
+  {{- end -}}
+  {{- range $key := list "ENVPLANE_BILLING_PROVIDER" "ENVPLANE_BILLING_PROVIDER_MODE" "ENVPLANE_BILLING_MERCHANT_ACCOUNT" "ENVPLANE_BILLING_BASE_URL" "ENVPLANE_ACTIVATION_ISSUER_URL" "ENVPLANE_ACTIVATION_PUBLIC_KEYS_JSON" -}}
+    {{- if hasKey $configuredEnvironment $key -}}
+      {{- fail "configure issuerConnection or issuer environment overrides, not both" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $profiles := default (dict) (get $connection "profiles") -}}
+  {{- $selected := default (dict) (get $profiles $profile) -}}
+  {{- $origin := required "issuerConnection requires an accepted public baseURL" (get $selected "baseURL") -}}
+  {{- $metadataOrigin := required "issuerConnection requires an accepted activationIssuerURL" (get $selected "activationIssuerURL") -}}
+  {{- range $url := list $origin $metadataOrigin -}}
+    {{- if not (regexMatch "^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$" $url) -}}
+      {{- fail "issuerConnection URLs must be HTTPS origins without credentials, paths, queries or fragments" -}}
+    {{- end -}}
+  {{- end -}}
+  {{- $merchant := required "issuerConnection requires a canonical merchantAccount" (get $selected "merchantAccount") -}}
+  {{- $keys := default "[]" (get $selected "activationPublicKeysJSON") -}}
+  {{- $parsedKeys := mustFromJson $keys -}}
+  {{- if or (not (kindIs "slice" $parsedKeys)) (empty $parsedKeys) -}}
+    {{- fail "issuerConnection requires a non-empty authenticated activationPublicKeysJSON array" -}}
+  {{- end -}}
+  {{- $billing = mergeOverwrite (deepCopy $billing) (dict "provider" "installation" "providerMode" "test" "merchantAccount" $merchant "baseURL" $origin) -}}
+  {{- $license = mergeOverwrite (deepCopy $license) (dict "activationIssuerURL" $metadataOrigin "activationPublicKeysJSON" $keys) -}}
+{{- end -}}
 {{- $billingAPIKeyRef := default (dict) (get $billing "apiKeySecretRef") -}}
 {{- $billingWebhookRef := default (dict) (get $billing "webhookSecretRef") -}}
 {{- $billingMode := default "" (get $billing "providerMode") -}}
@@ -170,7 +211,6 @@
 {{- end -}}
 {{- $ai := default (dict) (get $commercialization "ai") -}}
 {{- $aiAPIKeyRef := default (dict) (get $ai "apiKeySecretRef") -}}
-{{- $license := default (dict) (get $commercialization "license") -}}
 {{- if eq $firstStartMode "existing" -}}
 {{- $firstStartSecret = required "global.envplane.firstStartRegistration.existingSecret is required when mode=existing" $firstStart.existingSecret -}}
 {{- else if eq $firstStartMode "managed" -}}

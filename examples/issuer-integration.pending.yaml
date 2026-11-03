@@ -2,15 +2,17 @@
 # this file alone. Provider remains disabled until the issuer handoff is accepted.
 envplane-control-plane:
   commercialization:
-    billing:
-      provider: ""
-      providerMode: test
-      merchantAccount: ""
-      baseURL: ""
-      apiKeySecretRef:
-        name: ""
-      webhookSecretRef:
-        name: ""
-    license:
-      activationIssuerURL: ""
-      activationPublicKeysJSON: "[]"
+    issuerConnection:
+      enabled: false
+      profile: sandbox
+      profiles:
+        sandbox:
+          baseURL: ""
+          merchantAccount: ""
+          activationIssuerURL: ""
+          activationPublicKeysJSON: "[]"
+        production:
+          baseURL: ""
+          merchantAccount: ""
+          activationIssuerURL: ""
+          activationPublicKeysJSON: "[]"

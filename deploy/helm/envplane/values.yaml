@@ -338,6 +338,21 @@ envplane-control-plane:
     existingSecret: envplane-webhook-receiver
     tokenKey: receiver-token
   commercialization:
+    # Select sandbox by default; enable only with an accepted public handoff.
+    issuerConnection:
+      enabled: false
+      profile: sandbox
+      profiles:
+        sandbox:
+          baseURL: ""
+          merchantAccount: ""
+          activationIssuerURL: ""
+          activationPublicKeysJSON: "[]"
+        production:
+          baseURL: ""
+          merchantAccount: ""
+          activationIssuerURL: ""
+          activationPublicKeysJSON: "[]"
     ai:
       enabled: true
       airGap: false
