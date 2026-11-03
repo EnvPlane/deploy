@@ -684,11 +684,11 @@ envplane-webhook:
   fullnameOverride: envplane-webhook
   image:
     repository: ghcr.io/envplane/webhook
-    tag: "sha-925b8b1ca70301e448d21bc654f8b51541ee5073"
-    digest: "sha256:139cf17c1977958562d83f6957f1ea738b687b91844c4e6aaaa9c2ec665ff76f"
+    tag: "sha-e92a1a33e63c38280cad2740a02eac03256d1b8a"
+    digest: "sha256:58abd5517e6fbf251a18ffcabf3d0911c4fb4ae2c74717b2d5a646c4c3979b7d"
     pullPolicy: IfNotPresent
-    sourceRevision: "925b8b1ca70301e448d21bc654f8b51541ee5073"
-    release: "sha-925b8b1ca70301e448d21bc654f8b51541ee5073"
+    sourceRevision: "e92a1a33e63c38280cad2740a02eac03256d1b8a"
+    release: "sha-e92a1a33e63c38280cad2740a02eac03256d1b8a"
   imagePullSecrets: []
   controlPlane:
     url: http://envplane-control-plane:8080
