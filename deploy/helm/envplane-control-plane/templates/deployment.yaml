@@ -139,7 +139,7 @@
 {{- $billing := default (dict) (get $commercialization "billing") -}}
 {{- $license := default (dict) (get $commercialization "license") -}}
 {{- $connection := default (dict) (get $commercialization "issuerConnection") -}}
-{{- $profile := default "sandbox" (get $connection "profile") -}}
+{{- $profile := default "production" (get $connection "profile") -}}
 {{- if not (has $profile (list "sandbox" "production")) -}}
   {{- fail "issuerConnection.profile must be sandbox or production" -}}
 {{- end -}}

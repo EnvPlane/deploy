@@ -29,6 +29,7 @@ class IssuerIntegrationChartTest(unittest.TestCase):
     def connection(self, **overrides):
         prefix = "commercialization.issuerConnection"
         values = {f"{prefix}.enabled": "true",
+                  f"{prefix}.profile": "sandbox",
                   f"{prefix}.profiles.sandbox.baseURL": "https://billing.example.test",
                   f"{prefix}.profiles.sandbox.merchantAccount": "acct_sandbox_fixture",
                   f"{prefix}.profiles.sandbox.activationIssuerURL": "https://metadata.example.test",
@@ -101,6 +102,22 @@ class IssuerIntegrationChartTest(unittest.TestCase):
         result = self.render()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("name: ENVPLANE_BILLING_PROVIDER\n", result.stdout)
+
+    def test_default_production_cannot_silently_select_sandbox(self):
+        for chart, prefix in [(CHART, "commercialization.issuerConnection"),
+                              (ROOT / "deploy/helm/envplane", "envplane-control-plane.commercialization.issuerConnection")]:
+            with self.subTest(chart=chart):
+                result = self.render(chart=chart, **{f"{prefix}.enabled": "true"})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("LIVE-compatible", result.stderr)
+                values = (chart / "values.yaml").read_text()
+                self.assertRegex(values, r"issuerConnection:\s+enabled: false\s+profile: production")
+
+    def test_shipped_sandbox_requires_authenticated_roots(self):
+        result = self.render(**{"commercialization.issuerConnection.enabled": "true",
+                                "commercialization.issuerConnection.profile": "sandbox"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("authenticated activationPublicKeysJSON", result.stderr)
 
     def test_customer_lane_has_exact_public_scope_without_seller_key(self):
         result = self.installation()

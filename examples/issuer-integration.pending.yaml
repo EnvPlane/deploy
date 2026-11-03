@@ -4,12 +4,12 @@ envplane-control-plane:
   commercialization:
     issuerConnection:
       enabled: false
-      profile: sandbox
+      profile: production
       profiles:
         sandbox:
-          baseURL: ""
-          merchantAccount: ""
-          activationIssuerURL: ""
+          baseURL: "https://billing-sandbox.envplane.dev"
+          merchantAccount: "acct_1UOFO62N7rCLLWVX"
+          activationIssuerURL: "https://billing-sandbox.envplane.dev"
           activationPublicKeysJSON: "[]"
         production:
           baseURL: ""

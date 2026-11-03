@@ -4,9 +4,20 @@ Both standalone and umbrella default values include
 `commercialization.issuerConnection`. The umbrella path starts with
 `envplane-control-plane.commercialization.issuerConnection`.
 
-The selected profile is `sandbox`; `enabled: false` deliberately avoids enrolling
+The selected profile is `production`, with empty production parameters;
+`enabled: false` deliberately avoids enrolling
 every fresh installation into a temporary seller campaign. No network requests,
 payments, licenses or customer records are created by rendering these values.
+
+Sandbox public defaults were collected from GEN18 evidence on 2026-11-03:
+origin `https://billing-sandbox.envplane.dev`, merchant `acct_1UOFO62N7rCLLWVX`.
+The canonical merchant comes from `Runtime.Commercial.Manifest` in the accepted
+GEN18 runtime readback; the origin is used by the GEN18 activation health probe.
+Both activation metadata endpoints returned HTTP 503 after the owner reported
+safe-stop at 16:21 Berlin. Signing roots remain empty, deliberately blocking
+sandbox enablement until an authenticated public trust handoff is available.
+Commercial approval keys are NOT license verification roots and must not be used
+as substitutes. The recorded financial TEST does not verify metadata freshness.
 
 To prepare an installation, fill the sandbox profile from the authenticated public
 handoff, then explicitly enable it in the complete operator values:

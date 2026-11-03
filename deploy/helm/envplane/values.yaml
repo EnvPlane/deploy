@@ -338,15 +338,16 @@ envplane-control-plane:
     existingSecret: envplane-webhook-receiver
     tokenKey: receiver-token
   commercialization:
-    # Select sandbox by default; enable only with an accepted public handoff.
+    # Production is the default; enable only with an accepted public handoff.
     issuerConnection:
       enabled: false
-      profile: sandbox
+      profile: production
       profiles:
         sandbox:
-          baseURL: ""
-          merchantAccount: ""
-          activationIssuerURL: ""
+          baseURL: "https://billing-sandbox.envplane.dev"
+          merchantAccount: "acct_1UOFO62N7rCLLWVX"
+          activationIssuerURL: "https://billing-sandbox.envplane.dev"
+          # Pending authenticated GEN18 signing roots and revocation readback.
           activationPublicKeysJSON: "[]"
         production:
           baseURL: ""
