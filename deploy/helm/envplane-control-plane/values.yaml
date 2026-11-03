@@ -192,6 +192,24 @@ secretEnv: {}
 # Commercialization settings use the canonical EnvPlane aliases. Legacy
 # ENVPLANE_* variables remain accepted by the application for upgrades.
 commercialization:
+  # Customer-facing issuer connection. Production is selected, not auto-enabled.
+  # Populate public values only from the authenticated issuer handoff.
+  issuerConnection:
+    enabled: false
+    profile: production
+    profiles:
+      sandbox:
+        baseURL: "https://billing-sandbox.envplane.dev"
+        merchantAccount: "acct_1UOFO62N7rCLLWVX"
+        activationIssuerURL: "https://billing-sandbox.envplane.dev"
+        # Pending authenticated GEN18 signing roots and revocation readback.
+        activationPublicKeysJSON: "[]"
+      # Reserved for a separately accepted LIVE-compatible consumer release.
+      production:
+        baseURL: ""
+        merchantAccount: ""
+        activationIssuerURL: ""
+        activationPublicKeysJSON: "[]"
   ai:
     # The capability remains license- and tenant-policy-gated. Enable the
     # runtime by default so Settings → AI can complete a clean installation.
