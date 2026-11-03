@@ -310,11 +310,11 @@ platformDependencyReconciler:
   enabled: false
   image:
     repository: ghcr.io/envplane/platform-reconciler
-    tag: "sha-90d4cb920fd3d96372aad3aec8ecd081a3f01fcc"
-    digest: "sha256:0f1b6e4de9f1fd92fb6a4fd583401c15a3b3ce1866584a4809c9a34999d2e66b"
+    tag: "sha-d6a4127474c0e867e415c541d540d0b97bae6125"
+    digest: "sha256:d8dadc12d9ff71f5d746e91191f5dd61f5d9fc88a7f572152c814957f2f7b0ea"
     pullPolicy: IfNotPresent
-    sourceRevision: "90d4cb920fd3d96372aad3aec8ecd081a3f01fcc"
-    release: "sha-90d4cb920fd3d96372aad3aec8ecd081a3f01fcc"
+    sourceRevision: "d6a4127474c0e867e415c541d540d0b97bae6125"
+    release: "sha-d6a4127474c0e867e415c541d540d0b97bae6125"
   # Required when the reconciler image is in a private registry.
   imagePullSecrets: []
   serviceAccount:
@@ -385,11 +385,11 @@ envplane-control-plane:
     enabled: true
   image:
     repository: ghcr.io/envplane/api
-    tag: "sha-290dd94fb203526f4c40d03f0017979c58240220"
-    digest: "sha256:330221fea107d1863fa5523c4cecc156be94f56b05fc5d8e7f3470ffe1613b4e"
+    tag: "sha-416bc389c9247aa227d749cbd1da72968e682b18"
+    digest: "sha256:959a8a34151a8d8085cc9db4a94e50075f036e81b0af7366b0a4a92b83630c8b"
     pullPolicy: IfNotPresent
-    sourceRevision: "290dd94fb203526f4c40d03f0017979c58240220"
-    release: "sha-290dd94fb203526f4c40d03f0017979c58240220"
+    sourceRevision: "416bc389c9247aa227d749cbd1da72968e682b18"
+    release: "sha-416bc389c9247aa227d749cbd1da72968e682b18"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -480,7 +480,7 @@ envplane-control-plane:
     controlPlaneURL: ""
     image:
       repository: ghcr.io/envplane/agent
-      tag: "sha-5da8f088b3a5e23556115906e2d54126dfea290e"
+      tag: "sha-a70b2fdf174e32dc7160742416721162f9349594"
     # This must match the envplane-agent child dependency in Chart.yaml. The
     # release workflow signs it into compatibility/release.json and the
     # dependency update workflow changes both fields atomically.
@@ -555,11 +555,11 @@ envplane-frontend:
   fullnameOverride: envplane-frontend
   image:
     repository: ghcr.io/envplane/frontend
-    tag: "sha-e7ca3f380e905e8db64e09f47c986e26c506eae1"
-    digest: "sha256:6396146fecd81da52e442d573e8ef86e7261ae71a0057f76944ffc09971723a6"
+    tag: "sha-87b066cf27afc6e157740811fce92a879e5e9673"
+    digest: "sha256:7b93ac57614d35e48d8cc94c809d580f068c9047414f24872cf337b4eb8c6ea8"
     pullPolicy: IfNotPresent
-    sourceRevision: "e7ca3f380e905e8db64e09f47c986e26c506eae1"
-    release: "sha-e7ca3f380e905e8db64e09f47c986e26c506eae1"
+    sourceRevision: "87b066cf27afc6e157740811fce92a879e5e9673"
+    release: "sha-87b066cf27afc6e157740811fce92a879e5e9673"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -579,11 +579,11 @@ envplane-agent:
   fullnameOverride: envplane-agent
   image:
     repository: ghcr.io/envplane/agent
-    tag: "sha-5da8f088b3a5e23556115906e2d54126dfea290e"
-    digest: "sha256:92f861a6cb27c96e908ec5178dc8f92b7cc09076d1da48c1a926f82302f4dab6"
+    tag: "sha-a70b2fdf174e32dc7160742416721162f9349594"
+    digest: "sha256:b3289e826a9bfc5c9c80608fe52f21e25cfda95cd219b86799ff5eb560fe8540"
     pullPolicy: IfNotPresent
-    sourceRevision: "5da8f088b3a5e23556115906e2d54126dfea290e"
-    release: "sha-5da8f088b3a5e23556115906e2d54126dfea290e"
+    sourceRevision: "a70b2fdf174e32dc7160742416721162f9349594"
+    release: "sha-a70b2fdf174e32dc7160742416721162f9349594"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -642,11 +642,11 @@ envplane-runner:
   fullnameOverride: envplane-runner
   image:
     repository: ghcr.io/envplane/runner
-    tag: "sha-486af894255d48ceea107be344775ae9093d7d50"
-    digest: "sha256:ea4cd9501e2f62e2e5d32803c3f29536875e551fa43e371d2669d743db464525"
+    tag: "sha-01854fe85d8994cbc731dd9062687676f59bac33"
+    digest: "sha256:3e7db36bb9e9ad9b1fac353eb09ed7b7aae7acf29b8c15e2831ee971926d616f"
     pullPolicy: IfNotPresent
-    sourceRevision: "486af894255d48ceea107be344775ae9093d7d50"
-    release: "sha-486af894255d48ceea107be344775ae9093d7d50"
+    sourceRevision: "01854fe85d8994cbc731dd9062687676f59bac33"
+    release: "sha-01854fe85d8994cbc731dd9062687676f59bac33"
   imagePullSecrets: []
   replicaCount: 1
   resources: {}
@@ -700,11 +700,11 @@ envplane-webhook:
   fullnameOverride: envplane-webhook
   image:
     repository: ghcr.io/envplane/webhook
-    tag: "sha-34f23f5c809a48fe4c1ebacbded3f9559ec1fff6"
-    digest: "sha256:115b774b5e33e0c2e7a6541420948b40309583291443fb04b34c44c28ac69e58"
+    tag: "sha-e49186293d87d942135270d609ef654a73ee8a6e"
+    digest: "sha256:30bca136927916508d82282d5a496ee00c37285e7c8fa02594a769bdb4659f6d"
     pullPolicy: IfNotPresent
-    sourceRevision: "34f23f5c809a48fe4c1ebacbded3f9559ec1fff6"
-    release: "sha-34f23f5c809a48fe4c1ebacbded3f9559ec1fff6"
+    sourceRevision: "e49186293d87d942135270d609ef654a73ee8a6e"
+    release: "sha-e49186293d87d942135270d609ef654a73ee8a6e"
   imagePullSecrets: []
   controlPlane:
     url: http://envplane-control-plane:8080
