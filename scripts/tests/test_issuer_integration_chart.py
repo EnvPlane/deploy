@@ -9,6 +9,14 @@ CHART = ROOT / "deploy/helm/envplane-control-plane"
 
 
 class IssuerIntegrationChartTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # A fresh clone has no ignored standalone frontend archive, even when
+        # frontend.enabled=false. Helm still checks dependency availability.
+        # Build only the locked file:// dependency; never rely on a warm cache.
+        subprocess.run(["helm", "dependency", "build", "--skip-refresh", str(CHART)],
+                       capture_output=True, text=True, check=True)
+
     def render(self, chart=CHART, **values):
         args = ["helm", "template", "issuer-review", str(chart),
                 "--set", "frontend.enabled=false", "--set", "postgres.mode=disabled",
