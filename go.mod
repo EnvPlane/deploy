@@ -1,6 +1,6 @@
 module github.com/envplane/deploy
 
-go 1.26.10
+go 1.26.11
 
 require (
 	helm.sh/helm/v3 v3.22.1
