@@ -52,8 +52,17 @@ pull="$(helm pull "$repository" --version "$version" --destination "$scratch" 2>
 actual="$(printf '%s\n' "$pull" | sed -n 's/^Digest: //p')"
 [[ "$actual" == "$expected" ]] || { echo "OCI digest mismatch" >&2; exit 1; }
 
-helm upgrade --install envplane "$scratch/envplane-$version.tgz" "${target[@]}" \
-  --create-namespace --values "$root/deploy/helm/envplane/values-e2e-local.yaml" \
+blocked="$state/blocked-$version"
+[[ ! -e "$blocked" ]] || { echo "Release $version previously failed; inspect before retrying" >&2; exit 1; }
+if ! helm upgrade --install envplane "$scratch/envplane-$version.tgz" "${target[@]}" \
+  --create-namespace --values "$root/deploy/helm/envplane/values-e2e-local.yaml" --set access.mode=disabled \
+  --set webhook.enabled=false --set envplane-frontend.service.type=ClusterIP \
+  --set envplane-control-plane.service.type=ClusterIP \
   --set 'envplane-control-plane.commercialization.issuerConnection.enabled=false' \
-  --wait --rollback-on-failure --timeout 12m
+  --set-string envplane-control-plane.commercialization.billing.provider=,envplane-control-plane.commercialization.billing.baseURL= \
+  --set-string envplane-control-plane.commercialization.license.activationIssuerURL= \
+  --wait --rollback-on-failure --timeout 12m; then
+  touch "$blocked"
+  exit 1
+fi
 echo "Verified and installed $tag ($expected) in $context"

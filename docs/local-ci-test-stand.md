@@ -17,8 +17,15 @@ CI publishes the umbrella; the stand pulls only the latest stable index
 signed by deploy's release-on-main workflow and matches the fetched OCI
 digest before install. It refuses downgrades and uses Helm rollback on
 failure. An unhealthy release or stale lock requires operator inspection;
-do not clear a lock while a run is active. No hosted runner has cluster
-credentials.
+do not clear a lock while a run is active. A failed install quarantines
+that version until an operator inspects and clears its marker. No hosted
+runner has cluster credentials.
+
+The profile seeds a disposable base workload and local Agent/Runner.
+Published control-plane binaries intentionally omit the `e2e` build tag,
+so finish the project through the UI or an explicitly supported bootstrap
+flow. The generated fixture is not proof of readiness or enforcement of
+NetworkPolicy; the default Kind CNI is not an enforcement test.
 
 External billing and activation stay disabled here until a separately
 accepted TEST issuer and isolated test identity are configured. Do not
