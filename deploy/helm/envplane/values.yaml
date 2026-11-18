@@ -209,7 +209,7 @@ global:
     bootstrapDefaults:
       helmDirect:
         chartRef: oci://ghcr.io/envplane/envplane-e2e-workload
-        chartVersion: "0.1.0"
+        chartVersion: "0.1.1"
     # Opt-in only. The local E2E profile creates a disposable base workload and
     # reconciles this reserved project through real Agent discovery, Runner
     # chart preflight and bootstrap compilation. It never affects user projects.
@@ -223,7 +223,7 @@ global:
       baseNamespace: envplane-e2e-base
       featureNamespace: envplane-e2e-feature
       chartRef: oci://ghcr.io/envplane/envplane-e2e-workload
-      chartVersion: "0.1.0"
+      chartVersion: "0.1.1"
       appRepositoryURL: https://github.com/envplane/envplane-e2e-workload
       gitopsRepositoryURL: https://github.com/envplane/deploy
       scmProvider: github
