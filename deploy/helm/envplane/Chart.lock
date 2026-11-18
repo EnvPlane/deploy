@@ -1,7 +1,7 @@
 dependencies:
 - name: envplane-control-plane
   repository: file://../envplane-control-plane
-  version: 0.3.68
+  version: 0.3.69
 - name: envplane-frontend
   repository: file://../envplane-frontend
   version: 0.2.1
@@ -17,5 +17,5 @@ dependencies:
 - name: envplane-e2e-workload
   repository: file://../envplane-e2e-workload
   version: 0.1.1
-digest: sha256:5b3126491ea5bb31ff468329f2ca6095a99c17bdefe1a67dfe581a0d06c8d98b
-generated: "2026-11-18T16:53:44.39336+01:00"
+digest: sha256:3e1ab37d654ed2a68b95d385715f17ab76b63396ae4137927a968245de20706c
+generated: "2026-11-18T17:36:34.150418+01:00"

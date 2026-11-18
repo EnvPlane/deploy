@@ -83,7 +83,11 @@ preview NetworkPolicy writer. To install and verify both phases, use
 The installer requires server dry-runs to deny cluster-wide, wrong-subject
 and non-preview bindings, and accept a valid preview binding. If verification
 fails, the install stays at the admission-only stage. Do not persist the
-binding UID in operator values or skip the probe on upgrades.
-The wrapper only enables the grant on a single API-server target. A
-multi-server cluster requires an operator procedure proving enforcement on
-every serving API endpoint before enabling the grant.
+admission proof in operator values or skip the probe on upgrades.
+For HA, pass the expected number of API servers explicitly, e.g.
+`--expected-api-servers 3`. Run from a network with direct, TLS-verified
+access to every HTTPS endpoint advertised by the `default/kubernetes` Service.
+The advertised endpoints must enumerate the actual API servers, not proxies;
+the installer does not substitute the load balancer for unreachable servers.
+A missing, unready or changed endpoint, changed policy/binding generation,
+or unexpected dry-run result leaves the grant disabled.

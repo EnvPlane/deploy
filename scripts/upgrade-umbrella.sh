@@ -21,6 +21,7 @@ wait=true
 create_namespace=false
 preview_control_plane=""
 preview_executors=""
+expected_api_servers=1
 
 usage() {
   cat <<'EOF'
@@ -29,6 +30,7 @@ Usage:
     --operator-values PATH [--namespace NAME] [--chart OCI_REF] \
     [--kube-context CONTEXT] [--timeout DURATION] [--create-namespace] [--no-wait]
     [--verify-preview-admission CONTROL_PLANE_FULLNAME EXECUTOR_NAMESPACE]
+    [--expected-api-servers N]
 
 The operator values file contains only operator configuration, such as access,
 database Secret references, resources and scheduling. Do not place image pins
@@ -49,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --create-namespace) create_namespace=true; shift ;;
     --no-wait) wait=false; shift ;;
     --verify-preview-admission) preview_control_plane="${2:?}"; preview_executors="${3:?}"; shift 3 ;;
+    --expected-api-servers) expected_api_servers="${2:?}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -73,13 +76,15 @@ fi
 # Do not echo values. They may contain existing Secret references, and callers
 # remain responsible for keeping credential material out of the file.
 if [[ -z "$preview_control_plane" ]]; then
+  [[ "$expected_api_servers" == 1 ]] || { echo 'HA admission count requires --verify-preview-admission' >&2; exit 2; }
   exec helm "${args[@]}"
 fi
 [[ "$wait" == true ]] || { echo 'Preview admission verification requires --wait' >&2; exit 2; }
+[[ "$expected_api_servers" =~ ^[1-9][0-9]?$ ]] || { echo 'Invalid expected API server count' >&2; exit 2; }
 proof_key='envplane-control-plane.rbac.sameClusterProjectExecutors.networkPolicyAdmissionUID'
 helm "${args[@]}" --set-string "$proof_key="
 kubectl_connection=()
 [[ -z "$kube_context" ]] || kubectl_connection+=(--context "$kube_context")
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-uid="$(bash "$script_dir/verify-preview-admission.sh" "$preview_control_plane" "$preview_executors" "${kubectl_connection[@]}")"
-exec helm "${args[@]}" --set-string "$proof_key=$uid"
+proof="$(bash "$script_dir/verify-preview-admission.sh" "$preview_control_plane" "$preview_executors" --expected-api-servers "$expected_api_servers" ${kubectl_connection[@]+"${kubectl_connection[@]}"})"
+exec helm "${args[@]}" --set-string "$proof_key=$proof"
