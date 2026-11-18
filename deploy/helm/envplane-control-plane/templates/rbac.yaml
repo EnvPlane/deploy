@@ -302,7 +302,10 @@ roleRef:
 {{- if $policyProof }}
 {{- if not $policyDelegation }}{{- fail "preview policy delegation requires Kubernetes 1.30 or later" }}{{- end }}
 {{- $binding := lookup "admissionregistration.k8s.io/v1" "ValidatingAdmissionPolicyBinding" "" $policyWriter }}
-{{- if or (not $binding) (ne (dig "metadata" "uid" "" $binding) $policyProof) (ne (dig "spec" "policyName" "" $binding) $policyWriter) (not (has "Deny" (dig "spec" "validationActions" (list) $binding))) }}
+{{- $guard := lookup "admissionregistration.k8s.io/v1" "ValidatingAdmissionPolicy" "" $policyWriter }}
+{{- $cluster := lookup "v1" "Namespace" "" "kube-system" }}
+{{- $identity := printf "%s:%v:%s:%v:%s" (dig "metadata" "uid" "" $binding) (dig "metadata" "generation" 0 $binding) (dig "metadata" "uid" "" $guard) (dig "metadata" "generation" 0 $guard) (dig "metadata" "uid" "" $cluster) }}
+{{- if or (not $binding) (not $guard) (not $cluster) (ne $identity $policyProof) (ne (dig "spec" "failurePolicy" "" $guard) "Fail") (ne (dig "spec" "policyName" "" $binding) $policyWriter) (not (has "Deny" (dig "spec" "validationActions" (list) $binding))) }}
 {{- fail "install and verify the exact preview admission binding before enabling delegation" }}
 {{- end }}
 {{- end }}

@@ -377,8 +377,8 @@ rbac:
     enabled: false
     namespace: ""
     # Leave empty for the admission-only install. Set by the deployment
-    # preflight to the live validating binding UID after a positive probe and
-    # a denial check. Never persist this ephemeral proof in operator values.
+    # preflight to the live binding, policy and cluster identity after probes
+    # on every API server. Never persist this proof in operator values.
     networkPolicyAdmissionUID: ""
     # Optional Kyverno admission protection for the cluster-scoped
     # release-manager permissions. Zero-setup must not require a separately
