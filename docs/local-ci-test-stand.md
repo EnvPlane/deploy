@@ -20,6 +20,9 @@ failure. An unhealthy release or stale lock requires operator inspection;
 do not clear a lock while a run is active. A failed install quarantines
 that version until an operator inspects and clears its marker. No hosted
 runner has cluster credentials.
+To reapply intentional local values changes on the already installed release,
+pass its exact version, for example `bash scripts/reconcile-local-ci-test.sh 0.4.753`.
+This refuses if a newer release appeared meanwhile.
 
 The profile seeds a disposable base workload and local Agent/Runner.
 Published control-plane binaries intentionally omit the `e2e` build tag,
