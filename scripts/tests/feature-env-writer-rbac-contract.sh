@@ -26,6 +26,15 @@ helm template envplane-control-plane "$root/deploy/helm/envplane-control-plane" 
   --set rbac.sameClusterProjectExecutors.enabled=true \
   --set rbac.sameClusterProjectExecutors.namespace=envplane-executors \
   >"$control_render"
+if unverified_render="$(helm template envplane-control-plane "$root/deploy/helm/envplane-control-plane" \
+    --kube-version 1.30.0 --namespace envplane --set postgres.tls.enabled=false \
+    --set rbac.sameClusterProjectExecutors.enabled=true \
+    --set rbac.sameClusterProjectExecutors.namespace=envplane-executors \
+    --set-string rbac.sameClusterProjectExecutors.networkPolicyAdmissionUID=unverified \
+    2>&1)" || ! grep -q "verify the exact preview admission binding" <<<"$unverified_render"; then
+  echo "control-plane chart accepted an unverified binding UID" >&2
+  exit 1
+fi
 
 RUNNER_RENDER="$runner_render" CONTROL_RENDER="$control_render" ruby -ryaml -e '
 def expanded_rules(path, kind, name)
@@ -122,10 +131,7 @@ abort "manager has direct NetworkPolicy writes" if network_policy_rules(manager)
   (rule.fetch("verbs") - %w[get list watch]).any?
 end
 bind = manager.fetch("rules").select { |rule| rule.fetch("verbs").include?("bind") }
-abort "bind must reference only the exact writer" unless bind == [{
-  "apiGroups" => ["rbac.authorization.k8s.io"], "resources" => ["clusterroles"],
-  "resourceNames" => [role_name], "verbs" => ["bind"]
-}]
+abort "unverified install must not render the bind grant" unless bind.empty?
 writer = named(control, "ClusterRole", role_name)
 abort "delegated role is broader than NetworkPolicy" unless writer.fetch("rules") == [{
   "apiGroups" => ["networking.k8s.io"], "resources" => ["networkpolicies"],

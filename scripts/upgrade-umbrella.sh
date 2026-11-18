@@ -19,6 +19,8 @@ kube_context=""
 timeout="15m"
 wait=true
 create_namespace=false
+preview_control_plane=""
+preview_executors=""
 
 usage() {
   cat <<'EOF'
@@ -26,6 +28,7 @@ Usage:
   scripts/upgrade-umbrella.sh --release NAME --version X.Y.Z \
     --operator-values PATH [--namespace NAME] [--chart OCI_REF] \
     [--kube-context CONTEXT] [--timeout DURATION] [--create-namespace] [--no-wait]
+    [--verify-preview-admission CONTROL_PLANE_FULLNAME EXECUTOR_NAMESPACE]
 
 The operator values file contains only operator configuration, such as access,
 database Secret references, resources and scheduling. Do not place image pins
@@ -45,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --timeout) timeout="${2:-}"; shift 2 ;;
     --create-namespace) create_namespace=true; shift ;;
     --no-wait) wait=false; shift ;;
+    --verify-preview-admission) preview_control_plane="${2:?}"; preview_executors="${3:?}"; shift 3 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -68,4 +72,14 @@ fi
 
 # Do not echo values. They may contain existing Secret references, and callers
 # remain responsible for keeping credential material out of the file.
-exec helm "${args[@]}"
+if [[ -z "$preview_control_plane" ]]; then
+  exec helm "${args[@]}"
+fi
+[[ "$wait" == true ]] || { echo 'Preview admission verification requires --wait' >&2; exit 2; }
+proof_key='envplane-control-plane.rbac.sameClusterProjectExecutors.networkPolicyAdmissionUID'
+helm "${args[@]}" --set-string "$proof_key="
+kubectl_connection=()
+[[ -z "$kube_context" ]] || kubectl_connection+=(--context "$kube_context")
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+uid="$(bash "$script_dir/verify-preview-admission.sh" "$preview_control_plane" "$preview_executors" "${kubectl_connection[@]}")"
+exec helm "${args[@]}" --set-string "$proof_key=$uid"

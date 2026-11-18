@@ -64,11 +64,27 @@ func TestE2EWorkloadRendersSecurityResourcesAndProbes(t *testing.T) {
 		"readOnlyRootFilesystem: true",
 		"resources:\n            limits:\n              cpu: 100m\n              memory: 64Mi",
 		"livenessProbe:\n            tcpSocket:\n              port: 8080",
-		"readinessProbe:\n            tcpSocket:\n              port: 8080",
+		"readinessProbe:\n            httpGet:\n              path: /\n              port: http",
+		"runAsUser: 65534",
+		"command: [\"/bin/busybox\", \"httpd\", \"-f\", \"-p\", \"8080\", \"-h\", \"/fixture\"]",
+		"envplane helm-direct http fixture",
+		"docker.io/library/busybox@sha256:",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Fatalf("E2E workload baseline missing %q:\n%s", expected, rendered)
 		}
+	}
+}
+
+func TestRegistryOnlyFixtureDoesNotInheritHTTPCommand(t *testing.T) {
+	cmd := exec.Command("helm", "template", "e2e", "..", "--set",
+		"image.repository=registry.example/pause,image.tag=3.10,probes.enabled=false")
+	out, err := cmd.CombinedOutput()
+	rendered := string(out)
+	if err != nil || !strings.Contains(rendered, "registry.example/pause:3.10") ||
+		strings.Contains(rendered, "httpd") || strings.Contains(rendered, "readinessProbe:") ||
+		strings.Contains(rendered, "http-content") {
+		t.Fatalf("registry-only override changed behavior: %v\n%s", err, out)
 	}
 }
 

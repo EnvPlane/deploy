@@ -27,7 +27,11 @@ app.kubernetes.io/part-of: envplane-e2e
 {{- if eq (lower $tag) "latest" -}}
 {{- fail "image.tag must not be latest; use an immutable tag or image.digest" -}}
 {{- end -}}
+{{- if and (eq $repository "docker.io/library/busybox") (eq $tag "1.37.0-musl") -}}
+{{- printf "%s@sha256:f6a95d611e0a8780fabdb2aec43e31275b2720dfefa3e41b16835bfc42454478" $repository -}}
+{{- else -}}
 {{- printf "%s:%s" $repository $tag -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 

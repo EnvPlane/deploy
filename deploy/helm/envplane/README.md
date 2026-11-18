@@ -72,3 +72,18 @@ ClusterRole/ClusterRoleBinding; it does not remove detected platform resources.
 
 The old installer granted wildcard
    ClusterRole/ClusterRoleBinding permissions; the umbrella does not.
+### Same-cluster Helm Direct preview NetworkPolicy
+
+The first install or upgrade stages native validating admission on Kubernetes
+1.30 or newer, without granting the control-plane permission to bind the
+preview NetworkPolicy writer. To install and verify both phases, use
+`scripts/upgrade-umbrella.sh` with your normal operator values and
+`--verify-preview-admission envplane-control-plane envplane-executors`
+(substitute the actual control-plane fullname and executor namespace).
+The installer requires server dry-runs to deny cluster-wide, wrong-subject
+and non-preview bindings, and accept a valid preview binding. If verification
+fails, the install stays at the admission-only stage. Do not persist the
+binding UID in operator values or skip the probe on upgrades.
+The wrapper only enables the grant on a single API-server target. A
+multi-server cluster requires an operator procedure proving enforcement on
+every serving API endpoint before enabling the grant.
