@@ -298,6 +298,14 @@ roleRef:
 {{- if not $sameClusterProjectExecutorsNamespace }}{{- fail "sameClusterProjectExecutors RBAC requires a namespace" }}{{- end }}
 {{- $policyDelegation := semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version }}
 {{- $policyWriter := printf "%s-preview-networkpolicy-writer" (include "envplane-control-plane.fullname" .) }}
+{{- $policyProof := trim (default "" .Values.rbac.sameClusterProjectExecutors.networkPolicyAdmissionUID) }}
+{{- if $policyProof }}
+{{- if not $policyDelegation }}{{- fail "preview policy delegation requires Kubernetes 1.30 or later" }}{{- end }}
+{{- $binding := lookup "admissionregistration.k8s.io/v1" "ValidatingAdmissionPolicyBinding" "" $policyWriter }}
+{{- if or (not $binding) (ne (dig "metadata" "uid" "" $binding) $policyProof) (ne (dig "spec" "policyName" "" $binding) $policyWriter) (not (has "Deny" (dig "spec" "validationActions" (list) $binding))) }}
+{{- fail "install and verify the exact preview admission binding before enabling delegation" }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -398,7 +406,7 @@ rules:
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Allow delegation of one preinstalled namespaced writer via RoleBinding.
   # Do not grant the release manager NetworkPolicy writes across the cluster.
-  {{- if $policyDelegation }}
+  {{- if $policyProof }}
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles"]
     resourceNames: [{{ $policyWriter | quote }}]
@@ -627,7 +635,7 @@ spec:
                 operator: NotIn
                 value:
                   - {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
-                  {{- if $policyDelegation }}
+                  {{- if $policyProof }}
                   - {{ $policyWriter }}
                   {{- end }}
     - name: restrict-control-plane-cluster-roles

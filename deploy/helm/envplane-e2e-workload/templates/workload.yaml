@@ -1,4 +1,6 @@
 {{- $podAnnotations := mergeOverwrite (deepCopy (default (dict) .Values.podAnnotations)) (include "envplane-e2e-workload.imageMetadata" . | fromYaml) -}}
+{{- $image := include "envplane-e2e-workload.image" . -}}
+{{- $builtInHTTP := eq $image "docker.io/library/busybox@sha256:f6a95d611e0a8780fabdb2aec43e31275b2720dfefa3e41b16835bfc42454478" -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,11 +30,22 @@ spec:
       containers:
         - name: e2e-workload
           image: {{ include "envplane-e2e-workload.image" . | quote }}
+          {{- if $builtInHTTP }}
+          command: ["/bin/busybox", "httpd", "-f", "-p", "8080", "-h", "/fixture"]
+          volumeMounts:
+            - name: http-content
+              mountPath: /fixture
+              readOnly: true
+          {{- end }}
           imagePullPolicy: {{ include "envplane-e2e-workload.imagePullPolicy" . }}
           ports:
             - containerPort: 8080
               name: http
           securityContext:
+            {{- if $builtInHTTP }}
+            runAsUser: 65534
+            runAsGroup: 65534
+            {{- end }}
             {{- toYaml .Values.securityContext | nindent 12 }}
           {{- if .Values.probes.enabled }}
           livenessProbe:
@@ -43,8 +56,14 @@ spec:
             timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
           readinessProbe:
+            {{- if $builtInHTTP }}
+            httpGet:
+              path: /
+              port: http
+            {{- else }}
             tcpSocket:
               port: {{ .Values.probes.port }}
+            {{- end }}
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
@@ -52,6 +71,21 @@ spec:
           {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- if $builtInHTTP }}
+      volumes:
+        - name: http-content
+          configMap:
+            name: {{ include "envplane-e2e-workload.fullname" . }}
+      {{- end }}
+{{- if $builtInHTTP }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "envplane-e2e-workload.fullname" . }}
+data:
+  index.html: "envplane helm-direct http fixture"
+{{- end }}
 ---
 apiVersion: v1
 kind: Service
