@@ -579,7 +579,23 @@ func TestUmbrellaUsesDirectCanonicalDependencies(t *testing.T) {
 	}
 }
 
+func immutableFixtureDependencyVersion(t *testing.T) string {
+	t.Helper()
+	metadata, err := loader.LoadDir("..")
+	if err != nil {
+		t.Fatalf("load umbrella chart: %v", err)
+	}
+	for _, dep := range metadata.Metadata.Dependencies {
+		if dep.Name == "envplane-e2e-workload" && dep.Version != "" {
+			return dep.Version
+		}
+	}
+	t.Fatal("umbrella must pin the fixture dependency")
+	return ""
+}
+
 func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *testing.T) {
+	version := immutableFixtureDependencyVersion(t)
 	values, err := os.ReadFile("../values.yaml")
 	if err != nil {
 		t.Fatalf("read values: %v", err)
@@ -587,7 +603,7 @@ func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *te
 	for _, expected := range []string{
 		"bootstrapDefaults:",
 		"chartRef: oci://ghcr.io/envplane/envplane-e2e-workload",
-		`chartVersion: "0.1.0"`,
+		`chartVersion: "`+version+`"`,
 		"helmAllowedChartHosts:\n        - ghcr.io",
 		"e2eWorkload:",
 		"enabled: false",
@@ -600,8 +616,7 @@ func TestUmbrellaInjectsDefaultHelmDirectBootstrapChartWithoutInstallingIt(t *te
 	for _, expected := range []string{
 		"name: ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_REF",
 		`value: "oci://ghcr.io/envplane/envplane-e2e-workload"`,
-		"name: ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_VERSION",
-		`value: "0.1.0"`,
+		"name: ENVPLANE_BOOTSTRAP_DEFAULT_HELM_DIRECT_CHART_VERSION\n              value: \""+version+"\"",
 		"name: ENVPLANE_REMOTE_PROJECT_HELM_ALLOWED_CHART_HOSTS",
 		`value: "ghcr.io"`,
 	} {
@@ -772,7 +787,7 @@ func TestUmbrellaFixtureRecoveryIsExplicitlyOptIn(t *testing.T) {
 	if strings.Contains(rendered, "runnerRegistrationToken") || strings.Contains(rendered, "agentRegistrationToken") {
 		t.Fatalf("fixture render must not embed raw bootstrap credentials:\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "name: ENVPLANE_SAME_CLUSTER_FIXTURE_CHART_VERSION\n              value: \"0.1.1\"") {
+	if !strings.Contains(rendered, "name: ENVPLANE_SAME_CLUSTER_FIXTURE_CHART_VERSION\n              value: \""+immutableFixtureDependencyVersion(t)+"\"") {
 		t.Fatalf("fixture must pass the immutable OCI chart version to control-plane:\n%s", rendered)
 	}
 }
