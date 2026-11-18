@@ -296,6 +296,8 @@ roleRef:
 {{- end }}
 {{- if $sameClusterProjectExecutorsEnabled }}
 {{- if not $sameClusterProjectExecutorsNamespace }}{{- fail "sameClusterProjectExecutors RBAC requires a namespace" }}{{- end }}
+{{- $policyDelegation := semverCompare ">=1.30.0-0" .Capabilities.KubeVersion.Version }}
+{{- $policyWriter := printf "%s-preview-networkpolicy-writer" (include "envplane-control-plane.fullname" .) }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -394,6 +396,14 @@ rules:
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles", "clusterrolebindings"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Allow delegation of one preinstalled namespaced writer via RoleBinding.
+  # Do not grant the release manager NetworkPolicy writes across the cluster.
+  {{- if $policyDelegation }}
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    resourceNames: [{{ $policyWriter | quote }}]
+    verbs: ["bind"]
+  {{- end }}
   # Project-owned Agent releases create their discovery Role and RoleBinding
   # in a dynamically named project-base namespace. These are namespaced
   # permissions; they do not grant access to workload resources there.
@@ -501,6 +511,57 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+{{- if $policyDelegation }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $policyWriter }}
+  labels:
+    {{- include "envplane-control-plane.labels" . | nindent 4 }}
+# This role is deliberately never ClusterRoleBound. Managed Runner charts
+# bind it in just an allocated environment namespace with a signed policy.
+rules:
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# RBAC's named bind permission alone would not distinguish RoleBinding from
+# ClusterRoleBinding. Enforce the namespace and Runner subject at admission.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $policyWriter }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["rbac.authorization.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["rolebindings", "clusterrolebindings"]
+  matchConditions:
+    - name: exact-preview-role
+      expression: {{ printf "object.roleRef.kind == 'ClusterRole' && object.roleRef.name == %q" $policyWriter | quote }}
+  validations:
+    - expression: >-
+        request.resource.resource == 'rolebindings' &&
+        object.metadata.namespace.startsWith('envplane-pr-') &&
+        has(object.subjects) && size(object.subjects) == 1 &&
+        object.subjects[0].kind == 'ServiceAccount' &&
+        object.subjects[0].namespace == {{ $sameClusterProjectExecutorsNamespace | quote }} &&
+        object.subjects[0].name.startsWith('ep-runner-') &&
+        object.subjects[0].name.endsWith('-envplane-runner')
+      message: "Preview NetworkPolicy writer may only be delegated to the managed Runner in a preview namespace."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $policyWriter }}
+spec:
+  policyName: {{ $policyWriter }}
+  validationActions: ["Deny"]
+{{- end }}
 {{- if $sameClusterProjectExecutorsAdmissionPolicyEnabled }}
 ---
 # This policy is part of the same-cluster executor security boundary. The
@@ -555,7 +616,7 @@ spec:
             operator: Equals
             value: "system:serviceaccount:{{ .Release.Namespace }}:{{ $serviceAccountName }}"
       validate:
-        message: "The control-plane service account may bind only its allowlisted release-manager ClusterRole."
+        message: "The control-plane service account may bind only allowlisted ClusterRoles."
         deny:
           conditions:
             all:
@@ -566,6 +627,9 @@ spec:
                 operator: NotIn
                 value:
                   - {{ include "envplane-control-plane.fullname" . }}-same-cluster-project-executor-release-manager
+                  {{- if $policyDelegation }}
+                  - {{ $policyWriter }}
+                  {{- end }}
     - name: restrict-control-plane-cluster-roles
       match:
         any:

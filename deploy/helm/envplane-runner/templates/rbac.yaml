@@ -9,6 +9,14 @@
 {{- $namespaceCapabilities = $candidate -}}
 {{- end -}}
 {{- end -}}
+{{- $sameClusterManaged := and $root.Values.managedSameCluster.enabled (eq (default "" $root.Values.envplaneOwnership) "same-cluster-project-reconciler") -}}
+{{- $delegateNetworkPolicies := and $sameClusterManaged (default false (get $namespaceCapabilities "allowNetworkPolicies")) -}}
+{{- if and $delegateNetworkPolicies (not (hasPrefix "envplane-pr-" $writerNamespace)) -}}
+{{- fail "managed NetworkPolicy delegation requires a dedicated preview namespace" -}}
+{{- end -}}
+{{- if and $delegateNetworkPolicies (not (semverCompare ">=1.30.0-0" $root.Capabilities.KubeVersion.Version)) -}}
+{{- fail "managed NetworkPolicy delegation requires Kubernetes 1.30 or later" -}}
+{{- end -}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -68,7 +76,7 @@ rules:
     resources:
       - ingresses
     verbs: ["get","list","watch","create","update","patch","delete"]
-  {{- if or $root.Values.rbac.featureEnvWriter.allowNetworkPolicies (default false (get $namespaceCapabilities "allowNetworkPolicies")) }}
+  {{- if and (not $delegateNetworkPolicies) (or $root.Values.rbac.featureEnvWriter.allowNetworkPolicies (default false (get $namespaceCapabilities "allowNetworkPolicies"))) }}
   - apiGroups: ["networking.k8s.io"]
     resources:
       - networkpolicies
@@ -128,6 +136,24 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ $fullName }}-feature-env-writer
+{{- if $delegateNetworkPolicies }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $fullName }}-preview-networkpolicy-writer
+  namespace: {{ $writerNamespace }}
+  labels:
+    {{- include "envplane-runner.labels" $root | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $serviceAccountName }}
+    namespace: {{ $root.Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ printf "%s-preview-networkpolicy-writer" (required "managed NetworkPolicy delegation requires the control-plane Service name" $root.Values.controlPlane.serviceName) }}
+{{- end }}
 {{- end -}}
 {{- if .Values.rbac.create -}}
 {{- $fullName := include "envplane-runner.fullname" . -}}
